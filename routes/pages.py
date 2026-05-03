@@ -30,6 +30,16 @@ def practice_page():
     return send_from_directory("static", "index.html")
 
 
+@pages_bp.route("/impressum")
+def impressum_de():
+    return send_from_directory("static", "impressum-de.html")
+
+
+@pages_bp.route("/imprint")
+def impressum_en():
+    return send_from_directory("static", "impressum-en.html")
+
+
 @pages_bp.route("/tiles/<filename>")
 def tiles(filename):
     return send_from_directory(DIR / "riichi-mahjong-tiles" / "Regular", filename)

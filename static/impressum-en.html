@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Imprint — Haipai</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:#0d0f1a;
+  color:#c8ccd8;
+  min-height:100vh;
+  padding:60px 20px;
+  line-height:1.6;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 80%, rgba(79,195,247,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 20%, rgba(67,160,71,0.05) 0%, transparent 70%);
+  pointer-events:none;z-index:0;
+}
+.wrap{position:relative;z-index:1;max-width:680px;margin:0 auto}
+.brand{text-align:center;margin-bottom:32px}
+.brand img{width:64px;height:auto}
+.brand a{
+  display:inline-block;text-decoration:none;color:inherit;
+}
+.brand h1{
+  font-family:'Outfit',sans-serif;font-weight:700;font-size:24px;
+  color:#e8eaf0;letter-spacing:-0.3px;margin-top:8px;
+}
+.card{
+  background:linear-gradient(160deg,#141828 0%,#111524 100%);
+  border:1px solid #1e2540;
+  border-radius:14px;padding:36px 40px;
+  box-shadow:0 8px 40px rgba(0,0,0,0.4),0 0 0 1px rgba(255,255,255,0.02) inset;
+}
+h1.page-title{
+  font-family:'Outfit',sans-serif;font-weight:500;font-size:26px;
+  color:#e8eaf0;margin-bottom:24px;letter-spacing:-0.3px;
+}
+h2{
+  font-family:'Outfit',sans-serif;font-weight:500;font-size:16px;
+  color:#e0e4ee;margin-top:24px;margin-bottom:8px;letter-spacing:-0.1px;
+}
+p{font-size:14px;color:#c8ccd8;margin-bottom:8px}
+.note{font-size:12px;color:#5a6078;margin-top:20px;font-style:italic}
+.lang-switch{
+  text-align:center;margin-top:24px;font-size:13px;color:#5a6078;
+}
+.lang-switch a{color:#4fc3f7;text-decoration:none;font-weight:500}
+.lang-switch a:hover{text-decoration:underline}
+.back{
+  text-align:center;margin-top:12px;font-size:13px;color:#5a6078;
+}
+.back a{color:#5a6a90;text-decoration:none}
+.back a:hover{color:#8892a4}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <a href="/">
+      <img src="/static/mascot.svg" alt="Haipai">
+      <h1>Haipai</h1>
+    </a>
+  </div>
+  <div class="card">
+    <h1 class="page-title">Imprint</h1>
+
+    <h2>Information pursuant to &sect; 5 TMG</h2>
+    <p>Youheng L&uuml;<br>
+    Grindelallee 42<br>
+    20146 Hamburg<br>
+    Germany</p>
+
+    <h2>Contact</h2>
+    <p>Phone: +49 176 40533997<br>
+    Email: postmaster[at]ylue.de</p>
+
+    <p class="note">This English version is provided for convenience. The German version is legally binding under &sect; 5 TMG (German Telemedia Act).</p>
+  </div>
+  <div class="lang-switch"><a href="/impressum">Deutsche Version</a></div>
+  <div class="back"><a href="/">&larr; Back to home</a></div>
+</div>
+</body>
+</html>
