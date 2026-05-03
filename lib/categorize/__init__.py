@@ -43,7 +43,7 @@ from .backfill import (
     backfill_discard_stats_db,
     backfill_safety_ratings_db,
 )
-from .labels import compute_labels
+from .labels import compute_labels, tile_is_yakuhai_or_dora
 from .rules import (
     RULES,
     _classify_defense,
@@ -226,6 +226,11 @@ def categorize_mistake(mistake, mortal_data, kyoku_idx, entry, dora_indicators,
     if labels:
         cat_data["labels"] = labels
 
+    # P3 side check: Mortal must be keeping (not discarding) the value tile.
+    actual_value_tile = tile_is_yakuhai_or_dora(
+        actual["pai"], dora_indicators, round_wind_mjai, seat_wind_mjai,
+    )
+
     # Defense gate: we need per-tile deal-in rates to run the new
     # classifier, and those only exist when an opponent is in riichi.
     dealin_rates = (kd_patch or {}).get("dealin_rates") or {}
@@ -233,6 +238,7 @@ def categorize_mistake(mistake, mortal_data, kyoku_idx, entry, dora_indicators,
     if dealin_rates:
         cat, push_reason = _classify_defense(
             mistake, dealin_rates, discard_stats, cat_data, mortal_agrees, labels,
+            actual_value_tile=actual_value_tile,
         )
         if push_reason:
             cat_data["push_reason"] = push_reason
@@ -245,7 +251,8 @@ def categorize_mistake(mistake, mortal_data, kyoku_idx, entry, dora_indicators,
         if user_r == 0 and mortal_r == 0 and cat in ("D2", "D3"):
             cat_data["both_safe"] = True
     else:
-        cat = _classify_push(mistake, discard_stats, cat_data, mortal_agrees, labels)
+        cat = _classify_push(mistake, discard_stats, cat_data, mortal_agrees, labels,
+                             actual_value_tile=actual_value_tile)
 
     return cat, cat_data, safety_data, opp_discards, kd_patch
 

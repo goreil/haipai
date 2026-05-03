@@ -49,3 +49,24 @@ def compute_labels(mistake, dora_indicators, round_wind=None, seat_wind=None):
                 labels.append("yakuhai")
 
     return labels
+
+
+def tile_is_yakuhai_or_dora(tile_mjai, dora_indicators=None,
+                            round_wind=None, seat_wind=None):
+    """True if a single tile is a yakuhai (dragon, seat/round wind) or dora.
+
+    Mirrors the per-tile checks in ``compute_labels``, but answers for one
+    side of a mistake at a time. Used by ``_classify_push`` to gate the P3
+    Hand Value branch — P3 only applies when the value tile is on the
+    actual (player-discarded) side, i.e. Mortal kept it.
+    """
+    if not tile_mjai:
+        return False
+    if tile_mjai in ("P", "F", "C"):
+        return True
+    if tile_mjai == round_wind or tile_mjai == seat_wind:
+        return True
+    if is_red_five_mjai(tile_mjai):
+        return True
+    dora_tiles = {dora_indicator_to_dora_mjai(d) for d in (dora_indicators or [])}
+    return tile_mjai in dora_tiles

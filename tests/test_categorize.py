@@ -598,6 +598,38 @@ class TestComputeLabels:
         assert labels == []
 
 
+class TestTileIsYakuhaiOrDora:
+    def test_dragon_is_yakuhai(self):
+        from lib.categorize.labels import tile_is_yakuhai_or_dora
+        assert tile_is_yakuhai_or_dora("P") is True
+        assert tile_is_yakuhai_or_dora("F") is True
+        assert tile_is_yakuhai_or_dora("C") is True
+
+    def test_seat_wind_is_yakuhai(self):
+        from lib.categorize.labels import tile_is_yakuhai_or_dora
+        assert tile_is_yakuhai_or_dora("S", seat_wind="S") is True
+        assert tile_is_yakuhai_or_dora("S", seat_wind="E") is False
+
+    def test_round_wind_is_yakuhai(self):
+        from lib.categorize.labels import tile_is_yakuhai_or_dora
+        assert tile_is_yakuhai_or_dora("E", round_wind="E") is True
+
+    def test_red_five_is_dora(self):
+        from lib.categorize.labels import tile_is_yakuhai_or_dora
+        assert tile_is_yakuhai_or_dora("5mr") is True
+
+    def test_dora_indicator_match(self):
+        from lib.categorize.labels import tile_is_yakuhai_or_dora
+        # Indicator 3m -> dora is 4m
+        assert tile_is_yakuhai_or_dora("4m", dora_indicators=["3m"]) is True
+        assert tile_is_yakuhai_or_dora("5m", dora_indicators=["3m"]) is False
+
+    def test_plain_tile_is_neither(self):
+        from lib.categorize.labels import tile_is_yakuhai_or_dora
+        assert tile_is_yakuhai_or_dora("3m") is False
+        assert tile_is_yakuhai_or_dora("W") is False  # plain wind, no winds context
+
+
 # =========================================================================
 # dora_indicator_to_dora_mjai (moved to lib/tiles.py under CS-05)
 # =========================================================================
@@ -1001,6 +1033,48 @@ class TestClassifyPushBoundaries:
         discard_stats = self._stats([("1p", 0, 14, None), ("5m", 0, 4, None)])
         assert _classify_push(mistake, discard_stats, {}, True,
                               labels=["dora"]) == "P2"
+
+    # --- P3 side check: Mortal must be the one KEEPING the value tile ----
+
+    def test_p4_when_yakuhai_only_on_expected_side(self):
+        """M7414: player kept yakuhai (W), Mortal would have discarded it.
+        Labels include 'yakuhai' (because expected is W), but the "preserves
+        value" framing is backwards — Mortal is throwing the value tile, not
+        keeping it. Must be P4, not P3."""
+        mistake = {
+            "actual": {"type": "dahai", "pai": "3m"},
+            "expected": {"type": "dahai", "pai": "W"},
+            "melds": [],
+        }
+        discard_stats = self._stats([("W", 1, 8, None), ("3m", 1, 8, None)])
+        assert _classify_push(mistake, discard_stats, {}, True,
+                              labels=["honor", "yakuhai"],
+                              actual_value_tile=False) == "P4"
+
+    def test_p3_when_yakuhai_on_actual_side_with_flag(self):
+        """Mirror of M7414: player discarded the yakuhai, Mortal kept it.
+        With actual_value_tile=True, P3 still fires."""
+        mistake = {
+            "actual": {"type": "dahai", "pai": "W"},
+            "expected": {"type": "dahai", "pai": "3m"},
+            "melds": [],
+        }
+        discard_stats = self._stats([("3m", 1, 8, None), ("W", 1, 8, None)])
+        assert _classify_push(mistake, discard_stats, {}, True,
+                              labels=["honor", "yakuhai"],
+                              actual_value_tile=True) == "P3"
+
+    def test_p4_when_dora_only_on_expected_side(self):
+        """Player kept the dora, Mortal would have discarded it -> P4."""
+        mistake = {
+            "actual": {"type": "dahai", "pai": "3p"},
+            "expected": {"type": "dahai", "pai": "5mr"},
+            "melds": [],
+        }
+        discard_stats = self._stats([("5m", 0, 8, None), ("3p", 0, 8, None)])
+        assert _classify_push(mistake, discard_stats, {}, True,
+                              labels=["dora"],
+                              actual_value_tile=False) == "P4"
 
 
 # =========================================================================

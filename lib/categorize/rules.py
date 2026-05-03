@@ -253,7 +253,8 @@ def _has_riichi_opponent(defense_ctx, tiles_left=None):
 # --- Category classifiers ---
 
 def _classify_defense(mistake, dealin_rates, discard_stats, cat_data,
-                       mortal_agrees_stats, labels=None):
+                       mortal_agrees_stats, labels=None,
+                       actual_value_tile=None):
     """Classify a riichi-defense mistake as D1, D2, or D3.
 
     Comparison is done on deal-in rate (KillerDucky-style): the choice
@@ -285,21 +286,26 @@ def _classify_defense(mistake, dealin_rates, discard_stats, cat_data,
 
     # Mortal's pick is tied or more dangerous. Does basic strategy
     # justify pushing that tile out?
-    push = _classify_push(mistake, discard_stats, cat_data, mortal_agrees_stats, labels)
+    push = _classify_push(mistake, discard_stats, cat_data, mortal_agrees_stats, labels,
+                          actual_value_tile=actual_value_tile)
     if push in ("P1", "P2", "P3"):
         return "D2", push
     return "D3", None
 
 
-def _classify_push(mistake, discard_stats, cat_data, mortal_agrees_stats, labels=None):
+def _classify_push(mistake, discard_stats, cat_data, mortal_agrees_stats, labels=None,
+                   actual_value_tile=None):
     """Classify a non-defense discard mistake as P1, P2, P3, or P4.
 
     P1: Shanten failure (player raised shanten)
     P2: Tile efficiency failure (strictly worse ukeire than mortal's pick)
     P3: Hand value — would otherwise be P4, but a yakuhai or dora is
-        involved. Mortal is likely preserving hand value; the student can
-        learn this pattern. (Distinct from the retired P3 Score Efficiency,
-        which was score-number driven.)
+        involved AND it's the tile Mortal kept (i.e. the player discarded
+        it). When Mortal is the one discarding the value tile, the
+        "preserves value" reading doesn't apply and we fall through to P4.
+        ``actual_value_tile`` carries the side info from the call site;
+        when ``None`` (legacy callers / unit tests), fall back to the
+        label-only check.
     P4: Complex decision — everything else. Genuine Mortal/calc disagreement
         with no identifiable hand-value signal.
     """
@@ -340,8 +346,13 @@ def _classify_push(mistake, discard_stats, cat_data, mortal_agrees_stats, labels
     # but a yakuhai (seat/round wind or dragon) or dora tile is one of the
     # two — Mortal is almost certainly preserving that value. This is the
     # most teachable slice of what used to be P4 "complex".
+    # Side check: Mortal must be the one keeping the value tile (i.e. the
+    # actual / player-discarded tile is the yakuhai/dora). If Mortal would
+    # have discarded the value tile, the "preserves value" framing is
+    # backwards — fall through to P4.
     if labels and ("yakuhai" in labels or "dora" in labels):
-        return "P3"
+        if actual_value_tile is None or actual_value_tile:
+            return "P3"
 
     # P4: genuine strategic disagreement with no identifiable value signal.
     return "P4"
