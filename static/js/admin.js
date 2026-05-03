@@ -51,11 +51,14 @@ function renderAdmin() {
       <tr><th>User</th><th>Games</th><th>Joined</th><th></th></tr>
       ${users.map(u => {
         const joined = new Date(u.created_at + "Z").toLocaleDateString();
-        const canView = !impersonating && u.id !== selfId;
-        const btn = canView
+        const canActOn = !impersonating && u.id !== selfId;
+        const viewBtn = canActOn
           ? `<button class="btn btn-sm" onclick="adminImpersonate(${u.id})">View as</button>`
           : "";
-        return `<tr><td>${escapeHtml(u.username)}</td><td>${u.game_count}</td><td>${joined}</td><td>${btn}</td></tr>`;
+        const deleteBtn = canActOn
+          ? `<button class="btn btn-sm btn-delete" onclick="adminDeleteUser(${u.id})">Delete</button>`
+          : "";
+        return `<tr><td>${escapeHtml(u.username)}</td><td>${u.game_count}</td><td>${joined}</td><td>${viewBtn} ${deleteBtn}</td></tr>`;
       }).join("")}
     </table>
   </div>`;
@@ -207,6 +210,42 @@ async function adminOpenAsUser(userId, gameId, mistakeId) {
   // No deep-link support yet — land on home; the sidebar lists the user's
   // games so the admin can click through to game ${gameId}, mistake #${mistakeId}.
   window.location.href = "/";
+}
+
+async function adminDeleteUser(userId) {
+  const user = (adminState.users || []).find(u => u.id === userId);
+  if (!user) {
+    alert("User not found in current admin view — refresh and retry.");
+    return;
+  }
+  const username = user.username;
+  const typed = window.prompt(
+    `GDPR-delete user "${username}"?\n\n` +
+    `This permanently removes the account, all games, mistakes, practice ` +
+    `history, feedback, and category reports.\n\n` +
+    `Type the username to confirm:`
+  );
+  if (typed === null) return;
+  if (typed !== username) {
+    alert("Username did not match — nothing was deleted.");
+    return;
+  }
+  const res = await apiDelete(`/api/admin/users/${userId}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(data.error || "Failed to delete user");
+    return;
+  }
+  const d = data.deleted || {};
+  alert(
+    `Deleted "${data.username}":\n` +
+    `  ${d.games || 0} games, ${d.mistakes || 0} mistakes\n` +
+    `  ${d.practice_results || 0} practice results\n` +
+    `  ${d.feedback || 0} feedback items\n` +
+    `  ${d.category_reports || 0} category reports\n` +
+    `  ${d.invite_codes || 0} invite codes`
+  );
+  showAdmin();
 }
 
 async function adminStopImpersonate() {

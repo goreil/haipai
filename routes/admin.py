@@ -233,6 +233,41 @@ def api_admin_impersonate(user_id):
     return jsonify({"ok": True, "impersonating": target["username"]})
 
 
+# --- GDPR user deletion ---
+
+@admin_bp.route("/api/admin/users/<int:user_id>", methods=["DELETE"])
+@require_admin
+def api_admin_delete_user(user_id):
+    """Hard-delete a user and every row attached to them.
+
+    Refuses while impersonating (the session is in a confused state and the
+    target check would compare against the impersonated identity, not the
+    admin's). Refuses self-deletion and refuses to remove the last admin.
+    """
+    from app import get_conn
+    conn = get_conn()
+
+    if session.get(IMPERSONATOR_SESSION_KEY):
+        return jsonify({"error": "Stop impersonating before deleting users"}), 409
+
+    if user_id == current_user.id:
+        return jsonify({"error": "Cannot delete your own account"}), 400
+
+    target = db.get_user_by_id(conn, user_id)
+    if not target:
+        return jsonify({"error": "User not found"}), 404
+
+    if target["is_admin"]:
+        admin_count = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE is_admin = 1"
+        ).fetchone()[0]
+        if admin_count <= 1:
+            return jsonify({"error": "Cannot delete the last admin"}), 400
+
+    counts = db.delete_user_cascade(conn, user_id)
+    return jsonify({"ok": True, "username": target["username"], "deleted": counts})
+
+
 @admin_bp.route("/api/admin/impersonate/stop", methods=["POST"])
 @login_required
 def api_admin_impersonate_stop():

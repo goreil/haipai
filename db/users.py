@@ -77,6 +77,52 @@ def set_practice_opt_in(conn, user_id, opt_in):
     conn.commit()
 
 
+def delete_user_cascade(conn, user_id):
+    """GDPR-style hard delete: wipe a user and every row tied to them.
+
+    Wraps everything in a single transaction. Tables without ON DELETE
+    cascades on `users(id)` are cleared explicitly first; `games` deletion
+    then cascades through `mistakes` (and onwards to `practice_results` /
+    `category_reports` rows attached to those mistakes via mistake_id).
+
+    Returns a dict of per-table row counts removed, or ``None`` if the
+    user did not exist.
+    """
+    if not conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone():
+        return None
+
+    counts = {}
+    try:
+        # Rows that reference users(id) directly with no ON DELETE behavior.
+        for table, col in (
+            ("practice_results", "user_id"),
+            ("feedback", "user_id"),
+            ("category_reports", "user_id"),
+            ("invite_codes", "used_by"),
+        ):
+            cur = conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (user_id,))
+            counts[table] = cur.rowcount
+
+        # Count mistakes that will cascade-delete with the games, so the
+        # response can report them honestly.
+        counts["mistakes"] = conn.execute(
+            "SELECT COUNT(*) FROM mistakes m JOIN games g ON m.game_id = g.id WHERE g.user_id = ?",
+            (user_id,),
+        ).fetchone()[0]
+
+        cur = conn.execute("DELETE FROM games WHERE user_id = ?", (user_id,))
+        counts["games"] = cur.rowcount
+
+        cur = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        counts["users"] = cur.rowcount
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return counts
+
+
 # --- Invite codes ---
 
 def create_invite_codes(conn, n):

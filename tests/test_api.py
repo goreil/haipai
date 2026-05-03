@@ -674,3 +674,157 @@ class TestAuthEdgeCases:
         me = client.get("/api/me")
         assert me.status_code == 200
         assert me.get_json()["username"] == "newuser2"
+
+
+# --- DELETE /api/admin/users/<id> (GDPR wipe) tests ---
+
+class TestAdminDeleteUser:
+    @staticmethod
+    def _promote(user_id):
+        conn = db.get_db()
+        conn.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def _csrf(client):
+        return client.get("/api/me").get_json()["csrf_token"]
+
+    def test_delete_unauthenticated(self, client):
+        res = client.delete("/api/admin/users/1")
+        assert res.status_code == 401
+
+    def test_delete_non_admin_forbidden(self, client):
+        _login(client)  # testuser, not admin
+        res = client.delete(
+            "/api/admin/users/999",
+            headers={"X-CSRFToken": self._csrf(client)},
+        )
+        assert res.status_code == 403
+
+    def test_delete_self_rejected(self, client):
+        _login(client)
+        me = client.get("/api/me").get_json()
+        self._promote(me["id"])
+        res = client.delete(
+            f"/api/admin/users/{me['id']}",
+            headers={"X-CSRFToken": self._csrf(client)},
+        )
+        assert res.status_code == 400
+        assert "own account" in res.get_json()["error"]
+
+    def test_delete_nonexistent(self, client):
+        _login(client)
+        me = client.get("/api/me").get_json()
+        self._promote(me["id"])
+        res = client.delete(
+            "/api/admin/users/99999",
+            headers={"X-CSRFToken": self._csrf(client)},
+        )
+        assert res.status_code == 404
+
+    def test_delete_other_admin_allowed_when_not_last(self, client):
+        """Deleting an admin is fine as long as another admin remains."""
+        _login(client)
+        me = client.get("/api/me").get_json()
+        self._promote(me["id"])
+
+        conn = db.get_db()
+        from werkzeug.security import generate_password_hash
+        other_admin = db.create_user(conn, "other_admin", generate_password_hash("longpassword"))
+        conn.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (other_admin,))
+        conn.commit()
+        conn.close()
+
+        res = client.delete(
+            f"/api/admin/users/{other_admin}",
+            headers={"X-CSRFToken": self._csrf(client)},
+        )
+        assert res.status_code == 200
+
+    def test_delete_wipes_all_user_data(self, client):
+        """Happy path: admin deletes a user with games, mistakes, practice,
+        feedback, category report, and consumed invite code — all gone."""
+        _login(client)
+        me = client.get("/api/me").get_json()
+        self._promote(me["id"])
+
+        conn = db.get_db()
+        from werkzeug.security import generate_password_hash
+        victim = db.create_user(conn, "victim_user", generate_password_hash("longpassword"))
+        conn.close()
+
+        game_id, mistake_id = _insert_game(victim, with_mistakes=True)
+
+        conn = db.get_db()
+        db.record_practice_result(conn, victim, mistake_id, correct=True)
+        conn.execute(
+            "INSERT INTO feedback (user_id, type, message) VALUES (?, ?, ?)",
+            (victim, "general", "test"),
+        )
+        db.submit_category_report(conn, victim, mistake_id, kind="agree",
+                                  suggested_category=None, reason=None)
+        conn.execute(
+            "INSERT INTO invite_codes (code, used_by, used_at) "
+            "VALUES (?, ?, CURRENT_TIMESTAMP)",
+            ("victim-code", victim),
+        )
+        conn.commit()
+        conn.close()
+
+        res = client.delete(
+            f"/api/admin/users/{victim}",
+            headers={"X-CSRFToken": self._csrf(client)},
+        )
+        assert res.status_code == 200
+        data = res.get_json()
+        assert data["ok"] is True
+        assert data["username"] == "victim_user"
+        d = data["deleted"]
+        assert d["users"] == 1
+        assert d["games"] == 1
+        assert d["mistakes"] == 1
+        assert d["practice_results"] == 1
+        assert d["feedback"] == 1
+        assert d["category_reports"] == 1
+        assert d["invite_codes"] == 1
+
+        # Verify everything is actually gone.
+        conn = db.get_db()
+        assert conn.execute("SELECT COUNT(*) FROM users WHERE id = ?", (victim,)).fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM games WHERE user_id = ?", (victim,)).fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM mistakes WHERE id = ?", (mistake_id,)).fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM practice_results WHERE user_id = ?", (victim,)).fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM feedback WHERE user_id = ?", (victim,)).fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM category_reports WHERE user_id = ?", (victim,)).fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM invite_codes WHERE code = ?", ("victim-code",)).fetchone()[0] == 0
+        # The admin (testuser) is untouched.
+        assert conn.execute("SELECT COUNT(*) FROM users WHERE id = ?", (me["id"],)).fetchone()[0] == 1
+        conn.close()
+
+    def test_delete_blocked_while_impersonating(self, client):
+        _login(client)
+        me = client.get("/api/me").get_json()
+        self._promote(me["id"])
+
+        conn = db.get_db()
+        from werkzeug.security import generate_password_hash
+        target = db.create_user(conn, "imp_target", generate_password_hash("longpassword"))
+        victim = db.create_user(conn, "imp_victim", generate_password_hash("longpassword"))
+        conn.close()
+
+        # Begin impersonation.
+        res = client.post(
+            f"/api/admin/impersonate/{target}",
+            headers={"X-CSRFToken": self._csrf(client)},
+            json={},
+        )
+        assert res.status_code == 200
+
+        # Now any delete attempt should be 409.
+        res = client.delete(
+            f"/api/admin/users/{victim}",
+            headers={"X-CSRFToken": self._csrf(client)},
+        )
+        assert res.status_code == 409
+        assert "impersonating" in res.get_json()["error"].lower()
