@@ -40,6 +40,16 @@ def impressum_en():
     return send_from_directory("static", "impressum-en.html")
 
 
+@pages_bp.route("/datenschutz")
+def datenschutz_de():
+    return send_from_directory("static", "datenschutz-de.html")
+
+
+@pages_bp.route("/privacy")
+def datenschutz_en():
+    return send_from_directory("static", "datenschutz-en.html")
+
+
 @pages_bp.route("/tiles/<filename>")
 def tiles(filename):
     return send_from_directory(DIR / "riichi-mahjong-tiles" / "Regular", filename)
