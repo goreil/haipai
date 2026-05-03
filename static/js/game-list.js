@@ -1,0 +1,622 @@
+// Sidebar game list + game-detail (rounds & summary) view + game-rating
+// thresholds + categorization polling + delete.
+
+// --- Game rating ---
+
+function computeRatingThresholds() {
+  // Compute percentile thresholds from all games with ev_per_decision
+  const evpts = state.games
+    .map(g => (g.summary || {}).ev_per_decision)
+    .filter(v => v != null)
+    .sort((a, b) => a - b);
+  if (evpts.length < 3) return { p25: 0.14, p50: 0.19 };
+  const p25 = evpts[Math.floor(evpts.length * 0.25)];
+  const p50 = evpts[Math.floor(evpts.length * 0.50)];
+  return { p25, p50 };
+}
+
+function gameRating(summary) {
+  if (!summary || !summary.total_decisions) return { icon: "", label: "", cls: "" };
+  const evpt = summary.ev_per_decision;
+  if (evpt == null) return { icon: "", label: "", cls: "" };
+
+  const th = computeRatingThresholds();
+  // Top 25%: excellent
+  if (evpt <= th.p25) return { icon: "★", label: "One of your best", cls: "rating-excellent" };
+  // Top 50%: good
+  if (evpt <= th.p50) return { icon: "☆", label: "Above your average", cls: "rating-great" };
+  return { icon: "", label: "", cls: "" };
+}
+
+// --- Fetch ---
+
+async function fetchGames() {
+  const res = await fetch("/api/games");
+  state.games = await res.json();
+  renderGameList();
+  if (state.games.length === 0 && !state.currentGame) {
+    showOnboarding();
+  }
+}
+
+function showOnboarding() {
+  document.getElementById("content").innerHTML = `
+    <div class="onboarding">
+      <h2>Welcome to Haipai</h2>
+      <p>Haipai analyzes your Riichi Mahjong games using Mortal AI to help you study your mistakes, track improvement over time, and practice your weak spots.</p>
+      <h3>How to add your first game</h3>
+      <ol>
+        <li>Play a game on <a href="https://tenhou.net" target="_blank">Tenhou</a> or <a href="https://mahjongsoul.game.yo-star.com" target="_blank">Mahjong Soul</a></li>
+        <li>Go to <a href="https://mjai.ekyu.moe" target="_blank">mjai.ekyu.moe</a> and paste your replay link</li>
+        <li>Wait for Mortal AI to finish analysis</li>
+        <li>Download the analysis JSON:
+          <ul class="onboarding-sub">
+            <li>In the address bar, find the part that says <code>/report/...json</code></li>
+            <li>Open that path directly: <code>https://mjai.ekyu.moe/report/abc123.json</code></li>
+            <li>You'll see a page of raw data &mdash; press <b>Ctrl+S</b> (Cmd+S on Mac) to save it</li>
+          </ul>
+        </li>
+        <li>Click <strong>+ Add Game</strong> below and upload the saved file</li>
+      </ol>
+      <button class="btn btn-primary" onclick="showAddModal()">+ Add Game</button>
+    </div>
+  `;
+}
+
+async function fetchGame(id) {
+  const res = await fetch(`/api/games/${id}`);
+  state.currentGameData = await res.json();
+  state.currentGame = id;
+  renderGame();
+  if (state.currentGameData.categorization_status === "pending") {
+    pollCategorization(id);
+  }
+}
+
+async function saveAnnotation(gameId, round, turn, index, category, note) {
+  const res = await apiPost(`/api/games/${gameId}/annotate`, { round, turn, index, category, note });
+  const data = await res.json();
+  if (data.ok) {
+    state.currentGameData.summary = data.summary;
+    // Update sidebar
+    const gameInfo = state.games.find(g => g.id === gameId);
+    if (gameInfo) {
+      gameInfo.summary = data.summary;
+      // Recount annotated
+      let annotated = 0;
+      for (const rnd of state.currentGameData.rounds) {
+        for (const m of rnd.mistakes) {
+          if (m.category) annotated++;
+        }
+      }
+      gameInfo.annotated = annotated;
+      renderGameList();
+    }
+  }
+  return data;
+}
+
+async function addGameWithProgress(mortalData, date, onProgress) {
+  const res = await apiPost("/api/games/add", { mortal_data: mortalData, date: date || undefined });
+  if (!res.ok) {
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return { error: `Server error ${res.status}: ${text.slice(0, 200)}` }; }
+  }
+  return await res.json();
+}
+
+// --- Render: Game List ---
+
+function renderGameList() {
+  const list = document.getElementById("game-list");
+  const sorted = [...state.games].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  let lastDate = "";
+  list.innerHTML = sorted.map(g => {
+    const s = g.summary || {};
+    const active = g.id === state.currentGame ? "active" : "";
+    const pct = g.total > 0 ? Math.round((g.annotated / g.total) * 100) : 100;
+    const noMajor = !(s.by_severity || {})["???"];
+    const rating = gameRating(s);
+    const dateObj = new Date(g.date + "T00:00:00");
+    const shortDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    let sep = "";
+    if (g.date !== lastDate) {
+      lastDate = g.date;
+      sep = `<div class="date-separator">${shortDate}</div>`;
+    }
+    return `${sep}
+      <div class="game-item ${active}" onclick="fetchGame(${g.id})">
+        <div class="date"><span class="dev-id" title="game id">#${g.id}</span>${rating.icon ? ` <span class="game-rating-icon" title="${rating.label}">${rating.icon}</span>` : ""} ${
+          s.total_mistakes || 0} mistakes &middot; ${(s.total_ev_loss || 0).toFixed(2)} EV${
+          s.total_decisions ? ` &middot; ${s.ev_per_decision.toFixed(4)}/D` : ""}</div>
+        ${g.categorization_status === "pending"
+          ? `<div class="annotation-bar categorizing"><div class="fill" style="width:${pct}%;transition:width 0.5s ease"></div></div>`
+          : `<div class="annotation-bar"><div class="fill" style="width:${pct}%"></div></div>`}
+      </div>
+    `;
+  }).join("");
+}
+
+// --- Render: Game Detail ---
+
+function setSeverityFiltersVisible(show) {
+  const el = document.getElementById("severity-filters");
+  if (el) el.style.display = show ? "" : "none";
+}
+
+function renderGame() {
+  setSeverityFiltersVisible(true);
+  const game = state.currentGameData;
+  if (!game) return;
+  const content = document.getElementById("content");
+
+  const s = game.summary || {};
+
+  // Recount by UI tier (server-side by_severity only has 3 buckets).
+  const tierCounts = { severe: 0, mistake: 0, light: 0, unsure: 0 };
+  for (const rnd of game.rounds) {
+    for (const mi of rnd.mistakes) tierCounts[sevTier(mi.ev_loss)]++;
+  }
+
+  const dateObj = new Date(game.date + "T00:00:00");
+  const displayDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  let html = `
+    <div class="game-header">
+      <h2>${displayDate}<span class="dev-id" title="game id">#${state.currentGame}</span>
+        <button class="btn btn-delete" onclick="deleteGame(${state.currentGame})" title="Delete game">Delete</button>
+      </h2>
+      ${game.log_url ? `<div class="log-link"><a href="${game.log_url}" target="_blank">${game.log_url}</a></div>` : ""}
+    </div>
+
+
+    <div class="summary-bar">
+      <div class="stat"><span class="value">${s.total_mistakes || 0}</span><span class="label">Mistakes</span></div>
+      <div class="stat"><span class="value">${(s.total_ev_loss || 0).toFixed(2)}</span><span class="label">EV Loss</span></div>
+      ${s.total_decisions ? `<div class="stat"><span class="value">${s.total_decisions}</span><span class="label">Decisions</span></div>
+      <div class="stat"><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
+      <div class="stat" title="EV loss > 1.0"><span class="value" style="color:var(--sev-major)">${tierCounts.severe}</span><span class="label">Severe</span></div>
+      <div class="stat" title="EV loss 0.5–1.0"><span class="value" style="color:var(--sev-medium)">${tierCounts.mistake}</span><span class="label">Mistake</span></div>
+      <div class="stat" title="EV loss 0.2–0.5"><span class="value" style="color:var(--sev-light)">${tierCounts.light}</span><span class="label">Light</span></div>
+      <div class="stat" title="EV loss < 0.2 — AI not confident"><span class="value" style="color:var(--sev-minor)">${tierCounts.unsure}</span><span class="label">Unsure</span></div>
+    </div>
+  `;
+
+  // Categorization status banner
+  let catTotal = 0, catDone = 0;
+  for (const rnd of game.rounds) {
+    for (const m of rnd.mistakes) {
+      catTotal++;
+      if (m.category) catDone++;
+    }
+  }
+  const catIncomplete = catTotal > 0 && catDone < catTotal;
+  if (game.categorization_status === "pending") {
+    const pct = catTotal > 0 ? Math.round((catDone / catTotal) * 100) : 0;
+    html += `<div class="categorization-banner pending">Categorizing mistakes: ${catDone}/${catTotal} (${pct}%)
+      <span class="cat-retry-link" onclick="continueCategorization(${game.id})">Stuck? Retry</span>
+      <div class="cat-progress-bar"><div class="cat-progress-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  } else if (game.categorization_status === "failed" || (game.categorization_status === "done" && catIncomplete)) {
+    const label = game.categorization_status === "failed" ? "Categorization failed" : `${catTotal - catDone} mistakes not yet categorized`;
+    html += `<div class="categorization-banner failed">${label}.
+      <button class="btn btn-small" onclick="continueCategorization(${game.id})">Continue categorizing</button>
+    </div>`;
+  }
+
+  // Positive feedback banner
+  const rating = gameRating(s);
+  if (rating.icon) {
+    const cleanRounds = game.rounds.filter(r => r.mistakes.length === 0).length;
+    html += `<div class="game-rating ${rating.cls}">
+      <span class="game-rating-star">${rating.icon}</span>
+      <span>${rating.label}</span>
+      ${cleanRounds > 0 ? `<span class="game-rating-detail">${cleanRounds}/${game.rounds.length} clean rounds</span>` : ""}
+    </div>`;
+  }
+
+  // Filter banner (7b): show when severity filters hide some mistakes
+  const totalMistakes = game.rounds.reduce((sum, r) => sum + r.mistakes.length, 0);
+  const visibleMistakes = game.rounds.reduce((sum, r) => sum + r.mistakes.filter(m => {
+    const t = sevTier(m.ev_loss);
+    if (t === "unsure" && !state.showUnsure) return false;
+    if (t === "light" && !state.showLight) return false;
+    if (t === "mistake" && !state.showMistake) return false;
+    return true;
+  }).length, 0);
+  if (totalMistakes > 0 && visibleMistakes < totalMistakes && state.gameView === "rounds") {
+    const hidden = totalMistakes - visibleMistakes;
+    html += `<div class="filter-banner">Showing ${visibleMistakes} of ${totalMistakes} mistakes. ${hidden} hidden by severity filter.</div>`;
+  }
+
+  // View tabs
+  html += `<div class="game-tabs">
+    <button class="game-tab ${state.gameView === "rounds" ? "active" : ""}" onclick="switchGameView('rounds')">Rounds</button>
+    <button class="game-tab ${state.gameView === "summary" ? "active" : ""}" onclick="switchGameView('summary')">Summary</button>
+  </div>`;
+
+  if (state.gameView === "rounds") {
+  // Rounds
+  for (const rnd of game.rounds) {
+    const visible = rnd.mistakes.filter(m => {
+      const t = sevTier(m.ev_loss);
+      if (t === "unsure" && !state.showUnsure) return false;
+      if (t === "light" && !state.showLight) return false;
+      if (t === "mistake" && !state.showMistake) return false;
+      return true;
+    });
+
+    const outcomeStr = rnd.outcome ? (OUTCOME_EMOJI[rnd.outcome] || rnd.outcome) : "";
+    const turnStr = rnd.turn_count ? `T${rnd.turn_count}` : "";
+
+    const isClean = rnd.mistakes.length === 0;
+    html += `<div class="round${isClean ? " round-clean" : ""}">`;
+    html += `<div class="round-header">
+      <span>${rnd.round}${turnStr}</span>
+      ${outcomeStr ? `<span class="outcome">${outcomeStr}</span>` : ""}
+      ${isClean ? '<span class="clean-badge">Clean</span>' : ""}
+      ${!isClean && visible.length !== rnd.mistakes.length ?
+        `<span style="font-size:12px;color:var(--text-dim)">(${visible.length}/${rnd.mistakes.length})</span>` : ""}
+    </div>`;
+
+    // Track turn index for duplicate turn disambiguation
+    const turnCounts = {};
+    for (const m of rnd.mistakes) {
+      const key = m.turn;
+      turnCounts[key] = (turnCounts[key] || 0) + 1;
+    }
+    const turnSeen = {};
+
+    for (const m of rnd.mistakes) {
+      const turnKey = m.turn;
+      const idx = turnSeen[turnKey] = (turnSeen[turnKey] || 0);
+      turnSeen[turnKey]++;
+
+      const mTier = sevTier(m.ev_loss);
+      if (mTier === "unsure" && !state.showUnsure) continue;
+      if (mTier === "light" && !state.showLight) continue;
+      if (mTier === "mistake" && !state.showMistake) continue;
+
+      const sc = sevClass(m);
+      const dataAttrs = `data-game="${state.currentGame}" data-round="${rnd.round}" data-turn="${m.turn}" data-index="${idx}"`;
+      const catGrpColor = GROUP_COLORS[catGroup(m.category)] || null;
+      const cardStyle = catGrpColor ? ` style="border-left-color:${catGrpColor}"` : "";
+
+      html += `<div class="mistake ${sc}" ${dataAttrs}${cardStyle}>`;
+      html += `<div class="mistake-top">`;
+      html += `<span class="turn-num">T${m.turn}</span>`;
+      if (m.id) html += `<span class="dev-id" title="mistake id">#${m.id}</span>`;
+      html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;
+      html += `<span class="ev-loss">${m.ev_loss.toFixed(2)} EV</span>`;
+      if (m.category) {
+        const grp = catGroup(m.category);
+        const color = GROUP_COLORS[grp] || "#888";
+        const desc = catDesc(m.category);
+        html += `<span class="cat-badge" style="background:${color}20;color:${color};border:1px solid ${color}40" title="${desc}">${catLabel(m.category)}</span>`;
+      }
+      if (m.bad_riichi_reason === "furiten") {
+        const tip = (m.furiten_tiles || []).length
+          ? `Already discarded ${m.furiten_tiles.join(", ")} — can't ron.`
+          : "Wait includes a tile you've already discarded — can't ron.";
+        html += `<span class="furiten-badge" title="${tip}">Furiten</span>`;
+      }
+      const raised = mortalRaisedShanten(m);
+      if (raised) {
+        const tip = `Your ${raised.userTile} keeps ${raised.userSh}-shanten; Mortal's ${raised.mortalTile} goes to ${raised.mortalSh}-shanten — Mortal is breaking up the hand for a strategic reason (likely yaku or value), not for tile efficiency.`;
+        html += `<span class="raised-shanten-badge" title="${tip}">Mortal raised shanten</span>`;
+      }
+      if (m.shanten != null) {
+        html += `<span class="shanten">${m.shanten}-shanten</span>`;
+      }
+      if (m.actual && m.expected) {
+        const actStr = formatAction(m.actual);
+        const expStr = formatAction(m.expected);
+        if (actStr !== expStr) {
+          html += `<span class="discard-comparison">
+            <span class="played">${renderAction(m.actual, "played")}</span>
+            <span class="arrow">&rarr;</span>
+            <span class="ai">${renderAction(m.expected, "ai")}</span>
+          </span>`;
+        }
+      }
+      html += `</div>`;
+
+      // Hand + melds on same row
+      if (m.hand && m.hand.length) {
+        const doraTiles = getDoraTiles(m.board_state);
+        html += `<div class="hand-row">
+          <span class="label">Hand</span>
+                    <span class="tiles">${renderHand(m.hand, m.draw, m, doraTiles)}</span>`;
+        if (m.melds && m.melds.length) {
+          const playerSeat = m.actual ? m.actual.actor : null;
+          const oya = mistakeOya(m);
+          html += `<span class="inline-melds">`;
+          for (const meld of m.melds) {
+            html += renderMeld(meld, "action-tile-sm", playerSeat, doraTiles, oya) + " ";
+          }
+          html += `</span>`;
+        }
+        html += `</div>`;
+      }
+
+      // Board context (dora, winds, all discards, scores, opponent melds)
+      html += renderBoardContext(m);
+      html += renderTenpaiWaitsRow(m);
+
+      // Fallback: old opponent_discards (for mistakes without board_state)
+      if (!m.board_state && m.opponent_discards && m.opponent_discards.length) {
+        html += `<div class="opp-discards">`;
+        for (const opp of m.opponent_discards) {
+          const seatName = SEAT_NAMES[opp.seat] || `P${opp.seat}`;
+          html += `<div class="opp-discard-row">`;
+          html += `<span class="opp-label">${seatName}</span>`;
+          html += `<span class="tiles">`;
+          for (let di = 0; di < opp.discards.length; di++) {
+            const isRiichi = di === opp.riichi_idx;
+            html += renderTile(opp.discards[di], `action-tile-sm${isRiichi ? " riichi-tile" : ""}`);
+          }
+          html += `</span></div>`;
+        }
+        html += `</div>`;
+      }
+
+      // EV Comparison table (Mortal vs local shanten/ukeire)
+      if (m.top_actions && m.top_actions.length && m.discard_stats && m.discard_stats.length) {
+        html += renderEvComparison(m);
+      } else if (m.top_actions && m.top_actions.length) {
+        // Fallback: just show mortal top actions
+        html += `<div class="top-actions">`;
+        for (const a of m.top_actions) {
+          html += `<span class="top-action">${renderAction(a.action)} <b>${a.q_value.toFixed(2)}</b></span>`;
+        }
+        html += `</div>`;
+      }
+
+      // Explanation
+      {
+        const explanation = generateExplanation(m);
+        if (explanation) {
+          html += `<div class="mascot-speech"><img src="/static/mascot.svg" class="mascot-avatar" alt="""><div class="speech-bubble">${explanation}</div></div>`;
+        }
+      }
+
+      // Note input (always visible)
+      {
+        html += `<div class="note-row">
+          <input type="text" class="note-input" placeholder="Add a note..." value="${(m.note || "").replace(/"/g, "&quot;")}"
+                 onchange="onAnnotate(this)" ${dataAttrs}>
+          <span class="save-indicator">Saved</span>
+        </div>`;
+      }
+
+      // Category feedback (one-click agree / two disagreement kinds).
+      if (m.id) {
+        html += renderReportRow(m);
+      }
+
+      html += `</div>`; // .mistake
+    }
+
+    html += `</div>`; // .round
+  }
+  } // end if rounds view
+
+  if (state.gameView === "summary") {
+  // Category summary - grouped by skill area, scoped to this game
+  {
+    // Collect all mistakes from this game — and remember each one's round
+    // name + per-turn index so the summary-view note/report inputs know where
+    // to write via the shared annotate handler.
+    const allMistakes = [];
+    const mistakeLoc = new Map();  // mistake obj -> {round, index}
+    for (const rnd of game.rounds || []) {
+      const byTurn = {};
+      for (const m of rnd.mistakes || []) {
+        const idx = byTurn[m.turn] || 0;
+        byTurn[m.turn] = idx + 1;
+        allMistakes.push(m);
+        mistakeLoc.set(m, {round: rnd.round, index: idx});
+      }
+    }
+
+    // Build by_category from this game's mistakes
+    const gameByCat = {};
+    for (const m of allMistakes) {
+      const cat = m.category;
+      if (!cat) continue;
+      if (!gameByCat[cat]) gameByCat[cat] = { count: 0, ev: 0, mistakes: [] };
+      gameByCat[cat].count += 1;
+      gameByCat[cat].ev = Math.round((gameByCat[cat].ev + (m.ev_loss || 0)) * 100) / 100;
+      gameByCat[cat].mistakes.push(m);
+    }
+
+    if (Object.keys(gameByCat).length) {
+      html += `<div class="game-summary"><h3>Mistake Breakdown</h3>`;
+
+      // Group by skill area
+      const groups = {};
+      for (const [cat, data] of Object.entries(gameByCat)) {
+        const grp = catGroup(cat);
+        if (!groups[grp]) groups[grp] = { count: 0, ev: 0, subs: {}, mistakes: [] };
+        groups[grp].count += data.count;
+        groups[grp].ev += data.ev;
+        groups[grp].subs[cat] = data;
+        groups[grp].mistakes.push(...data.mistakes);
+      }
+
+      html += `<div class="category-groups">`;
+      for (const [grp, data] of Object.entries(groups).sort((a, b) => b[1].ev - a[1].ev)) {
+        const color = GROUP_COLORS[grp] || "#888";
+        const grpId = grp.replace(/\s/g, "-").toLowerCase();
+        html += `<div class="cat-group" style="border-left: 3px solid ${color}">
+          <div class="cat-group-header" onclick="toggleGameMistakes('${grpId}')" style="cursor:pointer">
+            <span class="cat-group-name" style="color:${color}">${grp}</span>
+            <span class="cat-group-stat">${data.count} mistakes &middot; ${data.ev.toFixed(2)} EV <span class="cat-expand">&#9660;</span></span>
+          </div>`;
+        // Subcategories
+        const subs = Object.entries(data.subs).sort((a, b) => b[1].ev - a[1].ev);
+        for (const [cat, sub] of subs) {
+          const info = CATEGORY_INFO[cat];
+          const label = info ? info.label : cat;
+          const desc = info ? info.desc : "";
+          html += `<div class="cat-sub" title="${desc}">
+            <span class="cat-sub-label">${label}</span>
+            <span class="cat-sub-stat">${sub.count} (${sub.ev.toFixed(2)} EV)</span>
+          </div>`;
+        }
+        // Inline mistake list (hidden by default) with explanatory text
+        const sorted = [...data.mistakes].sort((a, b) => (b.ev_loss || 0) - (a.ev_loss || 0));
+        let panelHtml = sorted.map(m => {
+          const explanation = generateExplanation(m);
+          const explSpan = explanation ? `<div class="mascot-speech"><img src="/static/mascot.svg" class="mascot-avatar" alt="""><div class="speech-bubble">${explanation}</div></div>` : "";
+          const loc = mistakeLoc.get(m) || {};
+          const cardOpts = {
+            annotate: true,
+            gameId: state.currentGame,
+            round: loc.round,
+            index: loc.index,
+          };
+          return renderMistakeCard(m, cardOpts) + explSpan;
+        }).join("");
+        html += `<div id="game-mistakes-${grpId}" class="top-mistakes-panel" style="display:none">${panelHtml}</div>`;
+        html += `</div>`;
+      }
+      html += `</div></div>`;
+    }
+  }
+  } // end if summary view
+
+  content.innerHTML = html;
+
+  // Re-highlight active game in sidebar
+  renderGameList();
+}
+
+function switchGameView(view) {
+  state.gameView = view;
+  renderGame();
+}
+
+// --- Toggles for group panels (game-summary + trends + top-mistakes) ---
+
+function toggleGameMistakes(grpId) {
+  const panel = document.getElementById(`game-mistakes-${grpId}`);
+  if (!panel) return;
+  panel.style.display = panel.style.display === "none" ? "" : "none";
+}
+
+async function toggleTopMistakes(group, grpId) {
+  const panel = document.getElementById(`top-mistakes-${grpId}`);
+  if (!panel) return;
+  if (panel.style.display !== "none") { panel.style.display = "none"; return; }
+  panel.innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:6px">Loading...</div>';
+  panel.style.display = "";
+  const res = await fetch(`/api/top-mistakes?group=${encodeURIComponent(group)}&limit=3&games=10`);
+  const mistakes = await res.json();
+  if (!mistakes.length) { panel.innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:6px">No recent mistakes</div>'; return; }
+  panel.innerHTML = mistakes.map(m => renderMistakeCard(m, {gameDate: m.game_date, gameId: m.game_id})).join("");
+}
+
+// Trends drill-down: panel content is pre-rendered by renderCategoryTrend —
+// this is just a show/hide toggle. (`group` kept as arg for the onclick
+// signature used in trends.js even though it's unused here.)
+function toggleTrendMistakes(group, grpId) {
+  const panel = document.getElementById(grpId);
+  if (!panel) return;
+  panel.style.display = panel.style.display === "none" ? "" : "none";
+}
+
+// --- Categorization polling + retry ---
+
+async function continueCategorization(gameId) {
+  const res = await apiPost(`/api/games/${gameId}/categorize`, {});
+  if (res.ok) {
+    await fetchGames();
+    await fetchGame(gameId);
+    pollCategorization(gameId);
+  }
+}
+
+function pollCategorization(gameId) {
+  if (state._catPollTimer) clearInterval(state._catPollTimer);
+  state._catPollStart = Date.now();
+  state._catPollLastCount = 0;
+  state._catPollTimer = setInterval(async () => {
+    const res = await fetch(`/api/games/${gameId}`);
+    if (!res.ok) return;
+    const game = await res.json();
+
+    // Count categorized mistakes for progress
+    let categorized = 0, total = 0;
+    for (const rnd of game.rounds) {
+      for (const m of rnd.mistakes) {
+        total++;
+        if (m.category) categorized++;
+      }
+    }
+
+    // Update progress in detail view banner
+    if (state.currentGame === gameId && game.categorization_status === "pending") {
+      state.currentGameData = game;
+      const pct = total > 0 ? Math.round((categorized / total) * 100) : 0;
+      let etaText = "";
+      const elapsed = (Date.now() - state._catPollStart) / 1000;
+      if (categorized > state._catPollLastCount && categorized > 0 && categorized < total) {
+        const rate = categorized / elapsed;
+        const remaining = Math.ceil((total - categorized) / rate);
+        etaText = remaining > 60 ? ` (~${Math.ceil(remaining / 60)}m left)` : ` (~${remaining}s left)`;
+      }
+      state._catPollLastCount = categorized;
+
+      const banner = document.querySelector(".categorization-banner");
+      if (banner) {
+        banner.innerHTML = `Categorizing mistakes: ${categorized}/${total} (${pct}%)${etaText}
+          <div class="cat-progress-bar"><div class="cat-progress-fill" style="width:${pct}%"></div></div>`;
+      }
+
+      // Update sidebar progress bar too
+      const gameItem = state.games.find(g => g.id === gameId);
+      if (gameItem) {
+        gameItem.summary = game.summary;
+        renderGameList();
+      }
+    }
+
+    // Update sidebar progress bar
+    const sidebarBar = document.querySelector(`.game-item.active .annotation-bar.categorizing .fill`);
+    if (sidebarBar && total > 0) {
+      sidebarBar.style.width = `${Math.round((categorized / total) * 100)}%`;
+      sidebarBar.style.animation = "none";
+    }
+
+    if (game.categorization_status !== "pending") {
+      clearInterval(state._catPollTimer);
+      state._catPollTimer = null;
+      await fetchGames();
+      if (state.currentGame === gameId) {
+        state.currentGameData = game;
+        renderGame();
+      }
+    }
+  }, 2000);
+}
+
+// --- Delete game ---
+
+async function deleteGame(id) {
+  if (!confirm(`Delete this game? This cannot be undone.`)) return;
+  const res = await apiDelete(`/api/games/${id}`);
+  const data = await res.json();
+  if (data.ok) {
+    state.currentGame = null;
+    state.currentGameData = null;
+    document.getElementById("content").innerHTML = '<div class="empty-state">Game deleted</div>';
+    await fetchGames();
+  }
+}
+
+function navigateHome() {
+  state.currentGame = null;
+  state.currentGameData = null;
+  renderGameList();
+  document.getElementById("content").innerHTML = '<div class="empty-state">Select a game to review</div>';
+}

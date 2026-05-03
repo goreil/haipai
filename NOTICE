@@ -1,0 +1,39 @@
+Haipai
+Copyright (C) 2025-2026 goreil
+
+See the LICENSE file for the full terms. 
+
+================================================================
+Third-party components
+================================================================
+
+The following components are incorporated into Haipai. Their original
+license notices are preserved alongside the ported code (or in the
+submodule directory) as required.
+
+- lib/defense_kd.py
+    Ported from killer_mortal_gui,
+    Copyright (C) 2025 Andy Olsen, licensed under the MIT License. The
+    original MIT copyright and permission notice is preserved at the top of
+    lib/defense_kd.py. Submodule fork tracked at
+    https://github.com/goreil/killer_mortal_gui.
+
+- lib/shanten.py
+    Uses the `mahjong` PyPI package
+    (https://github.com/MahjongRepository/mahjong), licensed under MIT.
+
+- riichi-mahjong-tiles/ (git submodule)
+    SVG tile graphics by FluffyStuff
+    (https://github.com/FluffyStuff/riichi-mahjong-tiles), released into
+    the public domain under CC0.
+
+- killer_mortal_gui/ (git submodule)
+    Full source of killer_mortal_gui, MIT. See killer_mortal_gui/LICENSE.
+
+================================================================
+Mahjong AI
+================================================================
+
+Analysis JSONs consumed by Haipai are produced by Mortal
+(https://mjai.ekyu.moe). Mortal itself is not bundled with or executed
+by Haipai; only its output is read. No Mortal code is redistributed here.

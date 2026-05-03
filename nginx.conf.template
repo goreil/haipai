@@ -1,0 +1,106 @@
+# Gzip compression
+gzip on;
+gzip_types text/plain text/css application/json application/javascript image/svg+xml;
+gzip_min_length 256;
+
+server {
+    listen 80;
+    server_name _;
+
+    # Uncomment after running certbot:
+    # return 301 https://$host$request_uri;
+    location /.well-known/acme-challenge/ {
+	    root /var/lib/letsencrypt;
+	}
+
+    # Security headers
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    # Static asset caching
+    location /static/ {
+        proxy_pass http://app:5000/static/;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /tiles/ {
+        proxy_pass http://app:5000/tiles/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location / {
+        proxy_pass http://app:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support (if needed later)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    client_max_body_size 10M;
+}
+
+# Uncomment after certbot generates certs:
+# server {
+#     listen 443 ssl;
+#     server_name YOUR_DOMAIN;
+#
+#     ssl_certificate /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
+#
+#     # HTTPS security headers
+#     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+#     add_header X-Frame-Options "DENY" always;
+#     add_header X-Content-Type-Options "nosniff" always;
+#     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+#     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+#     add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; script-src 'self' 'unsafe-inline'" always;
+#
+#     # Static asset caching
+#     location /static/ {
+#         proxy_pass http://app:5000/static/;
+#         expires 7d;
+#         add_header Cache-Control "public, immutable";
+#     }
+#
+#     location /tiles/ {
+#         proxy_pass http://app:5000/tiles/;
+#         expires 1y;
+#         add_header Cache-Control "public, immutable";
+#     }
+#
+#     # SSE endpoint for game add — needs long timeout + no buffering
+#     location = /api/games/add {
+#         proxy_pass http://app:5000;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_http_version 1.1;
+#
+#         proxy_read_timeout 300s;
+#         proxy_buffering off;
+#         proxy_cache off;
+#     }
+#
+#     location / {
+#         proxy_pass http://app:5000;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_http_version 1.1;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection "upgrade";
+#     }
+#
+#     client_max_body_size 10M;
+# }

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ title }} - Haipai</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:#0d0f1a;
+  color:#c8ccd8;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:40px 0;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 80%, rgba(79,195,247,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 20%, rgba(67,160,71,0.05) 0%, transparent 70%);
+  pointer-events:none;
+}
+.login-wrap{position:relative;z-index:1;width:480px;max-width:92vw}
+.brand{text-align:center;margin-bottom:32px}
+.brand-tiles{
+  display:inline-flex;gap:4px;margin-bottom:16px;
+}
+.brand-tile{
+  width:28px;height:36px;border-radius:4px;
+  background:linear-gradient(135deg,#1e2a48 0%,#16213e 100%);
+  border:1px solid #2a3a5a;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;
+  animation:tileIn 0.5s ease backwards;
+}
+.brand-tile:nth-child(1){color:#e53935;animation-delay:0.1s}
+.brand-tile:nth-child(2){color:#43a047;animation-delay:0.2s}
+.brand-tile:nth-child(3){color:#4fc3f7;animation-delay:0.3s}
+@keyframes tileIn{from{opacity:0;transform:translateY(-12px)}}
+.brand h1{
+  font-family:'Outfit',sans-serif;font-weight:700;font-size:28px;
+  color:#e8eaf0;letter-spacing:-0.5px;
+  animation:fadeIn 0.6s ease 0.3s backwards;
+}
+.brand p{
+  font-size:13px;color:#5a6078;margin-top:4px;letter-spacing:0.5px;
+  animation:fadeIn 0.6s ease 0.45s backwards;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}}
+.card{
+  background:linear-gradient(160deg,#141828 0%,#111524 100%);
+  border:1px solid #1e2540;
+  border-radius:14px;padding:28px 30px;
+  box-shadow:0 8px 40px rgba(0,0,0,0.4),0 0 0 1px rgba(255,255,255,0.02) inset;
+  animation:cardIn 0.5s ease 0.2s backwards;
+}
+@keyframes cardIn{from{opacity:0;transform:translateY(16px) scale(0.98)}}
+.card h2{
+  font-family:'Outfit',sans-serif;font-weight:500;font-size:18px;
+  color:#e0e4ee;margin-bottom:22px;letter-spacing:-0.2px;
+}
+label{display:block;font-size:12px;color:#5a6078;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.8px}
+input{
+  width:100%;padding:11px 14px;border-radius:8px;
+  border:1px solid #1e2540;background:#0d0f1a;color:#e0e4ee;
+  font-size:14px;font-family:'DM Sans',sans-serif;
+  margin-bottom:16px;transition:border-color 0.2s,box-shadow 0.2s;
+}
+input:focus{outline:none;border-color:#4fc3f7;box-shadow:0 0 0 3px rgba(79,195,247,0.1)}
+button{
+  width:100%;padding:12px;border-radius:8px;border:none;
+  background:linear-gradient(135deg,#2a7aa3 0%,#357a8f 100%);
+  color:#fff;font-size:14px;font-weight:500;cursor:pointer;
+  font-family:'DM Sans',sans-serif;letter-spacing:0.3px;
+  transition:all 0.2s;margin-top:4px;
+}
+button:hover{background:linear-gradient(135deg,#3a9ac3 0%,#4fc3f7 100%);box-shadow:0 4px 16px rgba(79,195,247,0.2)}
+.error{
+  color:#ef5350;font-size:13px;margin-bottom:14px;
+  padding:8px 12px;background:rgba(239,83,80,0.08);
+  border-radius:6px;border:1px solid rgba(239,83,80,0.15);
+}
+.link{text-align:center;margin-top:18px;font-size:13px;color:#5a6078}
+.link a{color:#4fc3f7;text-decoration:none;font-weight:500}
+.link a:hover{text-decoration:underline}
+.remember-label{display:flex;align-items:center;gap:6px;font-size:13px;color:#5a6078;margin-bottom:12px;cursor:pointer;text-transform:none;letter-spacing:0}
+.remember-label input{width:auto;margin:0}
+.oauth-buttons{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.oauth-btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:11px;border-radius:8px;border:1px solid #1e2540;
+  font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;
+  font-family:'DM Sans',sans-serif;transition:all 0.2s;
+}
+.oauth-btn svg{width:20px;height:20px;flex-shrink:0}
+.oauth-discord{background:#5865F2;color:#fff;border-color:#5865F2}
+.oauth-discord:hover{background:#4752C4;box-shadow:0 4px 16px rgba(88,101,242,0.3)}
+.oauth-google{background:#0d0f1a;color:#e0e4ee;border-color:#2a3a5a}
+.oauth-google:hover{background:#141828;border-color:#4fc3f7;box-shadow:0 4px 16px rgba(79,195,247,0.1)}
+.oauth-divider{
+  display:flex;align-items:center;gap:12px;margin:4px 0 16px;
+  font-size:12px;color:#5a6078;text-transform:uppercase;letter-spacing:0.8px;
+}
+.oauth-divider::before,.oauth-divider::after{content:'';flex:1;height:1px;background:#1e2540}
+.preview{margin-top:24px;border-radius:10px;overflow:hidden;border:1px solid #1e2540;box-shadow:0 6px 24px rgba(0,0,0,0.3)}
+.preview img{width:100%;display:block}
+.preview-label{text-align:center;font-size:11px;color:#5a6078;padding:6px 0 2px}
+</style></head><body>
+<div class="login-wrap">
+<div class="brand">
+  <img src="/static/mascot.svg" alt="Haipai" style="width:80px;height:auto;margin-bottom:12px;animation:tileIn 0.5s ease backwards">
+  <h1>Haipai</h1>
+  <p>Mahjong Mistake Trainer</p>
+</div>
+<div class="card">
+<h2>{{ title }}</h2>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if has_discord or has_google %}
+<div class="oauth-buttons">
+{% if has_discord %}
+<a href="/auth/discord" class="oauth-btn oauth-discord">
+<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+Continue with Discord
+</a>
+{% endif %}
+{% if has_google %}
+<a href="/auth/google" class="oauth-btn oauth-google">
+<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+Continue with Google
+</a>
+{% endif %}
+</div>
+<div class="oauth-divider">or</div>
+{% endif %}
+<form method="POST">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label>Username</label><input name="username" required autofocus autocomplete="username">
+<label>Password</label><input name="password" type="password" required autocomplete="{{ 'new-password' if register else 'current-password' }}">
+{% if not register %}<label class="remember-label"><input type="checkbox" name="remember" checked> Remember me</label>{% endif %}
+<button>{{ title }}</button>
+</form>
+{% if register %}
+<div class="link">Already have an account? <a href="/login">Login</a></div>
+{% else %}
+<div class="link">Need an account? <a href="/register">Register</a></div>
+{% endif %}
+{# practice mode hidden for Berlin club demo — 2026-04-23
+<div class="link"><a href="/practice">Try practice mode without an account</a></div>
+#}
+<div class="link"><a href="/">What is Haipai?</a></div>
+</div>
+<div class="preview">
+  <img src="/static/screenshot-review.png" alt="Game review with mistake analysis">
+</div>
+<div class="preview-label">Upload Mortal analysis &middot; See every mistake categorized &middot; Track improvement</div>
+</div></body></html>

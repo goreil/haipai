@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haipai — Study Your Mahjong Mistakes</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="landing-body">
+
+<div class="landing">
+  <!-- Hero -->
+  <header class="landing-hero">
+    <div class="landing-brand">
+      <img src="/static/mascot.svg" alt="Haipai" class="landing-mascot">
+      <h1>Haipai</h1>
+      <p class="landing-tagline">Study Your Mahjong Mistakes</p>
+    </div>
+    <p class="landing-subtitle">Upload your Mortal AI analysis, see every mistake categorized, and learn until the leaks are gone.</p>
+    <div class="landing-cta">
+      <!-- practice mode hidden for Berlin club demo — 2026-04-23
+      <a href="/practice" class="btn btn-primary">Try Practice Mode</a>
+      -->
+      <a href="/register" class="btn btn-primary">Register</a>
+      <a href="/login" class="btn btn-secondary">Login</a>
+    </div>
+  </header>
+
+  <!-- Value props -->
+  <section class="landing-features">
+    <div class="landing-feature">
+      <div class="landing-feature-icon">
+        <img src="/tiles/Man3.svg" class="landing-tile-sm" alt="">
+        <img src="/tiles/Man4.svg" class="landing-tile-sm" alt="">
+        <img src="/tiles/Man5-Dora.svg" class="landing-tile-sm landing-tile-glow" alt="">
+      </div>
+      <h2>Auto-Categorized Mistakes</h2>
+      <p>Upload your Mortal analysis and every mistake gets classified — tile efficiency, defense, push/fold, riichi timing, and more. No manual sorting.</p>
+    </div>
+    <!-- practice mode feature card hidden for Berlin club demo — 2026-04-23
+    <div class="landing-feature">
+      <div class="landing-feature-icon">
+        <img src="/tiles/Sou2.svg" class="landing-tile-sm" alt="">
+        <span class="landing-arrow">→</span>
+        <img src="/tiles/Sou7.svg" class="landing-tile-sm" alt="">
+      </div>
+      <h2>Practice Your Weak Spots</h2>
+      <p>Quiz yourself on tile efficiency problems from the community pool — no account needed. Register to practice your own mistakes with spaced repetition tracking.</p>
+    </div>
+    -->
+    <div class="landing-feature">
+      <div class="landing-feature-icon">
+        <svg class="landing-chart-icon" viewBox="0 0 48 32" fill="none">
+          <polyline points="4,28 16,18 28,22 44,6" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="44" cy="6" r="3" fill="#4fc3f7"/>
+        </svg>
+      </div>
+      <h2>Track Your Improvement</h2>
+      <p>See trends over time — EV loss per game, severity breakdown, and skill area progression. Know exactly where you're getting better.</p>
+    </div>
+  </section>
+
+  <!-- Screenshots -->
+  <section class="landing-screenshots">
+    <div class="landing-screenshot-frame">
+      <img src="/static/screenshot-review.png" alt="Game review with EV comparison" class="landing-real-screenshot">
+    </div>
+    <div class="landing-screenshot-row">
+      <div class="landing-screenshot-frame small">
+        <img src="/static/screenshot-summary.png" alt="Per-game mistake breakdown by skill area" class="landing-real-screenshot">
+        <span class="landing-screenshot-label">Per-game breakdown</span>
+      </div>
+      <div class="landing-screenshot-frame small">
+        <img src="/static/screenshot-trends.png" alt="Trend analysis" class="landing-real-screenshot">
+        <span class="landing-screenshot-label">Trends</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bottom CTA -->
+  <section class="landing-bottom">
+    <p>Create a free account to upload your games and track your progress.</p>
+    <div class="landing-cta">
+      <a href="/register" class="btn btn-primary">Register</a>
+      <a href="/login" class="btn btn-secondary">Already have an account?</a>
+    </div>
+  </section>
+
+  <footer class="landing-footer">
+    <p>Powered by <a href="https://mjai.ekyu.moe" target="_blank" rel="noopener">Mortal AI</a></p>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,3174 @@
+{
+  "date": "2026-01-01",
+  "log_url": null,
+  "mortal_file": null,
+  "rounds": [
+    {
+      "decision_count": 11,
+      "decision_counts": {
+        "attack": 8,
+        "defense": 0,
+        "kan": 0,
+        "meld": 3,
+        "riichi": 0
+      },
+      "honba": 0,
+      "mistakes": [
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "C",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "9s",
+          "ev_loss": 0.22,
+          "expected": {
+            "actor": 3,
+            "pai": "1m",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "1m",
+            "7m",
+            "4p",
+            "5p",
+            "7p",
+            "9p",
+            "2s",
+            "4s",
+            "9s",
+            "9s",
+            "P",
+            "F",
+            "C",
+            "9s"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 4,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.9014,
+              "q_value": -0.0293
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "C",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0972,
+              "q_value": -0.2521
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "F",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0014,
+              "q_value": -0.6782
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1667
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "P",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2025
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2286
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2703
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2902
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3074
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.326
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3403
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4132
+            }
+          ],
+          "turn": 1
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "P",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "8m",
+          "ev_loss": 1.04,
+          "expected": {
+            "actor": 3,
+            "pai": "8m",
+            "tsumogiri": true,
+            "type": "dahai"
+          },
+          "hand": [
+            "6m",
+            "7m",
+            "8m",
+            "4p",
+            "5p",
+            "7p",
+            "9p",
+            "2s",
+            "4s",
+            "9s",
+            "9s",
+            "9s",
+            "P",
+            "8m"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "???",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "8m",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.9511,
+              "q_value": -0.0909
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0459,
+              "q_value": -0.3941
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0015,
+              "q_value": -0.7368
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.001,
+              "q_value": -0.7749
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0004,
+              "q_value": -0.862
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "P",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1287
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1388
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1934
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2336
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2437
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3319
+            }
+          ],
+          "turn": 6
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "4m",
+            "tsumogiri": true,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "4m",
+          "ev_loss": 1.12,
+          "expected": {
+            "actor": 3,
+            "pai": "2s",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "6m",
+            "7m",
+            "8m",
+            "8m",
+            "4p",
+            "5p",
+            "7p",
+            "9p",
+            "2s",
+            "4s",
+            "9s",
+            "9s",
+            "9s",
+            "4m"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "???",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.9934,
+              "q_value": -0.1047
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0047,
+              "q_value": -0.6409
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0019,
+              "q_value": -0.7323
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "8m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -1.0601
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4m",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2256
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3255
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3698
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.422
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4551
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4707
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4787
+            }
+          ],
+          "turn": 7
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "9p",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "5p",
+          "ev_loss": 0.87,
+          "expected": {
+            "actor": 3,
+            "pai": "2s",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "6m",
+            "7m",
+            "8m",
+            "8m",
+            "4p",
+            "5p",
+            "7p",
+            "9p",
+            "2s",
+            "4s",
+            "9s",
+            "9s",
+            "9s",
+            "5p"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "??",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.6231,
+              "q_value": -0.1206
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.3768,
+              "q_value": -0.1709
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -0.9888
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "8m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2023
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5p",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2967
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3067
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3849
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3868
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4087
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5019
+            }
+          ],
+          "turn": 8
+        }
+      ],
+      "outcome": null,
+      "round": "E1",
+      "turn_count": 9
+    },
+    {
+      "decision_count": 19,
+      "decision_counts": {
+        "attack": 10,
+        "defense": 3,
+        "kan": 0,
+        "meld": 6,
+        "riichi": 0
+      },
+      "honba": 0,
+      "mistakes": [
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "8s",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "1s",
+          "ev_loss": 0.2,
+          "expected": {
+            "actor": 3,
+            "pai": "P",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "2m",
+            "2m",
+            "4m",
+            "7m",
+            "7m",
+            "6p",
+            "6p",
+            "7p",
+            "3s",
+            "5s",
+            "8s",
+            "W",
+            "P",
+            "1s"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 3,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "P",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.8645,
+              "q_value": -0.0821
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "8s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.1185,
+              "q_value": -0.2808
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "W",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.015,
+              "q_value": -0.4877
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1s",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.002,
+              "q_value": -0.6901
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3479
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3797
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3941
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4295
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4401
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4583
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5413
+            }
+          ],
+          "turn": 2
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "P",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "1p",
+          "ev_loss": 0.5,
+          "expected": {
+            "actor": 3,
+            "pai": "1p",
+            "tsumogiri": true,
+            "type": "dahai"
+          },
+          "hand": [
+            "2m",
+            "2m",
+            "4m",
+            "7m",
+            "7m",
+            "6p",
+            "6p",
+            "7p",
+            "1s",
+            "3s",
+            "5s",
+            "W",
+            "P",
+            "1p"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "??",
+          "shanten": 3,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.9929,
+              "q_value": -0.1025
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "P",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0067,
+              "q_value": -0.602
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0002,
+              "q_value": -0.9673
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "W",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0002,
+              "q_value": -0.9678
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4025
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4074
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4306
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4971
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.498
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5001
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5451
+            }
+          ],
+          "turn": 3
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "S",
+            "tsumogiri": true,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "S",
+          "ev_loss": 0.12,
+          "expected": {
+            "actor": 3,
+            "pai": "1p",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "2m",
+            "2m",
+            "4m",
+            "7m",
+            "7m",
+            "1p",
+            "6p",
+            "6p",
+            "7p",
+            "1s",
+            "3s",
+            "5s",
+            "W",
+            "S"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 3,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.7597,
+              "q_value": -0.1211
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "S",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.2402,
+              "q_value": -0.2363
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "W",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -1.0535
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -1.0563
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.319
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.359
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4019
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4264
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4269
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4773
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5118
+            }
+          ],
+          "turn": 4
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "W",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "1m",
+          "ev_loss": 0.69,
+          "expected": {
+            "actor": 3,
+            "pai": "1p",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "2m",
+            "2m",
+            "4m",
+            "7m",
+            "7m",
+            "1p",
+            "6p",
+            "6p",
+            "7p",
+            "1s",
+            "3s",
+            "5s",
+            "W",
+            "1m"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "??",
+          "shanten": 3,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.951,
+              "q_value": -0.1362
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1m",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0475,
+              "q_value": -0.4358
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "W",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.001,
+              "q_value": -0.8218
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0005,
+              "q_value": -0.9005
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3303
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3355
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3421
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.427
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4428
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4746
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5242
+            }
+          ],
+          "turn": 5
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "1p",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "8s",
+          "ev_loss": 0.07,
+          "expected": {
+            "actor": 3,
+            "pai": "8s",
+            "tsumogiri": true,
+            "type": "dahai"
+          },
+          "hand": [
+            "1m",
+            "2m",
+            "2m",
+            "4m",
+            "7m",
+            "7m",
+            "1p",
+            "6p",
+            "6p",
+            "7p",
+            "1s",
+            "3s",
+            "5s",
+            "8s"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 3,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "8s",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.6657,
+              "q_value": -0.1555
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.3249,
+              "q_value": -0.2273
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0092,
+              "q_value": -0.5839
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0002,
+              "q_value": -0.9737
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2737
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3175
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3613
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3757
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3848
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4218
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4468
+            }
+          ],
+          "turn": 6
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "8s",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "C",
+          "ev_loss": 0.21,
+          "expected": {
+            "actor": 3,
+            "pai": "6p",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "2m",
+            "2m",
+            "4m",
+            "7m",
+            "7m",
+            "6p",
+            "6p",
+            "7p",
+            "3s",
+            "4s",
+            "5s",
+            "7s",
+            "8s",
+            "C"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.7796,
+              "q_value": -0.2224
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.1212,
+              "q_value": -0.4085
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "8s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0991,
+              "q_value": -0.4287
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -1.1509
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3864
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "C",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4448
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.45
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.463
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4826
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5449
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.6781
+            }
+          ],
+          "turn": 12
+        }
+      ],
+      "outcome": null,
+      "round": "E2",
+      "turn_count": 14
+    },
+    {
+      "decision_count": 19,
+      "decision_counts": {
+        "attack": 13,
+        "defense": 0,
+        "kan": 0,
+        "meld": 5,
+        "riichi": 1
+      },
+      "honba": 1,
+      "mistakes": [
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "2s",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "7s",
+          "ev_loss": 0.46,
+          "expected": {
+            "actor": 3,
+            "pai": "6m",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "5m",
+            "6m",
+            "6m",
+            "1p",
+            "1p",
+            "2p",
+            "4p",
+            "2s",
+            "4s",
+            "5s",
+            "6s",
+            "7s",
+            "9s",
+            "7s"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.9491,
+              "q_value": -0.041
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0362,
+              "q_value": -0.3677
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.01,
+              "q_value": -0.4963
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0043,
+              "q_value": -0.5816
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0004,
+              "q_value": -0.8185
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7s",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.0952
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1574
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.297
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3699
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4834
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5003
+            }
+          ],
+          "turn": 4
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "9s",
+            "tsumogiri": true,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "9s",
+          "ev_loss": 0.7,
+          "expected": {
+            "actor": 3,
+            "pai": "4p",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "5m",
+            "6m",
+            "6m",
+            "1p",
+            "1p",
+            "2p",
+            "4p",
+            "4s",
+            "5s",
+            "6s",
+            "7s",
+            "7s",
+            "9s",
+            "9s"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "??",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.6746,
+              "q_value": -0.0655
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.3162,
+              "q_value": -0.1413
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0083,
+              "q_value": -0.5057
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0006,
+              "q_value": -0.7632
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0002,
+              "q_value": -0.8667
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -1.0121
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1034
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1874
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2799
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3517
+            }
+          ],
+          "turn": 6
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "7s",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "2p",
+          "ev_loss": 1.09,
+          "expected": {
+            "actor": 3,
+            "pai": "9s",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "5m",
+            "6m",
+            "6m",
+            "1p",
+            "1p",
+            "2p",
+            "4p",
+            "4s",
+            "5s",
+            "6s",
+            "7s",
+            "7s",
+            "9s",
+            "2p"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "???",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.941,
+              "q_value": -0.0757
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.044,
+              "q_value": -0.382
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.014,
+              "q_value": -0.4962
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0009,
+              "q_value": -0.7733
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2p",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -1.027
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1608
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2358
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2831
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.346
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5293
+            }
+          ],
+          "turn": 7
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "6m",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "7m",
+          "ev_loss": 0.24,
+          "expected": {
+            "actor": 3,
+            "pai": "1p",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "5m",
+            "6m",
+            "6m",
+            "1p",
+            "1p",
+            "2p",
+            "2p",
+            "4p",
+            "4s",
+            "5s",
+            "6s",
+            "7s",
+            "9s",
+            "7m"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.8713,
+              "q_value": -0.1036
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0769,
+              "q_value": -0.3463
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0344,
+              "q_value": -0.4268
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0169,
+              "q_value": -0.498
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0004,
+              "q_value": -0.865
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -1.0328
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.116
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1578
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1996
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.325
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3315
+            }
+          ],
+          "turn": 11
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "2s",
+            "tsumogiri": true,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "2s",
+          "ev_loss": 0.41,
+          "expected": {
+            "actor": 3,
+            "pai": "9s",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "5m",
+            "6m",
+            "7m",
+            "1p",
+            "1p",
+            "2p",
+            "2p",
+            "4p",
+            "4s",
+            "5s",
+            "6s",
+            "7s",
+            "9s",
+            "2s"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 1,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.9812,
+              "q_value": -0.1096
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2s",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0156,
+              "q_value": -0.5237
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0032,
+              "q_value": -0.6824
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2598
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3215
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3488
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4165
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4291
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4738
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.526
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.6334
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.645
+            }
+          ],
+          "turn": 13
+        },
+        {
+          "actual": {
+            "type": "none"
+          },
+          "category": null,
+          "draw": "3p",
+          "ev_loss": 0.03,
+          "expected": {
+            "actor": 3,
+            "consumed": [
+              "2p",
+              "4p"
+            ],
+            "pai": "3p",
+            "target": 2,
+            "type": "chi"
+          },
+          "hand": [
+            "5m",
+            "6m",
+            "7m",
+            "1p",
+            "1p",
+            "2p",
+            "2p",
+            "4p",
+            "4s",
+            "5s",
+            "6s",
+            "7s",
+            "9s"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 1,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "consumed": [
+                  "2p",
+                  "4p"
+                ],
+                "pai": "3p",
+                "target": 2,
+                "type": "chi"
+              },
+              "prob": 0.4019,
+              "q_value": -0.1232
+            },
+            {
+              "action": {
+                "actor": 3,
+                "consumed": [
+                  "1p",
+                  "2p"
+                ],
+                "pai": "3p",
+                "target": 2,
+                "type": "chi"
+              },
+              "prob": 0.3049,
+              "q_value": -0.1508
+            },
+            {
+              "action": {
+                "type": "none"
+              },
+              "prob": 0.2931,
+              "q_value": -0.1548
+            }
+          ],
+          "turn": 13
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "type": "reach"
+          },
+          "category": null,
+          "draw": "3p",
+          "ev_loss": 0.99,
+          "expected": {
+            "actor": 3,
+            "pai": "2p",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "5m",
+            "6m",
+            "7m",
+            "1p",
+            "1p",
+            "2p",
+            "2p",
+            "4p",
+            "4s",
+            "5s",
+            "6s",
+            "7s",
+            "9s",
+            "3p"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "??",
+          "shanten": 1,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.8668,
+              "q_value": -0.0717
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "9s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.1235,
+              "q_value": -0.2665
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0096,
+              "q_value": -0.5223
+            },
+            {
+              "action": {
+                "actor": 3,
+                "type": "reach"
+              },
+              "prob": 0.0,
+              "q_value": -1.0654
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3p",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.273
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.315
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3675
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4564
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.516
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "5s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5484
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5714
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.577
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.7177
+            }
+          ],
+          "turn": 14
+        }
+      ],
+      "outcome": null,
+      "round": "E2-1",
+      "turn_count": 15
+    },
+    {
+      "decision_count": 20,
+      "decision_counts": {
+        "attack": 8,
+        "defense": 8,
+        "kan": 0,
+        "meld": 4,
+        "riichi": 0
+      },
+      "honba": 2,
+      "mistakes": [
+        {
+          "actual": {
+            "type": "none"
+          },
+          "category": null,
+          "draw": "S",
+          "ev_loss": 0.19,
+          "expected": {
+            "actor": 3,
+            "consumed": [
+              "S",
+              "S"
+            ],
+            "pai": "S",
+            "target": 1,
+            "type": "pon"
+          },
+          "hand": [
+            "1m",
+            "3p",
+            "4p",
+            "6p",
+            "6p",
+            "6p",
+            "7p",
+            "6s",
+            "9s",
+            "S",
+            "S",
+            "W",
+            "N"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 4,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "consumed": [
+                  "S",
+                  "S"
+                ],
+                "pai": "S",
+                "target": 1,
+                "type": "pon"
+              },
+              "prob": 0.8712,
+              "q_value": 0.042
+            },
+            {
+              "action": {
+                "type": "none"
+              },
+              "prob": 0.1288,
+              "q_value": -0.1492
+            }
+          ],
+          "turn": 0
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "1m",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "P",
+          "ev_loss": 0.32,
+          "expected": {
+            "actor": 3,
+            "pai": "N",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "1m",
+            "2m",
+            "3p",
+            "4p",
+            "6p",
+            "6p",
+            "6p",
+            "7p",
+            "6s",
+            "S",
+            "S",
+            "W",
+            "N",
+            "P"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 3,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "N",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.9594,
+              "q_value": -0.0644
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "1m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0396,
+              "q_value": -0.3832
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0005,
+              "q_value": -0.8234
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "W",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0004,
+              "q_value": -0.837
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6s",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -1.005
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "P",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3518
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "S",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3649
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "7p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.6745
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.7772
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.829
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.864
+            }
+          ],
+          "turn": 2
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "consumed": [
+              "6p",
+              "7p"
+            ],
+            "pai": "8p",
+            "target": 2,
+            "type": "chi"
+          },
+          "category": null,
+          "draw": "8p",
+          "ev_loss": 0.37,
+          "expected": {
+            "type": "none"
+          },
+          "hand": [
+            "2m",
+            "3p",
+            "4p",
+            "6p",
+            "6p",
+            "6p",
+            "7p",
+            "6s",
+            "S",
+            "S",
+            "W",
+            "N",
+            "P"
+          ],
+          "melds": [],
+          "note": null,
+          "severity": "?",
+          "shanten": 4,
+          "top_actions": [
+            {
+              "action": {
+                "type": "none"
+              },
+              "prob": 0.9757,
+              "q_value": -0.0735
+            },
+            {
+              "action": {
+                "actor": 3,
+                "consumed": [
+                  "6p",
+                  "7p"
+                ],
+                "pai": "8p",
+                "target": 2,
+                "type": "chi"
+              },
+              "prob": 0.0243,
+              "q_value": -0.4427
+            }
+          ],
+          "turn": 2
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "8s",
+            "tsumogiri": true,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "8s",
+          "ev_loss": 1.23,
+          "expected": {
+            "actor": 3,
+            "pai": "C",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "2m",
+            "3p",
+            "4p",
+            "6p",
+            "6p",
+            "P",
+            "C",
+            "8s"
+          ],
+          "melds": [
+            {
+              "consumed": [
+                "6p",
+                "7p"
+              ],
+              "pai": "8p",
+              "target": 2,
+              "type": "chi"
+            },
+            {
+              "consumed": [
+                "S",
+                "S"
+              ],
+              "pai": "S",
+              "target": 2,
+              "type": "pon"
+            }
+          ],
+          "note": null,
+          "severity": "???",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "C",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.9999,
+              "q_value": -0.1374
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.1448
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "P",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2483
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "8s",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.3663
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4557
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5888
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.5967
+            }
+          ],
+          "turn": 9
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "C",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "P",
+          "ev_loss": 0.47,
+          "expected": {
+            "actor": 3,
+            "pai": "2m",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "2m",
+            "3p",
+            "4p",
+            "6p",
+            "6p",
+            "P",
+            "C",
+            "P"
+          ],
+          "melds": [
+            {
+              "consumed": [
+                "6p",
+                "7p"
+              ],
+              "pai": "8p",
+              "target": 2,
+              "type": "chi"
+            },
+            {
+              "consumed": [
+                "S",
+                "S"
+              ],
+              "pai": "S",
+              "target": 2,
+              "type": "pon"
+            }
+          ],
+          "note": null,
+          "severity": "?",
+          "shanten": 2,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.9906,
+              "q_value": 0.0006
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "C",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0093,
+              "q_value": -0.4662
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "P",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.048
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.08
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2445
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2959
+            }
+          ],
+          "turn": 10
+        },
+        {
+          "actual": {
+            "actor": 3,
+            "pai": "2s",
+            "tsumogiri": true,
+            "type": "dahai"
+          },
+          "category": null,
+          "draw": "2s",
+          "ev_loss": 0.19,
+          "expected": {
+            "actor": 3,
+            "pai": "P",
+            "tsumogiri": false,
+            "type": "dahai"
+          },
+          "hand": [
+            "6m",
+            "3p",
+            "4p",
+            "6p",
+            "6p",
+            "P",
+            "P",
+            "2s"
+          ],
+          "melds": [
+            {
+              "consumed": [
+                "6p",
+                "7p"
+              ],
+              "pai": "8p",
+              "target": 2,
+              "type": "chi"
+            },
+            {
+              "consumed": [
+                "S",
+                "S"
+              ],
+              "pai": "S",
+              "target": 2,
+              "type": "pon"
+            }
+          ],
+          "note": null,
+          "severity": "?",
+          "shanten": 1,
+          "top_actions": [
+            {
+              "action": {
+                "actor": 3,
+                "pai": "P",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.8749,
+              "q_value": -0.1376
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "2s",
+                "tsumogiri": true,
+                "type": "dahai"
+              },
+              "prob": 0.125,
+              "q_value": -0.3322
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6m",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0001,
+              "q_value": -1.0702
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "6p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.2234
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "3p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4458
+            },
+            {
+              "action": {
+                "actor": 3,
+                "pai": "4p",
+                "tsumogiri": false,
+                "type": "dahai"
+              },
+              "prob": 0.0,
+              "q_value": -1.4624
+            }
+          ],
+          "turn": 12
+        }
+      ],
+      "outcome": null,
+      "round": "E2-2",
+      "turn_count": 17
+    }
+  ],
+  "summary": null
+}

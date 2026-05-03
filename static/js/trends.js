@@ -1,0 +1,522 @@
+// Trends view + line/bar/stacked-bar charts.
+
+// One entry per "situation" on the trends page — each skill area has its
+// own decision-count denominator, so EV/D is clean per bar. Source of truth
+// for display order, color, and per-area trainer advice.
+var TREND_SKILL_AREAS = [
+  { label: "Attack",  key: "attack",  catGroup: "Attack",  color: "#4a9eff",
+    situation: "no opponent is in riichi and your hand can still move forward",
+    intro: "Turns where no opponent is in riichi and your hand can still move forward. Tile efficiency, hand value, and deeper strategic reads live here.",
+    study: "Riichi Book Ch 3-6" },
+  { label: "Defense", key: "defense", catGroup: "Defense", color: "#ff6b6b",
+    situation: "an opponent is in riichi",
+    intro: "Turns where an opponent is in riichi. The metric is how much value you give up by pushing a dangerous tile or misreading the danger pool.",
+    study: "Riichi Book Ch 8" },
+  { label: "Meld",    key: "meld",    catGroup: "Meld",    color: "#ffa94d",
+    situation: "a chi or pon was available",
+    intro: "Turns where a chi or pon was available. Calling trades hand value and defensive options for speed — getting this wrong leaks EV in either direction.",
+    study: "Riichi Book Ch 9" },
+  { label: "Riichi",  key: "riichi",  catGroup: "Riichi",  color: "#a855f7",
+    situation: "you could declare riichi",
+    intro: "Turns where you could declare riichi, or chose to. Locks your hand in exchange for the han bonus, ippatsu odds, and ura-dora — at the cost of flexibility.",
+    study: "Riichi Book Ch 7" },
+  { label: "Kan",     key: "kan",     catGroup: "Kan",     color: "#22c55e",
+    situation: "an ankan or shouminkan was available",
+    intro: "Turns where an ankan or shouminkan was available. Declaring exposes a new dora and raises opponents' hand ceilings — rarely worth the tempo.",
+    study: "Riichi Book Ch 9.3" },
+];
+// Minimum decisions in denominator before a skill area is eligible for
+// weakness ranking. Guards low-volume areas (especially kan) against
+// one-off spikes.
+var TREND_MIN_DECISIONS = 20;
+
+// Skill-area key (attack/defense/meld/riichi/kan) for a mistake category code.
+function trendSkillAreaFor(cat) {
+  const info = CATEGORY_INFO[cat];
+  if (!info) return null;
+  const sa = TREND_SKILL_AREAS.find(a => a.catGroup === info.group);
+  return sa ? sa.key : null;
+}
+
+function trendSkillAreaInfo(key) {
+  return TREND_SKILL_AREAS.find(a => a.key === key);
+}
+
+async function fetchTrends() {
+  const res = await fetch("/api/trends");
+  return await res.json();
+}
+
+// Pixel width the SVG charts should render at, matching the current content
+// area so the 700px hardcoded viewBox doesn't leave a blank gutter on wide
+// laptops. Subtracts .content padding (20*2) and .trend-chart-card padding
+// (16*2). Floored at 700 so narrow screens keep the old layout + scroll.
+function trendChartWidth() {
+  const content = document.getElementById("content");
+  if (!content) return 700;
+  return Math.max(700, content.clientWidth - 40 - 32);
+}
+
+async function showTrends() {
+  setSeverityFiltersVisible(false);
+  state.currentGame = null;
+  state.currentGameData = null;
+  renderGameList();
+  const content = document.getElementById("content");
+  content.innerHTML = '<div class="empty-state">Loading trends...</div>';
+
+  const games = await fetchTrends();
+  if (games.length < 2) {
+    content.innerHTML = '<div class="empty-state">Need at least 2 games for trend analysis</div>';
+    return;
+  }
+  renderTrends(games);
+}
+
+function renderTrends(games) {
+  const content = document.getElementById("content");
+
+  // Compute aggregates
+  const totalGames = games.length;
+  const totalMistakes = games.reduce((s, g) => s + g.total_mistakes, 0);
+  const totalEv = games.reduce((s, g) => s + g.total_ev_loss, 0);
+  const gamesWithDecisions = games.filter(g => g.ev_per_decision != null);
+  const avgEvPerDecision = gamesWithDecisions.length > 0
+    ? gamesWithDecisions.reduce((s, g) => s + g.ev_per_decision, 0) / gamesWithDecisions.length : null;
+
+  // Trend direction (last 5 vs first 5 for ev_per_decision)
+  let trendArrow = "";
+  if (gamesWithDecisions.length >= 4) {
+    const half = Math.floor(gamesWithDecisions.length / 2);
+    const firstHalf = gamesWithDecisions.slice(0, half);
+    const secondHalf = gamesWithDecisions.slice(-half);
+    const avgFirst = firstHalf.reduce((s, g) => s + g.ev_per_decision, 0) / firstHalf.length;
+    const avgSecond = secondHalf.reduce((s, g) => s + g.ev_per_decision, 0) / secondHalf.length;
+    const pctChange = ((avgSecond - avgFirst) / avgFirst * 100).toFixed(0);
+    if (avgSecond < avgFirst) {
+      trendArrow = `<span class="trend-down">${pctChange}%</span>`;
+    } else {
+      trendArrow = `<span class="trend-up">+${pctChange}%</span>`;
+    }
+  }
+
+  let html = `
+    <div class="game-header"><h2>Trend Analysis</h2></div>
+    <div class="summary-bar">
+      <div class="stat"><span class="value">${totalGames}</span><span class="label">Games</span></div>
+      <div class="stat"><span class="value">${totalMistakes}</span><span class="label">Total Mistakes</span></div>
+      <div class="stat"><span class="value">${totalEv.toFixed(1)}</span><span class="label">Total EV Loss</span></div>
+      ${avgEvPerDecision != null ? `<div class="stat"><span class="value">${avgEvPerDecision.toFixed(4)}</span><span class="label">Avg EV/Decision</span></div>` : ""}
+      ${trendArrow ? `<div class="stat"><span class="value">${trendArrow}</span><span class="label">EV/Decision Trend</span></div>` : ""}
+    </div>
+  `;
+
+  // Personal best / recent performance
+  if (gamesWithDecisions.length >= 3) {
+    const sorted = [...gamesWithDecisions].sort((a, b) => a.ev_per_decision - b.ev_per_decision);
+    const best = sorted[0];
+    const recent = gamesWithDecisions.slice(-3);
+    const recentAvg = recent.reduce((s, g) => s + g.ev_per_decision, 0) / recent.length;
+    html += `<div class="summary-bar" style="margin-top:0">
+      <div class="stat"><span class="value">${best.ev_per_decision.toFixed(4)}</span><span class="label">Best EV/D (${best.date.slice(5)})</span></div>
+      <div class="stat"><span class="value">${recentAvg.toFixed(4)}</span><span class="label">Last 3 Avg</span></div>
+      <div class="stat"><span class="value">${games.reduce((s, g) => s + ((g.by_severity || {})["???"] || 0), 0)}</span><span class="label">Total Severe Mistakes</span></div>
+    </div>`;
+  }
+
+  // Chart 1: EV per decision over time
+  if (gamesWithDecisions.length >= 2) {
+    html += `<div class="trend-chart-card">
+      <h3>EV Loss per Decision</h3>
+      <div class="trend-chart">${renderLineChart(gamesWithDecisions, "ev_per_decision", {
+        color: "#4fc3f7",
+        avgColor: "#4fc3f740",
+        format: v => v.toFixed(3),
+        yLabel: "EV/Decision",
+      })}</div>
+    </div>`;
+  }
+
+  // Chart 2: Severity breakdown over time
+  html += `<div class="trend-chart-card">
+    <h3>Mistakes by Severity</h3>
+    <div class="trend-chart">${renderStackedBarChart(games)}</div>
+  </div>`;
+
+  // Chart 3: Personalized recommendation + category EV breakdown across all games
+  html += renderTrendRecommendation(games);
+  html += renderCategoryTrend(games);
+
+  content.innerHTML = html;
+}
+
+function renderLineChart(games, field, opts) {
+  const W = trendChartWidth(), H = 200, PAD = { top: 20, right: 20, bottom: 40, left: 55 };
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+
+  const values = games.map(g => g[field]);
+  const minV = Math.min(...values) * 0.85;
+  const maxV = Math.max(...values) * 1.1;
+  const range = maxV - minV || 1;
+
+  // Compute 3-game moving average
+  const avg = [];
+  for (let i = 0; i < values.length; i++) {
+    const window = values.slice(Math.max(0, i - 2), i + 1);
+    avg.push(window.reduce((a, b) => a + b, 0) / window.length);
+  }
+
+  function x(i) { return PAD.left + (i / (games.length - 1)) * plotW; }
+  function y(v) { return PAD.top + plotH - ((v - minV) / range) * plotH; }
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" class="trend-svg">`;
+
+  // Y grid lines
+  const yTicks = 5;
+  for (let i = 0; i <= yTicks; i++) {
+    const val = minV + (range * i / yTicks);
+    const yy = y(val);
+    svg += `<line x1="${PAD.left}" y1="${yy}" x2="${W - PAD.right}" y2="${yy}" stroke="var(--border)" stroke-width="0.5"/>`;
+    svg += `<text x="${PAD.left - 8}" y="${yy + 4}" text-anchor="end" fill="var(--text-dim)" font-size="10">${opts.format(val)}</text>`;
+  }
+
+  // Moving average area
+  if (avg.length >= 2) {
+    let areaPath = `M${x(0)},${y(avg[0])}`;
+    for (let i = 1; i < avg.length; i++) areaPath += ` L${x(i)},${y(avg[i])}`;
+    svg += `<polyline points="${avg.map((v, i) => `${x(i)},${y(v)}`).join(" ")}" fill="none" stroke="${opts.avgColor}" stroke-width="2" stroke-dasharray="4,3"/>`;
+  }
+
+  // Main line
+  const points = values.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  svg += `<polyline points="${points}" fill="none" stroke="${opts.color}" stroke-width="2"/>`;
+
+  // Dots + labels
+  for (let i = 0; i < games.length; i++) {
+    const cx = x(i), cy = y(values[i]);
+    svg += `<circle cx="${cx}" cy="${cy}" r="4" fill="${opts.color}" stroke="var(--bg)" stroke-width="1.5"/>`;
+    // X label (date)
+    const dateLabel = games[i].date.slice(5); // MM-DD
+    svg += `<text x="${cx}" y="${H - 5}" text-anchor="middle" fill="var(--text-dim)" font-size="9" transform="rotate(-30,${cx},${H - 5})">${dateLabel}</text>`;
+  }
+
+  // Y axis label
+  svg += `<text x="12" y="${PAD.top + plotH / 2}" text-anchor="middle" fill="var(--text-dim)" font-size="10" transform="rotate(-90,12,${PAD.top + plotH / 2})">${opts.yLabel}</text>`;
+
+  svg += `</svg>`;
+  return svg;
+}
+
+function renderStackedBarChart(games) {
+  const W = trendChartWidth(), H = 200, PAD = { top: 20, right: 20, bottom: 40, left: 55 };
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+
+  const sevKeys = ["???", "??", "?"];
+  const sevColors = { "???": "var(--sev-major)", "??": "var(--sev-medium)", "?": "var(--sev-minor)" };
+
+  const maxTotal = Math.max(...games.map(g => {
+    const sev = g.by_severity || {};
+    return (sev["???"] || 0) + (sev["??"] || 0) + (sev["?"] || 0);
+  }));
+
+  const barW = Math.min(30, (plotW / games.length) * 0.7);
+  const gap = plotW / games.length;
+
+  function y(v) { return PAD.top + plotH - (v / (maxTotal || 1)) * plotH; }
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" class="trend-svg">`;
+
+  // Y grid
+  const yTicks = 4;
+  for (let i = 0; i <= yTicks; i++) {
+    const val = Math.round(maxTotal * i / yTicks);
+    const yy = y(val);
+    svg += `<line x1="${PAD.left}" y1="${yy}" x2="${W - PAD.right}" y2="${yy}" stroke="var(--border)" stroke-width="0.5"/>`;
+    svg += `<text x="${PAD.left - 8}" y="${yy + 4}" text-anchor="end" fill="var(--text-dim)" font-size="10">${val}</text>`;
+  }
+
+  // Bars
+  for (let i = 0; i < games.length; i++) {
+    const sev = games[i].by_severity || {};
+    const cx = PAD.left + gap * i + gap / 2;
+    let bottom = PAD.top + plotH;
+
+    for (const key of sevKeys) {
+      const count = sev[key] || 0;
+      if (count === 0) continue;
+      const barH = (count / (maxTotal || 1)) * plotH;
+      const top = bottom - barH;
+      svg += `<rect x="${cx - barW / 2}" y="${top}" width="${barW}" height="${barH}" fill="${sevColors[key]}" rx="2" opacity="0.85"/>`;
+      if (barH > 14) {
+        svg += `<text x="${cx}" y="${top + barH / 2 + 4}" text-anchor="middle" fill="var(--bg)" font-size="9" font-weight="700">${count}</text>`;
+      }
+      bottom = top;
+    }
+
+    // X label
+    const dateLabel = games[i].date.slice(5);
+    svg += `<text x="${cx}" y="${H - 5}" text-anchor="middle" fill="var(--text-dim)" font-size="9" transform="rotate(-30,${cx},${H - 5})">${dateLabel}</text>`;
+  }
+
+  // Legend
+  const sevLegend = { "???": "Severe", "??": "Mistake", "?": "Light+" };
+  let lx = W - PAD.right - 180;
+  for (const key of sevKeys) {
+    svg += `<rect x="${lx}" y="5" width="10" height="10" fill="${sevColors[key]}" rx="2"/>`;
+    svg += `<text x="${lx + 14}" y="14" fill="var(--text-dim)" font-size="10">${sevLegend[key]}</text>`;
+    lx += 58;
+  }
+
+  svg += `</svg>`;
+  return svg;
+}
+
+// --- Aggregation helpers for the trends category panel ---
+
+// Roll per-game stats into totals across all games.
+// Only counts games that have `decision_counts` populated, so the EV
+// numerator and the decision-count denominator come from the same set —
+// otherwise old games (parsed before U-04) contribute EV with no
+// matching denominator and inflate EV/D ~10x.
+function trendAggregateAll(games) {
+  const byCat = {};                 // {P1: {count, ev}, ...}
+  const decCounts = { attack: 0, defense: 0, riichi: 0, meld: 0, kan: 0 };
+  let gamesIncluded = 0;
+  for (const g of games) {
+    if (!g.decision_counts) continue;
+    gamesIncluded++;
+    for (const [cat, data] of Object.entries(g.by_category || {})) {
+      if (!byCat[cat]) byCat[cat] = { count: 0, ev: 0 };
+      byCat[cat].count += data.count;
+      byCat[cat].ev += data.ev;
+    }
+    for (const k of Object.keys(decCounts)) decCounts[k] += g.decision_counts[k] || 0;
+  }
+  return {
+    byCat,
+    decCounts: gamesIncluded > 0 ? decCounts : null,
+    gamesIncluded,
+    gamesTotal: games.length,
+  };
+}
+
+// Per skill area (attack/defense/meld/riichi/kan): total EV, mistake count,
+// and decision-count denominator. Keyed by TREND_SKILL_AREAS[*].key.
+function trendSkillAreaTotals(byCat, decCounts) {
+  const out = {};
+  for (const sa of TREND_SKILL_AREAS) {
+    out[sa.key] = { ev: 0, count: 0, decisions: decCounts ? (decCounts[sa.key] || 0) : 0 };
+  }
+  for (const [cat, data] of Object.entries(byCat)) {
+    const k = trendSkillAreaFor(cat);
+    if (!k || !out[k]) continue;
+    out[k].ev += data.ev;
+    out[k].count += data.count;
+  }
+  return out;
+}
+
+// --- U-02 personalized recommendation block ---
+
+function renderTrendRecommendation(games) {
+  const { byCat, decCounts } = trendAggregateAll(games);
+  if (!decCounts) return "";  // No decision_counts available — skip silently
+
+  // Rank skill areas (not sub-categories) by aggregated EV/D. Ranking at
+  // the skill-area level keeps signal concentrated — sub-category ranking
+  // would dilute areas that happen to be split into more buckets.
+  const totals = trendSkillAreaTotals(byCat, decCounts);
+  const ranked = [];
+  for (const sa of TREND_SKILL_AREAS) {
+    const t = totals[sa.key];
+    if (t.decisions < TREND_MIN_DECISIONS) continue;
+    ranked.push({ sa, evPerD: t.ev / t.decisions, ev: t.ev, decisions: t.decisions });
+  }
+  if (ranked.length < 1) {
+    return `<div class="trend-chart-card"><h3>Haipai Trainer</h3>
+      <div class="mascot-speech">
+        <img src="/static/mascot.svg" class="mascot-avatar" alt="">
+        <div class="speech-bubble">Not enough data yet for a personalized recommendation — play more games to unlock.</div>
+      </div>
+    </div>`;
+  }
+  ranked.sort((a, b) => b.evPerD - a.evPerD);
+  const w = ranked[0];
+  const sa = w.sa;
+
+  return `<div class="trend-chart-card"><h3>Haipai Trainer</h3>
+    <div class="mascot-speech">
+      <img src="/static/mascot.svg" class="mascot-avatar" alt="">
+      <div class="speech-bubble">
+        <span class="trigger-line">Your biggest weakness: <strong style="color:${sa.color}">${sa.label}</strong> at ${w.evPerD.toFixed(4)} EV/decision.</span>
+        ${sa.intro}
+        <div style="margin-top:6px;font-size:11.5px">Focus: ${sa.study}.</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// --- Skill-area bar chart with per-sub-category drill-down ---
+
+function renderCategoryTrend(games) {
+  const { byCat, decCounts, gamesIncluded, gamesTotal } = trendAggregateAll(games);
+  const totals = trendSkillAreaTotals(byCat, decCounts);
+
+  // One row per skill area, ranked by EV/D desc (most critical first).
+  // Areas with no decisions sink to the bottom; areas with neither mistakes
+  // nor decisions drop out.
+  const rows = TREND_SKILL_AREAS
+    .map(sa => {
+      const t = totals[sa.key];
+      return {
+        sa,
+        ev: t.ev,
+        count: t.count,
+        decisions: t.decisions,
+        evPerD: t.decisions > 0 ? t.ev / t.decisions : null,
+      };
+    })
+    .filter(r => r.ev > 0 || r.count > 0 || r.decisions > 0)
+    .sort((a, b) => (b.evPerD ?? -1) - (a.evPerD ?? -1));
+  if (rows.length === 0) return "";
+
+  const maxEvPerD = Math.max(...rows.map(r => r.evPerD || 0)) || 1;
+  const coverage = (gamesIncluded != null && gamesIncluded < gamesTotal)
+    ? ` <span style="color:var(--sev-medium)">Based on ${gamesIncluded}/${gamesTotal} games — older games need a decision-count backfill.</span>`
+    : ` Based on ${gamesIncluded}/${gamesTotal} games.`;
+
+  let html = `<div class="trend-chart-card"><h3>EV Loss per Decision by Skill Area (All Games)</h3><p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Sorted by most critical. Click a row for the per-category breakdown.${coverage}</p><div class="trend-bars">`;
+  for (const r of rows) {
+    const sa = r.sa;
+    const pct = r.evPerD != null ? (r.evPerD / maxEvPerD * 100).toFixed(0) : 0;
+    const rowId = "trend-" + sa.key;
+    const primary = r.evPerD != null ? `${r.evPerD.toFixed(4)} EV/D` : "—";
+    html += `<div class="trend-bar-row" onclick="toggleTrendMistakes('${sa.label}', '${rowId}')" style="cursor:pointer">
+      <span class="trend-bar-label" style="color:${sa.color}">${sa.label}</span>
+      <div class="trend-bar-track">
+        <div class="trend-bar-fill" style="width:${pct}%;background:${sa.color}"></div>
+      </div>
+      <span class="trend-bar-primary">${primary}</span>
+      <span class="trend-bar-breakdown">(${r.ev.toFixed(1)} EV · ${r.count} in ${r.decisions} decisions)</span>
+    </div>
+    <div id="${rowId}" class="trend-mistakes-panel" style="display:none">${renderTrendGroupBreakdown(sa.key, byCat, decCounts)}</div>`;
+  }
+  html += `</div></div>`;
+
+  html += `<div class="trend-chart-card"><h3>Skill Area per Game</h3><div class="trend-chart">`;
+  html += renderGroupStackedChart(games);
+  html += `</div></div>`;
+
+  return html;
+}
+
+// Drill-down for one skill area: lists sub-categories with EV, count, and
+// EV/D (using the skill-area denominator — same one as the parent row).
+function renderTrendGroupBreakdown(saKey, byCat, decCounts) {
+  const sa = trendSkillAreaInfo(saKey);
+  if (!sa) return "";
+  const denom = decCounts ? (decCounts[saKey] || 0) : 0;
+
+  const entries = [];
+  for (const [cat, info] of Object.entries(CATEGORY_INFO)) {
+    if (info.group !== sa.catGroup) continue;
+    const data = byCat[cat];
+    if (info.legacy && (!data || data.count === 0)) continue;
+    entries.push({
+      cat,
+      label: info.label,
+      desc: info.desc,
+      study: info.study,
+      ev: data ? data.ev : 0,
+      count: data ? data.count : 0,
+      evPerD: denom > 0 && data ? data.ev / denom : null,
+    });
+  }
+  entries.sort((a, b) => b.ev - a.ev);
+
+  const totalEv = entries.reduce((s, e) => s + e.ev, 0);
+  const evPerD = denom > 0 ? totalEv / denom : null;
+  const summary = evPerD != null
+    ? `You lose <strong style="color:${sa.color}">${evPerD.toFixed(4)} EV/Decision</strong> when ${sa.situation}. In total there were <strong>${denom}</strong> decisions and your total EV loss in these categories is <strong>${totalEv.toFixed(1)}</strong>.`
+    : `Not enough decisions recorded to compute EV/Decision when ${sa.situation}.`;
+
+  let html = `<div style="padding:10px 12px">`;
+  html += `<div class="mascot-speech" style="margin-bottom:14px">
+    <img src="/static/mascot.svg" class="mascot-avatar" alt="">
+    <div class="speech-bubble">${summary} <span style="opacity:0.75">Reference: ${sa.study}.</span></div>
+  </div>`;
+  html += `<div class="trend-bars" style="gap:12px">`;
+  for (const e of entries) {
+    const primary = e.evPerD != null ? `${e.evPerD.toFixed(4)} EV/D` : "—";
+    const studyStr = e.study ? ` <span style="opacity:0.7">— ${e.study}</span>` : "";
+    html += `<div style="display:flex;flex-direction:column;gap:3px">
+      <div class="trend-bar-row">
+        <span class="trend-bar-label" style="color:${sa.color};min-width:140px">${e.cat} · ${e.label}</span>
+        <span class="trend-bar-value" style="flex:1">${primary} <span class="trend-bar-count">(${e.ev.toFixed(1)} EV · ${e.count})</span></span>
+      </div>
+      ${e.desc ? `<div style="color:var(--text-dim);font-size:11.5px;line-height:1.45;padding-left:4px">${e.desc}${studyStr}</div>` : ""}
+    </div>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+function renderGroupStackedChart(games) {
+  const W = trendChartWidth(), H = 200, PAD = { top: 20, right: 20, bottom: 40, left: 55 };
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+
+  // Per-game EV split across the 5 skill areas.
+  const perGame = games.map(g => {
+    const totals = {};
+    for (const sa of TREND_SKILL_AREAS) totals[sa.key] = 0;
+    for (const [cat, data] of Object.entries(g.by_category || {})) {
+      const k = trendSkillAreaFor(cat);
+      if (k != null && totals[k] != null) totals[k] += data.ev;
+    }
+    return totals;
+  });
+
+  const maxEv = Math.max(1, ...games.map(g => g.total_ev_loss || 0));
+  const barW = Math.min(30, (plotW / games.length) * 0.7);
+  const gap = plotW / games.length;
+
+  function y(v) { return PAD.top + plotH - (v / maxEv) * plotH; }
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" class="trend-svg">`;
+
+  const yTicks = 4;
+  for (let i = 0; i <= yTicks; i++) {
+    const val = (maxEv * i / yTicks).toFixed(0);
+    const yy = y(parseFloat(val));
+    svg += `<line x1="${PAD.left}" y1="${yy}" x2="${W - PAD.right}" y2="${yy}" stroke="var(--border)" stroke-width="0.5"/>`;
+    svg += `<text x="${PAD.left - 8}" y="${yy + 4}" text-anchor="end" fill="var(--text-dim)" font-size="10">${val}</text>`;
+  }
+
+  for (let i = 0; i < games.length; i++) {
+    const cx = PAD.left + gap * i + gap / 2;
+    let bottom = PAD.top + plotH;
+    for (const sa of TREND_SKILL_AREAS) {
+      const ev = perGame[i][sa.key];
+      if (!ev || ev <= 0) continue;
+      const barH = (ev / maxEv) * plotH;
+      const top = bottom - barH;
+      svg += `<rect x="${cx - barW / 2}" y="${top}" width="${barW}" height="${barH}" fill="${sa.color}" rx="1" opacity="0.8"/>`;
+      bottom = top;
+    }
+    const dateLabel = games[i].date.slice(5);
+    svg += `<text x="${cx}" y="${H - 5}" text-anchor="middle" fill="var(--text-dim)" font-size="9" transform="rotate(-30,${cx},${H - 5})">${dateLabel}</text>`;
+  }
+
+  let lx = PAD.left;
+  for (const sa of TREND_SKILL_AREAS) {
+    svg += `<rect x="${lx}" y="4" width="10" height="10" fill="${sa.color}" rx="2"/>`;
+    svg += `<text x="${lx + 13}" y="13" fill="var(--text-dim)" font-size="9">${sa.label}</text>`;
+    lx += sa.label.length * 7 + 22;
+  }
+
+  svg += `</svg>`;
+  return svg;
+}

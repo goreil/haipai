@@ -1,0 +1,18 @@
+.git
+__pycache__
+*.pyc
+games.db
+games.json
+mortal_analysis/
+*.pdf
+*.swp
+*.swo
+log.txt
+project-briefing.md
+ylue-next-prompt.txt
+new-todo.txt
+Mahjong Mistakes.txt
+Richii Mahjong Learning.txt
+mahjong_curl
+Riichi-Trainer/
+Daina_Chiba_-_Riichi_Book_1_en.pdf

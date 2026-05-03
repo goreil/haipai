@@ -1,0 +1,9 @@
+line-length = 120
+extend-exclude = ["archive/", "riichi-mahjong-tiles/"]
+
+[lint]
+select = ["E", "F", "W"]
+ignore = ["E501", "F402", "F541", "F841"]
+
+[lint.per-file-ignores]
+"tests/*" = ["F401"]
