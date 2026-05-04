@@ -86,10 +86,32 @@ CREATE TABLE IF NOT EXISTS category_reports (
     FOREIGN KEY (mistake_id) REFERENCES mistakes(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY,
+    type TEXT NOT NULL CHECK(type IN ('feature','thanks')),
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    audience_user_id INTEGER,
+    related_feedback_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (audience_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (related_feedback_id) REFERENCES feedback(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS message_reads (
+    user_id INTEGER NOT NULL,
+    message_id INTEGER NOT NULL,
+    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, message_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
 CREATE INDEX IF NOT EXISTS idx_mistakes_game_id ON mistakes(game_id);
 CREATE INDEX IF NOT EXISTS idx_practice_results_mistake_id ON practice_results(mistake_id);
 CREATE INDEX IF NOT EXISTS idx_category_reports_mistake ON category_reports(mistake_id);
+CREATE INDEX IF NOT EXISTS idx_messages_audience ON messages(audience_user_id);
 """
 
 

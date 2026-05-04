@@ -72,6 +72,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (adminBtn && me.is_admin) adminBtn.style.display = "";
 
     renderImpersonateBanner(me);
+    if (typeof mailboxInit === "function") mailboxInit();
   }
 
   const catRes = await fetch("/api/categories");

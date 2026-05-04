@@ -40,6 +40,34 @@
         <button class="btn" id="practice-btn" onclick="showPractice()">Practice</button>
         -->
 
+        <div class="mailbox" id="mailbox" style="display:none">
+          <button class="btn mailbox-btn" id="mailbox-trigger" title="Mailbox" aria-label="Mailbox">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 12.5V19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6.5"></path>
+              <path d="M22 12.5L12.7 5.4a1.5 1.5 0 0 0-1.4 0L2 12.5"></path>
+              <path d="M2 12.5h7l1.5 2h3l1.5-2H22"></path>
+            </svg>
+            <span class="mailbox-badge" id="mailbox-badge" style="display:none">0</span>
+          </button>
+          <div class="mailbox-panel" role="dialog" aria-label="Mailbox">
+            <div class="mailbox-header">
+              <h3>Mailbox</h3>
+              <div class="actions">
+                <button class="mailbox-link" id="mailbox-mark-all-read">Mark all read</button>
+              </div>
+            </div>
+            <div class="mailbox-tabs" role="tablist">
+              <button class="mailbox-tab active" data-filter="unread" role="tab">
+                Unread <span class="count" id="mailbox-count-unread">0</span>
+              </button>
+              <button class="mailbox-tab" data-filter="read" role="tab">
+                Read <span class="count" id="mailbox-count-read">0</span>
+              </button>
+            </div>
+            <div class="mailbox-list" id="mailbox-list"></div>
+          </div>
+        </div>
+
         <div class="toolbar-menu">
           <button class="btn toolbar-menu-btn" onclick="this.parentElement.classList.toggle('open')">&#8943;</button>
           <div class="toolbar-dropdown">
@@ -126,6 +154,7 @@
   <script src="/static/js/practice.js"></script>
   <script src="/static/js/admin.js"></script>
   <script src="/static/js/account.js"></script>
+  <script src="/static/js/mailbox.js"></script>
   <script src="/static/js/ui.js"></script>
   <script src="/static/js/main.js"></script>
 </body>

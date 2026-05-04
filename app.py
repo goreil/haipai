@@ -134,12 +134,14 @@ from routes.pages import pages_bp
 from routes.game import games_bp
 from routes.practice import practice_bp
 from routes.admin import admin_bp
+from routes.mailbox import mailbox_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(pages_bp)
 app.register_blueprint(games_bp)
 app.register_blueprint(practice_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(mailbox_bp)
 
 # Per-route rate limits applied post-registration so the auth blueprint stays
 # decoupled from the limiter at import time.

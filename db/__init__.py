@@ -68,6 +68,12 @@ from db.reports import (
     submit_category_report,
 )
 from db.admin import admin_user_stats, is_admin
+from db.messages import (
+    create_message,
+    list_for_user as list_messages_for_user,
+    mark_all_read as mark_all_messages_read,
+    mark_read as mark_message_read,
+)
 
 DIR = Path(__file__).parent.parent
 DB_FILE = Path(os.environ.get("DB_PATH", DIR / "games.db"))
@@ -140,4 +146,9 @@ __all__ = [
     # admin
     "admin_user_stats",
     "is_admin",
+    # messages (mailbox)
+    "create_message",
+    "list_messages_for_user",
+    "mark_all_messages_read",
+    "mark_message_read",
 ]
