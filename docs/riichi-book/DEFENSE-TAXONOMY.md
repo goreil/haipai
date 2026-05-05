@@ -45,22 +45,10 @@ worst case* when the hand becomes tenpai.
 
 ## 2. Absolutely safe tiles (§8.2.1)
 
-Haipai's current coarse `genbutsu` label covers only the first of
-these:
+Haipai uses killerducky defense calculator. If something shows up as 0%
+it's "absolutely safe".
 
-1. **Genbutsu proper** — the threat discarded this tile themselves, **or**
-   anyone discarded it after the threat's riichi (the threat passed on
-   it). 100% safe against that threat.
-2. **Last discard by left-shimocha** — temporary furiten forbids the
-   left-seat player from ronning on their own previous-turn discard, so
-   it's 100% safe for *everyone* for one turn.
-3. **Fourth honor when 13-orphans is dead** — a fourth copy of a
-   terminal/honor is 100% safe for everyone *if* 13-orphans is
-   impossible (some other terminal/honor is already exhausted).
-4. **Absolute "no-chance"** — a tile that cannot be part of any run,
-   set, or pair given what's visible. E.g. all four of 1m and four of
-   3m visible plus three of 2m visible → the fourth 2m is 100% safe for
-   everyone.
+This does not defend against kokushi, but is actually very robust.
 
 ---
 
