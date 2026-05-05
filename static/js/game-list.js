@@ -159,8 +159,6 @@ function renderGameList() {
   list.innerHTML = sorted.map(g => {
     const s = g.summary || {};
     const active = g.id === state.currentGame ? "active" : "";
-    const pct = g.total > 0 ? Math.round((g.annotated / g.total) * 100) : 100;
-    const noMajor = !(s.by_severity || {})["???"];
     const rating = gameRating(s);
     const dateObj = new Date(g.date + "T00:00:00");
     const shortDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -174,9 +172,6 @@ function renderGameList() {
         <div class="date"><span class="dev-id" title="game id">#${g.id}</span>${rating.icon ? ` <span class="game-rating-icon" title="${rating.label}">${rating.icon}</span>` : ""} ${
           s.total_mistakes || 0} mistakes &middot; ${(s.total_ev_loss || 0).toFixed(2)} EV${
           s.total_decisions ? ` &middot; ${s.ev_per_decision.toFixed(4)}/D` : ""}</div>
-        ${g.categorization_status === "pending"
-          ? `<div class="annotation-bar categorizing"><div class="fill" style="width:${pct}%;transition:width 0.5s ease"></div></div>`
-          : `<div class="annotation-bar"><div class="fill" style="width:${pct}%"></div></div>`}
       </div>
     `;
   }).join("");
