@@ -10,7 +10,19 @@
 **Open questions / risks:**
 - `lib/categorize.py` depends on `lib/shanten.py` and `lib/ukeire.py` — both pure Python today. Porting to JS means either (a) rewriting them, (b) running them via Pyodide, or (c) keeping shanten/ukeire server-side and only moving the category decision tree. Option (c) is probably the pragmatic middle ground.
 - Aggregates (per-category counts, trend charts, leaderboards) currently run SQL over `cat_data.*`. If categorization moves client-side, we'd either need to recompute on the backend for reports, or accept that reports become client-rendered too.
-- Regression tests (C-02) assume a stable server-side classifier. A frontend port needs parallel test coverage.
-- Interaction with the trainer-tip work in C-01 — tips would need to ship as JS data too.
+- Regression tests assume a stable server-side classifier. A frontend port needs parallel test coverage.
 
-**Not a near-term commit** — log for evaluation, don't schedule work until C-01/C-02 and the `categorization_vision` taxonomy settle.
+## Plan
+
+The plan is to first just port `lib/categorize` to frontend and keep `lib/ukeire,shanten` 
+in the backend for the first step.
+
+Regarding the category aggregates: Currently only the users ken and ylue show them anyway. Hide it from them 
+again while we do the refactor.
+
+To verify that everything works correctly. Randomly sample like 50 real games, and get the current 
+categorization of it using the current categorization.py and store it. Then after implementing
+the javascript sampler, check if the categorizer categorizes the games correctly. 
+
+We can figure out regression test later.
+
