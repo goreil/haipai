@@ -33,9 +33,6 @@ python3 -m lib.parse analysis.json
 - `SECRET_KEY` must be set via `.env` or environment variable. No insecure default is provided.
 - Debug mode requires `FLASK_ENV=development` (off by default).
 
-## Coding principle
-- new features should be kept in the frontend js, if a feature must touch the backend (since some data
-isn't exposed, ask user if they want a bigger refactor which would expose more backend data)
 
 ## Data storage
 
