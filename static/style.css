@@ -440,6 +440,15 @@ body {
   border-radius: 3px;
   transition: width 0.5s ease;
 }
+.cat-progress-fill.cat-progress-indeterminate {
+  width: 35%;
+  animation: cat-progress-slide 1.4s ease-in-out infinite;
+  transition: none;
+}
+@keyframes cat-progress-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(285%); }
+}
 
 /* Round */
 .round {

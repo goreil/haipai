@@ -19,8 +19,8 @@ except ImportError:
 
 import db
 from lib.parse import flatten_mjai_log, parse_game, round_header, severity
-from lib.categorize import (
-    MJAI_TO_ID, ID_TO_MJAI, mjai_to_tile_id, tile_id_to_base,
+from lib.tiles import MJAI_TO_ID, ID_TO_MJAI, mjai_to_tile_id, tile_id_to_base
+from lib.board import (
     extract_board_state, reconstruct_context, subtract_hand_from_wall,
 )
 
@@ -930,53 +930,34 @@ class TestAddGamePipeline:
         assert "game_id" in data
         assert isinstance(data["game_id"], int)
 
-    def test_add_game_categorizes_mistakes(self, client, mortal_json):
-        """Added game should have categorized mistakes in the DB."""
-        data = self._add_game(client, mortal_json)
-        game_id = data["game_id"]
-        self._wait_for_categorization(game_id)
-
-        # Verify categories are in the DB
-        conn = db.get_db()
-        rows = conn.execute(
-            "SELECT category FROM mistakes WHERE game_id = ? AND category IS NOT NULL",
-            (game_id,),
-        ).fetchall()
-        assert len(rows) > 0, "No categorized mistakes in DB"
-
-        # All categories should be valid
-        valid_cats = {"P1", "P2", "P3", "P4", "D1", "D2", "D3",
-                      "1A", "2A", "3A", "3B", "3C",
-                      "4A", "4B", "4C", "5A", "5B", "6A", "6B"}
-        for row in rows:
-            assert row["category"] in valid_cats, f"Invalid category: {row['category']}"
-
-    def test_add_game_all_mistakes_categorized(self, client, mortal_json):
-        """Every mistake should get a non-null category after POST.
-
-        Regression test for silent background-categorizer failures — the
-        prior ``test_add_game_categorizes_mistakes`` only checks that at
-        least one mistake was categorized, so a bug that skipped a
-        subset of mistakes (e.g. meld/riichi/kan action-type paths that
-        crashed the categorizer) would slip through. The fixture
-        e62f1f8cad825afa.json contains a 'none vs chi' mistake that
-        exercises the action-type branch.
-        """
+    def test_add_game_prepares_inputs(self, client, mortal_json):
+        """Every dahai-vs-dahai mistake should have discard_stats populated
+        after the background prep step. This is the JS categorizer's main
+        input — if it's missing, mistake cards render without an EV table.
+        Backend categorization itself was moved to JS in step 2, so the
+        `category` column is no longer expected to be populated here."""
         data = self._add_game(client, mortal_json)
         game_id = data["game_id"]
         self._wait_for_categorization(game_id)
 
         conn = db.get_db()
         rows = conn.execute(
-            "SELECT id, category FROM mistakes WHERE game_id = ?",
+            "SELECT id, data_json FROM mistakes WHERE game_id = ?",
             (game_id,),
         ).fetchall()
         assert len(rows) > 0, "No mistakes in DB after add"
 
-        uncategorized = [r["id"] for r in rows if r["category"] is None]
-        assert not uncategorized, (
-            f"{len(uncategorized)}/{len(rows)} mistakes failed to categorize "
-            f"(ids: {uncategorized[:5]})"
+        missing_stats = []
+        for r in rows:
+            d = json.loads(r["data_json"])
+            actual = d.get("actual") or {}
+            expected = d.get("expected") or {}
+            if actual.get("type") == "dahai" and expected.get("type") == "dahai":
+                if not d.get("discard_stats"):
+                    missing_stats.append(r["id"])
+        assert not missing_stats, (
+            f"{len(missing_stats)}/{len(rows)} dahai-vs-dahai mistakes "
+            f"missing discard_stats (ids: {missing_stats[:5]})"
         )
 
     def test_add_game_has_summary(self, client, mortal_json):
@@ -1001,24 +982,19 @@ class TestAddGamePipeline:
             mdata = json.loads(row["data_json"])
             assert "board_state" in mdata, f"Missing board_state in mistake"
 
-    def test_add_game_returns_categorization_stats(self, client, mortal_json):
-        """After background categorization finishes, all mistakes should
-        have a non-null category in the DB. (Categorization is async — the
-        add response no longer carries the per-request counts.)"""
+    def test_add_game_status_done(self, client, mortal_json):
+        """Background prep should reach `done` status, signalling the
+        frontend that data_json is ready for the JS categorizer."""
         data = self._add_game(client, mortal_json)
         assert data.get("ok") is True
-        self._wait_for_categorization(data["game_id"])
+        status = self._wait_for_categorization(data["game_id"])
+        assert status == "done", f"prep status: {status!r}"
 
         conn = db.get_db()
         total = conn.execute(
             "SELECT COUNT(*) FROM mistakes WHERE game_id = ?", (data["game_id"],),
         ).fetchone()[0]
-        categorized = conn.execute(
-            "SELECT COUNT(*) FROM mistakes WHERE game_id = ? AND category IS NOT NULL",
-            (data["game_id"],),
-        ).fetchone()[0]
         assert total > 0
-        assert categorized == total, f"{total - categorized}/{total} uncategorized"
 
     def test_get_game_after_add(self, client, mortal_json):
         """GET /api/games/<id> should return the added game with mistakes."""
@@ -1045,11 +1021,13 @@ class TestAddGamePipeline:
         assert res3.status_code == 404
 
     def test_categorize_endpoint(self, client, mortal_json):
-        """POST /api/games/<id>/categorize should re-categorize."""
+        """POST /api/games/<id>/categorize should re-run the input prep.
+        (Endpoint URL retained from the categorizer era; under the hood
+        it now calls prepare_game_data.)"""
         data = self._add_game(client, mortal_json)
         game_id = data["game_id"]
-        # Wait for the initial background categorization to finish so
-        # /categorize doesn't race against it.
+        # Wait for the initial background prep to finish so the re-run
+        # doesn't race against it.
         self._wait_for_categorization(game_id)
 
         res2 = client.post(f"/api/games/{game_id}/categorize",
@@ -1059,13 +1037,8 @@ class TestAddGamePipeline:
         assert data.get("ok") is True
         assert data.get("status") == "pending"
 
-        self._wait_for_categorization(game_id)
-        conn = db.get_db()
-        categorized = conn.execute(
-            "SELECT COUNT(*) FROM mistakes WHERE game_id = ? AND category IS NOT NULL",
-            (game_id,),
-        ).fetchone()[0]
-        assert categorized > 0
+        status = self._wait_for_categorization(game_id)
+        assert status == "done"
 
     def test_trends_after_add(self, client, mortal_json):
         """GET /api/trends should include data after adding a game."""

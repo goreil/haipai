@@ -227,24 +227,18 @@ function renderGame() {
   `;
 
   // Categorization status banner
-  let catTotal = 0, catDone = 0;
-  for (const rnd of game.rounds) {
-    for (const m of rnd.mistakes) {
-      catTotal++;
-      if (m.category) catDone++;
-    }
-  }
-  const catIncomplete = catTotal > 0 && catDone < catTotal;
+  // Backend prep status. Categorization itself runs in JS at render time
+  // (see recategorizeGameInPlace) — so per-mistake "X/Y categorized"
+  // progress is no longer meaningful; the only states that matter are
+  // "prep still running", "prep failed", or "ready".
   if (game.categorization_status === "pending") {
-    const pct = catTotal > 0 ? Math.round((catDone / catTotal) * 100) : 0;
-    html += `<div class="categorization-banner pending">Categorizing mistakes: ${catDone}/${catTotal} (${pct}%)
+    html += `<div class="categorization-banner pending">Preparing analysis…
       <span class="cat-retry-link" onclick="continueCategorization(${game.id})">Stuck? Retry</span>
-      <div class="cat-progress-bar"><div class="cat-progress-fill" style="width:${pct}%"></div></div>
+      <div class="cat-progress-bar"><div class="cat-progress-fill cat-progress-indeterminate"></div></div>
     </div>`;
-  } else if (game.categorization_status === "failed" || (game.categorization_status === "done" && catIncomplete)) {
-    const label = game.categorization_status === "failed" ? "Categorization failed" : `${catTotal - catDone} mistakes not yet categorized`;
-    html += `<div class="categorization-banner failed">${label}.
-      <button class="btn btn-small" onclick="continueCategorization(${game.id})">Continue categorizing</button>
+  } else if (game.categorization_status === "failed") {
+    html += `<div class="categorization-banner failed">Analysis prep failed.
+      <button class="btn btn-small" onclick="continueCategorization(${game.id})">Retry</button>
     </div>`;
   }
 
@@ -583,64 +577,28 @@ async function continueCategorization(gameId) {
 
 function pollCategorization(gameId) {
   if (state._catPollTimer) clearInterval(state._catPollTimer);
-  state._catPollStart = Date.now();
-  state._catPollLastCount = 0;
   state._catPollTimer = setInterval(async () => {
     const res = await fetch(`/api/games/${gameId}`);
     if (!res.ok) return;
     const game = await res.json();
 
-    // Count categorized mistakes for progress
-    let categorized = 0, total = 0;
-    for (const rnd of game.rounds) {
-      for (const m of rnd.mistakes) {
-        total++;
-        if (m.category) categorized++;
-      }
+    if (game.categorization_status === "pending") {
+      // Still preparing — leave the indeterminate banner up. No per-mistake
+      // progress to compute (categorization is JS-side, runs all at once
+      // when the game finally renders).
+      return;
     }
 
-    // Update progress in detail view banner
-    if (state.currentGame === gameId && game.categorization_status === "pending") {
+    clearInterval(state._catPollTimer);
+    state._catPollTimer = null;
+    await fetchGames();
+    if (state.currentGame === gameId) {
+      // Run the JS categorizer on the freshly-prepped data and re-render
+      // so the user sees categories without having to click away.
+      recategorizeGameInPlace(game);
+      game.summary = recomputeSummaryByCategory(game);
       state.currentGameData = game;
-      const pct = total > 0 ? Math.round((categorized / total) * 100) : 0;
-      let etaText = "";
-      const elapsed = (Date.now() - state._catPollStart) / 1000;
-      if (categorized > state._catPollLastCount && categorized > 0 && categorized < total) {
-        const rate = categorized / elapsed;
-        const remaining = Math.ceil((total - categorized) / rate);
-        etaText = remaining > 60 ? ` (~${Math.ceil(remaining / 60)}m left)` : ` (~${remaining}s left)`;
-      }
-      state._catPollLastCount = categorized;
-
-      const banner = document.querySelector(".categorization-banner");
-      if (banner) {
-        banner.innerHTML = `Categorizing mistakes: ${categorized}/${total} (${pct}%)${etaText}
-          <div class="cat-progress-bar"><div class="cat-progress-fill" style="width:${pct}%"></div></div>`;
-      }
-
-      // Update sidebar progress bar too
-      const gameItem = state.games.find(g => g.id === gameId);
-      if (gameItem) {
-        gameItem.summary = game.summary;
-        renderGameList();
-      }
-    }
-
-    // Update sidebar progress bar
-    const sidebarBar = document.querySelector(`.game-item.active .annotation-bar.categorizing .fill`);
-    if (sidebarBar && total > 0) {
-      sidebarBar.style.width = `${Math.round((categorized / total) * 100)}%`;
-      sidebarBar.style.animation = "none";
-    }
-
-    if (game.categorization_status !== "pending") {
-      clearInterval(state._catPollTimer);
-      state._catPollTimer = null;
-      await fetchGames();
-      if (state.currentGame === gameId) {
-        state.currentGameData = game;
-        renderGame();
-      }
+      renderGame();
     }
   }, 2000);
 }

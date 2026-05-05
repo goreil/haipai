@@ -18,11 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from lib.categorize import (
-    categorize_mistake,
-    reconstruct_context,
-    subtract_hand_from_wall,
-)
+from lib.board import reconstruct_context, subtract_hand_from_wall
 from lib.parse import flatten_mjai_log, parse_game, round_header
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -71,83 +67,6 @@ def test_parse_snapshot(name, fname):
     data = _load(fname)
     game = parse_game(data, game_date="2026-01-01")
     _assert_snapshot(name, "parse", game)
-
-
-def _categorize_fixture(data):
-    """Run categorize_mistake over every mistake, returning a compact per-mistake
-    summary. Captures the user-visible category label and the fields that identify
-    which decision it came from — no internal state that'd churn on refactor."""
-    game = parse_game(data, game_date="2026-01-01")
-    kyokus = data["review"]["kyokus"]
-    events = flatten_mjai_log(data["mjai_log"])
-    start_events = [e for e in events if e.get("type") == "start_kyoku"]
-    start_positions = [
-        i for i, e in enumerate(events) if e.get("type") == "start_kyoku"
-    ]
-    player_id = data["player_id"]
-
-    out = []
-    for kyoku_idx, (kyoku, start) in enumerate(zip(kyokus, start_events)):
-        rnd_name = round_header(start)
-        game_round = next(
-            (r for r in game["rounds"] if r["round"] == rnd_name), None
-        )
-        if not game_round:
-            continue
-        dora_indicators = [start["dora_marker"]]
-        start_pos = start_positions[kyoku_idx]
-        end_pos = (
-            start_positions[kyoku_idx + 1]
-            if kyoku_idx + 1 < len(start_positions)
-            else len(events)
-        )
-        defense_ctx = {
-            "mjai_events": events,
-            "start_pos": start_pos,
-            "end_pos": end_pos,
-            "player_id": player_id,
-        }
-
-        mistake_idx = 0
-        for entry in kyoku["entries"]:
-            if entry["is_equal"]:
-                continue
-            while mistake_idx < len(game_round["mistakes"]):
-                if game_round["mistakes"][mistake_idx]["turn"] == entry["junme"]:
-                    break
-                mistake_idx += 1
-            else:
-                continue
-            if mistake_idx >= len(game_round["mistakes"]):
-                continue
-
-            m = game_round["mistakes"][mistake_idx]
-            mistake_idx += 1
-
-            cat, _, _, _, _ = categorize_mistake(
-                m, data, kyoku_idx, entry, dora_indicators,
-                defense_ctx=defense_ctx,
-            )
-            out.append({
-                "round": rnd_name,
-                "turn": m["turn"],
-                "severity": m["severity"],
-                "ev_loss": m["ev_loss"],
-                "actual_type": m["actual"].get("type"),
-                "expected_type": m["expected"].get("type"),
-                "actual_pai": m["actual"].get("pai"),
-                "expected_pai": m["expected"].get("pai"),
-                "category": cat,
-            })
-    return out
-
-
-@pytest.mark.parametrize("name,fname", FIXTURES)
-def test_categorize_snapshot(name, fname):
-    """categorize_mistake output for every mistake is stable."""
-    data = _load(fname)
-    out = _categorize_fixture(data)
-    _assert_snapshot(name, "categorize", out)
 
 
 # --- HTTP end-to-end -----------------------------------------------------

@@ -152,7 +152,7 @@ def api_categorize(game_id):
     conn.commit()
 
     threading.Thread(
-        target=_categorize_background,
+        target=_prepare_data_background,
         args=(game_id, force),
         daemon=True,
     ).start()
@@ -358,7 +358,7 @@ def api_add():
 
     # Kick off categorization in background thread
     threading.Thread(
-        target=_categorize_background,
+        target=_prepare_data_background,
         args=(game_id,),
         daemon=True,
     ).start()
@@ -366,12 +366,18 @@ def api_add():
     return jsonify({"ok": True, "game_id": game_id, "summary": game_dict.get("summary", {})})
 
 
-def _categorize_background(game_id, force=False):
-    """Run categorization in a background thread with its own DB connection."""
-    from lib.categorize import categorize_game_db
+def _prepare_data_background(game_id, force=False):
+    """Run mistake input-prep in a background thread with its own DB connection.
+
+    Categorization itself is JS-side; this only computes the inputs the
+    frontend categorizer reads (discard_stats, defense_kd payload, 5A/5B
+    riichi patches). The `categorization_status` column is reused to
+    signal "data is ready".
+    """
+    from lib.categorize import prepare_game_data
     conn = db.get_db()
     try:
-        categorize_game_db(conn, game_id, force=force)
+        prepare_game_data(conn, game_id, force=force)
         db.compute_summary_for_game(conn, game_id)
         conn.execute(
             "UPDATE games SET categorization_status = 'done' WHERE id = ?",

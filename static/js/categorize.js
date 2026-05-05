@@ -1,15 +1,14 @@
-// Mistake categorizer — JS mirror of lib/categorize/{rules,labels}.py
-// + the relevant slice of lib/categorize/__init__.py::categorize_mistake.
+// Mistake categorizer — sole owner of the rule-decision logic for the app.
+// (Earlier iterations of this lived in lib/categorize/{rules,labels}.py;
+// those were removed when the backend stopped categorizing.)
 //
 // Input: a mistake dict shaped like the API response (hand, melds, actual,
-// expected, discard_stats, dealin_rates, board_state, optional pre-shipped
-// scene flags). Output: { category, categorize_data, labels }.
+// expected, discard_stats, dealin_rates, board_state). The server prepares
+// these inputs in lib/categorize/__init__.py::prepare_mistake_data; this
+// file decides the category from them.
 //
-// Inputs not derivable from data_json alone (currently just
-// `threatening_opponent`, a 3+-open-melds scene flag) are read from
-// the existing `categorize_data` blob carried over from the backend.
-// That keeps step-1 self-contained: the server emits the raw signal,
-// the JS only owns the decision.
+// Output: { category, categorize_data, labels } in the shape consumers
+// (mistake-card, categorize-view, EV table) used to read off the DB.
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -240,9 +239,6 @@
       catData.best_shanten = bestShanten;
     }
 
-    // Carry over scene flags that JS can't derive.
-    const incoming = m.categorize_data || {};
-    if (incoming.threatening_opponent) catData.threatening_opponent = true;
     if (dealinRates && Object.keys(dealinRates).length > 0) {
       catData.defense_trigger = "riichi";
     }

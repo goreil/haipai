@@ -230,6 +230,41 @@ def walk_kyoku(events, start_pos, end_pos, player_id, target_tiles_left=0):
     }
 
 
+_MELD_TYPES = frozenset({"chi", "pon"})
+_KAN_TYPES = frozenset({"ankan", "kakan", "daiminkan"})
+
+
+def skill_area_for_entry(actual_type, expected_type, detail_types=(),
+                         in_riichi=False):
+    """Classify a Mortal review entry into exactly one skill area.
+
+    Returns ``"attack"``, ``"defense"``, ``"meld"``, ``"riichi"``, ``"kan"``,
+    or ``None`` (entry isn't a trackable player decision).
+
+    Used as the denominator bucket for the trends EV/D bars: each entry
+    lands in exactly one area, the highest-priority non-dahai action type
+    in either ``actual.type`` or ``expected.type``. Plain dahai falls
+    through to attack/defense based on whether the player is in riichi.
+    """
+    types = {actual_type, expected_type}
+    if types & _MELD_TYPES:
+        return "meld"
+    if "reach" in types:
+        return "riichi"
+    if types & _KAN_TYPES:
+        return "kan"
+    if "dahai" in types:
+        return "defense" if in_riichi else "attack"
+    d = set(detail_types)
+    if d & _MELD_TYPES:
+        return "meld"
+    if "reach" in d:
+        return "riichi"
+    if d & _KAN_TYPES:
+        return "kan"
+    return None
+
+
 def _decision_counts_for_kyoku(entries, start_pos, end_pos, events, player_id):
     """Per-skill-area decision counts for one kyoku — the denominators used
     by the trends EV/D bars.
@@ -241,8 +276,6 @@ def _decision_counts_for_kyoku(entries, start_pos, end_pos, events, player_id):
     denominator bucket always agree: a 5B (missed riichi) goes to the
     ``riichi`` denominator, a D2 push goes to ``defense``, etc.
     """
-    from lib.categorize import skill_area_for_entry
-
     counts = {"attack": 0, "defense": 0, "riichi": 0, "meld": 0, "kan": 0}
     state = walk_kyoku(events, start_pos, end_pos, player_id)
     junme_riichi_state = state["player_tsumo_riichi_state"]
