@@ -143,9 +143,11 @@ function renderTrends(games) {
     <div class="trend-chart">${renderStackedBarChart(games)}</div>
   </div>`;
 
-  // Chart 3: Personalized recommendation + category EV breakdown across all games
-  html += renderTrendRecommendation(games);
-  html += renderCategoryTrend(games);
+  // Chart 3: Personalized recommendation. The per-category breakdown panel
+  // (renderCategoryTrend / renderTrendRecommendation) is hidden during the
+  // BACKEND-TO-FRONTEND refactor — those rely on backend-stored category
+  // aggregates that go stale once the JS categorizer overrides on render.
+  // Re-enable once the trends API recomputes from JS-categorized mistakes.
 
   content.innerHTML = html;
 }

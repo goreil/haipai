@@ -67,10 +67,55 @@ async function fetchGame(id) {
   const res = await fetch(`/api/games/${id}`);
   state.currentGameData = await res.json();
   state.currentGame = id;
+  recategorizeGameInPlace(state.currentGameData);
+  state.currentGameData.summary = recomputeSummaryByCategory(state.currentGameData);
   renderGame();
   if (state.currentGameData.categorization_status === "pending") {
     pollCategorization(id);
   }
+}
+
+// Run the JS categorizer over every mistake, overwriting category /
+// categorize_data / labels in place. Same shape as what the backend
+// stored — downstream renderers read these fields and don't care that
+// they were rewritten client-side.
+function recategorizeGameInPlace(game) {
+  if (!game || !game.rounds) return;
+  if (typeof haipaiCategorize === "undefined") return;
+  for (const rnd of game.rounds) {
+    for (const m of rnd.mistakes || []) {
+      const out = haipaiCategorize.categorize(m);
+      m.category = out.category;
+      m.categorize_data = out.categorize_data;
+      m.labels = out.labels;
+    }
+  }
+}
+
+// Recompute summary.by_category from the JS-categorized mistakes so
+// per-game stats line up with what the user sees. The backend's
+// stored stats_json was written off the (now potentially stale)
+// server-side categories.
+function recomputeSummaryByCategory(game) {
+  const summary = { ...(game.summary || {}) };
+  const byCat = {};
+  let total = 0, evLoss = 0;
+  for (const rnd of game.rounds || []) {
+    for (const m of rnd.mistakes || []) {
+      total++;
+      const ev = m.ev_loss || 0;
+      evLoss += ev;
+      if (m.category) {
+        if (!byCat[m.category]) byCat[m.category] = { count: 0, ev: 0 };
+        byCat[m.category].count++;
+        byCat[m.category].ev = +(byCat[m.category].ev + ev).toFixed(2);
+      }
+    }
+  }
+  summary.by_category = byCat;
+  summary.total_mistakes = total;
+  summary.total_ev_loss = +evLoss.toFixed(2);
+  return summary;
 }
 
 async function saveAnnotation(gameId, round, turn, index, category, note) {
