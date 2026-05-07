@@ -1,10 +1,9 @@
 // EV-comparison table + safety/dealin lookup helpers + wait-breakdown
-// rendering. Read by mistake-card.js and practice.js as the core "discard
-// pick analysis" widget.
+// rendering. Read by mistake-card.js as the core "discard pick analysis"
+// widget.
 
 function renderEvComparison(m, options) {
   options = options || {};
-  const showTop3 = !!options.showTop3;   // practice mode: include top candidates
   // Multi-riichi view: when per_threat has multiple entries, the user can
   // toggle between "combined" (default, aggregated deal-in %) and a specific
   // opponent's seat. The toggle swaps dealin_rates + wait_breakdowns locally
@@ -51,13 +50,8 @@ function renderEvComparison(m, options) {
   }
 
   // Review view is decluttered: just the three decisions the user cares about
-  // (you / mortal / calc). Practice mode still shows Mortal & calc top 3 to
-  // help the student see the ranking rather than only the right answer.
+  // (you / mortal / calc).
   const shown = new Set();
-  if (showTop3) {
-    for (const a of m.top_actions.slice(0, 3)) shown.add(a.action.pai || a.action.type);
-    for (const s of m.discard_stats.slice(0, 3)) shown.add(s.tile);
-  }
   if (actualTile) shown.add(actualTile);
   if (expectedTile) shown.add(expectedTile);
   if (m.best_discard) shown.add(m.best_discard);

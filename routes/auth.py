@@ -179,23 +179,11 @@ def api_me():
         "id": current_user.id,
         "is_admin": is_admin,
         "impersonating": impersonating,
-        "practice_opt_in": bool(user_row["practice_opt_in"]) if user_row else False,
         "has_password": bool(user_row["password_hash"]) if user_row else False,
         "discord_linked": bool(user_row["discord_id"]) if user_row else False,
         "google_linked": bool(user_row["google_id"]) if user_row else False,
         "csrf_token": generate_csrf(),
     })
-
-
-@auth_bp.route("/api/me/practice-opt-in", methods=["POST"])
-@login_required
-def api_practice_opt_in():
-    from app import get_conn
-    conn = get_conn()
-    body = request.json or {}
-    opt_in = bool(body.get("opt_in"))
-    db.set_practice_opt_in(conn, current_user.id, opt_in)
-    return jsonify({"ok": True, "practice_opt_in": opt_in})
 
 
 @auth_bp.route("/api/me/link-oauth", methods=["POST"])

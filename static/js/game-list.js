@@ -43,7 +43,7 @@ function showOnboarding() {
   document.getElementById("content").innerHTML = `
     <div class="onboarding">
       <h2>Welcome to Haipai</h2>
-      <p>Haipai analyzes your Riichi Mahjong games using Mortal AI to help you study your mistakes, track improvement over time, and practice your weak spots.</p>
+      <p>Haipai analyzes your Riichi Mahjong games using Mortal AI to help you study your mistakes and track improvement over time.</p>
       <h3>How to add your first game</h3>
       <ol>
         <li>Play a game on <a href="https://tenhou.net" target="_blank">Tenhou</a> or <a href="https://mahjongsoul.game.yo-star.com" target="_blank">Mahjong Soul</a></li>

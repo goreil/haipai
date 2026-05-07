@@ -1,6 +1,6 @@
 # Haipai - Mahjong Mistake Trainer
 
-Personal Riichi Mahjong game analysis tool. Analyzes Tenhou replays via Mortal AI, stores structured mistake data, and provides a web UI for review, annotation, and practice.
+Personal Riichi Mahjong game analysis tool. Analyzes Tenhou replays via Mortal AI, stores structured mistake data, and provides a web UI for review and annotation.
 
 ## Deployment
 

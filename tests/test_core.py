@@ -274,10 +274,10 @@ class TestDatabase:
         assert row["type"] == "bug"
         assert row["message"] == "Something is broken"
 
-    # --- Helper to insert a game with eligible practice mistakes ---
+    # --- Helper to insert a game with a discard mistake ---
 
-    def _add_practice_game(self, conn, uid):
-        """Insert a game with a '??' severity discard-vs-discard mistake eligible for practice."""
+    def _add_game_with_mistake(self, conn, uid):
+        """Insert a game with a '??' severity discard-vs-discard mistake."""
         game_dict = {
             "date": "2026-01-15",
             "rounds": [{
@@ -308,76 +308,6 @@ class TestDatabase:
         gid = db.add_game(conn, uid, game_dict)
         mid = conn.execute("SELECT id FROM mistakes WHERE game_id = ?", (gid,)).fetchone()["id"]
         return gid, mid
-
-    # --- get_practice_problem tests ---
-
-    def test_get_practice_problem_no_eligible(self, sample_user):
-        """get_practice_problem returns None when no eligible problems exist."""
-        conn, uid = sample_user
-        result = db.get_practice_problem(conn, uid)
-        assert result is None
-
-    def test_get_practice_problem_with_eligible(self, sample_user):
-        """get_practice_problem returns a problem when eligible mistakes exist."""
-        conn, uid = sample_user
-        gid, mid = self._add_practice_game(conn, uid)
-
-        result = db.get_practice_problem(conn, uid)
-        assert result is not None
-        assert result["game_id"] == gid
-        assert result["mistake_id"] == mid
-        assert result["round"] == "E1"
-        assert "mistake" in result
-        assert result["mistake"]["turn"] == 5
-        assert result["pool_size"] == 1
-
-    def test_get_practice_problem_excludes_low_severity(self, sample_user):
-        """get_practice_problem skips '?' severity mistakes."""
-        conn, uid = sample_user
-        game_dict = {
-            "date": "2026-01-15",
-            "rounds": [{
-                "round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
-                "mistakes": [{
-                    "turn": 3, "severity": "?", "ev_loss": 0.05,
-                    "category": "1A", "note": None,
-                    "hand": ["1m", "2m", "3m"],
-                    "melds": [],
-                    "actual": {"type": "dahai", "pai": "1m"},
-                    "expected": {"type": "dahai", "pai": "3m"},
-                    "top_actions": [],
-                }],
-            }],
-        }
-        db.add_game(conn, uid, game_dict)
-        result = db.get_practice_problem(conn, uid)
-        assert result is None
-
-    # --- get_public_practice_problem tests ---
-
-    def test_get_public_practice_problem_no_opted_in(self, sample_user):
-        """get_public_practice_problem returns None when no users are opted in."""
-        conn, uid = sample_user
-        self._add_practice_game(conn, uid)
-        # User is NOT opted in (default practice_opt_in=0)
-        result = db.get_public_practice_problem(conn)
-        assert result is None
-
-    def test_get_public_practice_problem_with_opted_in(self, sample_user):
-        """get_public_practice_problem returns anonymized problem from opted-in user."""
-        conn, uid = sample_user
-        gid, mid = self._add_practice_game(conn, uid)
-        db.set_practice_opt_in(conn, uid, True)
-
-        result = db.get_public_practice_problem(conn)
-        assert result is not None
-        assert result["mistake_id"] == mid
-        assert result["is_community"] is True
-        # Notes should be stripped for anonymity
-        assert result["mistake"]["note"] is None
-        # actual should be stripped
-        assert "actual" not in result["mistake"]
-        assert result["pool_size"] == 1
 
     # --- get_trends tests ---
 
@@ -520,7 +450,7 @@ class TestDatabase:
     def test_submit_category_report(self, sample_user):
         """submit_category_report inserts a report and returns its ID."""
         conn, uid = sample_user
-        gid, mid = self._add_practice_game(conn, uid)
+        gid, mid = self._add_game_with_mistake(conn, uid)
 
         report_id = db.submit_category_report(conn, uid, mid, kind="wrong_category",
                                                suggested_category="3A", reason="Should be push/fold")
@@ -539,7 +469,7 @@ class TestDatabase:
     def test_submit_category_report_agree(self, sample_user):
         """submit_category_report with kind=agree stores agree=1 and no suggestion."""
         conn, uid = sample_user
-        gid, mid = self._add_practice_game(conn, uid)
+        gid, mid = self._add_game_with_mistake(conn, uid)
 
         report_id = db.submit_category_report(conn, uid, mid, kind="agree")
         row = conn.execute("SELECT * FROM category_reports WHERE id = ?", (report_id,)).fetchone()
@@ -551,7 +481,7 @@ class TestDatabase:
     def test_submit_category_report_upserts(self, sample_user):
         """Re-submitting for the same (user, mistake) replaces the prior report."""
         conn, uid = sample_user
-        gid, mid = self._add_practice_game(conn, uid)
+        gid, mid = self._add_game_with_mistake(conn, uid)
 
         db.submit_category_report(conn, uid, mid, kind="wrong_category",
                                    suggested_category="3A", reason="first")
@@ -569,14 +499,14 @@ class TestDatabase:
     def test_submit_category_report_invalid_kind(self, sample_user):
         """An unknown kind raises ValueError."""
         conn, uid = sample_user
-        gid, mid = self._add_practice_game(conn, uid)
+        gid, mid = self._add_game_with_mistake(conn, uid)
         with pytest.raises(ValueError):
             db.submit_category_report(conn, uid, mid, kind="nope")
 
     def test_list_category_reports(self, sample_user):
         """list_category_reports returns all reports with context."""
         conn, uid = sample_user
-        gid, mid = self._add_practice_game(conn, uid)
+        gid, mid = self._add_game_with_mistake(conn, uid)
 
         db.submit_category_report(conn, uid, mid, kind="wrong_category",
                                    suggested_category="3B", reason="Defense mistake")
@@ -774,16 +704,6 @@ class TestAPI:
             "message": "test",
         })
         assert res.status_code == 400
-
-    def test_practice_result_validation(self, client):
-        """Practice result requires integer mistake_id."""
-        self._login(client)
-        res = client.post("/api/practice/result", json={
-            "mistake_id": "not-an-int",
-            "correct": True,
-        })
-        assert res.status_code == 400
-
 
 # --- Wall reconstruction tests ---
 

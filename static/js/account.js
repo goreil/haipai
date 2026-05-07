@@ -173,16 +173,6 @@ function showHelp() {
       <p>Ratings are relative to your own history, so they reflect personal improvement. Rounds with zero mistakes get a <span class="clean-badge" style="display:inline">Clean</span> badge.</p>
     </div>
 
-    <!-- practice mode help section hidden for Berlin club demo — 2026-04-23
-    <div class="help-section">
-      <h3>Practice Mode</h3>
-      <p>Practice replays your discard mistakes as quizzes. You see the hand, draw, and board context, then pick a discard. After answering, the full analysis is revealed.</p>
-      <p>Problems include all discard-vs-discard mistakes &mdash; efficiency, defense, and strategy. Board context (discards, dora, scores) is shown so you have the same information you'd have in a real game.</p>
-      <p><b>Spaced repetition:</b> Problems you get wrong (or haven't seen) appear 3x more often. Problems you've answered correctly multiple times appear less. This focuses practice on your weakest areas.</p>
-      <p><b>Filters:</b> Focus on severity levels (??? / ??) or riichi-only situations. Switch between community pool and your own mistakes.</p>
-    </div>
-    -->
-
     <div class="help-section">
       <h3>Attribution & Licenses</h3>
       <p style="font-size:13px;color:var(--text-dim)">Haipai is open-source software. See the <code>LICENSE</code> and <code>NOTICE</code> files in the repo for full terms and third-party attribution.</p>

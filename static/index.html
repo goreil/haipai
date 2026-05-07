@@ -36,9 +36,6 @@
         </span>
         <div class="spacer"></div>
         <button class="btn" id="trends-btn" onclick="showTrends()">Trends</button>
-        <!-- practice mode hidden for Berlin club demo — 2026-04-23
-        <button class="btn" id="practice-btn" onclick="showPractice()">Practice</button>
-        -->
 
         <div class="mailbox" id="mailbox" style="display:none">
           <button class="btn mailbox-btn" id="mailbox-trigger" title="Mailbox" aria-label="Mailbox">
@@ -136,11 +133,11 @@
 
   <!--
     PR-5d: static/app.js (3839 LOC) was split into static/js/*.js. Load order
-    matters because cross-file globals (state, csrfToken, practice, etc.)
-    are top-level `var` declarations, and inline onclick handlers throughout
-    the app expect every helper to already be on `window` by the time the
-    user clicks. Tiles + presentation primitives load first; main.js (init)
-    runs DOMContentLoaded after every other file has parsed.
+    matters because cross-file globals (state, csrfToken, etc.) are top-level
+    `var` declarations, and inline onclick handlers throughout the app expect
+    every helper to already be on `window` by the time the user clicks. Tiles
+    + presentation primitives load first; main.js (init) runs DOMContentLoaded
+    after every other file has parsed.
   -->
   <script src="/static/js/tiles.js"></script>
   <script src="/static/js/defense-labels.js"></script>
@@ -152,7 +149,6 @@
   <script src="/static/js/mistake-card.js"></script>
   <script src="/static/js/game-list.js"></script>
   <script src="/static/js/trends.js"></script>
-  <script src="/static/js/practice.js"></script>
   <script src="/static/js/admin.js"></script>
   <script src="/static/js/account.js"></script>
   <script src="/static/js/mailbox.js"></script>

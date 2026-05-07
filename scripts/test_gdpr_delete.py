@@ -27,9 +27,6 @@ def snapshot_other_users(conn, exclude_id):
             "SELECT COUNT(*) FROM mistakes m JOIN games g ON m.game_id = g.id WHERE g.user_id != ?",
             (exclude_id,),
         ).fetchone()[0],
-        "practice_results": conn.execute(
-            "SELECT COUNT(*) FROM practice_results WHERE user_id != ?", (exclude_id,)
-        ).fetchone()[0],
         "feedback": conn.execute("SELECT COUNT(*) FROM feedback WHERE user_id != ?", (exclude_id,)).fetchone()[0],
         "category_reports": conn.execute(
             "SELECT COUNT(*) FROM category_reports WHERE user_id != ?", (exclude_id,)
@@ -72,9 +69,6 @@ def seed(conn):
         "SELECT id FROM mistakes WHERE game_id = ?", (game_id,)
     ).fetchone()["id"]
 
-    # Practice result on their own mistake
-    db.record_practice_result(conn, user_id, mistake_id, correct=True)
-
     # Feedback
     conn.execute(
         "INSERT INTO feedback (user_id, type, message) VALUES (?, ?, ?)",
@@ -107,7 +101,6 @@ def assert_empty(conn, user_id, game_id, mistake_id):
     check("users", "SELECT COUNT(*) FROM users WHERE id = ?", (user_id,))
     check("games", "SELECT COUNT(*) FROM games WHERE id = ?", (game_id,))
     check("mistakes", "SELECT COUNT(*) FROM mistakes WHERE id = ?", (mistake_id,))
-    check("practice_results", "SELECT COUNT(*) FROM practice_results WHERE user_id = ?", (user_id,))
     check("feedback", "SELECT COUNT(*) FROM feedback WHERE user_id = ?", (user_id,))
     check("category_reports", "SELECT COUNT(*) FROM category_reports WHERE user_id = ?", (user_id,))
     check(

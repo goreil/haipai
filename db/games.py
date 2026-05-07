@@ -4,7 +4,9 @@
 output dict (rounds + mistakes), wraps everything in a single
 transaction, and rolls back as a unit if any mistake insert fails.
 `compute_summary_for_game` recomputes the per-game `stats_json` blob
-from the mistakes + per-round decision counts.
+from the mistakes + per-round decision counts. `get_trends` rolls
+those per-game `stats_json` blobs into the trend-chart shape the
+frontend consumes.
 """
 
 import json
@@ -250,3 +252,31 @@ def compute_summary_for_game(conn, game_id):
 
     update_game_stats(conn, game_id, stats)
     return stats
+
+
+def get_trends(conn, user_id):
+    """Get per-game trend data.
+
+    Emits raw per-category stats (`by_category`) and per-skill-area decision
+    counts (`decision_counts`). Display-layer shaping (bar order, colors,
+    advice strings) lives in the frontend.
+    """
+    rows = conn.execute(
+        "SELECT id, date, stats_json FROM games WHERE user_id = ? ORDER BY date, id",
+        (user_id,),
+    ).fetchall()
+    games = []
+    for row in rows:
+        s = json.loads(row["stats_json"]) if row["stats_json"] else {}
+        games.append({
+            "id": row["id"],
+            "date": row["date"],
+            "total_mistakes": s.get("total_mistakes", 0),
+            "total_ev_loss": s.get("total_ev_loss", 0),
+            "total_decisions": s.get("total_decisions"),
+            "ev_per_decision": s.get("ev_per_decision"),
+            "by_severity": s.get("by_severity", {}),
+            "by_category": s.get("by_category", {}),
+            "decision_counts": s.get("decision_counts"),
+        })
+    return games

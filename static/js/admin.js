@@ -221,8 +221,8 @@ async function adminDeleteUser(userId) {
   const username = user.username;
   const typed = window.prompt(
     `GDPR-delete user "${username}"?\n\n` +
-    `This permanently removes the account, all games, mistakes, practice ` +
-    `history, feedback, and category reports.\n\n` +
+    `This permanently removes the account, all games, mistakes, ` +
+    `feedback, and category reports.\n\n` +
     `Type the username to confirm:`
   );
   if (typed === null) return;
@@ -240,7 +240,6 @@ async function adminDeleteUser(userId) {
   alert(
     `Deleted "${data.username}":\n` +
     `  ${d.games || 0} games, ${d.mistakes || 0} mistakes\n` +
-    `  ${d.practice_results || 0} practice results\n` +
     `  ${d.feedback || 0} feedback items\n` +
     `  ${d.category_reports || 0} category reports\n` +
     `  ${d.invite_codes || 0} invite codes`

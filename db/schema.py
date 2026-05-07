@@ -1,9 +1,10 @@
 """SQLite schema + migration steps for the games.db database.
 
 Schema-preserving: any change here ripples to live production.
-Migrations are forward-only, additive (`ALTER TABLE ADD COLUMN` /
-`CREATE INDEX IF NOT EXISTS`); never drop or rename without an
-explicit migration plan.
+Migrations are forward-only; additive steps (`ALTER TABLE ADD COLUMN`
+/ `CREATE INDEX IF NOT EXISTS`) are the default. Destructive steps
+(drop table, drop column) require an explicit, idempotent migration
+block — see the practice-mode removal below for the pattern.
 """
 
 SCHEMA = """
@@ -12,7 +13,6 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
-    practice_opt_in INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -35,16 +35,6 @@ CREATE TABLE IF NOT EXISTS games (
     categorization_status TEXT NOT NULL DEFAULT 'done',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-CREATE TABLE IF NOT EXISTS practice_results (
-    id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    mistake_id INTEGER NOT NULL,
-    correct INTEGER NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (mistake_id) REFERENCES mistakes(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS feedback (
@@ -109,7 +99,6 @@ CREATE TABLE IF NOT EXISTS message_reads (
 
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
 CREATE INDEX IF NOT EXISTS idx_mistakes_game_id ON mistakes(game_id);
-CREATE INDEX IF NOT EXISTS idx_practice_results_mistake_id ON practice_results(mistake_id);
 CREATE INDEX IF NOT EXISTS idx_category_reports_mistake ON category_reports(mistake_id);
 CREATE INDEX IF NOT EXISTS idx_messages_audience ON messages(audience_user_id);
 """
@@ -124,9 +113,6 @@ def migrate(conn):
     altered = False
     if not _has_column("users", "is_admin"):
         conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
-        altered = True
-    if not _has_column("users", "practice_opt_in"):
-        conn.execute("ALTER TABLE users ADD COLUMN practice_opt_in INTEGER NOT NULL DEFAULT 0")
         altered = True
     for col, typedef in [("status", "TEXT NOT NULL DEFAULT 'new'"),
                          ("admin_note", "TEXT"),
@@ -158,5 +144,14 @@ def migrate(conn):
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_category_reports_user_mistake "
         "ON category_reports(user_id, mistake_id)"
     )
+    # Drop legacy practice-mode artifacts. Idempotent: skipped on fresh DBs.
+    if conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='practice_results'"
+    ).fetchone():
+        conn.execute("DROP TABLE practice_results")
+        altered = True
+    if _has_column("users", "practice_opt_in"):
+        conn.execute("ALTER TABLE users DROP COLUMN practice_opt_in")
+        altered = True
     if altered:
         conn.commit()

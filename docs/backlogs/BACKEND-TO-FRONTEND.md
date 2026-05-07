@@ -16,9 +16,6 @@ Frontend hooks the JS categorizer in `static/js/game-list.js`:
 ## Open items
 
 ### Decided to defer (per user, 2026-05-05)
-- **Practice mode** — being removed soon, so don't move its
-  `WHERE m.category IN (…)` filter to JS. It returns 0 hits on
-  new-game mistakes today; that's fine until removal.
 - **Trends per-category aggregate** — the panel
   (`renderCategoryTrend` in `trends.js`) is hidden client-side and the
   server's `compute_summary_for_game` still writes a `by_category`

@@ -85,16 +85,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-document.addEventListener("keydown", (e) => {
-  // Practice mode: Space/Enter for next problem after answering
-  if (practice.problem && practice.answered) {
-    if (e.code === "Space" || e.code === "Enter") {
-      e.preventDefault();
-      showPractice();
-    }
-  }
-});
-
 // --- Tile hover highlighting ---
 // Hovering a tile highlights all copies of that tile type on the board.
 

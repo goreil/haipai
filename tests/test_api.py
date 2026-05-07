@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for API routes: auth, registration, practice, trends, game endpoints.
+"""Tests for API routes: auth, registration, trends, game endpoints.
 
 The `client` fixture itself lives in `tests/conftest.py` so other HTTP-level
 test modules (e.g. `test_snapshots.py`) can share it.
@@ -116,43 +116,6 @@ class TestTrends:
 
     def test_trends_unauthenticated(self, client):
         res = client.get("/api/trends")
-        assert res.status_code == 401
-
-
-# --- Practice endpoint tests ---
-
-class TestPractice:
-    def test_practice_no_problems(self, client):
-        _login(client)
-        res = client.get("/api/practice")
-        assert res.status_code in (200, 404)  # 404 when no eligible problems
-
-    def test_practice_stats_empty(self, client):
-        _login(client)
-        res = client.get("/api/practice/stats")
-        assert res.status_code == 200
-        data = res.get_json()
-        assert isinstance(data, dict)
-
-    def test_practice_result_invalid_id(self, client):
-        _login(client)
-        res = client.post("/api/practice/result", json={
-            "mistake_id": "not-an-int",
-            "correct": True,
-        })
-        assert res.status_code == 400
-
-    def test_practice_result_nonexistent_mistake(self, client):
-        _login(client)
-        res = client.post("/api/practice/result", json={
-            "mistake_id": 99999,
-            "correct": True,
-        })
-        # Should fail ownership check
-        assert res.status_code in (400, 403, 404)
-
-    def test_practice_unauthenticated(self, client):
-        res = client.get("/api/practice")
         assert res.status_code == 401
 
 
@@ -359,142 +322,6 @@ class TestTrendsDetailed:
 
     def test_trends_unauthenticated(self, client):
         res = client.get("/api/trends")
-        assert res.status_code == 401
-
-
-# --- GET /api/practice tests ---
-
-class TestPracticeDetailed:
-    def test_practice_empty_no_problems(self, client):
-        _login(client)
-        res = client.get("/api/practice")
-        assert res.status_code == 404
-        assert "error" in res.get_json()
-
-    def test_practice_unauthenticated(self, client):
-        res = client.get("/api/practice")
-        assert res.status_code == 401
-
-    def test_practice_with_eligible_problem(self, client):
-        """Practice should return a problem when eligible mistakes exist."""
-        _login(client)
-        me = client.get("/api/me").get_json()
-        _insert_game(me["id"], with_mistakes=True)
-
-        res = client.get("/api/practice")
-        assert res.status_code == 200
-        data = res.get_json()
-        assert "mistake_id" in data
-        assert "mistake" in data
-        assert "game_id" in data
-
-    def test_practice_with_severity_filter(self, client):
-        _login(client)
-        me = client.get("/api/me").get_json()
-        _insert_game(me["id"], with_mistakes=True)
-
-        # The inserted mistake has severity "??" so filtering by "???" should yield nothing
-        res = client.get("/api/practice?severity=???")
-        # Could be 404 (no match) or 200 depending on data
-        assert res.status_code in (200, 404)
-
-
-# --- POST /api/practice/result tests ---
-
-class TestPracticeResult:
-    def test_result_missing_body(self, client):
-        _login(client)
-        res = client.post("/api/practice/result",
-                          data="not json",
-                          content_type="text/plain")
-        # Non-JSON content type triggers 500 via generic error handler
-        assert res.status_code in (400, 415, 500)
-
-    def test_result_invalid_mistake_id_type(self, client):
-        _login(client)
-        res = client.post("/api/practice/result", json={
-            "mistake_id": "abc",
-            "correct": True,
-        })
-        assert res.status_code == 400
-        assert "mistake_id" in res.get_json()["error"]
-
-    def test_result_nonexistent_mistake(self, client):
-        _login(client)
-        res = client.post("/api/practice/result", json={
-            "mistake_id": 99999,
-            "correct": True,
-        })
-        assert res.status_code == 404
-
-    def test_result_wrong_user_mistake(self, client):
-        """Cannot record result for another user's mistake."""
-        _login(client)
-        conn = db.get_db()
-        from werkzeug.security import generate_password_hash
-        uid2 = db.create_user(conn, "other2", generate_password_hash("longpassword"))
-        conn.close()
-        _, mistake_id = _insert_game(uid2, with_mistakes=True)
-
-        res = client.post("/api/practice/result", json={
-            "mistake_id": mistake_id,
-            "correct": True,
-        })
-        assert res.status_code == 404
-
-    def test_result_valid(self, client):
-        _login(client)
-        me = client.get("/api/me").get_json()
-        _, mistake_id = _insert_game(me["id"], with_mistakes=True)
-
-        res = client.post("/api/practice/result", json={
-            "mistake_id": mistake_id,
-            "correct": True,
-        })
-        assert res.status_code == 200
-        assert res.get_json()["ok"] is True
-
-    def test_result_unauthenticated(self, client):
-        res = client.post("/api/practice/result", json={
-            "mistake_id": 1, "correct": True,
-        })
-        assert res.status_code == 401
-
-
-# --- GET /api/practice/stats tests ---
-
-class TestPracticeStats:
-    def test_stats_empty(self, client):
-        _login(client)
-        res = client.get("/api/practice/stats")
-        assert res.status_code == 200
-        data = res.get_json()
-        assert isinstance(data, dict)
-        assert len(data) == 0  # no practice results yet
-
-    def test_stats_after_practice(self, client):
-        _login(client)
-        me = client.get("/api/me").get_json()
-        _, mistake_id = _insert_game(me["id"], with_mistakes=True)
-
-        # Record a practice result
-        client.post("/api/practice/result", json={
-            "mistake_id": mistake_id,
-            "correct": True,
-        })
-
-        res = client.get("/api/practice/stats")
-        assert res.status_code == 200
-        data = res.get_json()
-        assert isinstance(data, dict)
-        assert len(data) > 0
-        # Should have stats grouped by category group
-        for group_name, stats in data.items():
-            assert "correct" in stats
-            assert "total" in stats
-
-    def test_stats_unauthenticated(self, client):
-        res = client.get("/api/practice/stats")
         assert res.status_code == 401
 
 
@@ -743,8 +570,8 @@ class TestAdminDeleteUser:
         assert res.status_code == 200
 
     def test_delete_wipes_all_user_data(self, client):
-        """Happy path: admin deletes a user with games, mistakes, practice,
-        feedback, category report, and consumed invite code — all gone."""
+        """Happy path: admin deletes a user with games, mistakes, feedback,
+        category report, and consumed invite code — all gone."""
         _login(client)
         me = client.get("/api/me").get_json()
         self._promote(me["id"])
@@ -757,7 +584,6 @@ class TestAdminDeleteUser:
         game_id, mistake_id = _insert_game(victim, with_mistakes=True)
 
         conn = db.get_db()
-        db.record_practice_result(conn, victim, mistake_id, correct=True)
         conn.execute(
             "INSERT INTO feedback (user_id, type, message) VALUES (?, ?, ?)",
             (victim, "general", "test"),
@@ -784,7 +610,6 @@ class TestAdminDeleteUser:
         assert d["users"] == 1
         assert d["games"] == 1
         assert d["mistakes"] == 1
-        assert d["practice_results"] == 1
         assert d["feedback"] == 1
         assert d["category_reports"] == 1
         assert d["invite_codes"] == 1
@@ -794,7 +619,6 @@ class TestAdminDeleteUser:
         assert conn.execute("SELECT COUNT(*) FROM users WHERE id = ?", (victim,)).fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM games WHERE user_id = ?", (victim,)).fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM mistakes WHERE id = ?", (mistake_id,)).fetchone()[0] == 0
-        assert conn.execute("SELECT COUNT(*) FROM practice_results WHERE user_id = ?", (victim,)).fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM feedback WHERE user_id = ?", (victim,)).fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM category_reports WHERE user_id = ?", (victim,)).fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM invite_codes WHERE code = ?", ("victim-code",)).fetchone()[0] == 0

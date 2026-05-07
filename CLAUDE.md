@@ -4,7 +4,7 @@ Guidance for Claude Code working in the Haipai repo.
 
 ## What this is
 
-Riichi mahjong game analysis web app. Analyzes Tenhou/MJS replays via Mortal AI, auto-categorizes mistakes using a local pure-Python shanten/ukeire library, and serves a web UI for review, annotation, practice, and trend tracking. 
+Riichi mahjong game analysis web app. Analyzes Tenhou/MJS replays via Mortal AI, auto-categorizes mistakes using a local pure-Python shanten/ukeire library, and serves a web UI for review, annotation, and trend tracking. 
 
 ## Commands
 

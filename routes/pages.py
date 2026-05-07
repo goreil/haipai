@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Top-level pages + miscellaneous APIs: index, practice, tile assets, health,
+"""Top-level pages + miscellaneous APIs: index, tile assets, health,
 trends, top-mistakes, categories registry."""
 
 from flask import Blueprint, jsonify, request, send_from_directory
@@ -22,11 +22,6 @@ def health():
 def index():
     if not current_user.is_authenticated:
         return send_from_directory("static", "landing.html")
-    return send_from_directory("static", "index.html")
-
-
-@pages_bp.route("/practice")
-def practice_page():
     return send_from_directory("static", "index.html")
 
 

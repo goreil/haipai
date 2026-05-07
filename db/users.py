@@ -70,20 +70,13 @@ def link_oauth(conn, user_id, provider, oauth_id):
     return True
 
 
-def set_practice_opt_in(conn, user_id, opt_in):
-    """Set whether a user's games are available in the public practice pool."""
-    conn.execute("UPDATE users SET practice_opt_in = ? WHERE id = ?",
-                 (1 if opt_in else 0, user_id))
-    conn.commit()
-
-
 def delete_user_cascade(conn, user_id):
     """GDPR-style hard delete: wipe a user and every row tied to them.
 
     Wraps everything in a single transaction. Tables without ON DELETE
     cascades on `users(id)` are cleared explicitly first; `games` deletion
-    then cascades through `mistakes` (and onwards to `practice_results` /
-    `category_reports` rows attached to those mistakes via mistake_id).
+    then cascades through `mistakes` (and onwards to `category_reports`
+    rows attached to those mistakes via mistake_id).
 
     Returns a dict of per-table row counts removed, or ``None`` if the
     user did not exist.
@@ -95,7 +88,6 @@ def delete_user_cascade(conn, user_id):
     try:
         # Rows that reference users(id) directly with no ON DELETE behavior.
         for table, col in (
-            ("practice_results", "user_id"),
             ("feedback", "user_id"),
             ("category_reports", "user_id"),
             ("invite_codes", "used_by"),

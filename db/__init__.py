@@ -7,8 +7,8 @@ Submodule layout (see `docs/backlogs/REFACTOR-TARGET.md`):
 - `db.schema`    — SCHEMA string + `migrate(conn)`
 - `db.mistakes`  — `MISTAKE_COLUMNS`, `mistake_to_row`, `row_to_mistake`,
                    `annotate_mistake`, `update_mistake_data`
-- `db.games`     — list/get/add/delete + `compute_summary_for_game`
-- `db.practice`  — practice picker, stats, trends
+- `db.games`     — list/get/add/delete + `compute_summary_for_game`,
+                   `get_trends`
 - `db.users`     — users, OAuth linking, invite codes
 - `db.feedback`  — bug-report CRUD
 - `db.reports`   — category-report CRUD
@@ -32,15 +32,9 @@ from db.games import (
     compute_summary_for_game,
     delete_game,
     get_game,
+    get_trends,
     list_games,
     update_game_stats,
-)
-from db.practice import (
-    get_practice_problem,
-    get_practice_stats,
-    get_public_practice_problem,
-    get_trends,
-    record_practice_result,
 )
 from db.users import (
     create_invite_codes,
@@ -52,7 +46,6 @@ from db.users import (
     get_user_by_username,
     link_oauth,
     list_invite_codes,
-    set_practice_opt_in,
     validate_invite_code,
 )
 from db.feedback import (
@@ -113,14 +106,9 @@ __all__ = [
     "compute_summary_for_game",
     "delete_game",
     "get_game",
+    "get_trends",
     "list_games",
     "update_game_stats",
-    # practice
-    "get_practice_problem",
-    "get_practice_stats",
-    "get_public_practice_problem",
-    "get_trends",
-    "record_practice_result",
     # users
     "create_invite_codes",
     "create_oauth_user",
@@ -131,7 +119,6 @@ __all__ = [
     "get_user_by_username",
     "link_oauth",
     "list_invite_codes",
-    "set_practice_opt_in",
     "validate_invite_code",
     # feedback
     "get_feedback_item",
