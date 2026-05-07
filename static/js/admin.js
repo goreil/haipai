@@ -226,7 +226,7 @@ async function adminDeleteUser(userId) {
 function renderReportCard(r) {
   const date = new Date(r.created_at + "Z").toLocaleString();
   const kindLabel = r.kind === "wrong_category" ? "Wrong category" : "Wrong text";
-  let html = `<div class="report-card">
+  let html = `<div class="report-card" id="report-${r.id}">
     <div class="report-strip">
       <span class="report-id">R-${r.id} <span class="hash">&middot; #${r.mistake_id}</span></span>
       <span class="report-kind ${r.kind}">${kindLabel}</span>
@@ -279,7 +279,8 @@ async function adminDeleteReport(reportId) {
     alert(data.error || "Failed to delete report");
     return;
   }
-  showAdmin();
+  adminState.reports = (adminState.reports || []).filter(x => x.id !== reportId);
+  document.getElementById(`report-${reportId}`)?.remove();
 }
 
 async function adminStopImpersonate() {
