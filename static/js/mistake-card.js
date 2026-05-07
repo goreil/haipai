@@ -200,7 +200,6 @@ function renderReportRow(m) {
 
   let html = `<div class="report-row" data-mid="${m.id}">
     <span class="report-ask">Was this right?</span>
-    ${btn("agree", "👍 Correct", "The category and explanation are both correct")}
     ${btn("wrong_category", "Wrong category", "The category label is wrong")}
     ${btn("wrong_text", "Explanation wrong", "The category is fine but the explanation is off")}
     <span class="report-status"></span>
@@ -265,10 +264,7 @@ async function onReportClick(btn, mid, kind) {
 
   const details = st.row.querySelector(".report-details");
   const catWrap = st.row.querySelector(".report-details-cat");
-  if (kind === "agree") {
-    details.style.display = "none";
-    await saveReport(mid, "agree", null, null);
-  } else if (kind === "wrong_category") {
+  if (kind === "wrong_category") {
     details.style.display = "";
     catWrap.style.display = "";
     // Don't save until a category is picked.

@@ -105,6 +105,16 @@ def api_admin_category_reports():
     return jsonify(reports)
 
 
+@admin_bp.route("/api/admin/category-reports/<int:report_id>", methods=["DELETE"])
+@require_admin
+def api_admin_delete_category_report(report_id):
+    from app import get_conn
+    conn = get_conn()
+    if not db.delete_category_report(conn, report_id):
+        return jsonify({"error": "Report not found"}), 404
+    return jsonify({"ok": True})
+
+
 @admin_bp.route("/api/admin/feedback")
 @require_admin
 def api_admin_feedback():

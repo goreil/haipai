@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dump per-mistake agree / wrong-category / wrong-text reports.
+"""Dump per-mistake wrong-category / wrong-text reports.
 
 Runs against the SQLite DB — locally that's ./games.db, inside the app
 container it's /app/data/games.db. Set DB_PATH to override.
@@ -70,7 +70,7 @@ def summarize(rows):
     for r in rows:
         by_kind[r["kind"]] = by_kind.get(r["kind"], 0) + 1
         cat = r["current_category"] or "?"
-        by_category.setdefault(cat, {"agree": 0, "wrong_category": 0, "wrong_text": 0})
+        by_category.setdefault(cat, {"wrong_category": 0, "wrong_text": 0})
         by_category[cat][r["kind"]] = by_category[cat].get(r["kind"], 0) + 1
     return by_kind, by_category
 
@@ -83,10 +83,10 @@ def pretty_print(rows):
     by_kind, by_category = summarize(rows)
     print(f"Total: {len(rows)}  |  " + "  ".join(f"{k}={v}" for k, v in by_kind.items()))
     print()
-    print("By current category (agree / wrong_cat / wrong_text):")
+    print("By current category (wrong_cat / wrong_text):")
     for cat in sorted(by_category):
         c = by_category[cat]
-        print(f"  {cat:<4}  {c['agree']:>3}  {c['wrong_category']:>3}  {c['wrong_text']:>3}")
+        print(f"  {cat:<4}  {c['wrong_category']:>3}  {c['wrong_text']:>3}")
     print()
     print("Reports (newest first):")
     for r in rows:
@@ -103,7 +103,7 @@ def pretty_print(rows):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--kind", choices=("agree", "wrong_category", "wrong_text"),
+    ap.add_argument("--kind", choices=("wrong_category", "wrong_text"),
                     help="Filter by report kind.")
     ap.add_argument("--since", help="ISO date/timestamp, e.g. 2026-04-01.")
     ap.add_argument("--mistake", type=int, help="Filter to a specific mistake id.")

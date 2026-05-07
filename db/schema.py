@@ -139,6 +139,10 @@ def migrate(conn):
                END WHERE kind IS NULL"""
         )
         altered = True
+    # The 'agree' kind was removed; purge any rows that still carry it.
+    cur = conn.execute("DELETE FROM category_reports WHERE kind = 'agree'")
+    if cur.rowcount:
+        altered = True
     # One report per user per mistake, so we can upsert on edit.
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_category_reports_user_mistake "

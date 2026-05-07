@@ -78,7 +78,7 @@ def seed(conn):
     # Category report on their own mistake
     db.submit_category_report(
         conn, user_id, mistake_id,
-        kind="agree", suggested_category=None, reason=None,
+        kind="wrong_text", suggested_category=None, reason="seed",
     )
 
     # Invite code that this user "consumed"

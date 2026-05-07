@@ -466,17 +466,37 @@ class TestDatabase:
         assert row["suggested_category"] == "3A"
         assert row["reason"] == "Should be push/fold"
 
-    def test_submit_category_report_agree(self, sample_user):
-        """submit_category_report with kind=agree stores agree=1 and no suggestion."""
+    def test_submit_category_report_wrong_text(self, sample_user):
+        """submit_category_report with kind=wrong_text stores reason and no suggestion."""
         conn, uid = sample_user
         gid, mid = self._add_game_with_mistake(conn, uid)
 
-        report_id = db.submit_category_report(conn, uid, mid, kind="agree")
+        report_id = db.submit_category_report(conn, uid, mid, kind="wrong_text",
+                                              reason="explanation reads off")
         row = conn.execute("SELECT * FROM category_reports WHERE id = ?", (report_id,)).fetchone()
-        assert row["kind"] == "agree"
-        assert row["agree"] == 1
+        assert row["kind"] == "wrong_text"
+        assert row["reason"] == "explanation reads off"
         assert row["suggested_category"] is None
-        assert row["reason"] is None
+
+    def test_submit_category_report_rejects_agree(self, sample_user):
+        """The legacy 'agree' kind has been removed and is rejected."""
+        conn, uid = sample_user
+        gid, mid = self._add_game_with_mistake(conn, uid)
+        with pytest.raises(ValueError):
+            db.submit_category_report(conn, uid, mid, kind="agree")
+
+    def test_delete_category_report(self, sample_user):
+        """delete_category_report removes the row and reports True."""
+        conn, uid = sample_user
+        gid, mid = self._add_game_with_mistake(conn, uid)
+        rid = db.submit_category_report(conn, uid, mid, kind="wrong_text", reason="r")
+
+        assert db.delete_category_report(conn, rid) is True
+        assert conn.execute(
+            "SELECT COUNT(*) FROM category_reports WHERE id = ?", (rid,)
+        ).fetchone()[0] == 0
+        # Second delete reports False since the row is gone.
+        assert db.delete_category_report(conn, rid) is False
 
     def test_submit_category_report_upserts(self, sample_user):
         """Re-submitting for the same (user, mistake) replaces the prior report."""
@@ -485,7 +505,8 @@ class TestDatabase:
 
         db.submit_category_report(conn, uid, mid, kind="wrong_category",
                                    suggested_category="3A", reason="first")
-        db.submit_category_report(conn, uid, mid, kind="wrong_text", reason="second")
+        db.submit_category_report(conn, uid, mid, kind="wrong_text",
+                                   reason="second")
 
         rows = conn.execute(
             "SELECT kind, reason, suggested_category FROM category_reports "

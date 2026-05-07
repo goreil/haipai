@@ -63,7 +63,9 @@ function renderAdmin() {
     </table>
   </div>`;
 
-  // Category reports
+  // Category reports — each report embeds the full mistake card the
+  // reporting user saw; the admin's only action is Delete (after fixing
+  // the underlying category/copy via a Claude skill).
   const reports = adminState.reports || [];
   const reportKind = adminState.reportKind;
   const filteredReports = reportKind ? reports.filter(r => r.kind === reportKind) : reports;
@@ -74,29 +76,13 @@ function renderAdmin() {
       <option value="">All kinds (${reports.length})</option>
       <option value="wrong_category" ${reportKind==="wrong_category"?"selected":""}>wrong_category (${counts.wrong_category||0})</option>
       <option value="wrong_text" ${reportKind==="wrong_text"?"selected":""}>wrong_text (${counts.wrong_text||0})</option>
-      <option value="agree" ${reportKind==="agree"?"selected":""}>agree (${counts.agree||0})</option>
     </select>
   </div>`;
   if (!filteredReports.length) {
     html += '<div class="empty-state">No reports</div>';
   } else {
     for (const r of filteredReports) {
-      const kindClass = r.kind;
-      const date = new Date(r.created_at + "Z").toLocaleString();
-      const suggested = r.suggested_category
-        ? ` &rarr; <b>${escapeHtml(r.suggested_category)}</b>`
-        : "";
-      const openBtn = impersonating
-        ? ""
-        : `<button class="btn btn-sm" onclick="adminOpenAsUser(${r.user_id}, ${r.game_id}, ${r.mistake_id})">Open</button>`;
-      html += `<div class="admin-report-card">
-        <span class="admin-report-kind ${kindClass}">${r.kind}</span>
-        <span class="admin-meta">${escapeHtml(r.username)} &middot; ${date}</span>
-        <span>mistake <b>#${r.mistake_id}</b> <code>${escapeHtml(r.category || "?")}</code>${suggested}</span>
-        <span class="admin-meta">game ${r.game_id} &middot; turn ${r.turn}</span>
-        ${openBtn}
-        ${r.reason ? `<div class="admin-report-reason">${escapeHtml(r.reason)}</div>` : ""}
-      </div>`;
+      html += renderReportCard(r);
     }
   }
 
@@ -200,18 +186,6 @@ async function adminImpersonate(userId) {
   window.location.href = "/";
 }
 
-async function adminOpenAsUser(userId, gameId, mistakeId) {
-  const res = await apiPost(`/api/admin/impersonate/${userId}`, {});
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    alert(data.error || "Failed to start impersonation");
-    return;
-  }
-  // No deep-link support yet — land on home; the sidebar lists the user's
-  // games so the admin can click through to game ${gameId}, mistake #${mistakeId}.
-  window.location.href = "/";
-}
-
 async function adminDeleteUser(userId) {
   const user = (adminState.users || []).find(u => u.id === userId);
   if (!user) {
@@ -244,6 +218,67 @@ async function adminDeleteUser(userId) {
     `  ${d.category_reports || 0} category reports\n` +
     `  ${d.invite_codes || 0} invite codes`
   );
+  showAdmin();
+}
+
+// Render one category report: top strip (id / kind / user / Delete) +
+// reason quote + the full mistake card the reporter actually saw.
+function renderReportCard(r) {
+  const date = new Date(r.created_at + "Z").toLocaleString();
+  const kindLabel = r.kind === "wrong_category" ? "Wrong category" : "Wrong text";
+  let html = `<div class="report-card">
+    <div class="report-strip">
+      <span class="report-id">R-${r.id} <span class="hash">&middot; #${r.mistake_id}</span></span>
+      <span class="report-kind ${r.kind}">${kindLabel}</span>
+      <span class="report-by"><span class="user">@${escapeHtml(r.username)}</span><span class="date">${date}</span></span>
+      <span class="report-actions">
+        <button class="btn btn-sm btn-delete" onclick="adminDeleteReport(${r.id})">Delete</button>
+      </span>
+    </div>`;
+
+  if (r.reason || r.suggested_category) {
+    html += `<div class="report-reason">
+      <span class="quote-mark">&ldquo;</span>
+      <div class="reason-text">`;
+    if (r.reason) html += escapeHtml(r.reason);
+    if (r.suggested_category) {
+      const fromCat = r.category ? escapeHtml(r.category) : "?";
+      html += `<div class="reason-suggested">Suggested:
+        <span class="from">${fromCat}</span>
+        <span class="arrow">&rarr;</span>
+        <span class="to">${escapeHtml(r.suggested_category)}</span>
+      </div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  if (r.mistake) {
+    // Embed the same UI the user sees — no annotate/report controls,
+    // no game link (the report-strip already identifies game/turn).
+    // Append the generated trainer text exactly as the games view does so
+    // wrong_text reports show the actual copy the user is complaining about.
+    const explanation = generateExplanation(r.mistake);
+    const trainerText = explanation
+      ? `<div class="mascot-speech"><img src="/static/mascot.svg" class="mascot-avatar" alt=""><div class="speech-bubble">${explanation}</div></div>`
+      : `<div class="report-trainer-empty">No trainer text generated for this mistake (category: <code>${escapeHtml(r.mistake.category || "?")}</code>).</div>`;
+    html += `<div class="report-mistake-embed">${renderMistakeCard(r.mistake)}${trainerText}</div>`;
+  }
+
+  html += `<div class="report-footer">
+    <span>game <b>#${r.game_id}</b></span>
+    <span>${escapeHtml(r.round_name || "")} &middot; turn ${r.turn}</span>
+  </div></div>`;
+  return html;
+}
+
+async function adminDeleteReport(reportId) {
+  if (!window.confirm("Delete this category report? This cannot be undone.")) return;
+  const res = await apiDelete(`/api/admin/category-reports/${reportId}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || "Failed to delete report");
+    return;
+  }
   showAdmin();
 }
 

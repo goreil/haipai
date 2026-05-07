@@ -328,7 +328,8 @@ class TestTrendsDetailed:
 # --- POST /api/mistakes/<id>/report tests ---
 
 class TestCategoryReport:
-    def test_report_valid_agree(self, client):
+    def test_report_legacy_agree_rejected(self, client):
+        """The legacy 'agree' kind is no longer accepted."""
         _login(client)
         me = client.get("/api/me").get_json()
         _, mistake_id = _insert_game(me["id"], with_mistakes=True)
@@ -336,10 +337,7 @@ class TestCategoryReport:
         res = client.post(f"/api/mistakes/{mistake_id}/report", json={
             "kind": "agree",
         })
-        assert res.status_code == 200
-        data = res.get_json()
-        assert data["ok"] is True
-        assert "id" in data
+        assert res.status_code == 400
 
     def test_report_valid_wrong_category(self, client):
         _login(client)
@@ -397,7 +395,7 @@ class TestCategoryReport:
 
     def test_report_nonexistent_mistake(self, client):
         _login(client)
-        res = client.post("/api/mistakes/99999/report", json={"kind": "agree"})
+        res = client.post("/api/mistakes/99999/report", json={"kind": "wrong_text"})
         assert res.status_code == 404
 
     def test_report_other_users_mistake(self, client):
@@ -408,7 +406,7 @@ class TestCategoryReport:
         conn.close()
         _, mistake_id = _insert_game(uid2, with_mistakes=True)
 
-        res = client.post(f"/api/mistakes/{mistake_id}/report", json={"kind": "agree"})
+        res = client.post(f"/api/mistakes/{mistake_id}/report", json={"kind": "wrong_text"})
         assert res.status_code == 404
 
     def test_report_reason_too_long(self, client):
@@ -424,7 +422,7 @@ class TestCategoryReport:
         assert "too long" in res.get_json()["error"]
 
     def test_report_unauthenticated(self, client):
-        res = client.post("/api/mistakes/1/report", json={"kind": "agree"})
+        res = client.post("/api/mistakes/1/report", json={"kind": "wrong_text"})
         assert res.status_code == 401
 
     def test_report_upsert_replaces_prior(self, client):
@@ -433,7 +431,9 @@ class TestCategoryReport:
         me = client.get("/api/me").get_json()
         _, mistake_id = _insert_game(me["id"], with_mistakes=True)
 
-        client.post(f"/api/mistakes/{mistake_id}/report", json={"kind": "agree"})
+        client.post(f"/api/mistakes/{mistake_id}/report", json={
+            "kind": "wrong_category", "suggested_category": "3A",
+        })
         client.post(f"/api/mistakes/{mistake_id}/report", json={
             "kind": "wrong_text", "reason": "changed my mind",
         })
@@ -588,8 +588,8 @@ class TestAdminDeleteUser:
             "INSERT INTO feedback (user_id, type, message) VALUES (?, ?, ?)",
             (victim, "general", "test"),
         )
-        db.submit_category_report(conn, victim, mistake_id, kind="agree",
-                                  suggested_category=None, reason=None)
+        db.submit_category_report(conn, victim, mistake_id, kind="wrong_text",
+                                  suggested_category=None, reason="example")
         conn.execute(
             "INSERT INTO invite_codes (code, used_by, used_at) "
             "VALUES (?, ?, CURRENT_TIMESTAMP)",

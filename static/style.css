@@ -1367,11 +1367,6 @@ body {
   border-color: var(--accent);
   color: var(--accent);
 }
-.report-btn-agree.active {
-  background: rgba(34, 197, 94, 0.18);
-  border-color: #22c55e;
-  color: #86efac;
-}
 .report-status {
   font-size: 11px;
   color: var(--text-dim);
@@ -2497,39 +2492,148 @@ body {
   margin-left: auto;
 }
 
-.admin-report-card {
+/* Category-report card. Each card is a wrapper that:
+   1. Identifies the report (id / kind / user) in a top strip with the
+      Delete action.
+   2. Shows the reporter's quoted reason (and optional category suggestion).
+   3. Embeds the full mistake card the reporter actually saw, so the admin
+      can review the same UI the user reported on.
+   The mistake card itself comes straight from renderMistakeCard, so its
+   border/padding bleed through; we strip its outer chrome with a wrapper. */
+.report-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 6px;
-  font-size: 13px;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.report-card .report-strip {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 11px 16px;
+  background: rgba(0, 0, 0, 0.18);
+  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
-.admin-report-kind {
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
+.report-card .report-id {
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 0.3px;
+}
+.report-card .report-id .hash { color: var(--text-dim); font-weight: 500; }
+
+.report-card .report-kind {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 3px;
   text-transform: uppercase;
 }
-
-.admin-report-kind.agree { background: #1b5e2020; color: #66bb6a; }
-.admin-report-kind.wrong_category { background: #ef535020; color: #ef5350; }
-.admin-report-kind.wrong_text { background: #ffa94d20; color: #ffa94d; }
-
-.admin-report-reason {
-  flex-basis: 100%;
-  color: var(--text-dim);
-  font-style: italic;
-  padding-left: 8px;
-  border-left: 2px solid var(--border);
-  margin-top: 2px;
+.report-card .report-kind.wrong_category {
+  background: rgba(239, 83, 80, 0.13);
+  color: var(--sev-major);
+  border: 1px solid rgba(239, 83, 80, 0.3);
 }
+.report-card .report-kind.wrong_text {
+  background: rgba(255, 169, 77, 0.13);
+  color: #ffa94d;
+  border: 1px solid rgba(255, 169, 77, 0.3);
+}
+
+.report-card .report-by {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.report-card .report-by .user { color: var(--text); font-weight: 600; }
+.report-card .report-by .date { color: var(--text-dim); margin-left: 6px; opacity: 0.8; }
+
+.report-card .report-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.report-card .report-reason {
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.55;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.report-card .report-reason .quote-mark {
+  color: var(--text-dim);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+  opacity: 0.7;
+}
+.report-card .report-reason .reason-text { flex: 1; }
+.report-card .report-reason .reason-suggested {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.report-card .report-reason .reason-suggested .arrow {
+  color: var(--text-dim);
+  margin: 0 6px;
+  opacity: 0.7;
+}
+.report-card .report-reason .reason-suggested .from {
+  text-decoration: line-through;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+.report-card .report-reason .reason-suggested .to {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* The embedded mistake card brings its own background/margin from .mistake;
+   neutralise both so it sits flush inside the report wrapper while keeping
+   its severity-coloured left accent. */
+.report-card .report-mistake-embed .mistake {
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.report-card .report-trainer-empty {
+  margin: 8px 14px 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(255, 169, 77, 0.06);
+  border: 1px dashed rgba(255, 169, 77, 0.35);
+  border-radius: 4px;
+}
+.report-card .report-trainer-empty code {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.report-card .report-footer {
+  padding: 9px 16px;
+  background: rgba(79, 195, 247, 0.04);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-dim);
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.report-card .report-footer b { color: var(--text); }
 
 .admin-note-form textarea {
   width: 100%;

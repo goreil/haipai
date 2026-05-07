@@ -121,8 +121,6 @@ def api_report_category(mistake_id):
 
     if kind == "wrong_category" and not suggested:
         return jsonify({"error": "suggested_category required for wrong_category"}), 400
-    if kind == "agree":
-        suggested = None
 
     report_id = db.submit_category_report(conn, uid, mistake_id,
                                           kind=kind, suggested_category=suggested,

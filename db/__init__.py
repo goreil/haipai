@@ -56,6 +56,7 @@ from db.feedback import (
 )
 from db.reports import (
     REPORT_KINDS,
+    delete_category_report,
     get_report_for_mistake,
     list_category_reports,
     submit_category_report,
@@ -127,6 +128,7 @@ __all__ = [
     "update_feedback",
     # reports
     "REPORT_KINDS",
+    "delete_category_report",
     "get_report_for_mistake",
     "list_category_reports",
     "submit_category_report",

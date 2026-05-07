@@ -132,8 +132,8 @@ def quote_block(feedback_row):
 def quote_report_block(report_row):
     """Render a category_reports row as a blockquote.
 
-    `kind == 'agree'` reports rarely carry a reason, so we fall back to
-    a short label noting the report kind and the mistake's category.
+    Falls back to a short label noting the report kind and the
+    mistake's category when the user didn't supply a reason.
     """
     import html as _html
     raw = (report_row.get("reason") or "").strip()
