@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
+    upload_token TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -97,6 +98,8 @@ CREATE TABLE IF NOT EXISTS message_reads (
     FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_upload_token
+    ON users(upload_token) WHERE upload_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
 CREATE INDEX IF NOT EXISTS idx_mistakes_game_id ON mistakes(game_id);
 CREATE INDEX IF NOT EXISTS idx_category_reports_mistake ON category_reports(mistake_id);
@@ -127,6 +130,13 @@ def migrate(conn):
         if not _has_column("users", col):
             conn.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
             altered = True
+    if not _has_column("users", "upload_token"):
+        conn.execute("ALTER TABLE users ADD COLUMN upload_token TEXT")
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_upload_token "
+            "ON users(upload_token) WHERE upload_token IS NOT NULL"
+        )
+        altered = True
     if not _has_column("category_reports", "kind"):
         conn.execute("ALTER TABLE category_reports ADD COLUMN kind TEXT")
         # Backfill kind from legacy agree column: agree=1 -> 'agree',

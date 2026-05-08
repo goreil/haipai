@@ -70,6 +70,36 @@ def link_oauth(conn, user_id, provider, oauth_id):
     return True
 
 
+def get_or_create_upload_token(conn, user_id):
+    """Return the user's upload token, generating one on first request."""
+    row = conn.execute(
+        "SELECT upload_token FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    if row and row["upload_token"]:
+        return row["upload_token"]
+    token = secrets.token_urlsafe(32)
+    conn.execute("UPDATE users SET upload_token = ? WHERE id = ?", (token, user_id))
+    conn.commit()
+    return token
+
+
+def regenerate_upload_token(conn, user_id):
+    """Replace the user's upload token, invalidating any existing bookmarklets."""
+    token = secrets.token_urlsafe(32)
+    conn.execute("UPDATE users SET upload_token = ? WHERE id = ?", (token, user_id))
+    conn.commit()
+    return token
+
+
+def get_user_by_upload_token(conn, token):
+    """Look up user by upload token. Returns row or None."""
+    if not token:
+        return None
+    return conn.execute(
+        "SELECT * FROM users WHERE upload_token = ?", (token,)
+    ).fetchone()
+
+
 def delete_user_cascade(conn, user_id):
     """GDPR-style hard delete: wipe a user and every row tied to them.
 

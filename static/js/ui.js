@@ -20,10 +20,46 @@ function showAddModal() {
   document.getElementById("add-file").value = "";
   document.getElementById("add-date").value = "";
   document.getElementById("add-error").textContent = "";
+  refreshUploadBookmarklet();
 }
 
 function hideAddModal() {
   document.getElementById("add-modal").classList.remove("show");
+}
+
+// Build the "Send to Haipai" bookmarklet href from the user's upload token.
+// The bookmarklet runs in the mjai.ekyu.moe report page, reads the ?data=
+// query param to get the analysis JSON URL, fetches it same-origin, then
+// POSTs the JSON to /api/games/upload here.
+function buildUploadBookmarkletHref(token, origin) {
+  const code = `(function(){var u=location.origin+new URLSearchParams(location.search).get('data');if(!u||u===location.origin+'null'){alert('No ?data= param found.');return;}fetch(u).then(function(r){return r.json();}).then(function(d){return fetch('${origin}/api/games/upload',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ${token}'},body:JSON.stringify({mortal_data:d})});}).then(function(r){return r.json().then(function(j){return{status:r.status,j:j};});}).then(function(x){if(x.status>=200&&x.status<300)location.href='${origin}/';else alert('Upload failed ('+x.status+'): '+(x.j&&x.j.error||''));}).catch(function(e){alert('Upload failed: '+e);});})();`;
+  return "javascript:" + encodeURIComponent(code);
+}
+
+async function refreshUploadBookmarklet() {
+  const link = document.getElementById("upload-bookmarklet");
+  if (!link) return;
+  try {
+    const res = await fetch("/api/upload-token");
+    if (!res.ok) throw new Error("token fetch failed");
+    const { token } = await res.json();
+    link.href = buildUploadBookmarkletHref(token, window.location.origin);
+  } catch (e) {
+    link.href = "javascript:alert('Could not load upload token')";
+  }
+}
+
+async function regenerateUploadToken() {
+  if (!confirm("Regenerate your upload token? Any installed bookmarklets will stop working.")) return;
+  const res = await apiPost("/api/upload-token/regenerate", {});
+  if (!res.ok) {
+    alert("Could not regenerate token");
+    return;
+  }
+  const { token } = await res.json();
+  const link = document.getElementById("upload-bookmarklet");
+  if (link) link.href = buildUploadBookmarkletHref(token, window.location.origin);
+  alert("New bookmarklet ready — drag the link to your bookmark bar to replace the old one.");
 }
 
 async function submitAddGame() {

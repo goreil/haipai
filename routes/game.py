@@ -15,6 +15,9 @@ from lib.categories import compute_summary
 DIR = Path(__file__).parent.parent
 games_bp = Blueprint("games", __name__)
 
+# Origin allowed to POST games via the bookmarklet upload endpoint.
+UPLOAD_ALLOWED_ORIGIN = "https://mjai.ekyu.moe"
+
 
 @games_bp.route("/api/games")
 @login_required
@@ -318,21 +321,14 @@ def api_backfill_decisions():
     return jsonify({"ok": True, "updated": updated, "total": len(games)})
 
 
-@games_bp.route("/api/games/add", methods=["POST"])
-@login_required
-def api_add():
+def _ingest_mortal(conn, uid, mortal_data, game_date):
+    """Parse + persist a Mortal analysis JSON for `uid`. Returns (status, payload)
+    where status is the HTTP code and payload the JSON body."""
     from datetime import date
-    from app import get_conn
-
-    conn = get_conn()
-    uid = current_user.id
-
-    body = request.json
-    mortal_data = body.get("mortal_data")
-    game_date = body.get("date") or date.today().isoformat()
-
     if not mortal_data or not isinstance(mortal_data, dict):
-        return jsonify({"error": "mortal_data is required (Mortal analysis JSON)"}), 400
+        return 400, {"error": "mortal_data is required (Mortal analysis JSON)"}
+
+    game_date = game_date or date.today().isoformat()
 
     # Save Mortal JSON to disk (needed by categorizer for wall reconstruction)
     import hashlib
@@ -347,21 +343,102 @@ def api_add():
     try:
         game_dict = parse_game(mortal_data, game_date=game_date)
     except (ValueError, KeyError, IndexError, TypeError) as e:
-        return jsonify({"error": f"Failed to parse Mortal data: {e}"}), 400
+        return 400, {"error": f"Failed to parse Mortal data: {e}"}
     game_dict["mortal_file"] = str(dest.relative_to(DIR))
     compute_summary(game_dict)
 
     game_dict["categorization_status"] = "pending"
     game_id = db.add_game(conn, uid, game_dict)
 
-    # Kick off categorization in background thread
     threading.Thread(
         target=_prepare_data_background,
         args=(game_id,),
         daemon=True,
     ).start()
 
-    return jsonify({"ok": True, "game_id": game_id, "summary": game_dict.get("summary", {})})
+    return 200, {"ok": True, "game_id": game_id, "summary": game_dict.get("summary", {})}
+
+
+@games_bp.route("/api/games/add", methods=["POST"])
+@login_required
+def api_add():
+    from app import get_conn
+    body = request.json or {}
+    status, payload = _ingest_mortal(get_conn(), current_user.id,
+                                     body.get("mortal_data"), body.get("date"))
+    return jsonify(payload), status
+
+
+@games_bp.route("/api/upload-token", methods=["GET"])
+@login_required
+def api_upload_token():
+    """Return the user's bookmarklet upload token, generating one on first call."""
+    from app import get_conn
+    token = db.get_or_create_upload_token(get_conn(), current_user.id)
+    return jsonify({"token": token})
+
+
+@games_bp.route("/api/upload-token/regenerate", methods=["POST"])
+@login_required
+def api_regenerate_upload_token():
+    """Rotate the user's upload token, invalidating any installed bookmarklets."""
+    from app import get_conn
+    token = db.regenerate_upload_token(get_conn(), current_user.id)
+    return jsonify({"token": token})
+
+
+def _cors_headers():
+    return {
+        "Access-Control-Allow-Origin": UPLOAD_ALLOWED_ORIGIN,
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type",
+        "Access-Control-Max-Age": "86400",
+        "Vary": "Origin",
+    }
+
+
+@games_bp.route("/api/games/upload", methods=["OPTIONS"])
+def api_upload_preflight():
+    resp = ("", 204)
+    headers = _cors_headers()
+    from flask import make_response
+    r = make_response(*resp)
+    for k, v in headers.items():
+        r.headers[k] = v
+    return r
+
+
+@games_bp.route("/api/games/upload", methods=["POST"])
+def api_upload():
+    """Token-authenticated game upload for the cross-origin bookmarklet.
+
+    Auth: `Authorization: Bearer <upload_token>`. Skips Flask-Login (sessions
+    won't be sent cross-origin under SameSite=Lax) and CSRF (CSRF is exempted
+    on app registration). Origin is locked to mjai.ekyu.moe via CORS.
+    """
+    from app import get_conn
+    auth = request.headers.get("Authorization", "")
+    token = auth[7:].strip() if auth.startswith("Bearer ") else ""
+    if not token:
+        return _json_with_cors({"error": "Missing Bearer token"}, 401)
+
+    conn = get_conn()
+    user = db.get_user_by_upload_token(conn, token)
+    if not user:
+        return _json_with_cors({"error": "Invalid upload token"}, 401)
+
+    body = request.get_json(silent=True) or {}
+    status, payload = _ingest_mortal(conn, user["id"],
+                                     body.get("mortal_data"), body.get("date"))
+    return _json_with_cors(payload, status)
+
+
+def _json_with_cors(payload, status):
+    resp = jsonify(payload)
+    resp.status_code = status
+    for k, v in _cors_headers().items():
+        resp.headers[k] = v
+    return resp
 
 
 def _prepare_data_background(game_id, force=False):

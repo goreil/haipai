@@ -153,6 +153,11 @@ limiter.limit("10 per minute")(app.view_functions["auth.auth_google_callback"])
 # CSRF exemption for /api/me (read-only JSON returning the CSRF token itself).
 csrf.exempt(app.view_functions["auth.api_me"])
 
+# CSRF exempt for the cross-origin bookmarklet upload — auth is by Bearer
+# token, not cookies, and CORS pins the origin to mjai.ekyu.moe.
+csrf.exempt(app.view_functions["games.api_upload"])
+csrf.exempt(app.view_functions["games.api_upload_preflight"])
+
 
 # --- Init ---
 

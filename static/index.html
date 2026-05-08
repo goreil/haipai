@@ -104,6 +104,13 @@
         <button class="btn" onclick="hideAddModal()">Cancel</button>
         <button class="btn btn-primary" id="add-submit-btn" onclick="submitAddGame()">Add Game</button>
       </div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:18px 0">
+      <div class="form-group">
+        <label>One-click upload bookmarklet</label>
+        <p class="form-hint">Drag this link to your bookmark bar. On a mjai.ekyu.moe report page, click it to upload the analysis directly to Haipai.</p>
+        <p><a id="upload-bookmarklet" class="btn" href="javascript:void(0)" onclick="event.preventDefault()" draggable="true">Send to Haipai</a></p>
+        <p class="form-hint" style="margin-top:6px"><a href="javascript:void(0)" onclick="regenerateUploadToken()">Regenerate token</a> (invalidates the bookmarklet on every browser).</p>
+      </div>
     </div>
   </div>
 
