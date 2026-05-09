@@ -17,14 +17,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS invite_codes (
-    code TEXT PRIMARY KEY,
-    used_by INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    used_at TIMESTAMP,
-    FOREIGN KEY (used_by) REFERENCES users(id)
-);
-
 CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -166,6 +158,12 @@ def migrate(conn):
         altered = True
     if _has_column("users", "practice_opt_in"):
         conn.execute("ALTER TABLE users DROP COLUMN practice_opt_in")
+        altered = True
+    # Invite codes were retired; drop the table on older DBs that still have it.
+    if conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='invite_codes'"
+    ).fetchone():
+        conn.execute("DROP TABLE invite_codes")
         altered = True
     if altered:
         conn.commit()

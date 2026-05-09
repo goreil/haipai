@@ -142,14 +142,6 @@ docker cp $(docker-compose ps -q app):/app/mortal_analysis ./mortal_backup/
 docker-compose logs -f app
 docker-compose logs -f nginx
 
-# Create invite codes
-docker-compose exec app python3 -c "
-import db; conn = db.get_db()
-codes = db.create_invite_codes(conn, 5)
-for c in codes: print(c)
-conn.close()
-"
-
 # Renew HTTPS cert manually
 docker-compose run --rm --entrypoint "certbot" certbot renew
 docker-compose restart nginx

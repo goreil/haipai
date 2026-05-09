@@ -215,8 +215,7 @@ async function adminDeleteUser(userId) {
     `Deleted "${data.username}":\n` +
     `  ${d.games || 0} games, ${d.mistakes || 0} mistakes\n` +
     `  ${d.feedback || 0} feedback items\n` +
-    `  ${d.category_reports || 0} category reports\n` +
-    `  ${d.invite_codes || 0} invite codes`
+    `  ${d.category_reports || 0} category reports`
   );
   showAdmin();
 }

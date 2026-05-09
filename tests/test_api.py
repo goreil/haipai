@@ -571,7 +571,7 @@ class TestAdminDeleteUser:
 
     def test_delete_wipes_all_user_data(self, client):
         """Happy path: admin deletes a user with games, mistakes, feedback,
-        category report, and consumed invite code — all gone."""
+        and a category report — all gone."""
         _login(client)
         me = client.get("/api/me").get_json()
         self._promote(me["id"])
@@ -590,11 +590,6 @@ class TestAdminDeleteUser:
         )
         db.submit_category_report(conn, victim, mistake_id, kind="wrong_text",
                                   suggested_category=None, reason="example")
-        conn.execute(
-            "INSERT INTO invite_codes (code, used_by, used_at) "
-            "VALUES (?, ?, CURRENT_TIMESTAMP)",
-            ("victim-code", victim),
-        )
         conn.commit()
         conn.close()
 
@@ -612,7 +607,6 @@ class TestAdminDeleteUser:
         assert d["mistakes"] == 1
         assert d["feedback"] == 1
         assert d["category_reports"] == 1
-        assert d["invite_codes"] == 1
 
         # Verify everything is actually gone.
         conn = db.get_db()
@@ -621,7 +615,6 @@ class TestAdminDeleteUser:
         assert conn.execute("SELECT COUNT(*) FROM mistakes WHERE id = ?", (mistake_id,)).fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM feedback WHERE user_id = ?", (victim,)).fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM category_reports WHERE user_id = ?", (victim,)).fetchone()[0] == 0
-        assert conn.execute("SELECT COUNT(*) FROM invite_codes WHERE code = ?", ("victim-code",)).fetchone()[0] == 0
         # The admin (testuser) is untouched.
         assert conn.execute("SELECT COUNT(*) FROM users WHERE id = ?", (me["id"],)).fetchone()[0] == 1
         conn.close()

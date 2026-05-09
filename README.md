@@ -22,16 +22,8 @@ cp nginx.conf.template nginx.conf
 # Build (Python image — fast)
 docker compose build
 
-# Generate invite codes for user registration
+# Start the app
 docker compose up -d
-docker compose exec app python3 -c "
-import db
-conn = db.get_db()
-db.init_db(conn)
-codes = db.create_invite_codes(conn, 3)
-print('Invite codes:', codes)
-conn.close()
-"
 ```
 
 ### HTTPS with certbot

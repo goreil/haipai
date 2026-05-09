@@ -31,7 +31,6 @@ def snapshot_other_users(conn, exclude_id):
         "category_reports": conn.execute(
             "SELECT COUNT(*) FROM category_reports WHERE user_id != ?", (exclude_id,)
         ).fetchone()[0],
-        "invite_codes": conn.execute("SELECT COUNT(*) FROM invite_codes").fetchone()[0],
     }
 
 
@@ -81,11 +80,6 @@ def seed(conn):
         kind="wrong_text", suggested_category=None, reason="seed",
     )
 
-    # Invite code that this user "consumed"
-    conn.execute(
-        "INSERT INTO invite_codes (code, used_by, used_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
-        ("gdpr-test-code", user_id),
-    )
     conn.commit()
     return user_id, game_id, mistake_id
 
@@ -103,11 +97,6 @@ def assert_empty(conn, user_id, game_id, mistake_id):
     check("mistakes", "SELECT COUNT(*) FROM mistakes WHERE id = ?", (mistake_id,))
     check("feedback", "SELECT COUNT(*) FROM feedback WHERE user_id = ?", (user_id,))
     check("category_reports", "SELECT COUNT(*) FROM category_reports WHERE user_id = ?", (user_id,))
-    check(
-        "invite_codes",
-        "SELECT COUNT(*) FROM invite_codes WHERE code = ?",
-        ("gdpr-test-code",),
-    )
     return failures
 
 
@@ -116,10 +105,6 @@ def main():
     user_id, game_id, mistake_id = seed(conn)
 
     pre = snapshot_other_users(conn, user_id)
-    # Pre-delete the throwaway invite code from the snapshot count so the
-    # post-delete comparison is apples-to-apples (the test code is the only
-    # invite_codes row tied to the user).
-    pre["invite_codes"] -= 1
     print(f"seeded user_id={user_id} game_id={game_id} mistake_id={mistake_id}")
     print(f"other-users snapshot (expected to be unchanged): {pre}")
 

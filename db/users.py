@@ -1,26 +1,18 @@
-"""Users + invite codes + OAuth linking."""
+"""Users + OAuth linking."""
 
 import secrets
 
 
 # --- Users ---
 
-def create_user(conn, username, password_hash, invite_code=None):
+def create_user(conn, username, password_hash):
     """Create a new user. Returns user_id or raises on duplicate."""
     cur = conn.execute(
         "INSERT INTO users (username, password_hash) VALUES (?, ?)",
         (username, password_hash),
     )
-    user_id = cur.lastrowid
-
-    if invite_code:
-        conn.execute(
-            "UPDATE invite_codes SET used_by = ?, used_at = CURRENT_TIMESTAMP WHERE code = ?",
-            (user_id, invite_code),
-        )
-
     conn.commit()
-    return user_id
+    return cur.lastrowid
 
 
 def get_user_by_username(conn, username):
@@ -120,7 +112,6 @@ def delete_user_cascade(conn, user_id):
         for table, col in (
             ("feedback", "user_id"),
             ("category_reports", "user_id"),
-            ("invite_codes", "used_by"),
         ):
             cur = conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (user_id,))
             counts[table] = cur.rowcount
@@ -143,33 +134,3 @@ def delete_user_cascade(conn, user_id):
         conn.rollback()
         raise
     return counts
-
-
-# --- Invite codes ---
-
-def create_invite_codes(conn, n):
-    """Generate n invite codes. Returns list of code strings."""
-    codes = []
-    for _ in range(n):
-        code = secrets.token_urlsafe(8)
-        conn.execute("INSERT INTO invite_codes (code) VALUES (?)", (code,))
-        codes.append(code)
-    conn.commit()
-    return codes
-
-
-def list_invite_codes(conn):
-    """List all invite codes with status."""
-    return conn.execute(
-        """SELECT ic.code, ic.created_at, ic.used_at, u.username as used_by_name
-           FROM invite_codes ic LEFT JOIN users u ON ic.used_by = u.id
-           ORDER BY ic.created_at""",
-    ).fetchall()
-
-
-def validate_invite_code(conn, code):
-    """Check if an invite code is valid (exists and unused). Returns True/False."""
-    row = conn.execute(
-        "SELECT used_by FROM invite_codes WHERE code = ?", (code,)
-    ).fetchone()
-    return row is not None and row["used_by"] is None

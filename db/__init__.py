@@ -9,7 +9,7 @@ Submodule layout (see `docs/backlogs/REFACTOR-TARGET.md`):
                    `annotate_mistake`, `update_mistake_data`
 - `db.games`     — list/get/add/delete + `compute_summary_for_game`,
                    `get_trends`
-- `db.users`     — users, OAuth linking, invite codes
+- `db.users`     — users, OAuth linking
 - `db.feedback`  — bug-report CRUD
 - `db.reports`   — category-report CRUD
 - `db.admin`     — `is_admin`, `admin_user_stats`
@@ -37,7 +37,6 @@ from db.games import (
     update_game_stats,
 )
 from db.users import (
-    create_invite_codes,
     create_oauth_user,
     create_user,
     delete_user_cascade,
@@ -47,9 +46,7 @@ from db.users import (
     get_user_by_upload_token,
     get_user_by_username,
     link_oauth,
-    list_invite_codes,
     regenerate_upload_token,
-    validate_invite_code,
 )
 from db.feedback import (
     get_feedback_item,
@@ -114,7 +111,6 @@ __all__ = [
     "list_games",
     "update_game_stats",
     # users
-    "create_invite_codes",
     "create_oauth_user",
     "create_user",
     "delete_user_cascade",
@@ -124,9 +120,7 @@ __all__ = [
     "get_user_by_upload_token",
     "get_user_by_username",
     "link_oauth",
-    "list_invite_codes",
     "regenerate_upload_token",
-    "validate_invite_code",
     # feedback
     "get_feedback_item",
     "get_user_feedback",
