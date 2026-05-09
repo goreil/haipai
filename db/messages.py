@@ -1,9 +1,8 @@
 """Per-user mailbox messages.
 
 Messages are either broadcasts (`audience_user_id IS NULL`) visible to every
-user, or directed at a single recipient (e.g. a thank-you for a feedback
-report). Read state lives in `message_reads` so the same broadcast row can
-be unread for one user and read for another.
+user, or directed at a single recipient. Read state lives in `message_reads`
+so the same broadcast row can be unread for one user and read for another.
 """
 
 
@@ -16,7 +15,6 @@ def list_for_user(conn, user_id):
     """
     rows = conn.execute(
         """SELECT m.id, m.type, m.title, m.body, m.created_at,
-                  m.related_feedback_id,
                   CASE WHEN r.message_id IS NULL THEN 1 ELSE 0 END AS unread
              FROM messages m
              LEFT JOIN message_reads r
@@ -61,15 +59,14 @@ def mark_all_read(conn, user_id):
     conn.commit()
 
 
-def create_message(conn, *, type, title, body, audience_user_id=None,
-                   related_feedback_id=None):
+def create_message(conn, *, type, title, body, audience_user_id=None):
     """Insert a new message. Used from CLI / admin tooling, not the API."""
     if type not in ("feature", "thanks"):
         raise ValueError(f"invalid message type: {type!r}")
     cur = conn.execute(
-        """INSERT INTO messages (type, title, body, audience_user_id, related_feedback_id)
-           VALUES (?, ?, ?, ?, ?)""",
-        (type, title, body, audience_user_id, related_feedback_id),
+        """INSERT INTO messages (type, title, body, audience_user_id)
+           VALUES (?, ?, ?, ?)""",
+        (type, title, body, audience_user_id),
     )
     conn.commit()
     return cur.lastrowid

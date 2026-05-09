@@ -12,10 +12,10 @@ Examples
         --type feature --broadcast \\
         --title "Mailbox is here" --body-file /tmp/mailbox.html
 
-    # Thanks targeted at a single user, linked to a feedback row:
+    # Thanks targeted at a single user, quoting their category report:
     docker exec -i haipai-app-1 python3 /app/scripts/leave_message.py \\
-        --type thanks --to Ikuto --feedback 7414 --quote-feedback \\
-        --title "Re: Mortal complains on yakuhai discard" \\
+        --type thanks --to Ikuto --report 7414 --quote-report \\
+        --title "Re: yakuhai discard categorization" \\
         --body-stdin <<'EOF'
     <p>Fixed in commit <code>102da0d</code> — the categorizer no longer
     flags discarding a yakuhai pair when Mortal had already done so.</p>
@@ -61,25 +61,6 @@ def resolve_user(conn, username):
     sys.exit(f"error: user {username!r} not found")
 
 
-def resolve_feedback(conn, feedback_id, expected_user_id=None):
-    row = conn.execute(
-        """SELECT f.id, f.user_id, f.type, f.message, f.created_at, u.username
-             FROM feedback f
-             JOIN users u ON f.user_id = u.id
-            WHERE f.id = ?""",
-        (feedback_id,),
-    ).fetchone()
-    if not row:
-        sys.exit(f"error: feedback id {feedback_id} not found")
-    if expected_user_id is not None and row["user_id"] != expected_user_id:
-        sys.exit(
-            f"error: feedback {feedback_id} belongs to "
-            f"{row['username']!r} (id {row['user_id']}), "
-            f"not the recipient you specified"
-        )
-    return dict(row)
-
-
 def resolve_category_report(conn, mistake_id, user_id):
     """Look up the (mistake_id, user_id) row in category_reports.
 
@@ -112,21 +93,6 @@ def read_body(args):
         with open(args.body_file, "r", encoding="utf-8") as f:
             return f.read()
     return sys.stdin.read()
-
-
-def quote_block(feedback_row):
-    """Render the feedback message as a styled blockquote we can prepend
-    to the user-supplied body."""
-    import html as _html
-    text = _html.escape(feedback_row["message"]).replace("\n", "<br>")
-    when = feedback_row.get("created_at") or ""
-    attr = f"— your feedback{', ' + when[:10] if when else ''}"
-    return (
-        '<blockquote>'
-        f'{text}'
-        f'<span class="quote-attr">{_html.escape(attr)}</span>'
-        '</blockquote>\n'
-    )
 
 
 def quote_report_block(report_row):
@@ -181,11 +147,6 @@ def main():
     aud.add_argument("--broadcast", action="store_true",
                      help="visible to every user")
 
-    ap.add_argument("--feedback", type=int, metavar="ID",
-                    help="link to a feedback row (sets related_feedback_id)")
-    ap.add_argument("--quote-feedback", action="store_true",
-                    help="prepend a blockquote of the feedback message to the body "
-                         "(requires --feedback)")
     ap.add_argument("--report", type=int, metavar="MISTAKE_ID",
                     help="reference the recipient's category_reports row for "
                          "this mistake (requires --to)")
@@ -199,8 +160,6 @@ def main():
 
     args = ap.parse_args()
 
-    if args.quote_feedback and not args.feedback:
-        ap.error("--quote-feedback requires --feedback")
     if args.report and not args.to:
         ap.error("--report requires --to (looks up the recipient's report)")
     if args.quote_report and not args.report:
@@ -226,12 +185,6 @@ def main():
         audience_id, canonical = resolve_user(conn, args.to)
         audience_label = f"{canonical} (id {audience_id})"
 
-    feedback_row = None
-    if args.feedback:
-        feedback_row = resolve_feedback(conn, args.feedback, audience_id)
-        if args.quote_feedback:
-            body = quote_block(feedback_row) + body
-
     report_row = None
     if args.report:
         report_row = resolve_category_report(conn, args.report, audience_id)
@@ -242,10 +195,6 @@ def main():
     print(f"type:     {args.type}")
     print(f"audience: {audience_label}")
     print(f"title:    {args.title}")
-    if feedback_row:
-        snippet = feedback_row["message"][:80].replace("\n", " ")
-        print(f"feedback: #{feedback_row['id']} from {feedback_row['username']}: "
-              f"{snippet!r}")
     if report_row:
         snippet = (report_row.get("reason") or "(no reason)")[:80].replace("\n", " ")
         print(f"report:   row #{report_row['report_id']} on mistake "
@@ -265,10 +214,9 @@ def main():
         return
 
     cur = conn.execute(
-        """INSERT INTO messages (type, title, body, audience_user_id, related_feedback_id)
-           VALUES (?, ?, ?, ?, ?)""",
-        (args.type, args.title, body, audience_id,
-         feedback_row["id"] if feedback_row else None),
+        """INSERT INTO messages (type, title, body, audience_user_id)
+           VALUES (?, ?, ?, ?)""",
+        (args.type, args.title, body, audience_id),
     )
     conn.commit()
     print(f"inserted message id {cur.lastrowid}")

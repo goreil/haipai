@@ -30,18 +30,6 @@ CREATE TABLE IF NOT EXISTS games (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS feedback (
-    id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    type TEXT NOT NULL,
-    message TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'new',
-    admin_note TEXT,
-    github_issue_url TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
 CREATE TABLE IF NOT EXISTS mistakes (
     id INTEGER PRIMARY KEY,
     game_id INTEGER NOT NULL,
@@ -75,10 +63,8 @@ CREATE TABLE IF NOT EXISTS messages (
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     audience_user_id INTEGER,
-    related_feedback_id INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (audience_user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (related_feedback_id) REFERENCES feedback(id) ON DELETE SET NULL
+    FOREIGN KEY (audience_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS message_reads (
@@ -109,12 +95,6 @@ def migrate(conn):
     if not _has_column("users", "is_admin"):
         conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
         altered = True
-    for col, typedef in [("status", "TEXT NOT NULL DEFAULT 'new'"),
-                         ("admin_note", "TEXT"),
-                         ("github_issue_url", "TEXT")]:
-        if not _has_column("feedback", col):
-            conn.execute(f"ALTER TABLE feedback ADD COLUMN {col} {typedef}")
-            altered = True
     if not _has_column("games", "categorization_status"):
         conn.execute("ALTER TABLE games ADD COLUMN categorization_status TEXT NOT NULL DEFAULT 'done'")
         altered = True
@@ -164,6 +144,33 @@ def migrate(conn):
         "SELECT name FROM sqlite_master WHERE type='table' AND name='invite_codes'"
     ).fetchone():
         conn.execute("DROP TABLE invite_codes")
+        altered = True
+    # The user-feedback feature was removed; drop the table and the
+    # messages.related_feedback_id column that referenced it. Idempotent.
+    # The column carries a FK to feedback(id), which SQLite refuses to
+    # drop in place, so the messages table is rebuilt to shed both the
+    # column and its foreign key.
+    if _has_column("messages", "related_feedback_id"):
+        conn.executescript("""
+            CREATE TABLE messages_new (
+                id INTEGER PRIMARY KEY,
+                type TEXT NOT NULL CHECK(type IN ('feature','thanks')),
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                audience_user_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (audience_user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            INSERT INTO messages_new (id, type, title, body, audience_user_id, created_at)
+                SELECT id, type, title, body, audience_user_id, created_at FROM messages;
+            DROP TABLE messages;
+            ALTER TABLE messages_new RENAME TO messages;
+        """)
+        altered = True
+    if conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='feedback'"
+    ).fetchone():
+        conn.execute("DROP TABLE feedback")
         altered = True
     if altered:
         conn.commit()

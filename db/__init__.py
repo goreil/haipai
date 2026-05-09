@@ -10,7 +10,6 @@ Submodule layout (see `docs/backlogs/REFACTOR-TARGET.md`):
 - `db.games`     — list/get/add/delete + `compute_summary_for_game`,
                    `get_trends`
 - `db.users`     — users, OAuth linking
-- `db.feedback`  — bug-report CRUD
 - `db.reports`   — category-report CRUD
 - `db.admin`     — `is_admin`, `admin_user_stats`
 """
@@ -47,12 +46,6 @@ from db.users import (
     get_user_by_username,
     link_oauth,
     regenerate_upload_token,
-)
-from db.feedback import (
-    get_feedback_item,
-    get_user_feedback,
-    list_feedback,
-    update_feedback,
 )
 from db.reports import (
     REPORT_KINDS,
@@ -121,11 +114,6 @@ __all__ = [
     "get_user_by_username",
     "link_oauth",
     "regenerate_upload_token",
-    # feedback
-    "get_feedback_item",
-    "get_user_feedback",
-    "list_feedback",
-    "update_feedback",
     # reports
     "REPORT_KINDS",
     "delete_category_report",

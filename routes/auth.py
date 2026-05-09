@@ -215,8 +215,8 @@ def api_me_export():
     """GDPR data export: stream everything the DB holds about this user as JSON.
 
     Excludes auth secrets (password hash, upload token). Includes account
-    metadata, all games (with mistakes + annotations), feedback, category
-    reports, and mailbox messages visible to the user with their read state.
+    metadata, all games (with mistakes + annotations), category reports, and
+    mailbox messages visible to the user with their read state.
 
     Streamed row-by-row and the per-mistake `data_json` is inlined raw — a
     single user's mistake corpus can hit ~17 MB and re-parsing every blob
@@ -302,19 +302,6 @@ def api_me_export():
                 yield "]}"
             yield "\n],\n"
 
-            yield '"feedback": [\n'
-            first = True
-            for r in conn.execute(
-                "SELECT id, type, message, status, admin_note, github_issue_url, created_at "
-                "FROM feedback WHERE user_id = ? ORDER BY created_at, id",
-                (user_id,),
-            ):
-                if not first:
-                    yield ",\n"
-                first = False
-                yield dumps(dict(r))
-            yield "\n],\n"
-
             yield '"category_reports": [\n'
             first = True
             for r in conn.execute(
@@ -332,7 +319,7 @@ def api_me_export():
             first = True
             for r in conn.execute(
                 """SELECT m.id, m.type, m.title, m.body, m.audience_user_id,
-                          m.related_feedback_id, m.created_at, r.read_at
+                          m.created_at, r.read_at
                      FROM messages m
                      LEFT JOIN message_reads r
                             ON r.message_id = m.id AND r.user_id = ?

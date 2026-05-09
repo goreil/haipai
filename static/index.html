@@ -70,8 +70,6 @@
           <div class="toolbar-dropdown">
             <button onclick="showAccount()">Account</button>
             <button onclick="showHelp()">Help</button>
-            <button onclick="showFeedbackModal()">Send Feedback</button>
-            <button onclick="showMyFeedback()">My Feedback</button>
             <button id="admin-btn" style="display:none" onclick="showAdmin()">Admin</button>
             <button id="stop-impersonating-btn" style="display:none" onclick="adminStopImpersonate()">Stop impersonating</button>
             <hr style="border:none;border-top:1px solid var(--border);margin:4px 0">
@@ -110,30 +108,6 @@
         <p class="form-hint">Drag this link to your bookmark bar. On a mjai.ekyu.moe report page, click it to upload the analysis directly to Haipai.</p>
         <p><a id="upload-bookmarklet" class="btn" href="javascript:void(0)" onclick="event.preventDefault()" draggable="true">Send to Haipai</a></p>
         <p class="form-hint" style="margin-top:6px"><a href="javascript:void(0)" onclick="regenerateUploadToken()">Regenerate token</a> (invalidates the bookmarklet on every browser).</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Feedback Modal -->
-  <div class="modal-overlay" id="feedback-modal" onclick="if(event.target===this)hideFeedbackModal()">
-    <div class="modal">
-      <h3>Send Feedback</h3>
-      <div class="form-group">
-        <label>Type</label>
-        <select id="feedback-type">
-          <option value="bug">Bug Report</option>
-          <option value="feature">Feature Request</option>
-          <option value="general" selected>General Feedback</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Message</label>
-        <textarea id="feedback-message" rows="5" maxlength="2000" placeholder="What's on your mind?"></textarea>
-      </div>
-      <div class="error" id="feedback-error"></div>
-      <div class="btn-row">
-        <button class="btn" onclick="hideFeedbackModal()">Cancel</button>
-        <button class="btn btn-primary" id="feedback-submit-btn" onclick="submitFeedback()">Send</button>
       </div>
     </div>
   </div>

@@ -1,6 +1,5 @@
-// Account page (OAuth link/unlink), Help page, My-Feedback view, and the
-// "send feedback" modal. Sibling menu pages reachable from the toolbar
-// dropdown.
+// Account page (OAuth link/unlink) and Help page. Sibling menu pages
+// reachable from the toolbar dropdown.
 
 // --- Account ---
 
@@ -49,7 +48,7 @@ function showAccount() {
   html += `<div class="account-section" style="margin-top:16px">
     <div class="account-row" style="border-bottom:none;flex-direction:column;align-items:flex-start;gap:8px">
       <span class="account-label" style="min-width:0">Export your data (GDPR)</span>
-      <p class="form-hint" style="margin:0">Download a JSON file containing your account, games, mistakes, feedback, category reports, and mailbox messages.</p>
+      <p class="form-hint" style="margin:0">Download a JSON file containing your account, games, mistakes, category reports, and mailbox messages.</p>
       <a class="account-btn" href="/api/me/export" download>Download JSON</a>
     </div>
   </div>`;
@@ -196,81 +195,3 @@ function showHelp() {
   content.innerHTML = html;
 }
 
-// --- My Feedback ---
-
-async function showMyFeedback() {
-  state.currentGame = null;
-  state.currentGameData = null;
-  renderGameList();
-  const content = document.getElementById("content");
-  content.innerHTML = '<div class="empty-state">Loading...</div>';
-
-  const res = await fetch("/api/feedback/mine");
-  const items = await res.json();
-
-  const statusColors = { "new": "#4fc3f7", "in-progress": "#ffa94d", "resolved": "#66bb6a" };
-
-  let html = `<div class="game-header"><h2>My Feedback</h2></div>`;
-
-  if (!items.length) {
-    html += '<div class="empty-state">No feedback submitted yet</div>';
-    content.innerHTML = html;
-    return;
-  }
-
-  for (const item of items) {
-    const sc = statusColors[item.status] || "#888";
-    const date = new Date(item.created_at + "Z").toLocaleString();
-
-    html += `<div class="admin-card">
-      <div class="admin-card-header">
-        <span class="admin-badge" style="background:${sc}20;color:${sc}">${item.status}</span>
-        <span class="admin-meta">${item.type} &middot; ${date}</span>
-      </div>
-      <div class="admin-card-body">${escapeHtml(item.message)}</div>
-      ${item.status === "resolved" && item.admin_note ? `<div class="admin-note-display"><b>Response:</b> ${escapeHtml(item.admin_note)}</div>` : ""}
-    </div>`;
-  }
-
-  content.innerHTML = html;
-}
-
-// --- Feedback modal ---
-
-function showFeedbackModal() {
-  document.getElementById("feedback-modal").style.display = "flex";
-  document.getElementById("feedback-message").value = "";
-  document.getElementById("feedback-error").textContent = "";
-}
-
-function hideFeedbackModal() {
-  document.getElementById("feedback-modal").style.display = "none";
-}
-
-async function submitFeedback() {
-  const type = document.getElementById("feedback-type").value;
-  const message = document.getElementById("feedback-message").value.trim();
-  const errEl = document.getElementById("feedback-error");
-  const btn = document.getElementById("feedback-submit-btn");
-
-  if (!message) {
-    errEl.textContent = "Please enter a message.";
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = "Sending...";
-  errEl.textContent = "";
-
-  const res = await apiPost("/api/feedback", { type, message });
-  const data = await res.json();
-
-  btn.disabled = false;
-  btn.textContent = "Send";
-
-  if (data.ok) {
-    hideFeedbackModal();
-  } else {
-    errEl.textContent = data.error || "Failed to send feedback.";
-  }
-}

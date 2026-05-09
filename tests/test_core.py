@@ -172,7 +172,6 @@ class TestDatabase:
         assert "users" in table_names
         assert "games" in table_names
         assert "mistakes" in table_names
-        assert "feedback" in table_names
 
     def test_create_user(self, tmp_db):
         uid = db.create_user(tmp_db, "alice", _gen_pw_hash("pw"))
@@ -262,17 +261,6 @@ class TestDatabase:
             })
         games = db.list_games(conn, uid)
         assert len(games) == 3
-
-    def test_feedback_insertion(self, sample_user):
-        conn, uid = sample_user
-        conn.execute(
-            "INSERT INTO feedback (user_id, type, message) VALUES (?, ?, ?)",
-            (uid, "bug", "Something is broken"),
-        )
-        conn.commit()
-        row = conn.execute("SELECT * FROM feedback WHERE user_id = ?", (uid,)).fetchone()
-        assert row["type"] == "bug"
-        assert row["message"] == "Something is broken"
 
     # --- Helper to insert a game with a discard mistake ---
 
@@ -683,21 +671,6 @@ class TestAPI:
         data = res.get_json()
         assert isinstance(data, list)
 
-    def test_feedback_api(self, client):
-        self._login(client)
-        res = client.post("/api/feedback", json={
-            "type": "bug",
-            "message": "Test feedback",
-        })
-        assert res.status_code == 200
-        data = res.get_json()
-        assert data["ok"] is True
-
-    def test_feedback_validation(self, client):
-        self._login(client)
-        res = client.post("/api/feedback", json={"type": "bug", "message": ""})
-        assert res.status_code == 400
-
     def test_categories_api(self, client):
         self._login(client)
         res = client.get("/api/categories")
@@ -714,15 +687,6 @@ class TestAPI:
         # Invalid category
         res = client.post("/api/games/1/annotate", json={
             "round": "E1", "turn": 1, "category": "INVALID"
-        })
-        assert res.status_code == 400
-
-    def test_feedback_type_validation(self, client):
-        """Feedback type must be bug/feature/general."""
-        self._login(client)
-        res = client.post("/api/feedback", json={
-            "type": "malicious",
-            "message": "test",
         })
         assert res.status_code == 400
 

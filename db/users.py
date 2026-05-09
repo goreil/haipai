@@ -109,12 +109,8 @@ def delete_user_cascade(conn, user_id):
     counts = {}
     try:
         # Rows that reference users(id) directly with no ON DELETE behavior.
-        for table, col in (
-            ("feedback", "user_id"),
-            ("category_reports", "user_id"),
-        ):
-            cur = conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (user_id,))
-            counts[table] = cur.rowcount
+        cur = conn.execute("DELETE FROM category_reports WHERE user_id = ?", (user_id,))
+        counts["category_reports"] = cur.rowcount
 
         # Count mistakes that will cascade-delete with the games, so the
         # response can report them honestly.
