@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Auth routes: login/register/logout, OAuth (discord + google), /api/me + /api/me/*."""
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session
+import json
+import os
+from datetime import datetime, timezone
+
+from flask import Blueprint, Response, jsonify, redirect, render_template, request, session
 from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
-import os
 
 import db
 
@@ -204,6 +207,153 @@ def api_link_oauth():
     else:
         url = url_for("auth.auth_google", _external=True)
     return jsonify({"url": url})
+
+
+@auth_bp.route("/api/me/export")
+@login_required
+def api_me_export():
+    """GDPR data export: stream everything the DB holds about this user as JSON.
+
+    Excludes auth secrets (password hash, upload token). Includes account
+    metadata, all games (with mistakes + annotations), feedback, category
+    reports, and mailbox messages visible to the user with their read state.
+
+    Streamed row-by-row and the per-mistake `data_json` is inlined raw — a
+    single user's mistake corpus can hit ~17 MB and re-parsing every blob
+    just to re-serialize it OOM-killed the 512 MB container.
+
+    The generator opens its own DB connection because the per-request `g.db_conn`
+    is torn down before a streamed response finishes.
+    """
+    from app import get_conn
+
+    user_id = current_user.id
+    user_row = db.get_user_by_id(get_conn(), user_id)
+    if not user_row:
+        return jsonify({"error": "User not found"}), 404
+    username = user_row["username"]
+
+    account = {
+        "id": user_row["id"],
+        "username": username,
+        "is_admin": bool(user_row["is_admin"]),
+        "created_at": user_row["created_at"],
+        "discord_id": user_row["discord_id"],
+        "google_id": user_row["google_id"],
+    }
+
+    def dumps(obj):
+        return json.dumps(obj, ensure_ascii=False, default=str)
+
+    def generate():
+        # Open a dedicated connection — the per-request `g.db_conn` is torn
+        # down before a streamed response finishes iterating.
+        conn = db.get_db()
+        try:
+            yield "{\n"
+            yield f'"exported_at": {dumps(datetime.now(timezone.utc).isoformat())},\n'
+            yield f'"account": {dumps(account)},\n'
+
+            # Games — stream one game (with its mistakes) at a time.
+            yield '"games": [\n'
+            first_game = True
+            for g in conn.execute(
+                "SELECT id, date, log_url, mortal_file, categorization_status, created_at, "
+                "stats_json, rounds_json FROM games WHERE user_id = ? ORDER BY date, id",
+                (user_id,),
+            ):
+                if not first_game:
+                    yield ",\n"
+                first_game = False
+                game_meta = {
+                    "id": g["id"],
+                    "date": g["date"],
+                    "log_url": g["log_url"],
+                    "mortal_file": g["mortal_file"],
+                    "categorization_status": g["categorization_status"],
+                    "created_at": g["created_at"],
+                }
+                yield "{"
+                for k, v in game_meta.items():
+                    yield f"{dumps(k)}: {dumps(v)}, "
+                # Embed pre-serialized JSON blobs verbatim — they're already
+                # valid JSON in the DB, so re-parsing buys nothing.
+                yield f'"stats": {g["stats_json"] or "null"}, '
+                yield f'"rounds": {g["rounds_json"] or "null"}, '
+                yield '"mistakes": [\n'
+                first_m = True
+                # Use a separate cursor so it doesn't fight the outer iterator.
+                m_cur = conn.execute(
+                    "SELECT id, round_name, round_idx, mistake_idx, category, severity, "
+                    "ev_loss, turn, note, data_json FROM mistakes "
+                    "WHERE game_id = ? ORDER BY round_idx, mistake_idx",
+                    (g["id"],),
+                )
+                for mr in m_cur:
+                    if not first_m:
+                        yield ",\n"
+                    first_m = False
+                    yield "{"
+                    for k in ("id", "round_name", "round_idx", "mistake_idx",
+                             "category", "severity", "ev_loss", "turn", "note"):
+                        yield f"{dumps(k)}: {dumps(mr[k])}, "
+                    yield f'"data": {mr["data_json"] or "null"}'
+                    yield "}"
+                yield "]}"
+            yield "\n],\n"
+
+            yield '"feedback": [\n'
+            first = True
+            for r in conn.execute(
+                "SELECT id, type, message, status, admin_note, github_issue_url, created_at "
+                "FROM feedback WHERE user_id = ? ORDER BY created_at, id",
+                (user_id,),
+            ):
+                if not first:
+                    yield ",\n"
+                first = False
+                yield dumps(dict(r))
+            yield "\n],\n"
+
+            yield '"category_reports": [\n'
+            first = True
+            for r in conn.execute(
+                "SELECT id, mistake_id, kind, suggested_category, reason, created_at "
+                "FROM category_reports WHERE user_id = ? ORDER BY created_at, id",
+                (user_id,),
+            ):
+                if not first:
+                    yield ",\n"
+                first = False
+                yield dumps(dict(r))
+            yield "\n],\n"
+
+            yield '"messages": [\n'
+            first = True
+            for r in conn.execute(
+                """SELECT m.id, m.type, m.title, m.body, m.audience_user_id,
+                          m.related_feedback_id, m.created_at, r.read_at
+                     FROM messages m
+                     LEFT JOIN message_reads r
+                            ON r.message_id = m.id AND r.user_id = ?
+                    WHERE m.audience_user_id IS NULL OR m.audience_user_id = ?
+                    ORDER BY m.created_at, m.id""",
+                (user_id, user_id),
+            ):
+                if not first:
+                    yield ",\n"
+                first = False
+                yield dumps(dict(r))
+            yield "\n]\n}\n"
+        finally:
+            conn.close()
+
+    filename = f"haipai-export-{username}-{datetime.now(timezone.utc).strftime('%Y%m%d')}.json"
+    return Response(
+        generate(),
+        mimetype="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @auth_bp.route("/api/me/unlink-oauth", methods=["POST"])
