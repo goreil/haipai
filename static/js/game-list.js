@@ -65,8 +65,19 @@ function showOnboarding() {
 
 async function fetchGame(id) {
   const res = await fetch(`/api/games/${id}`);
+  if (!res.ok) {
+    // Bad deep-link or game not owned: drop the hash so the listener doesn't
+    // re-fire, and leave the user on the game list.
+    if (window.location.hash) history.replaceState(null, "", window.location.pathname + window.location.search);
+    state.currentGame = null;
+    state.currentGameData = null;
+    document.getElementById("content").innerHTML = '<div class="empty-state">Game not found</div>';
+    return;
+  }
   state.currentGameData = await res.json();
   state.currentGame = id;
+  const want = `#game=${id}`;
+  if (window.location.hash !== want) history.replaceState(null, "", want);
   recategorizeGameInPlace(state.currentGameData);
   state.currentGameData.summary = recomputeSummaryByCategory(state.currentGameData);
   renderGame();
@@ -623,6 +634,7 @@ async function deleteGame(id) {
 function navigateHome() {
   state.currentGame = null;
   state.currentGameData = null;
+  if (window.location.hash) history.replaceState(null, "", window.location.pathname + window.location.search);
   renderGameList();
   document.getElementById("content").innerHTML = '<div class="empty-state">Select a game to review</div>';
 }

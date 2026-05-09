@@ -32,7 +32,7 @@ function hideAddModal() {
 // query param to get the analysis JSON URL, fetches it same-origin, then
 // POSTs the JSON to /api/games/upload here.
 function buildUploadBookmarkletHref(token, origin) {
-  const code = `(function(){var u=location.origin+new URLSearchParams(location.search).get('data');if(!u||u===location.origin+'null'){alert('No ?data= param found.');return;}fetch(u).then(function(r){return r.json();}).then(function(d){return fetch('${origin}/api/games/upload',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ${token}'},body:JSON.stringify({mortal_data:d})});}).then(function(r){return r.json().then(function(j){return{status:r.status,j:j};});}).then(function(x){if(x.status>=200&&x.status<300)location.href='${origin}/';else alert('Upload failed ('+x.status+'): '+(x.j&&x.j.error||''));}).catch(function(e){alert('Upload failed: '+e);});})();`;
+  const code = `(function(){var u=location.origin+new URLSearchParams(location.search).get('data');if(!u||u===location.origin+'null'){alert('No ?data= param found.');return;}fetch(u).then(function(r){return r.json();}).then(function(d){return fetch('${origin}/api/games/upload',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer ${token}'},body:JSON.stringify({mortal_data:d})});}).then(function(r){return r.json().then(function(j){return{status:r.status,j:j};});}).then(function(x){if(x.status>=200&&x.status<300)location.href='${origin}/'+(x.j&&x.j.game_id?'#game='+x.j.game_id:'');else alert('Upload failed ('+x.status+'): '+(x.j&&x.j.error||''));}).catch(function(e){alert('Upload failed: '+e);});})();`;
   return "javascript:" + encodeURIComponent(code);
 }
 
