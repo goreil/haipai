@@ -447,6 +447,7 @@ function renderGame() {
       for (const m of rnd.mistakes || []) {
         const idx = byTurn[m.turn] || 0;
         byTurn[m.turn] = idx + 1;
+        m.round_name = rnd.round;
         allMistakes.push(m);
         mistakeLoc.set(m, {round: rnd.round, index: idx});
       }
@@ -492,9 +493,16 @@ function renderGame() {
           const info = CATEGORY_INFO[cat];
           const label = info ? info.label : cat;
           const desc = info ? info.desc : "";
+          const tiers = { severe: 0, mistake: 0, light: 0, unsure: 0 };
+          for (const m of sub.mistakes) tiers[sevTier(m.ev_loss)]++;
           html += `<div class="cat-sub" title="${desc}">
             <span class="cat-sub-label">${label}</span>
-            <span class="cat-sub-stat">${sub.count} (${sub.ev.toFixed(2)} EV)</span>
+            <span class="cat-sub-count">${sub.count}</span>
+            <span class="cat-sub-ev">${sub.ev.toFixed(2)} EV</span>
+            <span class="tier-count sev-major" title="Severe">${tiers.severe} Severe</span>
+            <span class="tier-count sev-medium" title="Mistake">${tiers.mistake} Mistake</span>
+            <span class="tier-count sev-light" title="Light">${tiers.light} Light</span>
+            <span class="tier-count sev-minor" title="Unsure">${tiers.unsure} Unsure</span>
           </div>`;
         }
         // Inline mistake list (hidden by default) with explanatory text

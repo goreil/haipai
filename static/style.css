@@ -1668,7 +1668,8 @@ body {
 }
 
 .cat-sub {
-  display: flex;
+  display: grid;
+  grid-template-columns: 130px 32px 70px repeat(4, 80px);
   align-items: center;
   gap: 8px;
   padding: 2px 0 2px 12px;
@@ -1677,12 +1678,26 @@ body {
 
 .cat-sub-label {
   color: var(--text);
-  min-width: 100px;
 }
 
-.cat-sub-stat {
+.cat-sub-count {
   color: var(--text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
+
+.cat-sub-ev {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.tier-count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.tier-count.sev-major { color: var(--sev-major); }
+.tier-count.sev-medium { color: var(--sev-medium); }
+.tier-count.sev-light { color: var(--sev-light); }
+.tier-count.sev-minor { color: var(--sev-minor); }
 .cat-expand {
   font-size: 10px;
   opacity: 0.5;
