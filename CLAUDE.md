@@ -32,6 +32,7 @@ python3 -m lib.parse analysis.json
 - Downloads from `mjai.ekyu.moe` must be done manually due to cloudflare
 - `SECRET_KEY` must be set via `.env` or environment variable. No insecure default is provided.
 - Debug mode requires `FLASK_ENV=development` (off by default).
+- Frontend should handle most categorization logic, backend handles shanten/ukeire calc but that's subject to change.
 
 
 ## Data storage

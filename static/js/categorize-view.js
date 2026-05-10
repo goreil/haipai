@@ -266,7 +266,16 @@ function generateExplanation(m) {
         } else if (reason === "P2" && expectedStat && actualStat) {
           text += `Mortal's ${expected.pai} keeps ${tileCountStr(expectedStat)} acceptance vs only ${tileCountStr(actualStat)} for your ${actual.pai}. `;
         } else if (reason === "P3") {
-          text += `Mortal's ${expected.pai} preserves hand value (yakuhai or dora) that you discarded. `;
+          const vp = catData.value_preserve || {};
+          if (vp.dora && vp.yakuhai) {
+            text += `Your ${actual.pai} is both dora and yakuhai — Mortal's ${expected.pai} preserves both. `;
+          } else if (vp.yakuhai) {
+            text += `Your ${actual.pai} is a yakuhai — Mortal's ${expected.pai} preserves it (and the option to meld for a yaku). `;
+          } else if (vp.dora) {
+            text += `Your ${actual.pai} is dora — Mortal's ${expected.pai} preserves the hand value. `;
+          } else {
+            text += `Mortal's ${expected.pai} preserves hand value (yakuhai or dora) that you discarded. `;
+          }
         } else {
           text += `Mortal's pick is more efficient here. `;
         }
@@ -290,7 +299,16 @@ function generateExplanation(m) {
       } else if (reason === "P2" && expectedStat && actualStat) {
         text += `but ${expected.pai} keeps ${tileCountStr(expectedStat)} acceptance vs only ${tileCountStr(actualStat)} for ${actual.pai}. `;
       } else if (reason === "P3") {
-        text += `but ${expected.pai} preserves a yakuhai or dora that your ${actual.pai} gave up. `;
+        const vp = catData.value_preserve || {};
+        if (vp.dora && vp.yakuhai) {
+          text += `but your ${actual.pai} is both dora and yakuhai — ${expected.pai} preserves both. `;
+        } else if (vp.yakuhai) {
+          text += `but your ${actual.pai} is a yakuhai — ${expected.pai} preserves the yaku and the option to meld for speed. `;
+        } else if (vp.dora) {
+          text += `but your ${actual.pai} is dora — ${expected.pai} preserves the hand value. `;
+        } else {
+          text += `but ${expected.pai} preserves a yakuhai or dora that your ${actual.pai} gave up. `;
+        }
       } else {
         text += `but pure tile efficiency favors pushing here. `;
       }
@@ -350,18 +368,33 @@ function generateExplanation(m) {
 
     // --- P3: Hand Value (reintroduced 2026-04-20) ---
     if (cat === "P3") {
+      const vp = (m.categorize_data || {}).value_preserve || {};
       let text = shantenWarning;
-      text += `<span class="trigger-line">Similar tile acceptance, but Mortal is preserving hand value.</span>`;
+      const trigger = vp.similar_acceptance
+        ? `Similar tile acceptance, but Mortal is preserving hand value.`
+        : `Mortal is preserving hand value.`;
+      text += `<span class="trigger-line">${trigger}</span>`;
       if (shantenStr) text += `Your hand is at ${shantenStr}. `;
       if (expectedStat && actualStat) {
         text += `${expected.pai}: ${tileCountStr(expectedStat)} vs ${actual.pai}: ${tileCountStr(actualStat)}. `;
       }
-      if (labels.includes("yakuhai")) {
-        text += `A yakuhai (value honor) is involved — keeping it means more points if you win.`;
-      } else if (labels.includes("dora")) {
-        text += `Dora is involved — holding it preserves hand value.`;
+      if (vp.dora && vp.yakuhai) {
+        text += `Your discard ${actual.pai} is <strong>both dora and yakuhai</strong> — it raises hand score and gives you a yaku.`;
+        text += ` Yakuhai also gives the option to meld for that one yaku, which can greatly speed up the hand.`;
+      } else if (vp.yakuhai) {
+        text += `Your discard ${actual.pai} is a yakuhai (value honor) — keeping it means more points if you win.`;
+        text += ` It's also possible to meld the hand for that yakuhai, giving the option of greatly speeding up the hand.`;
+      } else if (vp.dora) {
+        text += `Your discard ${actual.pai} is dora — holding it preserves hand value.`;
       } else {
-        text += `When tile acceptance is close, prioritize the discard that leads to a higher-scoring hand.`;
+        // Legacy data without value_preserve: fall back to the label hint.
+        if (labels.includes("yakuhai")) {
+          text += `A yakuhai (value honor) is involved — keeping it means more points if you win.`;
+        } else if (labels.includes("dora")) {
+          text += `Dora is involved — holding it preserves hand value.`;
+        } else {
+          text += `When tile acceptance is close, prioritize the discard that leads to a higher-scoring hand.`;
+        }
       }
       return text;
     }

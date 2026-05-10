@@ -110,13 +110,22 @@
     return labels;
   }
 
-  function tileIsYakuhaiOrDora(tile, openingDora, roundWind, seatWind) {
+  function tileIsDora(tile, openingDora) {
     if (!tile) return false;
-    if (tile === "P" || tile === "F" || tile === "C") return true;
-    if (tile === roundWind || tile === seatWind) return true;
     if (tile === "5mr" || tile === "5pr" || tile === "5sr") return true;
     const doraSet = openingDora instanceof Set ? openingDora : new Set(openingDora || []);
     return doraSet.has(tile);
+  }
+
+  function tileIsYakuhai(tile, roundWind, seatWind) {
+    if (!tile) return false;
+    if (tile === "P" || tile === "F" || tile === "C") return true;
+    return tile === roundWind || tile === seatWind;
+  }
+
+  function tileIsYakuhaiOrDora(tile, openingDora, roundWind, seatWind) {
+    return tileIsYakuhai(tile, roundWind, seatWind)
+        || tileIsDora(tile, openingDora);
   }
 
   // --- Stats agreement check (mirror _stats_reasonably_agree) ---
@@ -141,7 +150,13 @@
   }
 
   // --- _classify_push: P1 / P2 / P3 / P4 ---
-  function classifyPush(actualTile, expectedTile, discardStats, catData, labels, actualValueTile) {
+  // valueCtx (optional): { doraApplies, yakuhaiApplies } — each true iff
+  // the actual (your) discard qualifies for that value dimension AND the
+  // expected (Mortal's) discard does NOT. This is what distinguishes
+  // "Mortal preserves a value tile" (P3) from "both sides give up the
+  // same kind of value" (P4) — see #6165 (both red five), #6710 (both
+  // dragons).
+  function classifyPush(actualTile, expectedTile, discardStats, catData, labels, valueCtx) {
     const actualStat = findInStats(actualTile, discardStats);
     const expectedStat = findInStats(expectedTile, discardStats);
 
@@ -166,10 +181,11 @@
       if (shantenOk && eNec > aNec) return "P2";
     }
 
-    // P3: hand-value preservation. Need a yakuhai/dora label, AND Mortal
-    // must be the one keeping it (so the discarded tile is the value tile).
-    if (labels && (labels.includes("yakuhai") || labels.includes("dora"))) {
-      if (actualValueTile == null || actualValueTile) return "P3";
+    // P3: hand-value preservation. Fires when at least one value
+    // dimension applies — meaning the YOUR-discard tile carries that
+    // value and Mortal's pick does not.
+    if (valueCtx && (valueCtx.doraApplies || valueCtx.yakuhaiApplies)) {
+      return "P3";
     }
 
     return "P4";
@@ -177,7 +193,7 @@
 
   // --- _classify_defense: D1 / D2 / D3 (with push_reason side-output) ---
   function classifyDefense(actualTile, expectedTile, dealinRates,
-                            discardStats, catData, labels, actualValueTile) {
+                            discardStats, catData, labels, valueCtx) {
     const userR = dealinFor(actualTile, dealinRates);
     const mortalR = dealinFor(expectedTile, dealinRates);
 
@@ -187,7 +203,7 @@
     }
 
     const push = classifyPush(actualTile, expectedTile, discardStats, catData,
-                              labels, actualValueTile);
+                              labels, valueCtx);
     if (push === "P1" || push === "P2" || push === "P3") {
       return { category: "D2", pushReason: push };
     }
@@ -245,14 +261,37 @@
 
     const labels = computeLabels(actual.pai, expected.pai, openingDora, roundWind, seatWind);
 
-    // P3 side check: Mortal must be the one keeping the value tile, i.e.
-    // the discarded (actual) side IS the yakuhai/dora.
-    const actualValueTile = tileIsYakuhaiOrDora(actual.pai, openingDora, roundWind, seatWind);
+    // Per-dimension value preservation — each is true only when YOUR
+    // discard has that value AND Mortal's discard does not. Splitting
+    // dora and yakuhai independently is what handles #5094 cleanly:
+    // both tiles are yakuhai (yakuhai_applies=false), but only yours is
+    // dora (dora_applies=true), so it's still a hand-value mistake.
+    const doraApplies = tileIsDora(actual.pai, openingDora)
+                     && !tileIsDora(expected.pai, openingDora);
+    const yakuhaiApplies = tileIsYakuhai(actual.pai, roundWind, seatWind)
+                        && !tileIsYakuhai(expected.pai, roundWind, seatWind);
+    const valueCtx = { doraApplies, yakuhaiApplies };
+
+    if (doraApplies || yakuhaiApplies) {
+      // Stash for the explainer. similar_acceptance flips the trigger
+      // line between "Similar tile acceptance, …" and the looser
+      // "Mortal is preserving hand value." framing (#4263).
+      const aStat = findInStats(actual.pai, discardStats);
+      const eStat = findInStats(expected.pai, discardStats);
+      const aNec = (aStat && aStat.necessary_count) || 0;
+      const eNec = (eStat && eStat.necessary_count) || 0;
+      const similarAcceptance = aNec === 0 || eNec >= aNec * 0.9;
+      catData.value_preserve = {
+        dora: doraApplies,
+        yakuhai: yakuhaiApplies,
+        similar_acceptance: similarAcceptance,
+      };
+    }
 
     let category;
     if (dealinRates && Object.keys(dealinRates).length > 0) {
       const def = classifyDefense(actual.pai, expected.pai, dealinRates,
-                                  discardStats, catData, labels, actualValueTile);
+                                  discardStats, catData, labels, valueCtx);
       category = def.category;
       if (def.pushReason) catData.push_reason = def.pushReason;
 
@@ -263,7 +302,7 @@
       }
     } else {
       category = classifyPush(actual.pai, expected.pai, discardStats, catData,
-                              labels, actualValueTile);
+                              labels, valueCtx);
     }
 
     return { category, categorize_data: catData, labels };
@@ -278,6 +317,8 @@
     classifyDefense,
     computeLabels,
     tileIsYakuhaiOrDora,
+    tileIsDora,
+    tileIsYakuhai,
     statsReasonablyAgree,
     isHonorMjai, isTerminalMjai, isValueTileMjai, tileBase,
   };
