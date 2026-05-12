@@ -68,6 +68,25 @@
     return dealinRates[tileBase(tileMjai)] ?? null;
   }
 
+  // True iff some non-player seat already has 3+ open calls (chi/pon/
+  // daiminkan). kakan upgrades an existing pon — the underlying pon is
+  // already in the list, so we don't count it again. ankan is hidden, not
+  // a threat signal.
+  const OPEN_MELD_TYPES = new Set(["chi", "pon", "daiminkan"]);
+  function hasThreateningOpponent(opponentMelds) {
+    if (!opponentMelds) return false;
+    for (const opp of opponentMelds) {
+      const melds = opp && opp.melds;
+      if (!melds || melds.length < 3) continue;
+      let opens = 0;
+      for (const meld of melds) {
+        if (OPEN_MELD_TYPES.has(meld && meld.type)) opens++;
+      }
+      if (opens >= 3) return true;
+    }
+    return false;
+  }
+
   // --- Action-type categorization (non-dahai) ---
   function categorizeByActionType(actual, expected) {
     const at = actual && actual.type;
@@ -90,9 +109,9 @@
   }
 
   // --- Labels (mirror labels.py::compute_labels) ---
-  function computeLabels(actualTile, expectedTile, openingDora, roundWind, seatWind) {
+  function computeLabels(actualTile, expectedTile, doraTiles, roundWind, seatWind) {
     const tiles = [actualTile, expectedTile].filter(Boolean);
-    const doraSet = openingDora instanceof Set ? openingDora : new Set(openingDora || []);
+    const doraSet = doraTiles instanceof Set ? doraTiles : new Set(doraTiles || []);
     const labels = [];
     for (const t of tiles) {
       if (isHonorMjai(t) && !labels.includes("honor")) labels.push("honor");
@@ -110,10 +129,10 @@
     return labels;
   }
 
-  function tileIsDora(tile, openingDora) {
+  function tileIsDora(tile, doraTiles) {
     if (!tile) return false;
     if (tile === "5mr" || tile === "5pr" || tile === "5sr") return true;
-    const doraSet = openingDora instanceof Set ? openingDora : new Set(openingDora || []);
+    const doraSet = doraTiles instanceof Set ? doraTiles : new Set(doraTiles || []);
     return doraSet.has(tile);
   }
 
@@ -123,9 +142,9 @@
     return tile === roundWind || tile === seatWind;
   }
 
-  function tileIsYakuhaiOrDora(tile, openingDora, roundWind, seatWind) {
+  function tileIsYakuhaiOrDora(tile, doraTiles, roundWind, seatWind) {
     return tileIsYakuhai(tile, roundWind, seatWind)
-        || tileIsDora(tile, openingDora);
+        || tileIsDora(tile, doraTiles);
   }
 
   // --- Stats agreement check (mirror _stats_reasonably_agree) ---
@@ -228,15 +247,10 @@
     const dealinRates = m.dealin_rates || null;
 
     // Reconstruct dora/winds from the canonical board_state shipped server-side.
-    // NOTE: Python parity — categorize_mistake passes only the *opening*
-    // dora indicator to compute_labels, ignoring kan-revealed extras even
-    // when they're visible at decision time. We mirror that by reading
-    // only `dora_tiles[0]` (parallel-indexed with dora_indicators[0]).
-    // Probably a Python bug worth fixing later — for step 1 we match.
+    // dora_tiles is the full active set (opening indicator + any kan-revealed
+    // dora visible at decision time), so kan dora are tagged on labels.
     const board = m.board_state || {};
-    const openingDora = (board.dora_tiles && board.dora_tiles.length)
-      ? new Set([board.dora_tiles[0]])
-      : new Set();
+    const doraTiles = new Set(board.dora_tiles || []);
     const roundWind = board.round_wind || null;
     const seatWind = board.seat_wind || null;
 
@@ -259,15 +273,24 @@
       catData.defense_trigger = "riichi";
     }
 
-    const labels = computeLabels(actual.pai, expected.pai, openingDora, roundWind, seatWind);
+    // Scene flag: any non-player seat with 3+ open calls (chi/pon/daiminkan)
+    // visible at decision time signals a fast, threatening hand even without
+    // a riichi declaration. opponent_melds is already cut at the mistake's
+    // tiles_left, so future melds don't leak in. Mirrors the original
+    // _has_threatening_opponent in the removed Python categorizer.
+    if (hasThreateningOpponent(board.opponent_melds)) {
+      catData.threatening_opponent = true;
+    }
+
+    const labels = computeLabels(actual.pai, expected.pai, doraTiles, roundWind, seatWind);
 
     // Per-dimension value preservation — each is true only when YOUR
     // discard has that value AND Mortal's discard does not. Splitting
     // dora and yakuhai independently is what handles #5094 cleanly:
     // both tiles are yakuhai (yakuhai_applies=false), but only yours is
     // dora (dora_applies=true), so it's still a hand-value mistake.
-    const doraApplies = tileIsDora(actual.pai, openingDora)
-                     && !tileIsDora(expected.pai, openingDora);
+    const doraApplies = tileIsDora(actual.pai, doraTiles)
+                     && !tileIsDora(expected.pai, doraTiles);
     const yakuhaiApplies = tileIsYakuhai(actual.pai, roundWind, seatWind)
                         && !tileIsYakuhai(expected.pai, roundWind, seatWind);
     const valueCtx = { doraApplies, yakuhaiApplies };

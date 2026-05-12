@@ -52,14 +52,7 @@ function deepEqual(a, b) {
 
 for (const f of fx.fixtures) {
   total++;
-  // Carry the threatening_opponent scene flag from expected.categorize_data
-  // into inputs — JS can't derive it from data_json today.
-  const m = { ...f.inputs };
-  if (f.expected.categorize_data && f.expected.categorize_data.threatening_opponent) {
-    m.categorize_data = { ...(m.categorize_data || {}), threatening_opponent: true };
-  }
-
-  const out = categorize(m);
+  const out = categorize(f.inputs);
 
   if (out.category === f.expected.category) {
     catMatch++;

@@ -23,20 +23,6 @@ Frontend hooks the JS categorizer in `static/js/game-list.js`:
   later whether to bring the panel back, recompute server-side, or
   drop entirely.
 
-### Known minor degradations (worth fixing eventually)
-- **`threatening_opponent` scene flag** is no longer set. Previously the
-  Python categorizer flagged "opponent has 3+ open melds without
-  riichi"; JS can't derive this from `data_json` alone. The UI text
-  variants in `categorize-view.js` that read `defense_trigger ===
-  "open_melds"` are now dead paths. Harmless — falls through to the
-  generic "an opponent is threatening" line.
-- **Dora label parity bug carried over from Python** — kan-revealed
-  dora aren't tagged on labels because the original Python only passed
-  the opening indicator to `compute_labels`. JS mirrors that for
-  parity (`board_state.dora_tiles[0]` only). To fix: read all of
-  `dora_tiles` in `static/js/categorize.js::categorize`. Comment in
-  the file flags the spot.
-
 ### Lingering naming after the refactor (separate axis, do later)
 - `lib/categorize/` is now an input-prep package, not a categorizer.
   Rename to e.g. `lib/mistake_data/` once paired with a wider rename
@@ -59,9 +45,9 @@ Frontend hooks the JS categorizer in `static/js/game-list.js`:
   the prod DB).
 - `scripts/verify_categorize_js.mjs` — diff JS output against the
   fixture. Run it after any change to `static/js/categorize.js`.
-  Current parity: 100% on `category` and `labels`; 97.31% on
-  `categorize_data` (the gap is the dropped `threatening_opponent`
-  flag — intentional).
+  Current parity: 100% on `category`, `categorize_data`, and `labels`.
+  Re-snapshot with `scripts/snapshot_categorize_fixture.mjs` when an
+  intentional change shifts outputs.
 - `tests/test_core.py::TestAddGamePipeline` pins the prep contract
   (every dahai-vs-dahai mistake gets `discard_stats`, status reaches
   `done`, etc.). No backend assertion on `category` column anymore.

@@ -214,12 +214,14 @@ function generateExplanation(m) {
       shantenWarning = `<strong>Your discard increased shanten</strong> (from ${catData.best_shanten} to ${catData.actual_shanten}) — this moves your hand further from winning. `;
     }
 
-    // Defense trigger description
+    // Defense trigger description. The 3+-open-melds case rides on the
+    // `threatening_opponent` scene flag (in catData), not defense_trigger —
+    // which is only ever "riichi" today.
     const defenseTrigger = catData.defense_trigger;
     function defenseTriggerStr() {
       if (defenseTrigger === "riichi") return "an opponent declared riichi";
-      if (defenseTrigger === "open_melds") return "an opponent has 3+ open calls (threatening hand)";
       if (hasRiichi) return "an opponent declared riichi";
+      if (catData.threatening_opponent) return "an opponent has 3+ open calls (threatening hand)";
       return "an opponent is threatening";
     }
 
