@@ -13,29 +13,116 @@ Frontend hooks the JS categorizer in `static/js/game-list.js`:
 `pollCategorization`, overwriting `m.category` / `m.categorize_data` /
 `m.labels` from the API response.
 
-## Open items
+## Step 3 — Move input prep to the frontend (plan, 2026-05-12)
 
-### Decided to defer (per user, 2026-05-05)
-- **Trends per-category aggregate** — the panel
-  (`renderCategoryTrend` in `trends.js`) is hidden client-side and the
-  server's `compute_summary_for_game` still writes a `by_category`
-  blob from the (now-stale-on-new-games) `category` column. Decide
-  later whether to bring the panel back, recompute server-side, or
-  drop entirely.
+Goal: retire `lib/categorize/` entirely. Frontend computes
+`discard_stats`, `dealin_rates`, `safety_ratings`, `opponent_discards`,
+`board_state`, and the 5A/5B patches from the raw Mortal JSON.
 
-### Lingering naming after the refactor (separate axis, do later)
-- `lib/categorize/` is now an input-prep package, not a categorizer.
-  Rename to e.g. `lib/mistake_data/` once paired with a wider rename
-  pass. `categorize_mistake` / `categorize_game_db` are already gone;
-  the surviving names (`prepare_mistake_data`, `prepare_game_data`)
-  reflect the new role.
-- `mistakes.category` column and `games.categorization_status` column
-  both still exist — schema-preserving per refactor guidelines.
-  `category` is now used only by manual annotations
-  (`db.annotate_mistake`); `categorization_status` reflects prep
-  status. Don't drop without an explicit schema-change plan.
-- HTTP endpoint `POST /api/games/<id>/categorize` retained for client
-  compatibility; under the hood it calls `prepare_game_data`.
+Why feasible: the `killer_mortal_gui/` submodule is the upstream JS
+that `lib/defense_kd.py` and `lib/shanten.py` were ported FROM. We
+extract it back, not rewrite from scratch.
+
+### Dependency
+`/api/games/<id>` currently returns parsed `rounds_json` only; the
+Mortal JSON sits on disk and the server reads it on demand. The
+frontend needs `mjai_log` (and per-kyoku metadata) to do wall
+reconstruction. Ship it in the game endpoint payload.
+
+### Steps
+
+**1. Extract algorithm modules into `static/js/`**
+- `shanten.js` ← `killer_mortal_gui/shanten.js` (188 lines, ES module,
+  drop-in).
+- `efficiency.js` ← `killer_mortal_gui/efficiency.js` (402 lines,
+  exports `calculateUkeire`, drop-in).
+- `defense_kd.js` ← extract `generateWaits`, `calcCombos`, and the
+  `C_ccw_*` tuning constants from `killer_mortal_gui/index.js`. Lift
+  out of `GlobalState`; pass dependencies as function arguments. Use
+  `lib/defense_kd.py` as the call-shape spec.
+
+**2. Port glue modules**
+- `tiles.js` — extend the existing partial twin of `lib/tiles.py`
+  (mjai ↔ tenhou ↔ RT IDs, `NEXT_TILE_MJAI`, red-five helpers).
+- `board.js` ← `lib/board.py`. Pure event walk over `mjai_log`.
+- `parse.js` — port `walk_kyoku` and `flatten_mjai_log` from
+  `lib/parse.py` (per-turn riichi state, open melds).
+- `furiten.js` ← `lib/furiten.py` (trivial once shanten exists).
+
+**3. Port prep glue**
+- `prep.js` ← `lib/categorize/__init__.py`. Two entry points:
+  - `prepMistake(mistake, mortalData, kyokuIdx, entry, defenseCtx)`
+  - `prepGame(mortalData, mistakesByRound)`
+- Include 5A/5B branches (`_compute_bad_riichi_reason`,
+  `_compute_missed_riichi_patch`).
+
+**4. Parity fixture for prep layer**
+- `scripts/sample_prep_fixture.py` — dump 50 random games' per-mistake
+  `{inputs, expected_prep}` from current Python prep.
+- `scripts/verify_prep_js.mjs` — JS prep vs fixture. Target 100%.
+
+**5. Ship Mortal JSON to the frontend**
+- `routes/game.py:get_game` attaches `mortal_data` (or slim
+  `{mjai_log, review.kyokus[*].tiles_left, player_id}`) to the
+  response.
+
+**6. Wire JS prep into fetch path**
+- `static/js/game-list.js`: `prepGameInPlace(game)` runs before
+  `recategorizeGameInPlace(game)`. Always re-prep (one source of
+  truth); stored prep fields become advisory.
+
+**7. Retire backend prep (after ~1 week prod parity)**
+- Delete `lib/categorize/`, `lib/shanten.py`, `lib/defense_kd.py`,
+  `lib/defense.py`, `lib/board.py`, `lib/furiten.py`. Verify
+  `lib/parse.py:parse_game` is still needed by `_ingest_mortal`; keep
+  what is.
+- Drop `mahjong==1.2.1` from `requirements.txt`. Rebuild Docker and
+  hit `/health` per CLAUDE.local.md.
+- Drop endpoints: `POST /api/games/<id>/categorize`,
+  `POST /api/games/backfill-{board-state,discard-stats,safety-ratings}`.
+- Rewrite or drop `tests/test_core.py::TestAddGamePipeline`. Stop
+  polling in `pollCategorization`.
+- Schema-preserving: keep `mistakes.category` (manual annotations),
+  `mistakes.data_json`, `games.categorization_status` (write "done"
+  on insert or stop reading it).
+
+**8. Stored `data_json` prep fields**
+- Leave them. JS prep on fetch overwrites in memory; rows stay
+  untouched. No migration script.
+
+**9. Doc cleanup**
+- Delete the shipped Step 3 section per backlog-pruning rule.
+
+### Order / risk
+Steps 1–4 are reversible local work. Step 5 is additive. Step 6 is
+the cutover — parity fixture is the gate. Step 7 deletes the safety
+net; needs ≥1 prod week of JS prep authoritative first.
+
+### Step 1 progress (2026-05-12)
+Algorithm modules extracted into `static/js/prep/`:
+- `shanten.js` — KD's solver, uses KD's `7 - uniqueTiles` chiitoitsu
+  penalty (more accurate than the `mahjong` Python lib's `6 - pairs`
+  on concentrated hands). Affects 5/1615 mistakes in the parity
+  corpus, 0 category shifts.
+- `efficiency.js` — `calculateUkeire` / `calculateDiscardUkeire`.
+- `defense_kd.js` — `generateWaits`, `calcCombos`,
+  `dealinProbability`, `dealinToSafety` + `WEIGHTS` constants.
+- Smoke test: `scripts/smoke_step1.mjs` (1615/1615 parity).
+- Snapshot helpers: `scripts/resnap_prep_in_fixture.mjs` (regenerates
+  `inputs.discard_stats` / `inputs.best_discard` using JS), then
+  re-run `scripts/snapshot_categorize_fixture.mjs` to refresh
+  `expected`. Use this whenever an intentional JS prep change shifts
+  outputs.
+
+Defense module not smoke-tested yet — needs threat extraction
+(`walk_kyoku`) from Step 2.
+
+### Deferred (still applicable)
+- **Trends per-category aggregate** — `renderCategoryTrend` in
+  `trends.js` is hidden client-side; server's
+  `compute_summary_for_game` still writes a `by_category` blob from
+  the (stale-on-new-games) `category` column. Decide later: bring
+  back, recompute server-side, or drop.
 
 ## Verification
 
