@@ -117,6 +117,27 @@ Algorithm modules extracted into `static/js/prep/`:
 Defense module not smoke-tested yet — needs threat extraction
 (`walk_kyoku`) from Step 2.
 
+### Step 2 progress (2026-05-14)
+Glue modules ported into `static/js/prep/`:
+- `tiles.js` — canonical mjai/RT/tenhou ID maps, `mjai_to_tile_id`,
+  `tile_id_to_base`, `dora_indicator_to_dora_mjai`,
+  `is_red_five_mjai`, `is_honor_mjai`. Twin of `lib/tiles.py`. Kept
+  separate from the rendering-only `static/js/tiles.js` so the prep
+  pipeline can be required in Node without dragging in DOM helpers.
+- `parse.js` — `flatten_mjai_log` + `walk_kyoku` (per-kyoku event
+  walker that feeds defense / decision-state tracking on the JS
+  side). Same return shape as `lib/parse.py:walk_kyoku`.
+- `board.js` — `reconstruct_context`, `extract_board_state`,
+  `subtract_hand_from_wall`, `decrement_wall`. Same BoardState shape
+  as `lib/board.py`.
+- `furiten.js` — `tenpai_waits`, `tenpai_wait_tiles`, `is_furiten`,
+  `find_discard_history_for_turn`, `find_riichi_context`. Twin of
+  `lib/furiten.py`, depends only on `prep/shanten.js`.
+- Smoke test: `scripts/smoke_step2.mjs` (389/389 parity across
+  `tests/fixtures/game_short.json` and `game_multi_mistake.json` at
+  every entry's tiles_left checkpoint + a few coarse ones, plus 5
+  hand-crafted furiten cases).
+
 ### Deferred (still applicable)
 - **Trends per-category aggregate** — `renderCategoryTrend` in
   `trends.js` is hidden client-side; server's
