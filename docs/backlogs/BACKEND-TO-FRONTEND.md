@@ -117,6 +117,37 @@ Algorithm modules extracted into `static/js/prep/`:
 Defense module not smoke-tested yet — needs threat extraction
 (`walk_kyoku`) from Step 2.
 
+### Step 3 progress (2026-05-14)
+Prep glue ported into `static/js/prep/`:
+- `shanten_calc.js` — `calculate(hand_mjai, melds_mjai, wall)` wrapper
+  around `prep/shanten.js` that matches the response shape of
+  `lib/shanten.py:calculate`. Open hands extend the KD array with
+  `meld_count` virtual triplets in slots beyond the honor range; KD's
+  recursive solver discovers each as a complete set, naturally
+  enforcing the partial-set cap Python's `mahjong` lib applies via
+  `init_mentsu`. A raw `-2 * meld_count` adjustment to the standard
+  shanten skips the cap and over-counts excess partials, so the
+  padding approach is the correct port.
+- `defense.js` — `compute_kd_defense_data` + `get_opponent_discards`
+  + `get_tile_safety_for_mistake`. Twin of the adapter half of
+  `lib/defense_kd.py` plus `lib/defense.py`. The algorithmic core
+  (`generateWaits`, `calcCombos`, …) stays in `prep/defense_kd.js`.
+- `prep.js` — `prepMistake(mistake, mortalData, kyokuIdx, entry,
+  defenseCtx)` + `prepGame(game, mortalData)`. Twin of
+  `lib/categorize/__init__.py`. Includes the 5A
+  (`_compute_bad_riichi_reason`) and 5B (`_compute_missed_riichi_patch`)
+  branches.
+- Smoke test: `scripts/smoke_step3.mjs` (34/34 parity on
+  `tests/fixtures/game_short.json` + `game_multi_mistake.json`, every
+  non-equal entry's `prepMistake` patch diffed against Python's
+  `prepare_mistake_data`). Exercises dahai/dahai (29), non-dahai
+  meld branches (4), and the 5A bad-riichi branch (1). 5B and
+  multi-threat coverage hangs on later games once
+  `/api/games/<id>` ships `mortal_data` (step 5).
+- `shanten_calc.js` also self-checks: 1615/1615 parity on
+  `tests/fixtures/categorize_parity.json` against the stored
+  `discard_stats` for every dahai-vs-dahai mistake with melds.
+
 ### Step 2 progress (2026-05-14)
 Glue modules ported into `static/js/prep/`:
 - `tiles.js` — canonical mjai/RT/tenhou ID maps, `mjai_to_tile_id`,
