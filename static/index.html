@@ -122,6 +122,17 @@
   -->
   <script src="/static/js/tiles.js"></script>
   <script src="/static/js/defense-labels.js"></script>
+  <!-- Prep pipeline (Node-portable UMD modules in /static/js/prep/). Load
+       order is dependency-driven: leaves first, then prep.js which fans in. -->
+  <script src="/static/js/prep/tiles.js"></script>
+  <script src="/static/js/prep/parse.js"></script>
+  <script src="/static/js/prep/shanten.js"></script>
+  <script src="/static/js/prep/defense_kd.js"></script>
+  <script src="/static/js/prep/shanten_calc.js"></script>
+  <script src="/static/js/prep/furiten.js"></script>
+  <script src="/static/js/prep/board.js"></script>
+  <script src="/static/js/prep/defense.js"></script>
+  <script src="/static/js/prep/prep.js"></script>
   <script src="/static/js/categorize.js"></script>
   <script src="/static/js/categorize-view.js"></script>
   <script src="/static/js/board.js"></script>

@@ -37,7 +37,41 @@ def api_game(game_id):
     game = db.get_game(conn, game_id, user_id=uid)
     if not game:
         return jsonify({"error": "Game not found"}), 404
+    mortal_file = game.get("mortal_file")
+    if mortal_file:
+        mortal_path = (DIR / mortal_file).resolve()
+        if str(mortal_path).startswith(str(DIR.resolve())) and mortal_path.exists():
+            try:
+                with open(mortal_path) as f:
+                    game["mortal_data"] = _slim_mortal_data(json.load(f))
+            except (ValueError, OSError):
+                pass
     return jsonify(game)
+
+
+def _slim_mortal_data(md):
+    """Return only the fields JS prep needs (mjai_log + per-entry
+    tiles_left/junme/is_equal). ~25% of the full Mortal JSON; the
+    discarded fields (model probabilities, scores, ratings) aren't
+    consumed by static/js/prep/."""
+    kyokus = ((md.get("review") or {}).get("kyokus") or [])
+    return {
+        "player_id": md.get("player_id"),
+        "mjai_log": md.get("mjai_log", []),
+        "review": {
+            "kyokus": [
+                {"entries": [
+                    {
+                        "tiles_left": e.get("tiles_left"),
+                        "junme": e.get("junme"),
+                        "is_equal": e.get("is_equal"),
+                    }
+                    for e in (k.get("entries") or [])
+                ]}
+                for k in kyokus
+            ],
+        },
+    }
 
 
 @games_bp.route("/api/games/<int:game_id>", methods=["DELETE"])

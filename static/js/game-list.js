@@ -78,12 +78,24 @@ async function fetchGame(id) {
   state.currentGame = id;
   const want = `#game=${id}`;
   if (window.location.hash !== want) history.replaceState(null, "", want);
+  prepGameInPlace(state.currentGameData);
   recategorizeGameInPlace(state.currentGameData);
   state.currentGameData.summary = recomputeSummaryByCategory(state.currentGameData);
   renderGame();
   if (state.currentGameData.categorization_status === "pending") {
     pollCategorization(id);
   }
+}
+
+// Run the JS prep pipeline over the raw Mortal JSON shipped with the
+// game payload, populating discard_stats / safety_ratings / dealin_rates
+// / 5A-5B fields on every mistake. Authoritative — overwrites whatever
+// the backend stored. Skip silently if the prep module or mortal_data
+// isn't available (older games predate the mortal_file column).
+function prepGameInPlace(game) {
+  if (!game || typeof haipaiPrep === "undefined") return;
+  if (!game.mortal_data) return;
+  haipaiPrep.prepGame(game, game.mortal_data);
 }
 
 // Run the JS categorizer over every mistake, overwriting category /
@@ -607,8 +619,9 @@ function pollCategorization(gameId) {
     state._catPollTimer = null;
     await fetchGames();
     if (state.currentGame === gameId) {
-      // Run the JS categorizer on the freshly-prepped data and re-render
-      // so the user sees categories without having to click away.
+      // Run the JS prep + categorizer on the freshly-prepped data and
+      // re-render so the user sees categories without having to click away.
+      prepGameInPlace(game);
       recategorizeGameInPlace(game);
       game.summary = recomputeSummaryByCategory(game);
       state.currentGameData = game;

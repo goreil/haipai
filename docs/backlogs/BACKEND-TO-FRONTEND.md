@@ -1,17 +1,21 @@
 # Backend-to-frontend categorization
 
-## Status (2026-05-05)
+## Status (2026-05-15)
 
-**Step 1 (port to JS) and Step 2 (remove backend categorizer) are shipped.**
-The JS categorizer in `static/js/categorize.js` is the sole owner of the
-rule-decision logic. The server (`lib/categorize/__init__.py`) only prepares
-inputs (`prepare_mistake_data` / `prepare_game_data`) — `discard_stats`,
-`dealin_rates`, `safety_ratings`, 5A/5B riichi patches.
+**Steps 1–6 are shipped.** The JS prep + categorize pipeline runs on every
+`fetchGame`: the API attaches a slim `mortal_data` to `/api/games/<id>`,
+`prepGameInPlace` derives `discard_stats` / `safety_ratings` /
+`dealin_rates` / 5A-5B patches client-side, then
+`recategorizeGameInPlace` rewrites `m.category` / `m.categorize_data` /
+`m.labels`. The same flow runs at the end of `pollCategorization`.
 
-Frontend hooks the JS categorizer in `static/js/game-list.js`:
-`recategorizeGameInPlace` runs on every `fetchGame` and at the end of
-`pollCategorization`, overwriting `m.category` / `m.categorize_data` /
-`m.labels` from the API response.
+Backend still owns prep at ingest (`lib/categorize/prepare_game_data` in
+`_prepare_data_background`) so freshly-uploaded games have data_json
+populated for any non-fetch consumer; on fetch JS prep is authoritative
+and overwrites in memory.
+
+**Step 7 (retire backend prep) is the remaining cutover** — gated on
+≥1 prod week of JS prep running authoritatively.
 
 ## Step 3 — Move input prep to the frontend (plan, 2026-05-12)
 
@@ -152,6 +156,38 @@ Prep glue ported into `static/js/prep/`:
 - `shanten_calc.js` also self-checks: 1615/1615 parity on
   `tests/fixtures/categorize_parity.json` against the stored
   `discard_stats` for every dahai-vs-dahai mistake with melds.
+
+### Step 5 progress (2026-05-15)
+JS prep wired into the live fetch path:
+- `routes/game.py:api_game` reads the mortal file from disk and attaches a
+  slim `mortal_data` to the response. The slim payload is
+  `{player_id, mjai_log, review.kyokus[*].entries[*].{tiles_left, junme,
+  is_equal}}` — every other Mortal field (model probabilities, scores,
+  ratings, dora details on entries) is dropped. Measured at ~25% of the
+  full file (30 KB vs 133 KB on a sample 4-kyoku game; 54 KB vs ~150 KB
+  on a 9-kyoku game).
+- `static/index.html` loads the prep UMD modules in dependency order
+  ahead of `categorize.js`. `efficiency.js` is intentionally not in the
+  page bundle — nothing on the runtime prep path requires it; it ships
+  only for parity tests run in Node.
+- `static/js/game-list.js`:
+  - `prepGameInPlace(game)` calls `haipaiPrep.prepGame(game,
+    game.mortal_data)` when mortal_data is present (early-returns
+    silently otherwise — older games could in principle lack
+    `mortal_file`, though prod has none).
+  - `fetchGame` runs prep before `recategorizeGameInPlace`. The polling
+    path (`pollCategorization`) does the same on the freshly-fetched
+    game once `categorization_status` leaves `pending`. JS prep is
+    always authoritative — stored prep fields on `mistakes.data_json`
+    are now advisory, overwritten in memory on every fetch.
+- Slim vs full parity (Node, against `tests/fixtures/prep_parity.json`):
+  2007/2007 mistakes produce byte-identical `prepGame` output. The
+  trimmed entry fields aren't consumed by any prep path.
+- Live end-to-end against the running Docker app (`/api/games/3`, ylue
+  user): 42 mistakes across 9 rounds prep cleanly; categorize.js
+  produces the same category distribution previously stored
+  server-side. Apparent diffs against the stored `discard_stats` are
+  cosmetic — same fields, different key-insertion order in the JSON.
 
 ### Step 4 progress (2026-05-15)
 Prep-layer parity fixture wired up against the prod DB:
