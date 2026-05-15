@@ -30,6 +30,11 @@
 
   function walk_kyoku(events, start_pos, end_pos, player_id, target_tiles_left = 0) {
     const opponents = {};
+    // First-seen seat order — Python's dict preserves insertion order; JS
+    // objects with numeric-string keys do not, so we track it explicitly so
+    // downstream consumers (notably `get_opponent_discards`) emit the same
+    // ordering as the Python prep layer.
+    const opponent_order = [];
     const player_tsumo_riichi_state = [];
     const reach_accepted_seats = new Set();
     const genbutsu_post_reach_by_seat = {};
@@ -55,6 +60,7 @@
           open_melds: 0,
         };
         opponents[actor] = o;
+        opponent_order.push(actor);
       }
       return o;
     }
@@ -105,6 +111,7 @@
 
     return {
       opponents,
+      opponent_order,
       player_tsumo_riichi_state,
       genbutsu_post_reach_by_seat,
       first_dora_indicator,

@@ -248,6 +248,11 @@ notes/
 games_export.json
 docs/backlogs/PENTEST.md
 
+# Migration-time prep parity fixture — regenerated from prod DB via
+# scripts/sample_prep_fixture.py (Docker-only); 30 MB, obsolete after
+# Step 7 of BACKEND-TO-FRONTEND deletes the Python ground truth.
+tests/fixtures/prep_parity.json
+
 # Claude Code local state — keep shared skills/ but ignore personal settings and hooks
 CLAUDE.local.md
 .claude/*

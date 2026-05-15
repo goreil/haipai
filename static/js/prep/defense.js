@@ -77,10 +77,10 @@
     }
 
     const threats = [];
-    for (const seatStr of Object.keys(state.opponents)) {
-      const seat = +seatStr;
-      const opp = state.opponents[seatStr];
-      if (opp.reach_event_idx == null) continue;
+    const order = state.opponent_order || Object.keys(state.opponents).map(Number);
+    for (const seat of order) {
+      const opp = state.opponents[seat];
+      if (!opp || opp.reach_event_idx == null) continue;
 
       const discards_tenhou = [];
       for (const p of opp.discards) {
@@ -96,7 +96,7 @@
 
       const genbutsu = new Set();
       for (const t of discards_tenhou) genbutsu.add(normRedFive(t));
-      const postReach = state.genbutsu_post_reach_by_seat[seatStr] || [];
+      const postReach = state.genbutsu_post_reach_by_seat[seat] || [];
       for (const pai of postReach) {
         const t = MJAI_TO_TENHOU[pai];
         if (t != null) genbutsu.add(normRedFive(t));
@@ -257,12 +257,13 @@
   function get_opponent_discards(events, start_pos, end_pos, player_id,
                                  target_tiles_left) {
     const state = walk_kyoku(events, start_pos, end_pos, player_id, target_tiles_left);
+    const order = state.opponent_order || Object.keys(state.opponents).map(Number);
     const riichi_opps = [];
-    for (const seatStr of Object.keys(state.opponents)) {
-      const opp = state.opponents[seatStr];
-      if (opp.reach_event_idx == null) continue;
+    for (const seat of order) {
+      const opp = state.opponents[seat];
+      if (!opp || opp.reach_event_idx == null) continue;
       riichi_opps.push({
-        seat: +seatStr,
+        seat,
         discards: opp.discards,
         riichi_idx: opp.reach_event_idx,
       });

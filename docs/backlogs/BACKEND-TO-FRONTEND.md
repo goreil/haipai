@@ -19,6 +19,11 @@ Goal: retire `lib/categorize/` entirely. Frontend computes
 `discard_stats`, `dealin_rates`, `safety_ratings`, `opponent_discards`,
 `board_state`, and the 5A/5B patches from the raw Mortal JSON.
 
+**Scope:** only rule logic moves. Storage, ingest, and the
+`/api/games/...` endpoints stay on the backend — games remain
+server-owned so admin views and future cross-user sharing still work.
+The frontend just re-derives categories from the raw replay on fetch.
+
 Why feasible: the `killer_mortal_gui/` submodule is the upstream JS
 that `lib/defense_kd.py` and `lib/shanten.py` were ported FROM. We
 extract it back, not rewrite from scratch.
@@ -147,6 +152,35 @@ Prep glue ported into `static/js/prep/`:
 - `shanten_calc.js` also self-checks: 1615/1615 parity on
   `tests/fixtures/categorize_parity.json` against the stored
   `discard_stats` for every dahai-vs-dahai mistake with melds.
+
+### Step 4 progress (2026-05-15)
+Prep-layer parity fixture wired up against the prod DB:
+- `scripts/sample_prep_fixture.py` — sample N games from `games.db`
+  inside Docker, replay `prepare_mistake_data` on every non-equal review
+  entry, dump `{mistake_id, kyoku_idx, entry, mistake, expected_prep}`
+  per mistake plus the per-game `mortal_data`. Default output
+  `tests/fixtures/prep_parity.json` (~30 MB, gitignored — regenerate via
+  `docker compose exec app python scripts/sample_prep_fixture.py …` then
+  `docker compose cp app:/app/tests/fixtures/prep_parity.json
+  tests/fixtures/prep_parity.json`).
+- `scripts/verify_prep_js.mjs` — loads the fixture, runs JS
+  `prepMistake` against every record, diffs each top-level field
+  independently so one bad field can't hide another. Tolerates ~0.01
+  float drift on safety/dealin rates.
+- Coverage on the 50-game seed=20260515 sample: 2007 mistakes,
+  dahai_dahai=1788, reach_dahai_5A=44, dahai_reach_5B=16,
+  other_non_dahai=159, 284 with riichi-threat defense data.
+- Parity: **2005/2007 = 99.90%**. The 2 outliers are KD-vs-`mahjong`
+  shanten-solver drift on concentrated hands (same family Step 1 noted);
+  feeding both prep outputs through `categorize.js` produces identical
+  `category` + `labels`, so no user-visible shift.
+- Bug surfaced + fixed during this step: `walk_kyoku` opponents were
+  keyed by integer-coerced strings, so JS iterated them in numeric
+  order while Python (insertion-ordered dict) emitted first-seen order.
+  Added an explicit `opponent_order` array to `walk_kyoku`'s return so
+  `get_opponent_discards` and `_extract_threats` (which feeds
+  `per_threat`) can iterate in Python-matching order. Without this fix
+  parity was 99.50%.
 
 ### Step 2 progress (2026-05-14)
 Glue modules ported into `static/js/prep/`:
