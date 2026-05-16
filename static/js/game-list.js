@@ -78,24 +78,69 @@ async function fetchGame(id) {
   state.currentGame = id;
   const want = `#game=${id}`;
   if (window.location.hash !== want) history.replaceState(null, "", want);
-  prepGameInPlace(state.currentGameData);
+  // First render uses backend-stored prep fields + JS categorize so the user
+  // sees the game immediately. Then refreshPrepAndRecategorize re-runs prep
+  // asynchronously in the background — same outputs in the common case, but
+  // the source of truth is always JS prep on the live mortal_data.
   recategorizeGameInPlace(state.currentGameData);
   state.currentGameData.summary = recomputeSummaryByCategory(state.currentGameData);
+  state.prepProgress = _prepProgressInitial(state.currentGameData);
   renderGame();
-  if (state.currentGameData.categorization_status === "pending") {
+  await refreshPrepAndRecategorize(state.currentGameData, id);
+  if (state.currentGameData && state.currentGameData.categorization_status === "pending") {
     pollCategorization(id);
   }
 }
 
-// Run the JS prep pipeline over the raw Mortal JSON shipped with the
-// game payload, populating discard_stats / safety_ratings / dealin_rates
-// / 5A-5B fields on every mistake. Authoritative — overwrites whatever
-// the backend stored. Skip silently if the prep module or mortal_data
-// isn't available (older games predate the mortal_file column).
-function prepGameInPlace(game) {
-  if (!game || typeof haipaiPrep === "undefined") return;
-  if (!game.mortal_data) return;
-  haipaiPrep.prepGame(game, game.mortal_data);
+function _prepProgressInitial(game) {
+  if (!game || typeof haipaiPrep === "undefined" || !game.mortal_data) return null;
+  const kyokus = ((game.mortal_data.review || {}).kyokus) || [];
+  if (!kyokus.length) return null;
+  return { done: 0, total: kyokus.length };
+}
+
+// Async refresh: re-run JS prep on the live mortal_data, ticking the banner
+// per kyoku. When prep completes, re-categorize, recompute summary, drop the
+// banner, and re-render. Bails out if the user navigates to a different game
+// mid-flight (a stale prep result must not overwrite the new game's state).
+async function refreshPrepAndRecategorize(game, gameId) {
+  if (!game || typeof haipaiPrep === "undefined" || !game.mortal_data) {
+    state.prepProgress = null;
+    return;
+  }
+  try {
+    await haipaiPrep.prepGameAsync(game, game.mortal_data, (done, total) => {
+      if (state.currentGame !== gameId) return;
+      state.prepProgress = { done, total };
+      _updatePrepBannerDOM();
+    });
+  } finally {
+    if (state.currentGame === gameId) {
+      recategorizeGameInPlace(game);
+      game.summary = recomputeSummaryByCategory(game);
+      state.prepProgress = null;
+      renderGame();
+    }
+  }
+}
+
+// In-place DOM update for the prep progress bar — avoids re-rendering the
+// entire game body on every kyoku tick (rounds + mistake cards are expensive
+// to rebuild). Falls through silently if the banner isn't on screen, since
+// re-render will pick up the latest state.prepProgress anyway.
+function _updatePrepBannerDOM() {
+  const banner = document.getElementById("prep-progress-banner");
+  if (!banner) return;
+  const p = state.prepProgress;
+  if (!p) {
+    banner.style.display = "none";
+    return;
+  }
+  const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+  const label = banner.querySelector(".prep-progress-label");
+  const fill = banner.querySelector(".cat-progress-fill");
+  if (label) label.textContent = `Re-analyzing categories… ${p.done}/${p.total} rounds`;
+  if (fill) fill.style.width = pct + "%";
 }
 
 // Run the JS categorizer over every mistake, overwriting category /
@@ -253,6 +298,16 @@ function renderGame() {
     html += `<div class="categorization-banner pending">Preparing analysis…
       <span class="cat-retry-link" onclick="continueCategorization(${game.id})">Stuck? Retry</span>
       <div class="cat-progress-bar"><div class="cat-progress-fill cat-progress-indeterminate"></div></div>
+    </div>`;
+  } else if (state.prepProgress) {
+    // Frontend JS prep is still running (~700ms on a 9-kyoku game).
+    // _updatePrepBannerDOM ticks the bar in place without re-rendering
+    // the whole game body.
+    const p = state.prepProgress;
+    const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+    html += `<div id="prep-progress-banner" class="categorization-banner pending">
+      <span class="prep-progress-label">Re-analyzing categories… ${p.done}/${p.total} rounds</span>
+      <div class="cat-progress-bar"><div class="cat-progress-fill" style="width:${pct}%"></div></div>
     </div>`;
   } else if (game.categorization_status === "failed") {
     html += `<div class="categorization-banner failed">Analysis prep failed.
@@ -619,13 +674,16 @@ function pollCategorization(gameId) {
     state._catPollTimer = null;
     await fetchGames();
     if (state.currentGame === gameId) {
-      // Run the JS prep + categorizer on the freshly-prepped data and
-      // re-render so the user sees categories without having to click away.
-      prepGameInPlace(game);
+      // Backend prep just finished — re-run JS prep asynchronously so
+      // the user gets a fresh progress bar (don't block the main thread
+      // for the ~700 ms prep takes) and the final view matches the
+      // mortal_data shipped this fetch.
+      state.currentGameData = game;
       recategorizeGameInPlace(game);
       game.summary = recomputeSummaryByCategory(game);
-      state.currentGameData = game;
+      state.prepProgress = _prepProgressInitial(game);
       renderGame();
+      await refreshPrepAndRecategorize(game, gameId);
     }
   }, 2000);
 }

@@ -256,6 +256,64 @@
     return patch;
   }
 
+  // Per-kyoku body shared by prepGame (sync) and prepGameAsync (chunked).
+  function _prepKyoku(game, mortalData, ki, kyokus, events, start_positions,
+                     player_id, rounds_by_header) {
+    const kyoku = kyokus[ki];
+    const start = events[start_positions[ki]];
+    if (!start) return;
+    let header = `${start.bakaze}${start.kyoku}`;
+    if (start.honba > 0) header += `-${start.honba}`;
+    const round = rounds_by_header[header];
+    if (!round || !round.mistakes || !round.mistakes.length) return;
+
+    const start_pos = start_positions[ki];
+    const end_pos = (ki + 1 < start_positions.length)
+      ? start_positions[ki + 1] : events.length;
+    const defenseCtx = {
+      mjai_events: events, start_pos, end_pos, player_id,
+    };
+
+    let mistake_idx = 0;
+    for (const entry of (kyoku.entries || [])) {
+      if (entry.is_equal) continue;
+
+      // Walk db_mistakes forward until junme matches (same pattern as
+      // Python prepare_game_data — entries and mistakes are both
+      // ordered by junme).
+      while (mistake_idx < round.mistakes.length
+             && round.mistakes[mistake_idx].turn !== entry.junme) {
+        mistake_idx += 1;
+      }
+      if (mistake_idx >= round.mistakes.length) break;
+
+      const m = round.mistakes[mistake_idx];
+      mistake_idx += 1;
+
+      try {
+        const patch = prepMistake(m, mortalData, ki, entry, defenseCtx);
+        if (patch) Object.assign(m, patch);
+      } catch (e) {
+        _warn("prepMistake failed for mistake turn=" + m.turn + ":", e);
+      }
+    }
+  }
+
+  function _prepGameSetup(game, mortalData) {
+    const kyokus = (mortalData.review && mortalData.review.kyokus) || [];
+    const events = flatten_mjai_log(mortalData.mjai_log);
+    const start_positions = [];
+    for (let i = 0; i < events.length; i++) {
+      if (events[i] && events[i].type === "start_kyoku") start_positions.push(i);
+    }
+    const player_id = mortalData.player_id;
+    const rounds_by_header = {};
+    for (const r of game.rounds || []) {
+      rounds_by_header[r.round] = r;
+    }
+    return { kyokus, events, start_positions, player_id, rounds_by_header };
+  }
+
   // Game-level walker: replicates the iteration pattern of
   // lib.categorize.prepare_game_data. Iterates each kyoku's review entries,
   // matches them to per-round mistakes by junme, and calls prepMistake.
@@ -269,65 +327,39 @@
   // Returns the same game object for chaining.
   function prepGame(game, mortalData) {
     if (!mortalData || !game) return game;
-    const kyokus = (mortalData.review && mortalData.review.kyokus) || [];
-    const events = flatten_mjai_log(mortalData.mjai_log);
-    const start_positions = [];
-    for (let i = 0; i < events.length; i++) {
-      if (events[i] && events[i].type === "start_kyoku") start_positions.push(i);
+    const ctx = _prepGameSetup(game, mortalData);
+    for (let ki = 0; ki < ctx.kyokus.length; ki++) {
+      _prepKyoku(game, mortalData, ki, ctx.kyokus, ctx.events,
+                 ctx.start_positions, ctx.player_id, ctx.rounds_by_header);
     }
-    const player_id = mortalData.player_id;
+    return game;
+  }
 
-    const rounds_by_header = {};
-    for (const r of game.rounds || []) {
-      rounds_by_header[r.round] = r;
+  // Same as prepGame but yields to the event loop between kyokus and
+  // reports progress. Use this from the browser so the main thread stays
+  // responsive while prep runs (browser-side prep takes ~700 ms on a
+  // 9-kyoku/42-mistake game). `onProgress(done, total)` is called after
+  // each kyoku (including ki=total when complete).
+  async function prepGameAsync(game, mortalData, onProgress) {
+    if (!mortalData || !game) {
+      if (onProgress) onProgress(0, 0);
+      return game;
     }
-
-    for (let ki = 0; ki < kyokus.length; ki++) {
-      const kyoku = kyokus[ki];
-      const start = events[start_positions[ki]];
-      if (!start) continue;
-      let header = `${start.bakaze}${start.kyoku}`;
-      if (start.honba > 0) header += `-${start.honba}`;
-      const round = rounds_by_header[header];
-      if (!round || !round.mistakes || !round.mistakes.length) continue;
-
-      const start_pos = start_positions[ki];
-      const end_pos = (ki + 1 < start_positions.length)
-        ? start_positions[ki + 1] : events.length;
-      const defenseCtx = {
-        mjai_events: events, start_pos, end_pos, player_id,
-      };
-
-      let mistake_idx = 0;
-      for (const entry of (kyoku.entries || [])) {
-        if (entry.is_equal) continue;
-
-        // Walk db_mistakes forward until junme matches (same pattern as
-        // Python prepare_game_data — entries and mistakes are both
-        // ordered by junme).
-        while (mistake_idx < round.mistakes.length
-               && round.mistakes[mistake_idx].turn !== entry.junme) {
-          mistake_idx += 1;
-        }
-        if (mistake_idx >= round.mistakes.length) break;
-
-        const m = round.mistakes[mistake_idx];
-        mistake_idx += 1;
-
-        try {
-          const patch = prepMistake(m, mortalData, ki, entry, defenseCtx);
-          if (patch) Object.assign(m, patch);
-        } catch (e) {
-          _warn("prepMistake failed for mistake turn=" + m.turn + ":", e);
-        }
-      }
+    const ctx = _prepGameSetup(game, mortalData);
+    const total = ctx.kyokus.length;
+    if (onProgress) onProgress(0, total);
+    for (let ki = 0; ki < total; ki++) {
+      _prepKyoku(game, mortalData, ki, ctx.kyokus, ctx.events,
+                 ctx.start_positions, ctx.player_id, ctx.rounds_by_header);
+      if (onProgress) onProgress(ki + 1, total);
+      if (ki + 1 < total) await new Promise((r) => setTimeout(r, 0));
     }
-
     return game;
   }
 
   return {
     prepMistake,
     prepGame,
+    prepGameAsync,
   };
 }));
