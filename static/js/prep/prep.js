@@ -31,7 +31,7 @@
 
   const { ID_TO_MJAI } = tilesMod;
   const { flatten_mjai_log } = parseMod;
-  const { reconstruct_context, subtract_hand_from_wall } = boardMod;
+  const { reconstruct_context, subtract_hand_from_wall, extract_board_state } = boardMod;
   const {
     tenpai_wait_tiles, is_furiten,
     find_riichi_context, find_discard_history_for_turn,
@@ -178,17 +178,32 @@
   // Returns a dict of fields to merge into the mistake's data_json. Never
   // sets `category`, `categorize_data`, or `labels` — categorize.js owns
   // those. Returns an empty dict when nothing useful can be computed.
+  function _compute_board_state(mortalData, kyokuIdx, entry) {
+    if (mortalData == null || kyokuIdx == null || entry == null) return null;
+    const tiles_left = entry.tiles_left;
+    if (tiles_left == null) return null;
+    try {
+      return extract_board_state(mortalData, kyokuIdx, tiles_left);
+    } catch (e) {
+      _warn("board_state extract failed:", e);
+      return null;
+    }
+  }
+
   function prepMistake(mistake, mortalData, kyokuIdx, entry, defenseCtx) {
     const actual = mistake.actual || {};
     const expected = mistake.expected || {};
     const at = actual.type;
     const et = expected.type;
 
+    const board_state = _compute_board_state(mortalData, kyokuIdx, entry);
+
     // Non-dahai branch (meld/riichi/kan decisions). No discard tradeoff;
     // still want a per-tile shanten table for the EV-table view + 5A/5B
     // furiten / wait data.
     if (!(at === "dahai" && et === "dahai")) {
       const patch = {};
+      if (board_state) patch.board_state = board_state;
       const stats = _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry);
       if (stats && stats.length) patch.discard_stats = stats;
 
@@ -213,6 +228,7 @@
     wall = _clamp_wall(wall);
 
     const patch = {};
+    if (board_state) patch.board_state = board_state;
 
     if (defenseCtx) {
       const safety = get_tile_safety_for_mistake(
