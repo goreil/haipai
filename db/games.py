@@ -165,9 +165,9 @@ def add_game(conn, user_id, game_dict):
                 conn.execute(
                     """INSERT INTO mistakes
                        (game_id, round_name, round_idx, mistake_idx, data_json,
-                        category, severity, ev_loss, turn, note)
+                        category, ev_loss, turn, note)
                        VALUES (:game_id, :round_name, :round_idx, :mistake_idx, :data_json,
-                               :category, :severity, :ev_loss, :turn, :note)""",
+                               :category, :ev_loss, :turn, :note)""",
                     row,
                 )
 
@@ -202,8 +202,9 @@ def update_game_stats(conn, game_id, stats):
 
 def compute_summary_for_game(conn, game_id):
     """Recompute stats from mistakes and update the game row. Returns the stats dict."""
+    from lib.parse import severity
     rows = conn.execute(
-        "SELECT severity, ev_loss, category FROM mistakes WHERE game_id = ?",
+        "SELECT ev_loss, category FROM mistakes WHERE game_id = ?",
         (game_id,),
     ).fetchall()
 
@@ -212,7 +213,7 @@ def compute_summary_for_game(conn, game_id):
     by_sev = {}
     by_cat = {}
     for r in rows:
-        s = r["severity"] or "?"
+        s = severity(r["ev_loss"] or 0)
         by_sev[s] = by_sev.get(s, 0) + 1
         cat = r["category"]
         if cat:

@@ -10,7 +10,7 @@ import json
 
 
 # Fields stored as columns (not in data_json)
-MISTAKE_COLUMNS = {"category", "severity", "ev_loss", "turn", "note"}
+MISTAKE_COLUMNS = {"category", "ev_loss", "turn", "note"}
 
 
 def mistake_to_row(mistake, game_id, round_name, round_idx, mistake_idx):
@@ -24,7 +24,6 @@ def mistake_to_row(mistake, game_id, round_name, round_idx, mistake_idx):
         "mistake_idx": mistake_idx,
         "data_json": json.dumps(data, ensure_ascii=False),
         "category": mistake.get("category"),
-        "severity": mistake.get("severity"),
         "ev_loss": mistake.get("ev_loss"),
         "turn": mistake.get("turn"),
         "note": mistake.get("note"),
@@ -36,7 +35,6 @@ def row_to_mistake(row):
     m = json.loads(row["data_json"])
     m["id"] = row["id"]
     m["category"] = row["category"]
-    m["severity"] = row["severity"]
     m["ev_loss"] = row["ev_loss"]
     m["turn"] = row["turn"]
     m["note"] = row["note"]
@@ -83,7 +81,7 @@ def annotate_mistake(conn, game_id, round_name, turn, index, category, note, use
 def update_mistake_data(conn, mistake_id, updates):
     """Update columns and/or data_json fields on a mistake.
 
-    `updates` can contain column names (category, severity, etc.)
+    `updates` can contain column names (category, ev_loss, etc.)
     and data fields (best_discard, discard_stats, safety_ratings, etc.).
     Uses SQLite json_set() for atomic data_json updates to avoid
     read-modify-write races.

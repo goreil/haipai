@@ -86,7 +86,6 @@ class TestParsing:
 
         m = mistakes[0]
         assert "turn" in m
-        assert "severity" in m
         assert "ev_loss" in m
         assert "hand" in m
         assert isinstance(m["hand"], list)
@@ -150,7 +149,6 @@ class TestDatabase:
                 "outcome": None,
                 "mistakes": [{
                     "turn": 5,
-                    "severity": "??",
                     "ev_loss": 0.50,
                     "category": "1A",
                     "note": None,
@@ -191,7 +189,7 @@ class TestDatabase:
             "date": "2026-01-01",
             "rounds": [{"round": "E1", "honba": 0, "turn_count": 10,
                          "outcome": None, "mistakes": [{
-                "turn": 3, "severity": "?", "ev_loss": 0.05,
+                "turn": 3, "ev_loss": 0.05,
                 "category": None, "note": None,
                 "hand": ["1m"], "melds": [], "actual": {"type": "dahai", "pai": "1m"},
                 "expected": {"type": "dahai", "pai": "2m"}, "top_actions": [],
@@ -232,7 +230,6 @@ class TestDatabase:
                 "outcome": None,
                 "mistakes": [{
                     "turn": 5,
-                    "severity": "??",
                     "ev_loss": 0.50,
                     "category": "1A",
                     "note": None,
@@ -299,10 +296,10 @@ class TestDatabase:
             "rounds": [{
                 "round": "E1", "honba": 0, "turn_count": 15, "decision_count": 12, "outcome": None,
                 "mistakes": [
-                    {"turn": 3, "severity": "?", "ev_loss": 0.10, "category": "1A", "note": None,
+                    {"turn": 3, "ev_loss": 0.10, "category": "1A", "note": None,
                      "hand": ["1m"], "melds": [], "actual": {"type": "dahai", "pai": "1m"},
                      "expected": {"type": "dahai", "pai": "2m"}, "top_actions": []},
-                    {"turn": 7, "severity": "??", "ev_loss": 0.80, "category": "3A", "note": None,
+                    {"turn": 7, "ev_loss": 0.80, "category": "3A", "note": None,
                      "hand": ["5p"], "melds": [], "actual": {"type": "dahai", "pai": "5p"},
                      "expected": {"type": "dahai", "pai": "6p"}, "top_actions": []},
                 ],
@@ -335,7 +332,7 @@ class TestDatabase:
         game_dict = {
             "date": "2026-01-20",
             "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
-                         "mistakes": [{"turn": 5, "severity": "??", "ev_loss": 0.5,
+                         "mistakes": [{"turn": 5, "ev_loss": 0.5,
                                         "category": "1A", "note": None,
                                         "hand": ["1m"], "melds": [],
                                         "actual": {"type": "dahai", "pai": "1m"},
@@ -354,7 +351,7 @@ class TestDatabase:
         game_dict = {
             "date": "2026-01-20",
             "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
-                         "mistakes": [{"turn": 5, "severity": "??", "ev_loss": 0.5,
+                         "mistakes": [{"turn": 5, "ev_loss": 0.5,
                                         "category": "1A", "note": None,
                                         "hand": ["1m"], "melds": [],
                                         "actual": {"type": "dahai", "pai": "1m"},
@@ -378,7 +375,7 @@ class TestDatabase:
         game_dict = {
             "date": "2026-01-20",
             "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
-                         "mistakes": [{"turn": 5, "severity": "??", "ev_loss": 0.5,
+                         "mistakes": [{"turn": 5, "ev_loss": 0.5,
                                         "category": "1A", "note": None,
                                         "hand": ["1m"], "melds": [],
                                         "actual": {"type": "dahai", "pai": "1m"},

@@ -38,6 +38,7 @@ CATEGORIES = list(CATEGORY_INFO.keys())
 
 def compute_summary(game):
     """Compute summary stats for a game. Mutates game dict."""
+    from lib.parse import severity
     total = 0
     total_ev = 0.0
     total_decisions = 0
@@ -59,7 +60,7 @@ def compute_summary(game):
         for m in rnd["mistakes"]:
             total += 1
             total_ev += m["ev_loss"]
-            sev = m["severity"]
+            sev = severity(m["ev_loss"])
             if sev in by_severity:
                 by_severity[sev] += 1
             cat = m.get("category")

@@ -170,7 +170,6 @@ def _insert_game(user_id, with_mistakes=True):
             "outcome": None,
             "mistakes": [{
                 "turn": 5,
-                "severity": "??",
                 "ev_loss": 0.50,
                 "category": "1A",
                 "note": None,

@@ -52,7 +52,7 @@ def fetch(db_path, kind=None, since=None, mistake_id=None, user_id=None):
         SELECT cr.id, cr.user_id, u.username, cr.mistake_id, cr.kind,
                cr.suggested_category, cr.reason, cr.created_at,
                m.game_id, m.category AS current_category,
-               m.severity, m.turn, m.ev_loss, m.note
+               m.turn, m.ev_loss, m.note
         FROM category_reports cr
         JOIN users u ON cr.user_id = u.id
         JOIN mistakes m ON cr.mistake_id = m.id
@@ -92,7 +92,7 @@ def pretty_print(rows):
     for r in rows:
         ts = r["created_at"]
         head = (f"  #{r['id']:<4} {ts}  u={r['username']}  mistake={r['mistake_id']} "
-                f"game={r['game_id']} turn={r['turn']} cat={r['current_category']}/{r['severity']} "
+                f"game={r['game_id']} turn={r['turn']} cat={r['current_category']} "
                 f"ev={r['ev_loss']}  kind={r['kind']}")
         print(head)
         if r["suggested_category"]:

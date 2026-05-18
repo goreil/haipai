@@ -16,7 +16,6 @@ class MistakeRecord(TypedDict):
     ``REFACTOR-TARGET.md`` under canonical data shapes.
     """
     turn: int
-    severity: str           # "?" | "??" | "???"
     ev_loss: float
     category: str | None
     note: str | None
@@ -378,7 +377,6 @@ def parse_game(data, game_date=None) -> GameRecord:
 
                 mistakes.append({
                     "turn": entry["junme"],
-                    "severity": severity(ev_loss),
                     "ev_loss": ev_loss,
                     "category": None,
                     "note": None,
@@ -429,7 +427,7 @@ def print_text(game):
                 note = f"(|{actual_str}| > |{expected_str}|)"
             else:
                 note = ""
-            print(f"{m['turn']} {m['severity']} {m['ev_loss']:.2f} {note}".rstrip())
+            print(f"{m['turn']} {severity(m['ev_loss'])} {m['ev_loss']:.2f} {note}".rstrip())
 
     print()
     print("SUMMARY:")

@@ -50,7 +50,7 @@ def seed(conn):
         "rounds": [{
             "round": "E1", "honba": 0, "turn_count": 5, "decision_count": 4, "outcome": None,
             "mistakes": [{
-                "turn": 3, "severity": "??", "ev_loss": 0.5, "category": "1A", "note": None,
+                "turn": 3, "ev_loss": 0.5, "category": "1A", "note": None,
                 "hand": ["1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m",
                          "1p", "2p", "3p", "4p"],
                 "melds": [], "shanten": 1, "draw": "4m",

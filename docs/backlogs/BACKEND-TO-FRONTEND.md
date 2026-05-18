@@ -14,6 +14,15 @@ deleted in the Step 7 cutover; `mahjong` was dropped from
 schema (always written `done`) for the rare admin query that still
 reads it.
 
+The legacy `mistakes.severity` column was dropped in the Step 8
+cutover: the parser no longer writes it, the JOIN/SELECT paths
+(`db/games.py`, `db/reports.py`, `routes/auth.py`, the report scripts)
+were trimmed, and the schema migration uses `ALTER TABLE DROP COLUMN`.
+The frontend recomputes severity tiers from `ev_loss`
+(`static/js/categorize-view.js::sevTier`), and `stats_json.by_severity`
+is now derived server-side via `lib.parse.severity()` from the same
+`ev_loss` values.
+
 ## Verification
 
 - `tests/fixtures/categorize_parity.json` — 2,121 mistakes from 50

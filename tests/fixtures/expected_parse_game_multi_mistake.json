@@ -48,7 +48,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 4,
           "top_actions": [
             {
@@ -208,7 +207,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "???",
           "shanten": 2,
           "top_actions": [
             {
@@ -358,7 +356,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "???",
           "shanten": 2,
           "top_actions": [
             {
@@ -508,7 +505,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "??",
           "shanten": 2,
           "top_actions": [
             {
@@ -664,7 +660,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 3,
           "top_actions": [
             {
@@ -814,7 +809,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "??",
           "shanten": 3,
           "top_actions": [
             {
@@ -964,7 +958,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 3,
           "top_actions": [
             {
@@ -1114,7 +1107,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "??",
           "shanten": 3,
           "top_actions": [
             {
@@ -1264,7 +1256,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 3,
           "top_actions": [
             {
@@ -1414,7 +1405,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 2,
           "top_actions": [
             {
@@ -1580,7 +1570,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 2,
           "top_actions": [
             {
@@ -1730,7 +1719,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "??",
           "shanten": 2,
           "top_actions": [
             {
@@ -1870,7 +1858,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "???",
           "shanten": 2,
           "top_actions": [
             {
@@ -2010,7 +1997,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 2,
           "top_actions": [
             {
@@ -2160,7 +2146,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 1,
           "top_actions": [
             {
@@ -2320,7 +2305,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 1,
           "top_actions": [
             {
@@ -2393,7 +2377,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "??",
           "shanten": 1,
           "top_actions": [
             {
@@ -2577,7 +2560,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 4,
           "top_actions": [
             {
@@ -2638,7 +2620,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 3,
           "top_actions": [
             {
@@ -2788,7 +2769,6 @@
           ],
           "melds": [],
           "note": null,
-          "severity": "?",
           "shanten": 4,
           "top_actions": [
             {
@@ -2862,7 +2842,6 @@
             }
           ],
           "note": null,
-          "severity": "???",
           "shanten": 2,
           "top_actions": [
             {
@@ -2985,7 +2964,6 @@
             }
           ],
           "note": null,
-          "severity": "?",
           "shanten": 2,
           "top_actions": [
             {
@@ -3098,7 +3076,6 @@
             }
           ],
           "note": null,
-          "severity": "?",
           "shanten": 1,
           "top_actions": [
             {

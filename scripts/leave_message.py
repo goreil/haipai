@@ -65,12 +65,12 @@ def resolve_category_report(conn, mistake_id, user_id):
     """Look up the (mistake_id, user_id) row in category_reports.
 
     Returns the row joined with the mistake so the body can reference
-    the mistake's category / severity / ev_loss if useful.
+    the mistake's category / ev_loss if useful.
     """
     row = conn.execute(
         """SELECT cr.id AS report_id, cr.mistake_id, cr.user_id, cr.kind,
                   cr.suggested_category, cr.reason, cr.created_at,
-                  m.category, m.severity, m.ev_loss, m.game_id
+                  m.category, m.ev_loss, m.game_id
              FROM category_reports cr
              JOIN mistakes m ON cr.mistake_id = m.id
             WHERE cr.mistake_id = ? AND cr.user_id = ?""",

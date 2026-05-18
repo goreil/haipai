@@ -38,7 +38,6 @@ CREATE TABLE IF NOT EXISTS mistakes (
     mistake_idx INTEGER NOT NULL,
     data_json TEXT NOT NULL,
     category TEXT,
-    severity TEXT,
     ev_loss REAL,
     turn INTEGER,
     note TEXT,
@@ -171,6 +170,11 @@ def migrate(conn):
         "SELECT name FROM sqlite_master WHERE type='table' AND name='feedback'"
     ).fetchone():
         conn.execute("DROP TABLE feedback")
+        altered = True
+    # Drop legacy mistakes.severity column. Backend categorization no longer
+    # writes it; the frontend recomputes severity tiers from ev_loss.
+    if _has_column("mistakes", "severity"):
+        conn.execute("ALTER TABLE mistakes DROP COLUMN severity")
         altered = True
     if altered:
         conn.commit()

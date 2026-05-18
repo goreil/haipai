@@ -71,7 +71,7 @@ def main():
                 inputs = {k: v for k, v in m.items()
                           if k not in ("category", "categorize_data",
                                        "labels", "id", "my_report",
-                                       "severity", "ev_loss", "note")}
+                                       "ev_loss", "note")}
                 fixtures.append({
                     "mistake_id": m["id"],
                     "game_id": gid,
