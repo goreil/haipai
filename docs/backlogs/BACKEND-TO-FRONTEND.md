@@ -27,8 +27,8 @@ reads it.
 
 ## Deferred (still applicable)
 
-- **Trends per-category aggregate** — `renderCategoryTrend` in
-  `trends.js` is hidden client-side; server's
-  `compute_summary_for_game` still writes a `by_category` blob from
-  the (stale-on-new-games) `category` column. Decide later: bring
-  back, recompute server-side, or drop.
+- **Trends per-category aggregate** — planned in
+  `docs/backlogs/TRENDS-WEAKEST-CATEGORY.md` (option C: cache the JS
+  categorization output per game in `stats_json.by_category`, drive
+  the rollup from there). `renderCategoryTrend` in `trends.js`
+  remains hidden until that lands.
