@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Game CRUD routes: list, get, delete, add, annotate, categorize, backfill."""
+"""Game CRUD routes: list, get, delete, add, annotate, backfill."""
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 from pathlib import Path
 import json
-import sys
-import threading
 
 import db
 from lib.parse import parse_game
@@ -165,127 +163,6 @@ def api_report_category(mistake_id):
     return jsonify({"ok": True, "id": report_id})
 
 
-@games_bp.route("/api/games/<int:game_id>/categorize", methods=["POST"])
-@login_required
-def api_categorize(game_id):
-    from app import get_conn
-    conn = get_conn()
-    uid = current_user.id
-
-    game = db.get_game(conn, game_id, user_id=uid)
-    if not game:
-        return jsonify({"error": "Game not found"}), 404
-
-    body = request.json or {}
-    force = body.get("force", False)
-
-    # Set status to pending and run in background
-    conn.execute(
-        "UPDATE games SET categorization_status = 'pending' WHERE id = ?",
-        (game_id,),
-    )
-    conn.commit()
-
-    threading.Thread(
-        target=_prepare_data_background,
-        args=(game_id, force),
-        daemon=True,
-    ).start()
-
-    return jsonify({"ok": True, "status": "pending"})
-
-
-@games_bp.route("/api/games/backfill-board-state", methods=["POST"])
-@login_required
-def api_backfill_board_state():
-    """Populate board_state on all mistakes missing it (no API calls needed)."""
-    from app import get_conn
-    conn = get_conn()
-    uid = current_user.id
-
-    game_ids = [r["id"] for r in conn.execute(
-        "SELECT id FROM games WHERE user_id = ?", (uid,)
-    ).fetchall()]
-
-    from lib.categorize import backfill_board_state_db
-    total_updated = 0
-    for gid in game_ids:
-        total_updated += backfill_board_state_db(conn, gid)
-    return jsonify({"ok": True, "games_processed": len(game_ids), "updated": total_updated})
-
-
-@games_bp.route("/api/games/backfill-discard-stats", methods=["POST"])
-@login_required
-def api_backfill_discard_stats():
-    """Re-fetch discard_stats for dahai-vs-dahai mistakes so they include per-tile
-    necessary_tiles (needed by the ukeire visualization). Preserves category
-    and note annotations — only discard_stats and best_discard are rewritten.
-
-    Accepts {"game_id": int} to target a single game, or runs on all of the
-    user's games when omitted. {"force": true} re-runs even when the stored
-    discard_stats already has necessary_tiles.
-    """
-    from app import get_conn
-    conn = get_conn()
-    uid = current_user.id
-
-    body = request.json or {}
-    force = bool(body.get("force", False))
-    game_id = body.get("game_id")
-
-    if game_id is not None:
-        game = db.get_game(conn, int(game_id), user_id=uid)
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
-        game_ids = [int(game_id)]
-    else:
-        game_ids = [r["id"] for r in conn.execute(
-            "SELECT id FROM games WHERE user_id = ?", (uid,)
-        ).fetchall()]
-
-    from lib.categorize import backfill_discard_stats_db
-    total_updated = 0
-    for gid in game_ids:
-        total_updated += backfill_discard_stats_db(conn, gid, force=force)
-    return jsonify({"ok": True, "games_processed": len(game_ids),
-                    "updated": total_updated})
-
-
-@games_bp.route("/api/games/backfill-safety", methods=["POST"])
-@login_required
-def api_backfill_safety():
-    """Compute safety_ratings + opponent_discards for defense-relevant mistakes
-    (riichi OR 3+ open-meld threats).
-
-    Accepts {"game_id": int} to target one game (default: all of the user's
-    games) and {"force": true} to re-compute even when safety is already set.
-    """
-    from app import get_conn
-    conn = get_conn()
-    uid = current_user.id
-
-    body = request.json or {}
-    force = bool(body.get("force", False))
-    game_id = body.get("game_id")
-
-    if game_id is not None:
-        game = db.get_game(conn, int(game_id), user_id=uid)
-        if not game:
-            return jsonify({"error": "Game not found"}), 404
-        game_ids = [int(game_id)]
-    else:
-        game_ids = [r["id"] for r in conn.execute(
-            "SELECT id FROM games WHERE user_id = ?", (uid,)
-        ).fetchall()]
-
-    from lib.categorize import backfill_safety_ratings_db
-    total_updated = 0
-    for gid in game_ids:
-        total_updated += backfill_safety_ratings_db(conn, gid, force=force)
-    return jsonify({"ok": True, "games_processed": len(game_ids),
-                    "updated": total_updated})
-
-
 @games_bp.route("/api/games/backfill-decisions", methods=["POST"])
 @login_required
 def api_backfill_decisions():
@@ -357,14 +234,17 @@ def api_backfill_decisions():
 
 def _ingest_mortal(conn, uid, mortal_data, game_date):
     """Parse + persist a Mortal analysis JSON for `uid`. Returns (status, payload)
-    where status is the HTTP code and payload the JSON body."""
+    where status is the HTTP code and payload the JSON body. JS prep runs
+    client-side on fetch (see static/js/prep/), so no background work fires
+    here."""
     from datetime import date
     if not mortal_data or not isinstance(mortal_data, dict):
         return 400, {"error": "mortal_data is required (Mortal analysis JSON)"}
 
     game_date = game_date or date.today().isoformat()
 
-    # Save Mortal JSON to disk (needed by categorizer for wall reconstruction)
+    # Save Mortal JSON to disk — /api/games/<id> ships a slim copy to the
+    # frontend so JS prep can reconstruct walls without a per-mistake fetch.
     import hashlib
     mortal_dir = DIR / "mortal_analysis"
     mortal_dir.mkdir(exist_ok=True)
@@ -381,14 +261,8 @@ def _ingest_mortal(conn, uid, mortal_data, game_date):
     game_dict["mortal_file"] = str(dest.relative_to(DIR))
     compute_summary(game_dict)
 
-    game_dict["categorization_status"] = "pending"
+    game_dict["categorization_status"] = "done"
     game_id = db.add_game(conn, uid, game_dict)
-
-    threading.Thread(
-        target=_prepare_data_background,
-        args=(game_id,),
-        daemon=True,
-    ).start()
 
     return 200, {"ok": True, "game_id": game_id, "summary": game_dict.get("summary", {})}
 
@@ -473,32 +347,3 @@ def _json_with_cors(payload, status):
     for k, v in _cors_headers().items():
         resp.headers[k] = v
     return resp
-
-
-def _prepare_data_background(game_id, force=False):
-    """Run mistake input-prep in a background thread with its own DB connection.
-
-    Categorization itself is JS-side; this only computes the inputs the
-    frontend categorizer reads (discard_stats, defense_kd payload, 5A/5B
-    riichi patches). The `categorization_status` column is reused to
-    signal "data is ready".
-    """
-    from lib.categorize import prepare_game_data
-    conn = db.get_db()
-    try:
-        prepare_game_data(conn, game_id, force=force)
-        db.compute_summary_for_game(conn, game_id)
-        conn.execute(
-            "UPDATE games SET categorization_status = 'done' WHERE id = ?",
-            (game_id,),
-        )
-        conn.commit()
-    except Exception as e:
-        conn.execute(
-            "UPDATE games SET categorization_status = 'failed' WHERE id = ?",
-            (game_id,),
-        )
-        conn.commit()
-        print(f"Background categorization failed for game {game_id}: {e}", file=sys.stderr)
-    finally:
-        conn.close()

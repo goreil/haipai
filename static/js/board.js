@@ -174,11 +174,9 @@ function renderBoardContext(m) {
   const b = m.board_state;
   if (!b) return "";
 
-  // BoardState is the canonical owner of the wall position — `b.tiles_left`
-  // is emitted by lib/categorize.py::extract_board_state and lives on every
-  // mistake's board_state blob (CS-02 collapse). Read it from here rather
-  // than counting [data-tile] DOM nodes; older mistakes have it backfilled
-  // by backfill_board_state_db.
+  // BoardState owns the wall position — `b.tiles_left` is emitted by
+  // static/js/prep/board.js for every mistake. Read it from here rather
+  // than counting [data-tile] DOM nodes.
 
   let html = `<div class="board-context">`;
 

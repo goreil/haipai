@@ -5,4 +5,3 @@ Flask-WTF==1.2.2
 requests==2.32.4
 gunicorn==23.0.0
 Authlib==1.4.1
-mahjong==1.2.1

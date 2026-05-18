@@ -14,7 +14,7 @@
 //                           target_tiles_left)
 //       → [{seat, discards, riichi_idx}, …] or null.
 //   - get_tile_safety_for_mistake(...) — same args as compute_kd, returns
-//     just safety_ratings (drop-in for lib.defense.get_tile_safety_for_mistake).
+//     just safety_ratings.
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {

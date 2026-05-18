@@ -18,11 +18,8 @@ except ImportError:
         return f"fakehash:{pw}"
 
 import db
-from lib.parse import flatten_mjai_log, parse_game, round_header, severity
+from lib.parse import parse_game, round_header, severity
 from lib.tiles import MJAI_TO_ID, ID_TO_MJAI, mjai_to_tile_id, tile_id_to_base
-from lib.board import (
-    extract_board_state, reconstruct_context, subtract_hand_from_wall,
-)
 
 
 # --- Fixtures ---
@@ -118,47 +115,6 @@ class TestTileConversion:
         assert tile_id_to_base(35) == 13  # 5pr -> 5p
         assert tile_id_to_base(36) == 22  # 5sr -> 5s
         assert tile_id_to_base(27) == 27  # E stays E
-
-
-class TestBoardState:
-    def test_extract_board_state(self, mortal_data):
-        kyokus = mortal_data["review"]["kyokus"]
-        entry = next(e for e in kyokus[0]["entries"] if not e["is_equal"])
-
-        board = extract_board_state(mortal_data, 0, entry["tiles_left"])
-        assert "dora_indicators" in board
-        assert isinstance(board["dora_indicators"], list)
-        assert len(board["dora_indicators"]) >= 1
-
-        assert board["seat_wind"] in ("E", "S", "W", "N")
-        assert board["round_wind"] in ("E", "S")
-
-        assert isinstance(board["scores"], list)
-        assert len(board["scores"]) == 4
-
-        assert isinstance(board["all_discards"], list)
-        assert len(board["all_discards"]) == 4
-        for d in board["all_discards"]:
-            assert "seat" in d
-            assert "discards" in d
-            assert "riichi_idx" in d
-
-        # tiles_left is the canonical wall-position. extract_board_state
-        # walks until tiles_left <= target, so the post-walk value matches
-        # the caller's request when the kyoku hasn't already ended.
-        assert board["tiles_left"] == entry["tiles_left"]
-
-    def test_board_state_late_game(self, mortal_data):
-        """Board state with more events should have more discards."""
-        kyokus = mortal_data["review"]["kyokus"]
-        for ki in range(len(kyokus)):
-            for entry in kyokus[ki]["entries"]:
-                if not entry["is_equal"] and entry["tiles_left"] < 50:
-                    board = extract_board_state(mortal_data, ki, entry["tiles_left"])
-                    total_discards = sum(len(d["discards"]) for d in board["all_discards"])
-                    assert total_discards > 0
-                    return
-        pytest.skip("No late-game mistakes found")
 
 
 # --- db tests ---
@@ -690,115 +646,22 @@ class TestAPI:
         })
         assert res.status_code == 400
 
-# --- Wall reconstruction tests ---
-
-class TestWallReconstruction:
-    def test_wall_no_negatives(self, mortal_data):
-        """Wall values should not go negative after subtracting hand."""
-        kyokus = mortal_data["review"]["kyokus"]
-        events = flatten_mjai_log(mortal_data["mjai_log"])
-        start_events = [e for e in events if e.get("type") == "start_kyoku"]
-
-        for ki, kyoku in enumerate(kyokus):
-            for entry in kyoku["entries"]:
-                if entry["is_equal"]:
-                    continue
-                hand = [t for t in entry["state"]["tehai"] if t != "?"]
-                if not hand:
-                    continue
-                wall, _, _, _, _ = reconstruct_context(mortal_data, ki, entry["tiles_left"])
-                wall2 = subtract_hand_from_wall(wall, hand)
-                for i, v in enumerate(wall2):
-                    assert v >= -1, f"kyoku={ki} tiles_left={entry['tiles_left']} wall[{i}]={v}"
-
-    def test_wall_hand_consistency(self, mortal_data):
-        """For each tile, wall + hand should not exceed 4 (or 1 for red fives)."""
-        kyokus = mortal_data["review"]["kyokus"]
-
-        kyoku = kyokus[0]
-        entry = kyoku["entries"][0]
-        hand = [t for t in entry["state"]["tehai"] if t != "?"]
-
-        wall, _, _, _, _ = reconstruct_context(mortal_data, 0, entry["tiles_left"])
-        wall2 = subtract_hand_from_wall(wall, hand)
-
-        hand_ids = [mjai_to_tile_id(t) for t in hand]
-        for i in range(34):
-            in_hand = sum(1 for h in hand_ids if tile_id_to_base(h) == i)
-            # Wall + hand should not exceed total copies (4)
-            assert wall2[i] + in_hand <= 4, f"tile {i}: wall={wall2[i]} hand={in_hand}"
-
-    def test_wall_excludes_own_dahai_at_decision_turn(self):
-        """Regression: the player's own decision-turn dahai must not be
-        counted as visible. That tile is still in the 14-tile hand passed to
-        subtract_hand_from_wall, so counting it in `visible` would
-        double-subtract the remaining copies.
-
-        Reproducer shaped after prod mistake 4875: seat 0 discards one C,
-        seat 2 (the player) tsumos and has a C in hand. Wall[C] at the
-        decision point should be 3 (only seat 0's C is visible). The player's
-        own C dahai that follows must NOT be counted.
-        """
-        mortal_data = {
-            "player_id": 2,
-            "mjai_log": [
-                {"type": "start_kyoku", "bakaze": "E", "kyoku": 1, "honba": 0,
-                 "oya": 0, "dora_marker": "1m", "scores": [25000] * 4,
-                 "tehais": [["?"] * 13] * 4},
-                # Seat 0 draws and discards C → 1 C visible.
-                {"type": "tsumo", "actor": 0, "pai": "C"},
-                {"type": "dahai", "actor": 0, "pai": "C", "tsumogiri": True},
-                {"type": "tsumo", "actor": 1, "pai": "1s"},
-                {"type": "dahai", "actor": 1, "pai": "1s", "tsumogiri": True},
-                # Seat 2 (player) draws — decision point. tiles_left: 70→69→68→67.
-                {"type": "tsumo", "actor": 2, "pai": "C"},
-                # Player's own dahai of C — must NOT land in `visible`.
-                {"type": "dahai", "actor": 2, "pai": "C", "tsumogiri": False},
-                {"type": "tsumo", "actor": 3, "pai": "9m"},
-            ],
-        }
-        wall, _, _, _, _ = reconstruct_context(mortal_data, 0, 67)
-        # Only seat 0's C is visible; wall[C=33] = 4 - 1 = 3.
-        assert wall[33] == 3, f"wall[C] expected 3, got {wall[33]}"
-
-        # After subtracting a 14-tile hand containing 1 C, wall[C] must be 2.
-        hand = ["C"] + ["1m"] * 13
-        w2 = subtract_hand_from_wall(wall, hand)
-        assert w2[33] == 2, f"wall[C] after hand-subtract expected 2, got {w2[33]}"
-
-
-# --- Add game pipeline tests ---
+# --- Add-game pipeline tests ---
+#
+# Upload/fetch/delete/trends round-trips through the HTTP + DB layer. The
+# shared `client` fixture (tests/conftest.py) seeds a temp DB + logged-in
+# testuser; test_snapshots.py covers the upload→fetch shape, so we only
+# pin the bits unique to this layer here.
 
 SMALL_MORTAL_FILE = os.path.join(FIXTURES_DIR, "game_short.json")
 
 
 class TestAddGamePipeline:
-    """End-to-end: add a game via the API and verify categorization results in DB."""
-
-    @pytest.fixture
-    def client(self, tmp_path):
-        db_path = tmp_path / "test.db"
-        os.environ["DB_PATH"] = str(db_path)
-        os.environ["SECRET_KEY"] = "test-secret"
-
-        import importlib
-        importlib.reload(db)
-
-        conn = db.get_db()
-        db.init_db(conn)
-        db.create_user(conn, "testuser", _gen_pw_hash("testpass"))
-        conn.close()
-
-        import app as app_module
-        importlib.reload(app_module)
-        app_module.app.config["TESTING"] = True
-        app_module.app.config["WTF_CSRF_ENABLED"] = False
-
-        with app_module.app.test_client() as client:
-            # Login
-            client.post("/login", data={"username": "testuser", "password": "testpass"},
-                        follow_redirects=True)
-            yield client
+    @pytest.fixture(autouse=True)
+    def _login(self, client):
+        client.post("/login",
+                    data={"username": "testuser", "password": "testpass1"},
+                    follow_redirects=True)
 
     @pytest.fixture
     def mortal_json(self):
@@ -806,150 +669,32 @@ class TestAddGamePipeline:
             return json.load(f)
 
     def _add_game(self, client, mortal_json):
-        """Post a game and return the JSON result."""
         res = client.post("/api/games/add", json={"mortal_data": mortal_json},
                           content_type="application/json")
         assert res.status_code == 200, f"Status {res.status_code}: {res.data[:200]}"
         return res.get_json()
 
-    def _wait_for_categorization(self, game_id, timeout=10):
-        """Block until the game's background categorization reaches a terminal
-        state (`done` or `failed`). Categorization is async and every test
-        that reads categories, board_state, or summary totals needs this."""
-        import time
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            conn = db.get_db()
-            row = conn.execute(
-                "SELECT categorization_status FROM games WHERE id = ?", (game_id,),
-            ).fetchone()
-            if row and row["categorization_status"] != "pending":
-                return row["categorization_status"]
-            time.sleep(0.1)
-        pytest.fail(f"categorization did not complete within {timeout}s for game {game_id}")
-
-    def test_add_game_returns_json(self, client, mortal_json):
-        """POST /api/games/add should return JSON with ok and game_id."""
-        data = self._add_game(client, mortal_json)
-        assert data.get("ok") is True
-        assert "game_id" in data
-        assert isinstance(data["game_id"], int)
-
-    def test_add_game_prepares_inputs(self, client, mortal_json):
-        """Every dahai-vs-dahai mistake should have discard_stats populated
-        after the background prep step. This is the JS categorizer's main
-        input — if it's missing, mistake cards render without an EV table.
-        Backend categorization itself was moved to JS in step 2, so the
-        `category` column is no longer expected to be populated here."""
-        data = self._add_game(client, mortal_json)
-        game_id = data["game_id"]
-        self._wait_for_categorization(game_id)
-
-        conn = db.get_db()
-        rows = conn.execute(
-            "SELECT id, data_json FROM mistakes WHERE game_id = ?",
-            (game_id,),
-        ).fetchall()
-        assert len(rows) > 0, "No mistakes in DB after add"
-
-        missing_stats = []
-        for r in rows:
-            d = json.loads(r["data_json"])
-            actual = d.get("actual") or {}
-            expected = d.get("expected") or {}
-            if actual.get("type") == "dahai" and expected.get("type") == "dahai":
-                if not d.get("discard_stats"):
-                    missing_stats.append(r["id"])
-        assert not missing_stats, (
-            f"{len(missing_stats)}/{len(rows)} dahai-vs-dahai mistakes "
-            f"missing discard_stats (ids: {missing_stats[:5]})"
-        )
-
-    def test_add_game_has_summary(self, client, mortal_json):
-        """Added game should have a computed summary with EV stats."""
-        data = self._add_game(client, mortal_json)
-        summary = data.get("summary", {})
-        assert summary.get("total_mistakes", 0) > 0
-        assert "total_ev_loss" in summary
-        assert "by_severity" in summary
-
-    def test_add_game_has_board_state(self, client, mortal_json):
-        """Each mistake should have board_state populated."""
-        data = self._add_game(client, mortal_json)
-        game_id = data["game_id"]
-        self._wait_for_categorization(game_id)
-
-        conn = db.get_db()
-        rows = conn.execute(
-            "SELECT data_json FROM mistakes WHERE game_id = ?", (game_id,),
-        ).fetchall()
-        for row in rows:
-            mdata = json.loads(row["data_json"])
-            assert "board_state" in mdata, f"Missing board_state in mistake"
-
-    def test_add_game_status_done(self, client, mortal_json):
-        """Background prep should reach `done` status, signalling the
-        frontend that data_json is ready for the JS categorizer."""
-        data = self._add_game(client, mortal_json)
-        assert data.get("ok") is True
-        status = self._wait_for_categorization(data["game_id"])
-        assert status == "done", f"prep status: {status!r}"
-
-        conn = db.get_db()
-        total = conn.execute(
-            "SELECT COUNT(*) FROM mistakes WHERE game_id = ?", (data["game_id"],),
-        ).fetchone()[0]
-        assert total > 0
-
-    def test_get_game_after_add(self, client, mortal_json):
-        """GET /api/games/<id> should return the added game with mistakes."""
+    def test_add_game_marks_done(self, client, mortal_json):
+        """JS prep is authoritative now — newly-added games skip the
+        backend prep thread and ship with categorization_status='done'
+        so the frontend doesn't sit on a stale banner."""
         data = self._add_game(client, mortal_json)
         game_id = data["game_id"]
 
-        res2 = client.get(f"/api/games/{game_id}")
-        assert res2.status_code == 200
-        game = res2.get_json()
-        assert game["id"] == game_id
-        assert len(game.get("rounds", [])) > 0
-        all_mistakes = [m for r in game["rounds"] for m in r.get("mistakes", [])]
-        assert len(all_mistakes) > 0
+        conn = db.get_db()
+        row = conn.execute(
+            "SELECT categorization_status FROM games WHERE id = ?", (game_id,),
+        ).fetchone()
+        assert row and row["categorization_status"] == "done"
 
     def test_delete_game(self, client, mortal_json):
-        """DELETE /api/games/<id> should remove the game."""
         data = self._add_game(client, mortal_json)
         game_id = data["game_id"]
-
-        res2 = client.delete(f"/api/games/{game_id}")
-        assert res2.status_code == 200
-
-        res3 = client.get(f"/api/games/{game_id}")
-        assert res3.status_code == 404
-
-    def test_categorize_endpoint(self, client, mortal_json):
-        """POST /api/games/<id>/categorize should re-run the input prep.
-        (Endpoint URL retained from the categorizer era; under the hood
-        it now calls prepare_game_data.)"""
-        data = self._add_game(client, mortal_json)
-        game_id = data["game_id"]
-        # Wait for the initial background prep to finish so the re-run
-        # doesn't race against it.
-        self._wait_for_categorization(game_id)
-
-        res2 = client.post(f"/api/games/{game_id}/categorize",
-                           json={"force": True}, content_type="application/json")
-        assert res2.status_code == 200
-        data = res2.get_json()
-        assert data.get("ok") is True
-        assert data.get("status") == "pending"
-
-        status = self._wait_for_categorization(game_id)
-        assert status == "done"
+        assert client.delete(f"/api/games/{game_id}").status_code == 200
+        assert client.get(f"/api/games/{game_id}").status_code == 404
 
     def test_trends_after_add(self, client, mortal_json):
-        """GET /api/trends should include data after adding a game."""
-        data = self._add_game(client, mortal_json)
-        self._wait_for_categorization(data["game_id"])
-
+        self._add_game(client, mortal_json)
         res = client.get("/api/trends")
         assert res.status_code == 200
         trends = res.get_json()

@@ -165,9 +165,6 @@ def init_app():
     """Initialize database. Called once on startup."""
     conn = db.get_db()
     db.init_db(conn)
-    # Reset any stuck 'pending' categorizations from previous crashes
-    conn.execute("UPDATE games SET categorization_status = 'failed' WHERE categorization_status = 'pending'")
-    conn.commit()
     conn.close()
 
 

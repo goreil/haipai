@@ -23,9 +23,8 @@ function tileSrc(t) {
 }
 
 // Active-dora set helper. Reads the resolved dora list off the canonical
-// BoardState (extract_board_state in lib/categorize.py emits dora_tiles
-// alongside dora_indicators using lib/tiles.py::dora_indicator_to_dora_mjai).
-// CS-02: frontend no longer mirrors the indicator->dora rule.
+// BoardState (static/js/prep/board.js emits dora_tiles alongside
+// dora_indicators).
 function getDoraTiles(boardState) {
   if (!boardState || !boardState.dora_tiles) return new Set();
   return new Set(boardState.dora_tiles);

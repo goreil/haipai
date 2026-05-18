@@ -78,18 +78,14 @@ async function fetchGame(id) {
   state.currentGame = id;
   const want = `#game=${id}`;
   if (window.location.hash !== want) history.replaceState(null, "", want);
-  // First render uses backend-stored prep fields + JS categorize so the user
-  // sees the game immediately. Then refreshPrepAndRecategorize re-runs prep
-  // asynchronously in the background — same outputs in the common case, but
-  // the source of truth is always JS prep on the live mortal_data.
+  // First render uses any stored prep fields (advisory) + JS categorize so
+  // the user sees the game immediately. Then refreshPrepAndRecategorize
+  // re-runs prep on the live mortal_data — JS prep is authoritative.
   recategorizeGameInPlace(state.currentGameData);
   state.currentGameData.summary = recomputeSummaryByCategory(state.currentGameData);
   state.prepProgress = _prepProgressInitial(state.currentGameData);
   renderGame();
   await refreshPrepAndRecategorize(state.currentGameData, id);
-  if (state.currentGameData && state.currentGameData.categorization_status === "pending") {
-    pollCategorization(id);
-  }
 }
 
 function _prepProgressInitial(game) {
@@ -289,29 +285,16 @@ function renderGame() {
     </div>
   `;
 
-  // Categorization status banner
-  // Backend prep status. Categorization itself runs in JS at render time
-  // (see recategorizeGameInPlace) — so per-mistake "X/Y categorized"
-  // progress is no longer meaningful; the only states that matter are
-  // "prep still running", "prep failed", or "ready".
-  if (game.categorization_status === "pending") {
-    html += `<div class="categorization-banner pending">Preparing analysis…
-      <span class="cat-retry-link" onclick="continueCategorization(${game.id})">Stuck? Retry</span>
-      <div class="cat-progress-bar"><div class="cat-progress-fill cat-progress-indeterminate"></div></div>
-    </div>`;
-  } else if (state.prepProgress) {
-    // Frontend JS prep is still running (~700ms on a 9-kyoku game).
-    // _updatePrepBannerDOM ticks the bar in place without re-rendering
-    // the whole game body.
+  // JS prep banner. Categorization itself runs in JS at render time
+  // (see recategorizeGameInPlace); the only progress worth showing is the
+  // ~700 ms async re-prep on the live mortal_data. _updatePrepBannerDOM
+  // ticks the bar in place without re-rendering the whole game body.
+  if (state.prepProgress) {
     const p = state.prepProgress;
     const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
     html += `<div id="prep-progress-banner" class="categorization-banner pending">
       <span class="prep-progress-label">Re-analyzing categories… ${p.done}/${p.total} rounds</span>
       <div class="cat-progress-bar"><div class="cat-progress-fill" style="width:${pct}%"></div></div>
-    </div>`;
-  } else if (game.categorization_status === "failed") {
-    html += `<div class="categorization-banner failed">Analysis prep failed.
-      <button class="btn btn-small" onclick="continueCategorization(${game.id})">Retry</button>
     </div>`;
   }
 
@@ -645,48 +628,6 @@ function toggleTrendMistakes(group, grpId) {
   panel.style.display = panel.style.display === "none" ? "" : "none";
 }
 
-// --- Categorization polling + retry ---
-
-async function continueCategorization(gameId) {
-  const res = await apiPost(`/api/games/${gameId}/categorize`, {});
-  if (res.ok) {
-    await fetchGames();
-    await fetchGame(gameId);
-    pollCategorization(gameId);
-  }
-}
-
-function pollCategorization(gameId) {
-  if (state._catPollTimer) clearInterval(state._catPollTimer);
-  state._catPollTimer = setInterval(async () => {
-    const res = await fetch(`/api/games/${gameId}`);
-    if (!res.ok) return;
-    const game = await res.json();
-
-    if (game.categorization_status === "pending") {
-      // Still preparing — leave the indeterminate banner up. No per-mistake
-      // progress to compute (categorization is JS-side, runs all at once
-      // when the game finally renders).
-      return;
-    }
-
-    clearInterval(state._catPollTimer);
-    state._catPollTimer = null;
-    await fetchGames();
-    if (state.currentGame === gameId) {
-      // Backend prep just finished — re-run JS prep asynchronously so
-      // the user gets a fresh progress bar (don't block the main thread
-      // for the ~700 ms prep takes) and the final view matches the
-      // mortal_data shipped this fetch.
-      state.currentGameData = game;
-      recategorizeGameInPlace(game);
-      game.summary = recomputeSummaryByCategory(game);
-      state.prepProgress = _prepProgressInitial(game);
-      renderGame();
-      await refreshPrepAndRecategorize(game, gameId);
-    }
-  }, 2000);
-}
 
 // --- Delete game ---
 

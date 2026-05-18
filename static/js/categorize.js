@@ -1,14 +1,11 @@
 // Mistake categorizer — sole owner of the rule-decision logic for the app.
-// (Earlier iterations of this lived in lib/categorize/{rules,labels}.py;
-// those were removed when the backend stopped categorizing.)
 //
 // Input: a mistake dict shaped like the API response (hand, melds, actual,
-// expected, discard_stats, dealin_rates, board_state). The server prepares
-// these inputs in lib/categorize/__init__.py::prepare_mistake_data; this
-// file decides the category from them.
+// expected, discard_stats, dealin_rates, board_state). Prep runs in
+// static/js/prep/ on fetch; this file decides the category from those inputs.
 //
 // Output: { category, categorize_data, labels } in the shape consumers
-// (mistake-card, categorize-view, EV table) used to read off the DB.
+// (mistake-card, categorize-view, EV table) read from each mistake.
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {

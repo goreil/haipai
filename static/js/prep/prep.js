@@ -1,13 +1,10 @@
-// Per-mistake input prep — twin of lib/categorize/__init__.py. Pure JS
-// port; produces the data the frontend categorizer reads at render time:
-// `discard_stats` / `best_discard` / `safety_ratings` / `opponent_discards`
-// / `dealin_rates` / `wait_breakdowns` / `suji_partners` / `per_threat`, and
-// the 5A/5B riichi patches (`tenpai_waits`, `bad_riichi_reason`,
-// `furiten_tiles`, `actual_riichi_tile`, `prior_own_discards`).
-//
-// This is the last "still computed server-side" piece of the
-// BACKEND-TO-FRONTEND migration. Categorization itself lives in
-// static/js/categorize.js.
+// Per-mistake input prep — sole owner of the per-mistake derived data the
+// frontend categorizer reads at render time: `discard_stats` /
+// `best_discard` / `safety_ratings` / `opponent_discards` / `dealin_rates`
+// / `wait_breakdowns` / `suji_partners` / `per_threat`, and the 5A/5B
+// riichi patches (`tenpai_waits`, `bad_riichi_reason`, `furiten_tiles`,
+// `actual_riichi_tile`, `prior_own_discards`). Categorization itself lives
+// in static/js/categorize.js.
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -278,9 +275,8 @@
     for (const entry of (kyoku.entries || [])) {
       if (entry.is_equal) continue;
 
-      // Walk db_mistakes forward until junme matches (same pattern as
-      // Python prepare_game_data — entries and mistakes are both
-      // ordered by junme).
+      // Walk db_mistakes forward until junme matches — entries and
+      // mistakes are both ordered by junme.
       while (mistake_idx < round.mistakes.length
              && round.mistakes[mistake_idx].turn !== entry.junme) {
         mistake_idx += 1;
@@ -314,14 +310,13 @@
     return { kyokus, events, start_positions, player_id, rounds_by_header };
   }
 
-  // Game-level walker: replicates the iteration pattern of
-  // lib.categorize.prepare_game_data. Iterates each kyoku's review entries,
-  // matches them to per-round mistakes by junme, and calls prepMistake.
+  // Game-level walker. Iterates each kyoku's review entries, matches them
+  // to per-round mistakes by junme, and calls prepMistake.
   //
   // game: parsed game with `rounds[*].mistakes[*]` (the same shape returned
   //   by `/api/games/<id>`). Each mistake gets its prep fields merged in
-  //   place. Mortal data is required separately (the API endpoint will
-  //   ship it under `mortal_data` per BACKEND-TO-FRONTEND step 5).
+  //   place. Mortal data is shipped under `mortal_data` on the same
+  //   endpoint and passed in here.
   // mortalData: full Mortal JSON.
   //
   // Returns the same game object for chaining.

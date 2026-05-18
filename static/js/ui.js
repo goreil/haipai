@@ -104,7 +104,6 @@ async function submitAddGame() {
     hideAddModal();
     await fetchGames();
     await fetchGame(result.game_id);
-    pollCategorization(result.game_id);
   } catch (e) {
     btn.disabled = false;
     progressEl.style.display = "none";
