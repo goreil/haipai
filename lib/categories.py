@@ -37,13 +37,18 @@ CATEGORIES = list(CATEGORY_INFO.keys())
 
 
 def compute_summary(game):
-    """Compute summary stats for a game. Mutates game dict."""
+    """Compute summary stats for a game. Mutates game dict.
+
+    No `by_category` rollup: the JS categorizer is the source of truth and
+    recomputes per-game / cross-game category aggregates on the frontend
+    (see static/js/game-list.js::recomputeSummaryByCategory and the
+    TRENDS-WEAKEST-CATEGORY cache).
+    """
     from lib.parse import severity
     total = 0
     total_ev = 0.0
     total_decisions = 0
     by_severity = {"???": 0, "??": 0, "?": 0, "!": 0}
-    by_category = {}
     decision_counts = {"attack": 0, "defense": 0, "riichi": 0, "meld": 0, "kan": 0}
     has_decision_counts = False
 
@@ -63,12 +68,6 @@ def compute_summary(game):
             sev = severity(m["ev_loss"])
             if sev in by_severity:
                 by_severity[sev] += 1
-            cat = m.get("category")
-            if cat:
-                if cat not in by_category:
-                    by_category[cat] = {"count": 0, "ev": 0.0}
-                by_category[cat]["count"] += 1
-                by_category[cat]["ev"] = round(by_category[cat]["ev"] + m["ev_loss"], 2)
 
     game["summary"] = {
         "total_mistakes": total,
@@ -76,6 +75,5 @@ def compute_summary(game):
         "total_decisions": total_decisions if total_decisions > 0 else None,
         "ev_per_decision": round(total_ev / total_decisions, 4) if total_decisions > 0 else None,
         "by_severity": by_severity,
-        "by_category": by_category,
         "decision_counts": decision_counts if has_decision_counts else None,
     }

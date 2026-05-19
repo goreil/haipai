@@ -182,23 +182,14 @@ function recomputeSummaryByCategory(game) {
   return summary;
 }
 
-async function saveAnnotation(gameId, round, turn, index, category, note) {
-  const res = await apiPost(`/api/games/${gameId}/annotate`, { round, turn, index, category, note });
+async function saveAnnotation(gameId, round, turn, index, note) {
+  const res = await apiPost(`/api/games/${gameId}/annotate`, { round, turn, index, note });
   const data = await res.json();
   if (data.ok) {
     state.currentGameData.summary = data.summary;
-    // Update sidebar
     const gameInfo = state.games.find(g => g.id === gameId);
     if (gameInfo) {
       gameInfo.summary = data.summary;
-      // Recount annotated
-      let annotated = 0;
-      for (const rnd of state.currentGameData.rounds) {
-        for (const m of rnd.mistakes) {
-          if (m.category) annotated++;
-        }
-      }
-      gameInfo.annotated = annotated;
       renderGameList();
     }
   }
@@ -605,18 +596,6 @@ function toggleGameMistakes(grpId) {
   const panel = document.getElementById(`game-mistakes-${grpId}`);
   if (!panel) return;
   panel.style.display = panel.style.display === "none" ? "" : "none";
-}
-
-async function toggleTopMistakes(group, grpId) {
-  const panel = document.getElementById(`top-mistakes-${grpId}`);
-  if (!panel) return;
-  if (panel.style.display !== "none") { panel.style.display = "none"; return; }
-  panel.innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:6px">Loading...</div>';
-  panel.style.display = "";
-  const res = await fetch(`/api/top-mistakes?group=${encodeURIComponent(group)}&limit=3&games=10`);
-  const mistakes = await res.json();
-  if (!mistakes.length) { panel.innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:6px">No recent mistakes</div>'; return; }
-  panel.innerHTML = mistakes.map(m => renderMistakeCard(m, {gameDate: m.game_date, gameId: m.game_id})).join("");
 }
 
 // Trends drill-down: panel content is pre-rendered by renderCategoryTrend —

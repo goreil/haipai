@@ -59,7 +59,6 @@ def list_category_reports(conn):
                   m.game_id AS game_id,
                   m.round_name AS round_name,
                   m.turn AS turn,
-                  m.category AS category,
                   m.ev_loss AS ev_loss,
                   m.note AS note,
                   m.data_json AS data_json
@@ -73,7 +72,6 @@ def list_category_reports(conn):
         d = dict(r)
         mistake_row = {
             "id": d.pop("m_id"),
-            "category": d["category"],
             "ev_loss": d.pop("ev_loss"),
             "turn": d["turn"],
             "note": d.pop("note"),

@@ -160,8 +160,7 @@ def _insert_game(user_id, with_mistakes=True):
         "mortal_file": None,
         "summary": {"total_mistakes": 1 if with_mistakes else 0,
                      "total_ev_loss": 0.50 if with_mistakes else 0,
-                     "by_severity": {"??": 1} if with_mistakes else {},
-                     "by_category": {"1A": {"count": 1, "ev": 0.50}} if with_mistakes else {}},
+                     "by_severity": {"??": 1} if with_mistakes else {}},
         "rounds": [{
             "round": "E1",
             "honba": 0,
@@ -171,7 +170,6 @@ def _insert_game(user_id, with_mistakes=True):
             "mistakes": [{
                 "turn": 5,
                 "ev_loss": 0.50,
-                "category": "1A",
                 "note": None,
                 "hand": ["1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m",
                          "1p", "2p", "3p", "4p"],
@@ -222,7 +220,7 @@ class TestGetGame:
         mistakes = data["rounds"][0]["mistakes"]
         assert len(mistakes) == 1
         assert mistakes[0]["turn"] == 5
-        assert mistakes[0]["category"] == "1A"
+        assert mistakes[0]["ev_loss"] == 0.50
 
     def test_get_game_wrong_user(self, client):
         """A user cannot access another user's game."""
@@ -305,7 +303,7 @@ class TestTrendsDetailed:
         assert "total_mistakes" in entry
         assert "total_ev_loss" in entry
         assert "by_severity" in entry
-        assert "by_category" in entry
+        assert "by_category" not in entry
         assert "decision_counts" in entry
 
     def test_trends_multiple_games(self, client):

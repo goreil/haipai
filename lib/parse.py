@@ -17,7 +17,6 @@ class MistakeRecord(TypedDict):
     """
     turn: int
     ev_loss: float
-    category: str | None
     note: str | None
     hand: list[str]
     melds: list[Any]
@@ -378,7 +377,6 @@ def parse_game(data, game_date=None) -> GameRecord:
                 mistakes.append({
                     "turn": entry["junme"],
                     "ev_loss": ev_loss,
-                    "category": None,
                     "note": None,
                     "hand": entry["state"]["tehai"],
                     "melds": entry["state"]["fuuros"],

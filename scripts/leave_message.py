@@ -65,12 +65,12 @@ def resolve_category_report(conn, mistake_id, user_id):
     """Look up the (mistake_id, user_id) row in category_reports.
 
     Returns the row joined with the mistake so the body can reference
-    the mistake's category / ev_loss if useful.
+    the mistake's ev_loss / suggested_category if useful.
     """
     row = conn.execute(
         """SELECT cr.id AS report_id, cr.mistake_id, cr.user_id, cr.kind,
                   cr.suggested_category, cr.reason, cr.created_at,
-                  m.category, m.ev_loss, m.game_id
+                  m.ev_loss, m.game_id
              FROM category_reports cr
              JOIN mistakes m ON cr.mistake_id = m.id
             WHERE cr.mistake_id = ? AND cr.user_id = ?""",
@@ -98,15 +98,19 @@ def read_body(args):
 def quote_report_block(report_row):
     """Render a category_reports row as a blockquote.
 
-    Falls back to a short label noting the report kind and the
-    mistake's category when the user didn't supply a reason.
+    Falls back to a short label noting the report kind and (for
+    wrong_category reports) the suggested category when the user
+    didn't supply a reason.
     """
     import html as _html
     raw = (report_row.get("reason") or "").strip()
     if not raw:
         kind = report_row["kind"]
-        cat = report_row.get("category") or "?"
-        raw = f"({kind} report on a {cat} mistake — no comment)"
+        suggested = report_row.get("suggested_category")
+        if kind == "wrong_category" and suggested:
+            raw = f"({kind} report — suggested {suggested}, no comment)"
+        else:
+            raw = f"({kind} report — no comment)"
     text = _html.escape(raw).replace("\n", "<br>")
     when = (report_row.get("created_at") or "")[:10]
     mistake_id = report_row["mistake_id"]
@@ -197,9 +201,11 @@ def main():
     print(f"title:    {args.title}")
     if report_row:
         snippet = (report_row.get("reason") or "(no reason)")[:80].replace("\n", " ")
+        suggested = report_row.get("suggested_category")
+        suggested_str = f", suggested {suggested}" if suggested else ""
         print(f"report:   row #{report_row['report_id']} on mistake "
-              f"#{report_row['mistake_id']} ({report_row['kind']}, "
-              f"category {report_row.get('category')}): {snippet!r}")
+              f"#{report_row['mistake_id']} ({report_row['kind']}"
+              f"{suggested_str}): {snippet!r}")
     print(f"body:     {len(body)} chars")
     print("---")
     print(body[:600] + ("…" if len(body) > 600 else ""))

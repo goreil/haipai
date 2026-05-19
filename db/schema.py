@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS mistakes (
     round_idx INTEGER NOT NULL,
     mistake_idx INTEGER NOT NULL,
     data_json TEXT NOT NULL,
-    category TEXT,
     ev_loss REAL,
     turn INTEGER,
     note TEXT,
@@ -175,6 +174,19 @@ def migrate(conn):
     # writes it; the frontend recomputes severity tiers from ev_loss.
     if _has_column("mistakes", "severity"):
         conn.execute("ALTER TABLE mistakes DROP COLUMN severity")
+        altered = True
+    # Drop legacy mistakes.category column. The JS categorizer is the source
+    # of truth and recomputes on every fetch; user annotations only persist
+    # the free-form note. See docs/backlogs/BACKEND-TO-FRONTEND.md.
+    if _has_column("mistakes", "category"):
+        conn.execute("ALTER TABLE mistakes DROP COLUMN category")
+        # stats_json.by_category is also stale once category is gone;
+        # strip it so trends doesn't read pre-cutover aggregates.
+        conn.execute(
+            "UPDATE games SET stats_json = json_remove(stats_json, '$.by_category') "
+            "WHERE stats_json IS NOT NULL AND json_valid(stats_json) "
+            "AND json_type(stats_json, '$.by_category') IS NOT NULL"
+        )
         altered = True
     if altered:
         conn.commit()

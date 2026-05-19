@@ -10,7 +10,7 @@ import json
 
 
 # Fields stored as columns (not in data_json)
-MISTAKE_COLUMNS = {"category", "ev_loss", "turn", "note"}
+MISTAKE_COLUMNS = {"ev_loss", "turn", "note"}
 
 
 def mistake_to_row(mistake, game_id, round_name, round_idx, mistake_idx):
@@ -23,7 +23,6 @@ def mistake_to_row(mistake, game_id, round_name, round_idx, mistake_idx):
         "round_idx": round_idx,
         "mistake_idx": mistake_idx,
         "data_json": json.dumps(data, ensure_ascii=False),
-        "category": mistake.get("category"),
         "ev_loss": mistake.get("ev_loss"),
         "turn": mistake.get("turn"),
         "note": mistake.get("note"),
@@ -34,15 +33,19 @@ def row_to_mistake(row):
     """Convert a DB row back to a mistake dict."""
     m = json.loads(row["data_json"])
     m["id"] = row["id"]
-    m["category"] = row["category"]
     m["ev_loss"] = row["ev_loss"]
     m["turn"] = row["turn"]
     m["note"] = row["note"]
     return m
 
 
-def annotate_mistake(conn, game_id, round_name, turn, index, category, note, user_id=None):
-    """Update category/note on a specific mistake. Returns the updated mistake or None."""
+def annotate_mistake(conn, game_id, round_name, turn, index, note, user_id=None):
+    """Update the note on a specific mistake. Returns True if a row matched.
+
+    Category is no longer persisted server-side — the JS categorizer is the
+    source of truth and recomputes on every fetch. The annotate endpoint
+    only stores the user's free-form note.
+    """
     # Verify game ownership
     if user_id is not None:
         owner = conn.execute("SELECT user_id FROM games WHERE id = ?", (game_id,)).fetchone()
@@ -51,7 +54,7 @@ def annotate_mistake(conn, game_id, round_name, turn, index, category, note, use
 
     # Find the mistake
     rows = conn.execute(
-        "SELECT id, category, note FROM mistakes WHERE game_id = ? AND round_name = ? AND turn = ? ORDER BY mistake_idx",
+        "SELECT id FROM mistakes WHERE game_id = ? AND round_name = ? AND turn = ? ORDER BY mistake_idx",
         (game_id, round_name, turn),
     ).fetchall()
 
@@ -59,30 +62,19 @@ def annotate_mistake(conn, game_id, round_name, turn, index, category, note, use
         return None
 
     mistake_id = rows[index]["id"]
-    updates = {}
-    if category is not None:
-        updates["category"] = category if category else None
-    if note is not None:
-        updates["note"] = note if note else None
-
-    ALLOWED_COLS = {"category", "note"}
-    updates = {k: v for k, v in updates.items() if k in ALLOWED_COLS}
-    if updates:
-        set_clause = ", ".join(f"{k} = ?" for k in updates)
-        conn.execute(
-            f"UPDATE mistakes SET {set_clause} WHERE id = ?",
-            list(updates.values()) + [mistake_id],
-        )
-        conn.commit()
-
+    conn.execute(
+        "UPDATE mistakes SET note = ? WHERE id = ?",
+        (note if note else None, mistake_id),
+    )
+    conn.commit()
     return True
 
 
 def update_mistake_data(conn, mistake_id, updates):
     """Update columns and/or data_json fields on a mistake.
 
-    `updates` can contain column names (category, ev_loss, etc.)
-    and data fields (best_discard, discard_stats, safety_ratings, etc.).
+    `updates` can contain column names (ev_loss, turn, note) and data
+    fields (best_discard, discard_stats, safety_ratings, etc.).
     Uses SQLite json_set() for atomic data_json updates to avoid
     read-modify-write races.
     """

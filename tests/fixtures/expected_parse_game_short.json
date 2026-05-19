@@ -21,7 +21,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "6s",
           "ev_loss": 0.67,
           "expected": {
@@ -187,7 +186,6 @@
           "actual": {
             "type": "none"
           },
-          "category": null,
           "draw": "7p",
           "ev_loss": 0.07,
           "expected": {
@@ -278,7 +276,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "3m",
           "ev_loss": 0.41,
           "expected": {
@@ -447,7 +444,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "6m",
           "ev_loss": 0.04,
           "expected": {
@@ -616,7 +612,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "8s",
           "ev_loss": 1.05,
           "expected": {
@@ -791,7 +786,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "3s",
           "ev_loss": 0.4,
           "expected": {
@@ -940,7 +934,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "7s",
           "ev_loss": 0.39,
           "expected": {
@@ -1089,7 +1082,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "N",
           "ev_loss": 0.02,
           "expected": {
@@ -1254,7 +1246,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "8m",
           "ev_loss": 1.23,
           "expected": {
@@ -1413,7 +1404,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "P",
           "ev_loss": 0.43,
           "expected": {
@@ -1562,7 +1552,6 @@
             "tsumogiri": false,
             "type": "dahai"
           },
-          "category": null,
           "draw": "5p",
           "ev_loss": 0.12,
           "expected": {

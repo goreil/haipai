@@ -150,7 +150,6 @@ class TestDatabase:
                 "mistakes": [{
                     "turn": 5,
                     "ev_loss": 0.50,
-                    "category": "1A",
                     "note": None,
                     "hand": ["1m", "2m", "3m"],
                     "melds": [],
@@ -189,8 +188,7 @@ class TestDatabase:
             "date": "2026-01-01",
             "rounds": [{"round": "E1", "honba": 0, "turn_count": 10,
                          "outcome": None, "mistakes": [{
-                "turn": 3, "ev_loss": 0.05,
-                "category": None, "note": None,
+                "turn": 3, "ev_loss": 0.05, "note": None,
                 "hand": ["1m"], "melds": [], "actual": {"type": "dahai", "pai": "1m"},
                 "expected": {"type": "dahai", "pai": "2m"}, "top_actions": [],
             }]}],
@@ -198,10 +196,10 @@ class TestDatabase:
         gid = db.add_game(conn, uid, game_dict)
         mid = conn.execute("SELECT id FROM mistakes WHERE game_id = ?", (gid,)).fetchone()["id"]
 
-        db.update_mistake_data(conn, mid, {"category": "1A", "best_discard": "2m"})
+        db.update_mistake_data(conn, mid, {"note": "manual review", "best_discard": "2m"})
 
         row = conn.execute("SELECT * FROM mistakes WHERE id = ?", (mid,)).fetchone()
-        assert row["category"] == "1A"
+        assert row["note"] == "manual review"
         data = json.loads(row["data_json"])
         assert data["best_discard"] == "2m"
 
@@ -231,7 +229,6 @@ class TestDatabase:
                 "mistakes": [{
                     "turn": 5,
                     "ev_loss": 0.50,
-                    "category": "1A",
                     "note": None,
                     "hand": ["1m", "2m", "3m", "5m", "6m", "7m", "1p", "2p", "3p", "5s", "6s", "7s", "9s"],
                     "melds": [],
@@ -269,7 +266,6 @@ class TestDatabase:
                 "total_decisions": 20,
                 "ev_per_decision": 0.075,
                 "by_severity": {"??": 1, "???": 1},
-                "by_category": {"1A": {"count": 1, "ev": 0.5}, "3A": {"count": 1, "ev": 1.0}},
             },
             "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None, "mistakes": []}],
         }
@@ -284,7 +280,7 @@ class TestDatabase:
         assert t["total_decisions"] == 20
         assert t["ev_per_decision"] == 0.075
         assert t["by_severity"] == {"??": 1, "???": 1}
-        assert t["by_category"] == {"1A": {"count": 1, "ev": 0.5}, "3A": {"count": 1, "ev": 1.0}}
+        assert "by_category" not in t
 
     # --- compute_summary_for_game tests ---
 
@@ -296,10 +292,10 @@ class TestDatabase:
             "rounds": [{
                 "round": "E1", "honba": 0, "turn_count": 15, "decision_count": 12, "outcome": None,
                 "mistakes": [
-                    {"turn": 3, "ev_loss": 0.10, "category": "1A", "note": None,
+                    {"turn": 3, "ev_loss": 0.10, "note": None,
                      "hand": ["1m"], "melds": [], "actual": {"type": "dahai", "pai": "1m"},
                      "expected": {"type": "dahai", "pai": "2m"}, "top_actions": []},
-                    {"turn": 7, "ev_loss": 0.80, "category": "3A", "note": None,
+                    {"turn": 7, "ev_loss": 0.80, "note": None,
                      "hand": ["5p"], "melds": [], "actual": {"type": "dahai", "pai": "5p"},
                      "expected": {"type": "dahai", "pai": "6p"}, "top_actions": []},
                 ],
@@ -312,8 +308,7 @@ class TestDatabase:
         assert stats["total_ev_loss"] == 0.90
         assert stats["by_severity"]["?"] == 1
         assert stats["by_severity"]["??"] == 1
-        assert stats["by_category"]["1A"]["count"] == 1
-        assert stats["by_category"]["3A"]["count"] == 1
+        assert "by_category" not in stats
         assert stats["total_decisions"] == 12
         assert stats["ev_per_decision"] is not None
 
@@ -333,7 +328,7 @@ class TestDatabase:
             "date": "2026-01-20",
             "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
                          "mistakes": [{"turn": 5, "ev_loss": 0.5,
-                                        "category": "1A", "note": None,
+                                        "note": None,
                                         "hand": ["1m"], "melds": [],
                                         "actual": {"type": "dahai", "pai": "1m"},
                                         "expected": {"type": "dahai", "pai": "2m"},
@@ -342,17 +337,17 @@ class TestDatabase:
         gid = db.add_game(conn, uid, game_dict)
 
         # Other user should not be able to annotate
-        result = db.annotate_mistake(conn, gid, "E1", 5, 0, "3A", "test note", user_id=other_uid)
+        result = db.annotate_mistake(conn, gid, "E1", 5, 0, "test note", user_id=other_uid)
         assert result is None
 
     def test_annotate_mistake_update(self, sample_user):
-        """annotate_mistake updates category and note on a valid mistake."""
+        """annotate_mistake persists the user's note on a valid mistake."""
         conn, uid = sample_user
         game_dict = {
             "date": "2026-01-20",
             "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
                          "mistakes": [{"turn": 5, "ev_loss": 0.5,
-                                        "category": "1A", "note": None,
+                                        "note": None,
                                         "hand": ["1m"], "melds": [],
                                         "actual": {"type": "dahai", "pai": "1m"},
                                         "expected": {"type": "dahai", "pai": "2m"},
@@ -360,13 +355,12 @@ class TestDatabase:
         }
         gid = db.add_game(conn, uid, game_dict)
 
-        result = db.annotate_mistake(conn, gid, "E1", 5, 0, "3B", "defense play", user_id=uid)
+        result = db.annotate_mistake(conn, gid, "E1", 5, 0, "defense play", user_id=uid)
         assert result is True
 
         row = conn.execute(
-            "SELECT category, note FROM mistakes WHERE game_id = ?", (gid,)
+            "SELECT note FROM mistakes WHERE game_id = ?", (gid,)
         ).fetchone()
-        assert row["category"] == "3B"
         assert row["note"] == "defense play"
 
     def test_annotate_mistake_invalid_index(self, sample_user):
@@ -376,14 +370,14 @@ class TestDatabase:
             "date": "2026-01-20",
             "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
                          "mistakes": [{"turn": 5, "ev_loss": 0.5,
-                                        "category": "1A", "note": None,
+                                        "note": None,
                                         "hand": ["1m"], "melds": [],
                                         "actual": {"type": "dahai", "pai": "1m"},
                                         "expected": {"type": "dahai", "pai": "2m"},
                                         "top_actions": []}]}],
         }
         gid = db.add_game(conn, uid, game_dict)
-        result = db.annotate_mistake(conn, gid, "E1", 5, 99, "3B", "note", user_id=uid)
+        result = db.annotate_mistake(conn, gid, "E1", 5, 99, "note", user_id=uid)
         assert result is None
 
     # --- submit_category_report / list_category_reports tests ---
@@ -477,7 +471,6 @@ class TestDatabase:
         assert len(reports) == 1
         r = reports[0]
         assert r["username"] == "testuser"
-        assert r["category"] == "1A"  # the mistake's current category
         assert r["game_id"] == gid
         assert r["suggested_category"] == "3B"
 
@@ -637,9 +630,9 @@ class TestAPI:
         # Missing required fields
         res = client.post("/api/games/1/annotate", json={})
         assert res.status_code == 400
-        # Invalid category
+        # Wrong-typed note still fails validation before the lookup
         res = client.post("/api/games/1/annotate", json={
-            "round": "E1", "turn": 1, "category": "INVALID"
+            "round": "E1", "turn": 1, "note": 42,
         })
         assert res.status_code == 400
 

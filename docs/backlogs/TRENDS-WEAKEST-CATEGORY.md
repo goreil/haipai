@@ -9,8 +9,10 @@ skill areas (Attack / Defense / Meld / Riichi / Kan) by aggregated
 EV/decision, surfaces the worst one, with drill-down to sub-categories.
 
 Hidden during the backend-to-frontend cutover because backend's
-`stats_json.by_category` is built from the stale `mistakes.category` column
-(written at ingest, never updated when JS re-categorizes on fetch).
+`stats_json.by_category` was built from the (now-dropped)
+`mistakes.category` column. Step 9 of BACKEND-TO-FRONTEND removed both
+the column and the rollup from `compute_summary_for_game` / `get_trends`,
+so the panel is currently inert — re-enabling it is what this doc covers.
 
 ## Approach: browser-side cache, opt-in via button
 
@@ -117,11 +119,11 @@ the full prep cost on every visit.
 
 ## Backend tasks
 
-- [ ] **Stop writing `by_category`** in
+- [x] **Stop writing `by_category`** in
   `db/games.py::compute_summary_for_game`. Other rollups (severity,
-  ev_per_decision, decision_counts) stay.
-- [ ] **Drop `by_category` from `get_trends`** in `db/games.py` — no
-  consumer once the frontend uses the cache.
+  ev_per_decision, decision_counts) stay. *(Done in Step 9.)*
+- [x] **Drop `by_category` from `get_trends`** in `db/games.py`.
+  *(Done in Step 9.)*
 - [ ] **No new endpoints.** `/api/games/<id>` already returns
   everything needed for the backfill loop.
 
@@ -142,10 +144,6 @@ the full prep cost on every visit.
 
 ## Out of scope (separate tickets)
 
-- Dropping the `mistakes.category` column entirely. Still read by
-  `routes/game.py::api_annotate` (manual category override) and
-  `routes/pages.py::api_top_mistakes` (group filter). Removing it means
-  rewiring those paths.
 - Migrating `stats_json.by_severity` to the cache. Severity is set by
   the parser, not the categorizer, so the cached server value is
   correct.

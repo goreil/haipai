@@ -23,14 +23,26 @@ The frontend recomputes severity tiers from `ev_loss`
 is now derived server-side via `lib.parse.severity()` from the same
 `ev_loss` values.
 
+**Step 9 (2026-05-19):** `mistakes.category` removed. The JS
+categorizer is the only source of truth — `recategorizeGameInPlace`
+in `static/js/game-list.js` had been overwriting the server-stored
+category on every fetch, so the column carried no information that
+the frontend trusted. The annotate endpoint now persists only the
+free-form note, `compute_summary_for_game` and `get_trends` no longer
+emit `by_category` (the trends page computes it from the cache that
+`docs/backlogs/TRENDS-WEAKEST-CATEGORY.md` covers), and the dormant
+`GET /api/top-mistakes` endpoint plus its `toggleTopMistakes` caller
+were deleted alongside the column. The migration drops the column and
+strips the now-stale `stats_json.by_category` key from existing rows.
+
 ## Verification
 
 - `tests/fixtures/categorize_parity.json` — 2,121 mistakes from 50
-  random games with the JS categorizer's expected output. Built by
-  `scripts/sample_categorize_fixture.py` (run inside Docker against
-  the prod DB) and refreshed via `scripts/resnap_prep_in_fixture.mjs`
-  (re-prep) + `scripts/snapshot_categorize_fixture.mjs` (re-snap
-  expected).
+  random games with the JS categorizer's expected output. The original
+  Python sampler (`scripts/sample_categorize_fixture.py`) was removed
+  in the Step 9 column drop; refresh via
+  `scripts/resnap_prep_in_fixture.mjs` (re-prep) +
+  `scripts/snapshot_categorize_fixture.mjs` (re-snap expected).
 - `scripts/verify_categorize_js.mjs` — diff JS output against the
   fixture. Run it after any change to `static/js/categorize.js`.
 

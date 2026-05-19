@@ -284,7 +284,7 @@ def api_me_export():
                 first_m = True
                 # Use a separate cursor so it doesn't fight the outer iterator.
                 m_cur = conn.execute(
-                    "SELECT id, round_name, round_idx, mistake_idx, category, "
+                    "SELECT id, round_name, round_idx, mistake_idx, "
                     "ev_loss, turn, note, data_json FROM mistakes "
                     "WHERE game_id = ? ORDER BY round_idx, mistake_idx",
                     (g["id"],),
@@ -295,7 +295,7 @@ def api_me_export():
                     first_m = False
                     yield "{"
                     for k in ("id", "round_name", "round_idx", "mistake_idx",
-                             "category", "ev_loss", "turn", "note"):
+                             "ev_loss", "turn", "note"):
                         yield f"{dumps(k)}: {dumps(mr[k])}, "
                     yield f'"data": {mr["data_json"] or "null"}'
                     yield "}"

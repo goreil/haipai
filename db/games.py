@@ -23,11 +23,6 @@ def list_games(conn, user_id):
     result = []
     for row in rows:
         stats = json.loads(row["stats_json"]) if row["stats_json"] else {}
-        # Count annotated mistakes
-        annotated = conn.execute(
-            "SELECT COUNT(*) FROM mistakes WHERE game_id = ? AND category IS NOT NULL",
-            (row["id"],),
-        ).fetchone()[0]
         total = conn.execute(
             "SELECT COUNT(*) FROM mistakes WHERE game_id = ?",
             (row["id"],),
@@ -37,7 +32,6 @@ def list_games(conn, user_id):
             "date": row["date"],
             "log_url": row["log_url"],
             "summary": stats,
-            "annotated": annotated,
             "total": total,
             "categorization_status": row["categorization_status"],
         })
@@ -165,9 +159,9 @@ def add_game(conn, user_id, game_dict):
                 conn.execute(
                     """INSERT INTO mistakes
                        (game_id, round_name, round_idx, mistake_idx, data_json,
-                        category, ev_loss, turn, note)
+                        ev_loss, turn, note)
                        VALUES (:game_id, :round_name, :round_idx, :mistake_idx, :data_json,
-                               :category, :ev_loss, :turn, :note)""",
+                               :ev_loss, :turn, :note)""",
                     row,
                 )
 
@@ -201,26 +195,24 @@ def update_game_stats(conn, game_id, stats):
 
 
 def compute_summary_for_game(conn, game_id):
-    """Recompute stats from mistakes and update the game row. Returns the stats dict."""
+    """Recompute stats from mistakes and update the game row. Returns the stats dict.
+
+    No server-side `by_category`: the JS categorizer is authoritative, and
+    the trends page caches its rollups client-side (see
+    docs/backlogs/TRENDS-WEAKEST-CATEGORY.md).
+    """
     from lib.parse import severity
     rows = conn.execute(
-        "SELECT ev_loss, category FROM mistakes WHERE game_id = ?",
+        "SELECT ev_loss FROM mistakes WHERE game_id = ?",
         (game_id,),
     ).fetchall()
 
     total = len(rows)
     ev = sum(r["ev_loss"] for r in rows if r["ev_loss"])
     by_sev = {}
-    by_cat = {}
     for r in rows:
         s = severity(r["ev_loss"] or 0)
         by_sev[s] = by_sev.get(s, 0) + 1
-        cat = r["category"]
-        if cat:
-            if cat not in by_cat:
-                by_cat[cat] = {"count": 0, "ev": 0.0}
-            by_cat[cat]["count"] += 1
-            by_cat[cat]["ev"] = round(by_cat[cat]["ev"] + (r["ev_loss"] or 0), 2)
 
     # Get total decisions from rounds_json (fall back to turn_count for old data)
     # and aggregate per-category denominators for U-04 mistakes-per-decision.
@@ -247,7 +239,6 @@ def compute_summary_for_game(conn, game_id):
         "total_decisions": total_decisions,
         "ev_per_decision": round(ev / total_decisions, 4) if total_decisions else None,
         "by_severity": by_sev,
-        "by_category": by_cat,
         "decision_counts": decision_counts if has_decision_counts else None,
     }
 
@@ -258,9 +249,9 @@ def compute_summary_for_game(conn, game_id):
 def get_trends(conn, user_id):
     """Get per-game trend data.
 
-    Emits raw per-category stats (`by_category`) and per-skill-area decision
-    counts (`decision_counts`). Display-layer shaping (bar order, colors,
-    advice strings) lives in the frontend.
+    Emits per-skill-area decision counts (`decision_counts`) and severity
+    rollups. Per-category aggregates are computed client-side from the
+    JS-categorized mistakes — see docs/backlogs/TRENDS-WEAKEST-CATEGORY.md.
     """
     rows = conn.execute(
         "SELECT id, date, stats_json FROM games WHERE user_id = ? ORDER BY date, id",
@@ -277,7 +268,6 @@ def get_trends(conn, user_id):
             "total_decisions": s.get("total_decisions"),
             "ev_per_decision": s.get("ev_per_decision"),
             "by_severity": s.get("by_severity", {}),
-            "by_category": s.get("by_category", {}),
             "decision_counts": s.get("decision_counts"),
         })
     return games

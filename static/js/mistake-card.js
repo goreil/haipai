@@ -147,18 +147,15 @@ function onAnnotate(el) {
   annotateTimers[key] = setTimeout(async () => {
     const note = input.value;
 
-    // Look up existing category from local state (don't change it)
-    let category = null;
     const rnd = state.currentGameData.rounds.find(r => r.round === round);
     if (rnd) {
       const candidates = rnd.mistakes.filter(m => m.turn === turn);
       if (candidates[index]) {
-        category = candidates[index].category;
         candidates[index].note = note || null;
       }
     }
 
-    await saveAnnotation(gameId, round, turn, index, category, note);
+    await saveAnnotation(gameId, round, turn, index, note);
     indicator.classList.add("show");
     setTimeout(() => indicator.classList.remove("show"), 1200);
   }, 400);

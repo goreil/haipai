@@ -51,8 +51,7 @@ def fetch(db_path, kind=None, since=None, mistake_id=None, user_id=None):
     sql = """
         SELECT cr.id, cr.user_id, u.username, cr.mistake_id, cr.kind,
                cr.suggested_category, cr.reason, cr.created_at,
-               m.game_id, m.category AS current_category,
-               m.turn, m.ev_loss, m.note
+               m.game_id, m.turn, m.ev_loss, m.note
         FROM category_reports cr
         JOIN users u ON cr.user_id = u.id
         JOIN mistakes m ON cr.mistake_id = m.id
@@ -66,13 +65,13 @@ def fetch(db_path, kind=None, since=None, mistake_id=None, user_id=None):
 
 def summarize(rows):
     by_kind = {}
-    by_category = {}
+    by_suggested = {}
     for r in rows:
         by_kind[r["kind"]] = by_kind.get(r["kind"], 0) + 1
-        cat = r["current_category"] or "?"
-        by_category.setdefault(cat, {"wrong_category": 0, "wrong_text": 0})
-        by_category[cat][r["kind"]] = by_category[cat].get(r["kind"], 0) + 1
-    return by_kind, by_category
+        if r["kind"] == "wrong_category":
+            cat = r["suggested_category"] or "?"
+            by_suggested[cat] = by_suggested.get(cat, 0) + 1
+    return by_kind, by_suggested
 
 
 def pretty_print(rows):
@@ -80,20 +79,19 @@ def pretty_print(rows):
         print("(no reports)")
         return
 
-    by_kind, by_category = summarize(rows)
+    by_kind, by_suggested = summarize(rows)
     print(f"Total: {len(rows)}  |  " + "  ".join(f"{k}={v}" for k, v in by_kind.items()))
-    print()
-    print("By current category (wrong_cat / wrong_text):")
-    for cat in sorted(by_category):
-        c = by_category[cat]
-        print(f"  {cat:<4}  {c['wrong_category']:>3}  {c['wrong_text']:>3}")
+    if by_suggested:
+        print()
+        print("Suggested categories (wrong_category reports only):")
+        for cat in sorted(by_suggested):
+            print(f"  {cat:<4}  {by_suggested[cat]:>3}")
     print()
     print("Reports (newest first):")
     for r in rows:
         ts = r["created_at"]
         head = (f"  #{r['id']:<4} {ts}  u={r['username']}  mistake={r['mistake_id']} "
-                f"game={r['game_id']} turn={r['turn']} cat={r['current_category']} "
-                f"ev={r['ev_loss']}  kind={r['kind']}")
+                f"game={r['game_id']} turn={r['turn']} ev={r['ev_loss']}  kind={r['kind']}")
         print(head)
         if r["suggested_category"]:
             print(f"         suggested: {r['suggested_category']}")

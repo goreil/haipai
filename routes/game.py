@@ -99,25 +99,16 @@ def api_annotate(game_id):
     round_name = body.get("round")
     turn = body.get("turn")
     index = body.get("index", 0)
-    category = body.get("category")
     note = body.get("note")
 
     if not isinstance(round_name, str) or not isinstance(turn, int):
         return jsonify({"error": "round (string) and turn (int) required"}), 400
-    if category is not None and not isinstance(category, str):
-        return jsonify({"error": "category must be a string"}), 400
     if note is not None and not isinstance(note, str):
         return jsonify({"error": "note must be a string"}), 400
     if note and len(note) > 1000:
         return jsonify({"error": "note too long (max 1000 chars)"}), 400
 
-    VALID_CATEGORIES = {"", "P1", "P2", "P3", "P4", "D1", "D2", "D3",
-                        "1A", "2A", "3A", "3B", "3C",
-                        "4A", "4B", "4C", "5A", "5B", "6A", "6B"}
-    if category and category not in VALID_CATEGORIES:
-        return jsonify({"error": f"Invalid category: {category}"}), 400
-
-    result = db.annotate_mistake(conn, game_id, round_name, turn, index, category, note, user_id=uid)
+    result = db.annotate_mistake(conn, game_id, round_name, turn, index, note, user_id=uid)
     if not result:
         return jsonify({"error": "Mistake not found"}), 404
 
