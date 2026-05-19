@@ -1,5 +1,18 @@
 // Trends view + line/bar/stacked-bar charts.
 
+// In-memory cache of the last weakness analysis: { gameIds, games }, or null.
+// The `games` array carries `by_category` rolled up from JS-categorized
+// mistakes; renderCategoryTrend / renderTrendRecommendation consume it.
+// Stays alive across navigations within the SPA but is cleared on page reload
+// — see docs/backlogs/TRENDS-WEAKEST-CATEGORY.md.
+var trendsStash = null;
+// Bumped on cancel or new run. In-flight workers compare against this and
+// stop attaching results once they've been superseded.
+var trendsAnalysisGen = 0;
+// Active-run handle: { gen, games, analyzedIds } during analysis, null otherwise.
+// Cancel uses this to render the partial result.
+var trendsCurrentAnalysis = null;
+
 // One entry per "situation" on the trends page — each skill area has its
 // own decision-count denominator, so EV/D is clean per bar. Source of truth
 // for display order, color, and per-area trainer advice.
@@ -143,13 +156,151 @@ function renderTrends(games) {
     <div class="trend-chart">${renderStackedBarChart(games)}</div>
   </div>`;
 
-  // Chart 3: Personalized recommendation. The per-category breakdown panel
-  // (renderCategoryTrend / renderTrendRecommendation) is hidden during the
-  // BACKEND-TO-FRONTEND refactor — those rely on backend-stored category
-  // aggregates that go stale once the JS categorizer overrides on render.
-  // Re-enable once the trends API recomputes from JS-categorized mistakes.
+  // Chart 3: Personalized recommendation + per-skill-area breakdown. The
+  // per-game `by_category` rollup is computed client-side (the JS categorizer
+  // overrides on render), so the panel sits behind an opt-in button — see
+  // docs/backlogs/TRENDS-WEAKEST-CATEGORY.md. The button is replaced in place
+  // when analysis completes or is cancelled.
+  html += renderWeaknessSection(games);
 
   content.innerHTML = html;
+}
+
+function _idsMatch(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+// Wrapper that shows either the stashed analysis panels (cache hit + a
+// stale-banner re-run button when new games exist) or an opt-in button.
+// A stale stash is still worth showing — the previous analysis is the
+// closest thing to current truth until the user opts to refresh.
+function renderWeaknessSection(games) {
+  const ids = games.map(g => g.id);
+  if (trendsStash) {
+    const exactMatch = _idsMatch(trendsStash.gameIds, ids);
+    if (exactMatch) {
+      return `<div id="weakness-section">${_renderAnalyzedPanels(trendsStash.games, null)}</div>`;
+    }
+    const stashedSet = new Set(trendsStash.gameIds);
+    const newCount = ids.filter(id => !stashedSet.has(id)).length;
+    const staleBanner = `<div class="trend-chart-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <span style="font-size:13px;color:var(--sev-medium)">Showing your last analysis. ${newCount} new game${newCount === 1 ? "" : "s"} since then — re-run to refresh.</span>
+      <button class="btn btn-primary" onclick="startWeaknessAnalysis()">Re-analyze</button>
+    </div>`;
+    return `<div id="weakness-section">${staleBanner}${_renderAnalyzedPanels(trendsStash.games, null)}</div>`;
+  }
+  return `<div id="weakness-section" class="trend-chart-card">
+    <h3>Weakest Skill Area</h3>
+    <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Computes your weakest skill area across all games. Takes a few seconds.</p>
+    <button class="btn btn-primary" onclick="startWeaknessAnalysis()">Analyze my weak categories</button>
+  </div>`;
+}
+
+// Render the recommendation + bar-chart panels into the wrapper, replacing
+// the button. When `analyzedIds` is non-null (partial-cancel render), games
+// outside the set have their decision_counts stripped so they count toward
+// gamesTotal but not gamesIncluded — giving the existing "Based on N/M" line
+// honest coverage. On a full pass, pass null to render unmodified.
+function _renderAnalyzedPanels(games, analyzedIds) {
+  const renderGames = analyzedIds
+    ? games.map(g => analyzedIds.has(g.id) ? g : { ...g, decision_counts: null })
+    : games;
+  return renderTrendRecommendation(renderGames) + renderCategoryTrend(renderGames);
+}
+
+function _replaceWeaknessSection(games, analyzedIds) {
+  const section = document.getElementById("weakness-section");
+  if (!section) return;
+  section.outerHTML = `<div id="weakness-section">${_renderAnalyzedPanels(games, analyzedIds)}</div>`;
+}
+
+async function startWeaknessAnalysis() {
+  const trendsGames = await fetchTrends();
+  const ids = trendsGames.map(g => g.id);
+  const gen = ++trendsAnalysisGen;
+  const analyzedIds = new Set();
+  trendsCurrentAnalysis = { gen, games: trendsGames, analyzedIds };
+
+  const section = document.getElementById("weakness-section");
+  if (section) {
+    section.innerHTML = `
+      <h3>Weakest Skill Area</h3>
+      <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Analyzing your games to find your weakest skill area…</p>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+        <span id="weakness-progress-text">Analyzing 0/${trendsGames.length}…</span>
+        <button class="btn" onclick="cancelWeaknessAnalysis()">Cancel</button>
+      </div>
+    `;
+  }
+
+  let done = 0;
+  const queue = [...trendsGames];
+  const updateProgress = () => {
+    if (trendsAnalysisGen !== gen) return;
+    const el = document.getElementById("weakness-progress-text");
+    if (el) el.textContent = `Analyzing ${done}/${trendsGames.length}…`;
+  };
+
+  async function worker() {
+    while (true) {
+      if (trendsAnalysisGen !== gen) return;
+      const trendsEntry = queue.shift();
+      if (!trendsEntry) return;
+      try {
+        const res = await fetch(`/api/games/${trendsEntry.id}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const full = await res.json();
+        if (full && full.mortal_data && typeof haipaiPrep !== "undefined") {
+          await haipaiPrep.prepGameAsync(full, full.mortal_data);
+          recategorizeGameInPlace(full);
+          const byCat = {};
+          for (const rnd of full.rounds || []) {
+            for (const m of rnd.mistakes || []) {
+              if (!m.category) continue;
+              if (!byCat[m.category]) byCat[m.category] = { count: 0, ev: 0 };
+              byCat[m.category].count += 1;
+              byCat[m.category].ev += m.ev_loss || 0;
+            }
+          }
+          if (trendsAnalysisGen !== gen) return;
+          trendsEntry.by_category = byCat;
+          // Recompute per-skill-area denominators from mortal_data so the
+          // trends panel is self-contained — no dependency on server-side
+          // backfills of stats_json.decision_counts.
+          if (typeof haipaiPrepParse !== "undefined"
+              && haipaiPrepParse.decision_counts_for_game) {
+            const dc = haipaiPrepParse.decision_counts_for_game(full.mortal_data);
+            if (dc) trendsEntry.decision_counts = dc;
+          }
+          analyzedIds.add(trendsEntry.id);
+        }
+      } catch (e) {
+        console.warn("Trends analysis: skipping game", trendsEntry.id, e);
+      }
+      done += 1;
+      updateProgress();
+    }
+  }
+
+  const concurrency = Math.min(3, trendsGames.length);
+  const workers = [];
+  for (let i = 0; i < concurrency; i++) workers.push(worker());
+  await Promise.all(workers);
+
+  if (trendsAnalysisGen !== gen) return;  // cancelled while finishing up
+  trendsCurrentAnalysis = null;
+  trendsStash = { gameIds: ids, games: trendsGames };
+  _replaceWeaknessSection(trendsGames, null);
+}
+
+function cancelWeaknessAnalysis() {
+  if (!trendsCurrentAnalysis) return;
+  const { games, analyzedIds } = trendsCurrentAnalysis;
+  trendsAnalysisGen += 1;  // supersede the in-flight workers
+  trendsCurrentAnalysis = null;
+  _replaceWeaknessSection(games, analyzedIds);
 }
 
 function renderLineChart(games, field, opts) {

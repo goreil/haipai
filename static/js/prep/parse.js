@@ -119,5 +119,82 @@
     };
   }
 
-  return { flatten_mjai_log, walk_kyoku };
+  const _MELD_TYPES = new Set(["chi", "pon"]);
+  const _KAN_TYPES = new Set(["ankan", "kakan", "daiminkan"]);
+
+  // JS mirror of lib/parse.py::skill_area_for_entry — classifies one review
+  // entry into the same denominator bucket the Python parser uses, so the
+  // client-computed decision_counts agree with what the backfill would have
+  // produced.
+  function skill_area_for_entry(actual_type, expected_type, detail_types, in_riichi) {
+    const types = new Set();
+    if (actual_type) types.add(actual_type);
+    if (expected_type) types.add(expected_type);
+    if (types.has("chi") || types.has("pon")) return "meld";
+    if (types.has("reach")) return "riichi";
+    if (types.has("ankan") || types.has("kakan") || types.has("daiminkan")) return "kan";
+    if (types.has("dahai")) return in_riichi ? "defense" : "attack";
+    const d = new Set(detail_types || []);
+    if (d.has("chi") || d.has("pon")) return "meld";
+    if (d.has("reach")) return "riichi";
+    if (d.has("ankan") || d.has("kakan") || d.has("daiminkan")) return "kan";
+    return null;
+  }
+
+  // Per-skill-area decision counts for one kyoku — denominator for the
+  // trends EV/D bars. Mirrors lib/parse.py::_decision_counts_for_kyoku;
+  // entries hit attack/defense by player tsumo-state when the action is
+  // plain dahai, otherwise by action-type priority.
+  function decision_counts_for_kyoku(entries, start_pos, end_pos, events, player_id) {
+    const counts = { attack: 0, defense: 0, riichi: 0, meld: 0, kan: 0 };
+    const state = walk_kyoku(events, start_pos, end_pos, player_id);
+    const junme_state = state.player_tsumo_riichi_state;
+    for (const entry of (entries || [])) {
+      const junme = entry.junme;
+      const actual_type = (entry.actual || {}).type || null;
+      const expected_type = (entry.expected || {}).type || null;
+      const detail_types = (entry.details || []).map(d => (d.action || {}).type || null);
+      const in_riichi = (typeof junme === "number"
+        && junme >= 0
+        && junme < junme_state.length
+        && junme_state[junme]);
+      const area = skill_area_for_entry(actual_type, expected_type, detail_types, in_riichi);
+      if (area) counts[area] += 1;
+    }
+    return counts;
+  }
+
+  // Roll per-kyoku denominators into a per-game total. Pass mortalData as
+  // returned by /api/games/<id> (or a previously prepped game's
+  // `mortal_data`). Returns null if the data isn't usable.
+  function decision_counts_for_game(mortalData) {
+    if (!mortalData) return null;
+    const player_id = mortalData.player_id;
+    if (player_id === undefined || player_id === null) return null;
+    const kyokus = ((mortalData.review || {}).kyokus) || [];
+    const events = flatten_mjai_log(mortalData.mjai_log || []);
+    const start_positions = [];
+    for (let i = 0; i < events.length; i++) {
+      if (events[i] && events[i].type === "start_kyoku") start_positions.push(i);
+    }
+    const totals = { attack: 0, defense: 0, riichi: 0, meld: 0, kan: 0 };
+    for (let ki = 0; ki < kyokus.length; ki++) {
+      const start = start_positions[ki];
+      if (start === undefined) continue;
+      const end = (ki + 1 < start_positions.length) ? start_positions[ki + 1] : events.length;
+      const c = decision_counts_for_kyoku(
+        kyokus[ki].entries || [], start, end, events, player_id,
+      );
+      for (const k of Object.keys(totals)) totals[k] += c[k] || 0;
+    }
+    return totals;
+  }
+
+  return {
+    flatten_mjai_log,
+    walk_kyoku,
+    skill_area_for_entry,
+    decision_counts_for_kyoku,
+    decision_counts_for_game,
+  };
 }));

@@ -63,24 +63,35 @@ def load_slim_mortal_data(mortal_file):
 
 
 def _slim_mortal_data(md):
-    """Return only the fields JS prep needs (mjai_log + per-entry
-    tiles_left/junme/is_equal). ~25% of the full Mortal JSON; the
-    discarded fields (model probabilities, scores, ratings) aren't
-    consumed by static/js/prep/."""
+    """Return only the fields JS prep needs. The retained per-entry shape
+    is tiles_left/junme/is_equal plus the action-type fields the JS
+    skill-area classifier needs (`actual.type`, `expected.type`,
+    `details[].action.type`). The discarded fields (model probabilities,
+    scores, ratings) aren't consumed by static/js/prep/."""
+
+    def _entry_slim(e):
+        actual = e.get("actual") or {}
+        expected = e.get("expected") or {}
+        details = e.get("details") or []
+        return {
+            "tiles_left": e.get("tiles_left"),
+            "junme": e.get("junme"),
+            "is_equal": e.get("is_equal"),
+            "actual": {"type": actual.get("type")} if actual else None,
+            "expected": {"type": expected.get("type")} if expected else None,
+            "details": [
+                {"action": {"type": ((d.get("action") or {}).get("type"))}}
+                for d in details
+            ],
+        }
+
     kyokus = ((md.get("review") or {}).get("kyokus") or [])
     return {
         "player_id": md.get("player_id"),
         "mjai_log": md.get("mjai_log", []),
         "review": {
             "kyokus": [
-                {"entries": [
-                    {
-                        "tiles_left": e.get("tiles_left"),
-                        "junme": e.get("junme"),
-                        "is_equal": e.get("is_equal"),
-                    }
-                    for e in (k.get("entries") or [])
-                ]}
+                {"entries": [_entry_slim(e) for e in (k.get("entries") or [])]}
                 for k in kyokus
             ],
         },
