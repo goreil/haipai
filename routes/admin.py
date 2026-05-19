@@ -52,10 +52,27 @@ def api_admin_stats():
 @admin_bp.route("/api/admin/category-reports")
 @require_admin
 def api_admin_category_reports():
+    """Return reports plus slim mortal_data per game so the admin UI can run
+    the same JS prep + categorize the reporter saw. Without mortal_data the
+    embedded mistake card would render with no board context and no AI
+    category (both are computed client-side after the b2f migration)."""
     from app import get_conn
+    from routes.game import load_slim_mortal_data
     conn = get_conn()
     reports = db.list_category_reports(conn)
-    return jsonify(reports)
+
+    mortal_by_game = {}
+    for r in reports:
+        gid = r["game_id"]
+        if gid in mortal_by_game:
+            continue
+        md = load_slim_mortal_data(r.pop("mortal_file", None))
+        mortal_by_game[gid] = md
+    # Strip the mortal_file path from any remaining reports (kept off the wire).
+    for r in reports:
+        r.pop("mortal_file", None)
+
+    return jsonify({"reports": reports, "mortal_data_by_game": mortal_by_game})
 
 
 @admin_bp.route("/api/admin/category-reports/<int:report_id>", methods=["DELETE"])

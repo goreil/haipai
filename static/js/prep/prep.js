@@ -368,9 +368,56 @@
     return game;
   }
 
+  // Prep a single mistake without needing the rest of its round. Used by the
+  // admin reports view, which gets one mistake at a time keyed by
+  // (game, round_idx, mistake_idx). Mistakes within a kyoku appear in
+  // mortal_data review order with is_equal entries skipped — see lib/parse.py
+  // — so `mistake_idx` indexes the non-is_equal entries directly. Mutates
+  // `mistake` in place and returns it.
+  function prepReport(mistake, mortalData, roundIdx, mistakeIdx) {
+    if (!mortalData) return mistake;
+    const kyokus = (mortalData.review && mortalData.review.kyokus) || [];
+    const kyoku = kyokus[roundIdx];
+    if (!kyoku) return mistake;
+
+    let entry = null;
+    let nonEqIdx = 0;
+    for (const e of kyoku.entries || []) {
+      if (e.is_equal) continue;
+      if (nonEqIdx === mistakeIdx) { entry = e; break; }
+      nonEqIdx += 1;
+    }
+    if (!entry) return mistake;
+
+    const events = flatten_mjai_log(mortalData.mjai_log || []);
+    const start_positions = [];
+    for (let i = 0; i < events.length; i++) {
+      if (events[i] && events[i].type === "start_kyoku") start_positions.push(i);
+    }
+    if (roundIdx >= start_positions.length) return mistake;
+    const start_pos = start_positions[roundIdx];
+    const end_pos = (roundIdx + 1 < start_positions.length)
+      ? start_positions[roundIdx + 1] : events.length;
+    const defenseCtx = {
+      mjai_events: events,
+      start_pos,
+      end_pos,
+      player_id: mortalData.player_id,
+    };
+
+    try {
+      const patch = prepMistake(mistake, mortalData, roundIdx, entry, defenseCtx);
+      if (patch) Object.assign(mistake, patch);
+    } catch (e) {
+      _warn("prepReport failed for mistake turn=" + mistake.turn + ":", e);
+    }
+    return mistake;
+  }
+
   return {
     prepMistake,
     prepGame,
     prepGameAsync,
+    prepReport,
   };
 }));

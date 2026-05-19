@@ -20,8 +20,32 @@ async function showAdmin() {
   }
   const stats = await statsRes.json();
   adminState.users = stats.users || [];
-  adminState.reports = reportsRes.ok ? await reportsRes.json() : [];
+  const reportPayload = reportsRes.ok ? await reportsRes.json() : { reports: [], mortal_data_by_game: {} };
+  adminState.reports = reportPayload.reports || [];
+  prepAndCategorizeReports(adminState.reports, reportPayload.mortal_data_by_game || {});
   renderAdmin();
+}
+
+// Run the same JS prep + categorize the reporter saw in the games view, so
+// the embedded mistake card has board context and the AI category is
+// available to show on the report strip. Mutates each report's mistake in
+// place. Missing mortal_data is silently tolerated (older games / failed
+// loads): the card still renders, just without board context, and the
+// categorizer falls back to whatever it can derive.
+function prepAndCategorizeReports(reports, mortalByGame) {
+  if (typeof haipaiPrep === "undefined" || typeof haipaiCategorize === "undefined") return;
+  for (const r of reports) {
+    const md = mortalByGame[r.game_id];
+    if (md && r.mistake && r.round_idx != null && r.mistake_idx != null) {
+      haipaiPrep.prepReport(r.mistake, md, r.round_idx, r.mistake_idx);
+    }
+    if (r.mistake) {
+      const out = haipaiCategorize.categorize(r.mistake);
+      r.mistake.category = out.category;
+      r.mistake.categorize_data = out.categorize_data;
+      r.mistake.labels = out.labels;
+    }
+  }
 }
 
 function renderAdmin() {
@@ -128,10 +152,18 @@ async function adminDeleteUser(userId) {
 function renderReportCard(r) {
   const date = new Date(r.created_at + "Z").toLocaleString();
   const kindLabel = r.kind === "wrong_category" ? "Wrong category" : "Wrong text";
+  // The mistake's category is what the JS categorizer just computed — the
+  // same code path the reporter saw. Falls back to "?" if prep / mortal_data
+  // wasn't available.
+  const aiCat = (r.mistake && r.mistake.category) || null;
+  const catBadge = aiCat
+    ? `<span class="report-orig-cat" title="${escapeHtml(catDesc(aiCat))}">${escapeHtml(catLabel(aiCat))}</span>`
+    : "";
   let html = `<div class="report-card" id="report-${r.id}">
     <div class="report-strip">
       <span class="report-id">R-${r.id} <span class="hash">&middot; #${r.mistake_id}</span></span>
       <span class="report-kind ${r.kind}">${kindLabel}</span>
+      ${catBadge}
       <span class="report-by"><span class="user">@${escapeHtml(r.username)}</span><span class="date">${date}</span></span>
       <span class="report-actions">
         <button class="btn btn-sm btn-delete" onclick="adminDeleteReport(${r.id})">Delete</button>
@@ -144,11 +176,11 @@ function renderReportCard(r) {
       <div class="reason-text">`;
     if (r.reason) html += escapeHtml(r.reason);
     if (r.suggested_category) {
-      const fromCat = r.category ? escapeHtml(r.category) : "?";
+      const fromCat = aiCat ? escapeHtml(catLabel(aiCat)) : "?";
       html += `<div class="reason-suggested">Suggested:
         <span class="from">${fromCat}</span>
         <span class="arrow">&rarr;</span>
-        <span class="to">${escapeHtml(r.suggested_category)}</span>
+        <span class="to">${escapeHtml(catLabel(r.suggested_category))}</span>
       </div>`;
     }
     html += `</div></div>`;

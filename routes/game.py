@@ -35,16 +35,31 @@ def api_game(game_id):
     game = db.get_game(conn, game_id, user_id=uid)
     if not game:
         return jsonify({"error": "Game not found"}), 404
-    mortal_file = game.get("mortal_file")
-    if mortal_file:
-        mortal_path = (DIR / mortal_file).resolve()
-        if str(mortal_path).startswith(str(DIR.resolve())) and mortal_path.exists():
-            try:
-                with open(mortal_path) as f:
-                    game["mortal_data"] = _slim_mortal_data(json.load(f))
-            except (ValueError, OSError):
-                pass
+    md = load_slim_mortal_data(game.get("mortal_file"))
+    if md is not None:
+        game["mortal_data"] = md
     return jsonify(game)
+
+
+def load_slim_mortal_data(mortal_file):
+    """Load and slim a Mortal analysis JSON by relative-to-DIR path.
+
+    Returns the slim dict or ``None`` if the file is missing, outside DIR, or
+    unreadable. Path is resolved + bounded to DIR to prevent escaping the app
+    root via traversal.
+    """
+    if not mortal_file:
+        return None
+    mortal_path = (DIR / mortal_file).resolve()
+    if not str(mortal_path).startswith(str(DIR.resolve())):
+        return None
+    if not mortal_path.exists():
+        return None
+    try:
+        with open(mortal_path) as f:
+            return _slim_mortal_data(json.load(f))
+    except (ValueError, OSError):
+        return None
 
 
 def _slim_mortal_data(md):

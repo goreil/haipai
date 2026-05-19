@@ -473,6 +473,12 @@ class TestDatabase:
         assert r["username"] == "testuser"
         assert r["game_id"] == gid
         assert r["suggested_category"] == "3B"
+        # round_idx + mistake_idx let the admin JS find the right kyoku entry
+        # for re-prep. mortal_file is the relative path the admin endpoint
+        # loads slim mortal_data from.
+        assert r["round_idx"] == 0
+        assert r["mistake_idx"] == 0
+        assert "mortal_file" in r
 
     def test_list_category_reports_empty(self, tmp_db):
         """list_category_reports returns empty list when no reports exist."""

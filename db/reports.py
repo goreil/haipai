@@ -58,13 +58,17 @@ def list_category_reports(conn):
                   m.id AS m_id,
                   m.game_id AS game_id,
                   m.round_name AS round_name,
+                  m.round_idx AS round_idx,
+                  m.mistake_idx AS mistake_idx,
                   m.turn AS turn,
                   m.ev_loss AS ev_loss,
                   m.note AS note,
-                  m.data_json AS data_json
+                  m.data_json AS data_json,
+                  g.mortal_file AS mortal_file
            FROM category_reports cr
            JOIN users u ON cr.user_id = u.id
            JOIN mistakes m ON cr.mistake_id = m.id
+           JOIN games g ON m.game_id = g.id
            ORDER BY cr.created_at DESC""",
     ).fetchall()
     out = []
