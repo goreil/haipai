@@ -55,6 +55,16 @@ CREATE TABLE IF NOT EXISTS category_reports (
     FOREIGN KEY (mistake_id) REFERENCES mistakes(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS weakness_snapshots (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    categorizer_version INTEGER NOT NULL,
+    game_count INTEGER NOT NULL,
+    summary_json TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY,
     type TEXT NOT NULL CHECK(type IN ('feature','thanks')),
@@ -79,6 +89,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_upload_token
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
 CREATE INDEX IF NOT EXISTS idx_mistakes_game_id ON mistakes(game_id);
 CREATE INDEX IF NOT EXISTS idx_category_reports_mistake ON category_reports(mistake_id);
+CREATE INDEX IF NOT EXISTS idx_weakness_snapshots_user ON weakness_snapshots(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_audience ON messages(audience_user_id);
 """
 

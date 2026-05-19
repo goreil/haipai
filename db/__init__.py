@@ -55,6 +55,7 @@ from db.reports import (
     submit_category_report,
 )
 from db.admin import admin_user_stats, is_admin
+from db.snapshots import insert_snapshot, list_snapshots
 from db.messages import (
     create_message,
     list_for_user as list_messages_for_user,
@@ -123,6 +124,9 @@ __all__ = [
     # admin
     "admin_user_stats",
     "is_admin",
+    # snapshots
+    "insert_snapshot",
+    "list_snapshots",
     # messages (mailbox)
     "create_message",
     "list_messages_for_user",

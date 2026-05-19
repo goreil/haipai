@@ -6,6 +6,11 @@
 //
 // Output: { category, categorize_data, labels } in the shape consumers
 // (mistake-card, categorize-view, EV table) read from each mistake.
+//
+// !! Bump CATEGORIZER_VERSION whenever the decision tree, RULES, or the
+// skill-area grouping in static/js/prep/parse.js::skill_area_for_entry
+// changes. Trends snapshots are tagged with this version so users can see
+// which past results came from which logic.
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -14,6 +19,12 @@
     root.haipaiCategorize = factory();
   }
 }(typeof self !== "undefined" ? self : this, function () {
+
+  // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
+  const CATEGORIZER_VERSION = 1;
+  const CATEGORIZER_CHANGELOG = {
+    1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
+  };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
   const RULES = {
@@ -329,6 +340,8 @@
   }
 
   return {
+    CATEGORIZER_VERSION,
+    CATEGORIZER_CHANGELOG,
     RULES,
     categorize,
     // exposed for parity tests / future reuse:

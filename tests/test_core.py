@@ -485,6 +485,68 @@ class TestDatabase:
         reports = db.list_category_reports(tmp_db)
         assert reports == []
 
+    # --- weakness_snapshots tests ---
+
+    def test_insert_snapshot_basic(self, sample_user):
+        """insert_snapshot stores the aggregated totals + version + game_count."""
+        conn, uid = sample_user
+        sid = db.insert_snapshot(
+            conn, uid, 1, [10, 20, 30],
+            by_category={"P1": {"count": 2, "ev": 1.5}},
+            decision_counts={"attack": 100, "defense": 0, "meld": 0, "riichi": 0, "kan": 0},
+        )
+        assert isinstance(sid, int)
+        snaps = db.list_snapshots(conn, uid)
+        assert len(snaps) == 1
+        s = snaps[0]
+        assert s["categorizer_version"] == 1
+        assert s["game_count"] == 3
+        assert s["game_ids"] == [10, 20, 30]
+        assert s["by_category"] == {"P1": {"count": 2, "ev": 1.5}}
+        assert s["decision_counts"]["attack"] == 100
+
+    def test_insert_snapshot_dedupes_same_version_and_ids(self, sample_user):
+        """Re-saving with the same version + game_id set is a no-op."""
+        conn, uid = sample_user
+        sid1 = db.insert_snapshot(conn, uid, 1, [1, 2], {}, {"attack": 5})
+        sid2 = db.insert_snapshot(conn, uid, 1, [2, 1], {}, {"attack": 5})  # ids reordered
+        assert sid1 is not None
+        assert sid2 is None
+        assert len(db.list_snapshots(conn, uid)) == 1
+
+    def test_insert_snapshot_dedupe_skipped_on_version_change(self, sample_user):
+        """A version bump always writes a new row even if game_ids match."""
+        conn, uid = sample_user
+        db.insert_snapshot(conn, uid, 1, [1, 2], {}, {"attack": 5})
+        sid2 = db.insert_snapshot(conn, uid, 2, [1, 2], {}, {"attack": 5})
+        assert sid2 is not None
+        assert len(db.list_snapshots(conn, uid)) == 2
+
+    def test_insert_snapshot_dedupe_skipped_on_new_games(self, sample_user):
+        """Adding a new game id to the set writes a new row."""
+        conn, uid = sample_user
+        db.insert_snapshot(conn, uid, 1, [1, 2], {}, {"attack": 5})
+        sid2 = db.insert_snapshot(conn, uid, 1, [1, 2, 3], {}, {"attack": 5})
+        assert sid2 is not None
+        assert len(db.list_snapshots(conn, uid)) == 2
+
+    def test_list_snapshots_newest_first(self, sample_user):
+        """list_snapshots returns newest first (most recent created_at)."""
+        conn, uid = sample_user
+        db.insert_snapshot(conn, uid, 1, [1], {}, {"attack": 5})
+        db.insert_snapshot(conn, uid, 2, [1], {}, {"attack": 5})
+        snaps = db.list_snapshots(conn, uid)
+        assert [s["categorizer_version"] for s in snaps] == [2, 1]
+
+    def test_list_snapshots_per_user(self, tmp_db):
+        """Snapshots are scoped per user."""
+        u1 = db.create_user(tmp_db, "alice", _gen_pw_hash("a"))
+        u2 = db.create_user(tmp_db, "bob", _gen_pw_hash("b"))
+        db.insert_snapshot(tmp_db, u1, 1, [1], {}, {"attack": 5})
+        db.insert_snapshot(tmp_db, u2, 1, [1], {}, {"attack": 5})
+        assert len(db.list_snapshots(tmp_db, u1)) == 1
+        assert len(db.list_snapshots(tmp_db, u2)) == 1
+
     # --- get_user_by_oauth tests ---
 
     def test_get_user_by_oauth_not_found(self, tmp_db):
@@ -639,6 +701,40 @@ class TestAPI:
         # Wrong-typed note still fails validation before the lookup
         res = client.post("/api/games/1/annotate", json={
             "round": "E1", "turn": 1, "note": 42,
+        })
+        assert res.status_code == 400
+
+    def test_trends_snapshots_empty(self, client):
+        self._login(client)
+        res = client.get("/api/trends/snapshots")
+        assert res.status_code == 200
+        assert res.get_json() == []
+
+    def test_trends_snapshot_post_requires_owned_games(self, client):
+        """game_ids that don't belong to the user are silently filtered;
+        if none remain we 400 rather than persist an empty snapshot."""
+        self._login(client)
+        res = client.post("/api/trends/snapshot", json={
+            "categorizer_version": 1,
+            "game_ids": [9999],
+            "by_category": {},
+            "decision_counts": {"attack": 10},
+        })
+        assert res.status_code == 400
+
+    def test_trends_snapshot_validation(self, client):
+        self._login(client)
+        # Missing version
+        res = client.post("/api/trends/snapshot", json={"game_ids": [1]})
+        assert res.status_code == 400
+        # Bad version type
+        res = client.post("/api/trends/snapshot", json={
+            "categorizer_version": "1", "game_ids": [1],
+        })
+        assert res.status_code == 400
+        # Empty game_ids
+        res = client.post("/api/trends/snapshot", json={
+            "categorizer_version": 1, "game_ids": [],
         })
         assert res.status_code == 400
 

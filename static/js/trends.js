@@ -6,6 +6,9 @@
 // Stays alive across navigations within the SPA but is cleared on page reload
 // — see docs/backlogs/TRENDS-WEAKEST-CATEGORY.md.
 var trendsStash = null;
+// Persisted past snapshots loaded from /api/trends/snapshots. Cached for the
+// SPA session; refreshed after a fresh analysis auto-saves a new row.
+var trendsSnapshots = null;
 // Bumped on cancel or new run. In-flight workers compare against this and
 // stop attaching results once they've been superseded.
 var trendsAnalysisGen = 0;
@@ -60,6 +63,16 @@ async function fetchTrends() {
   return await res.json();
 }
 
+async function fetchSnapshots() {
+  try {
+    const res = await fetch("/api/trends/snapshots");
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
 // Pixel width the SVG charts should render at, matching the current content
 // area so the 700px hardcoded viewBox doesn't leave a blank gutter on wide
 // laptops. Subtracts .content padding (20*2) and .trend-chart-card padding
@@ -78,7 +91,8 @@ async function showTrends() {
   const content = document.getElementById("content");
   content.innerHTML = '<div class="empty-state">Loading trends...</div>';
 
-  const games = await fetchTrends();
+  const [games, snapshots] = await Promise.all([fetchTrends(), fetchSnapshots()]);
+  trendsSnapshots = snapshots;
   if (games.length < 2) {
     content.innerHTML = '<div class="empty-state">Need at least 2 games for trend analysis</div>';
     return;
@@ -162,6 +176,11 @@ function renderTrends(games) {
   // docs/backlogs/TRENDS-WEAKEST-CATEGORY.md. The button is replaced in place
   // when analysis completes or is cancelled.
   html += renderWeaknessSection(games);
+
+  // Past analyses (auto-saved server-side after each full run). Each row is
+  // tagged with the categorizer version that produced it, so users can see
+  // how their weakness profile has shifted across versions.
+  html += `<div id="snapshots-history">${renderSnapshotsHistory(trendsSnapshots || [])}</div>`;
 
   content.innerHTML = html;
 }
@@ -293,6 +312,33 @@ async function startWeaknessAnalysis() {
   trendsCurrentAnalysis = null;
   trendsStash = { gameIds: ids, games: trendsGames };
   _replaceWeaknessSection(trendsGames, null);
+  // Auto-save the aggregated totals as a snapshot. Only save when at least
+  // one game contributed decision_counts — otherwise the snapshot has no
+  // EV/D denominator and would render as "—" forever.
+  _saveSnapshotFromAnalysis(trendsGames, Array.from(analyzedIds));
+}
+
+async function _saveSnapshotFromAnalysis(games, analyzedGameIds) {
+  if (typeof haipaiCategorize === "undefined" || !haipaiCategorize.CATEGORIZER_VERSION) return;
+  const analyzedSet = new Set(analyzedGameIds);
+  const analyzed = games.filter(g => analyzedSet.has(g.id));
+  if (analyzed.length === 0) return;
+  const { byCat, decCounts } = trendAggregateAll(analyzed);
+  if (!decCounts) return;
+  try {
+    const res = await apiPost("/api/trends/snapshot", {
+      categorizer_version: haipaiCategorize.CATEGORIZER_VERSION,
+      game_ids: analyzedGameIds,
+      by_category: byCat,
+      decision_counts: decCounts,
+    });
+    if (!res.ok) return;
+    trendsSnapshots = await fetchSnapshots();
+    const section = document.getElementById("snapshots-history");
+    if (section) section.innerHTML = renderSnapshotsHistory(trendsSnapshots);
+  } catch (e) {
+    console.warn("Trends snapshot save failed", e);
+  }
 }
 
 function cancelWeaknessAnalysis() {
@@ -672,4 +718,106 @@ function renderGroupStackedChart(games) {
 
   svg += `</svg>`;
   return svg;
+}
+
+// --- Snapshots history ---
+
+// Each snapshot row carries pre-aggregated by_category + decision_counts, so
+// we can rank skill areas directly without re-fetching games.
+function _snapshotSkillAreaTotals(snapshot) {
+  return trendSkillAreaTotals(snapshot.by_category || {}, snapshot.decision_counts || {});
+}
+
+function _snapshotWeakestArea(snapshot) {
+  const totals = _snapshotSkillAreaTotals(snapshot);
+  const ranked = TREND_SKILL_AREAS
+    .map(sa => ({ sa, t: totals[sa.key] }))
+    .filter(r => r.t.decisions >= TREND_MIN_DECISIONS)
+    .map(r => ({ sa: r.sa, evPerD: r.t.ev / r.t.decisions }));
+  if (ranked.length === 0) return null;
+  ranked.sort((a, b) => b.evPerD - a.evPerD);
+  return ranked[0];
+}
+
+function _formatSnapshotDate(iso) {
+  // SQLite CURRENT_TIMESTAMP yields "YYYY-MM-DD HH:MM:SS" in UTC. Render the
+  // date + HH:MM for the row label without pulling in a date library.
+  if (!iso) return "";
+  const t = iso.replace(" ", "T") + "Z";
+  const d = new Date(t);
+  if (isNaN(d.getTime())) return iso;
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderSnapshotsHistory(snapshots) {
+  if (!snapshots || snapshots.length === 0) return "";
+  let html = `<div class="trend-chart-card"><h3>Past Analyses</h3>
+    <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Auto-saved each time you run the weakness analysis. The version tag bumps when the categorizer logic changes.</p>
+    <div class="trend-bars">`;
+  for (const s of snapshots) {
+    const weak = _snapshotWeakestArea(s);
+    const weakLabel = weak
+      ? `<strong style="color:${weak.sa.color}">${weak.sa.label}</strong> · ${weak.evPerD.toFixed(4)} EV/D`
+      : `<span style="color:var(--text-dim)">not enough decisions</span>`;
+    const date = _formatSnapshotDate(s.created_at);
+    const panelId = `snap-${s.id}`;
+    html += `<div class="trend-bar-row" onclick="toggleSnapshotPanel('${panelId}')" style="cursor:pointer">
+      <span class="trend-bar-label" style="min-width:140px">${date}</span>
+      <span class="trend-bar-value" style="flex:1">v${s.categorizer_version} · ${weakLabel}</span>
+      <span class="trend-bar-count">${s.game_count} game${s.game_count === 1 ? "" : "s"}</span>
+    </div>
+    <div id="${panelId}" class="trend-mistakes-panel" style="display:none">${renderSnapshotDetail(s)}</div>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+function toggleSnapshotPanel(panelId) {
+  const el = document.getElementById(panelId);
+  if (!el) return;
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+function renderSnapshotDetail(snapshot) {
+  const totals = _snapshotSkillAreaTotals(snapshot);
+  const rows = TREND_SKILL_AREAS
+    .map(sa => {
+      const t = totals[sa.key];
+      return {
+        sa,
+        ev: t.ev,
+        count: t.count,
+        decisions: t.decisions,
+        evPerD: t.decisions > 0 ? t.ev / t.decisions : null,
+      };
+    })
+    .filter(r => r.ev > 0 || r.count > 0 || r.decisions > 0)
+    .sort((a, b) => (b.evPerD ?? -1) - (a.evPerD ?? -1));
+  if (rows.length === 0) return `<div style="padding:10px 12px;color:var(--text-dim)">No decisions recorded in this snapshot.</div>`;
+
+  const maxEvPerD = Math.max(...rows.map(r => r.evPerD || 0)) || 1;
+  const changelogNote = (typeof haipaiCategorize !== "undefined" && haipaiCategorize.CATEGORIZER_CHANGELOG
+    && haipaiCategorize.CATEGORIZER_CHANGELOG[snapshot.categorizer_version]) || null;
+
+  let html = `<div style="padding:10px 12px">`;
+  if (changelogNote) {
+    html += `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:10px">v${snapshot.categorizer_version}: ${changelogNote}</div>`;
+  }
+  html += `<div class="trend-bars">`;
+  for (const r of rows) {
+    const sa = r.sa;
+    const pct = r.evPerD != null ? (r.evPerD / maxEvPerD * 100).toFixed(0) : 0;
+    const primary = r.evPerD != null ? `${r.evPerD.toFixed(4)} EV/D` : "—";
+    html += `<div class="trend-bar-row">
+      <span class="trend-bar-label" style="color:${sa.color}">${sa.label}</span>
+      <div class="trend-bar-track">
+        <div class="trend-bar-fill" style="width:${pct}%;background:${sa.color}"></div>
+      </div>
+      <span class="trend-bar-primary">${primary}</span>
+      <span class="trend-bar-breakdown">(${r.ev.toFixed(1)} EV · ${r.count} in ${r.decisions} decisions)</span>
+    </div>`;
+  }
+  html += `</div></div>`;
+  return html;
 }
