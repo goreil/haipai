@@ -79,9 +79,19 @@
     return waits;
   }
 
+  // Aka slots in the wall: 34=5mr, 35=5pr, 36=5sr. >0 means the red copy is
+  // still out there (not in player's hand, not yet seen). Surfaced per wait so
+  // the EV-bars view can split a 5/5/5 wait into regular + red rows.
+  const _AKA_SLOT_FOR_BASE = { 4: 34, 13: 35, 22: 36 };
+
   function tenpai_wait_tiles(hand_13_mjai, melds_mjai, wall) {
     const ids = tenpai_waits(hand_13_mjai, melds_mjai);
-    return ids.map(t => ({ tile: BASE_TO_MJAI[t], count: _wall_count(wall, t) }));
+    return ids.map(t => {
+      const out = { tile: BASE_TO_MJAI[t], count: _wall_count(wall, t) };
+      const akaSlot = _AKA_SLOT_FOR_BASE[t];
+      if (akaSlot != null && wall && wall[akaSlot]) out.aka_count = wall[akaSlot];
+      return out;
+    });
   }
 
   function is_furiten(hand_13_mjai, melds_mjai, own_discards_mjai) {

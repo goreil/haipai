@@ -148,6 +148,28 @@ function _badRiichiTenpaiHand(m) {
   return hand;
 }
 
+// Split a 5/5/5 wait into regular + red rows when the aka is still available
+// (wall[34/35/36] > 0 means the red copy isn't in the player's hand or seen
+// elsewhere). Furiten applies to the whole base wait so it propagates to both.
+const _AKA_TILE_FOR_BASE = { "5m": "5mr", "5p": "5pr", "5s": "5sr" };
+function _expandWaitsForAka(waits, furitenSet) {
+  const out = [];
+  for (const w of waits) {
+    if (!w || !w.tile) continue;
+    const fur = furitenSet.has(w.tile);
+    const redTile = _AKA_TILE_FOR_BASE[w.tile];
+    const aka = w.aka_count || 0;
+    if (!redTile || aka <= 0) {
+      out.push({ tile: w.tile, count: w.count || 0, furiten: fur });
+      continue;
+    }
+    const reg = (w.count || 0) - aka;
+    if (reg > 0) out.push({ tile: w.tile, count: reg, furiten: fur });
+    out.push({ tile: redTile, count: aka, furiten: fur });
+  }
+  return out;
+}
+
 // Per-card evaluation. For each wait, computes dama and riichi scores under
 // both ron and tsumo. yaku is the union of natural-shape yaku across modes
 // (with situational ones stripped) — what the design labels "yaku already
@@ -155,13 +177,13 @@ function _badRiichiTenpaiHand(m) {
 function _buildBadRiichiWaitEval(m) {
   const hand13 = _badRiichiTenpaiHand(m);
   if (!hand13) return null;
-  const waits = (typeof tenpaiWaitTiles === "function") ? tenpaiWaitTiles(m) : [];
-  if (!waits.length) return null;
+  const rawWaits = (typeof tenpaiWaitTiles === "function") ? tenpaiWaitTiles(m) : [];
+  if (!rawWaits.length) return null;
 
   const furitenSet = new Set(m.furiten_tiles || []);
+  const waits = _expandWaitsForAka(rawWaits, furitenSet);
   const out = [];
   for (const w of waits) {
-    if (!w || !w.tile) continue;
     const ronDama = _evalWaitScore(hand13, w.tile, m, { riichi: false, tsumo: false });
     const ronRiichi = _evalWaitScore(hand13, w.tile, m, { riichi: true,  tsumo: false });
     const tsumoDama = _evalWaitScore(hand13, w.tile, m, { riichi: false, tsumo: true });
@@ -184,14 +206,44 @@ function _buildBadRiichiWaitEval(m) {
     out.push({
       tile: w.tile,
       count: w.count || 0,
-      furiten: furitenSet.has(w.tile),
+      furiten: w.furiten,
       yaku,
       dora,
       aka,
       ronDama, ronRiichi, tsumoDama, tsumoRiichi,
     });
   }
-  return out.length ? out : null;
+  return out.length ? _groupWaitsByScore(out) : null;
+}
+
+// Group waits whose score profile is identical so a single row covers them.
+// Same yaku list + same (han, fu, ten) across all 4 modes + same dora/aka +
+// same furiten state ⇒ identical bars; the only differentiator is the tile.
+function _scoreSig(s) { return s ? `${s.han},${s.fu},${s.ten}` : "x"; }
+function _waitSig(w) {
+  return [
+    _scoreSig(w.ronDama), _scoreSig(w.ronRiichi),
+    _scoreSig(w.tsumoDama), _scoreSig(w.tsumoRiichi),
+    (w.yaku || []).slice().sort().join("|"),
+    w.dora || 0, w.aka || 0,
+    w.furiten ? "f" : "",
+  ].join("/");
+}
+function _groupWaitsByScore(waits) {
+  const groups = new Map();
+  const order = [];
+  for (const w of waits) {
+    const sig = _waitSig(w);
+    let g = groups.get(sig);
+    if (!g) {
+      // Reuse first wait's fields for scores/yaku; tiles holds every member.
+      g = Object.assign({}, w, { tiles: [] });
+      groups.set(sig, g);
+      order.push(sig);
+    }
+    g.tiles.push({ tile: w.tile, count: w.count, furiten: w.furiten });
+  }
+  return order.map(sig => groups.get(sig));
 }
 
 function _fmtPts(n) {
@@ -263,15 +315,18 @@ function _renderWaitRow(w, scaleMax) {
   const ronBonus = w.ronRiichi ? _badRiichiBonusEv(w.ronRiichi.ten) : 0;
   const tsumoBonus = w.tsumoRiichi ? _badRiichiBonusEv(w.tsumoRiichi.ten) : 0;
 
+  // Yaku/dora chips. The "no yaku — riichi only" hint shows whenever no real
+  // yaku is present, even when dora is — dora alone doesn't complete a hand,
+  // so the dama-impossible framing still applies.
   const tagParts = [];
-  if (w.yaku && w.yaku.length) {
+  const hasYaku = w.yaku && w.yaku.length;
+  if (hasYaku) {
     for (const y of w.yaku) tagParts.push(`<span class="yaku-tag">${y}</span>`);
   }
   if (w.dora) tagParts.push(`<span class="yaku-tag dora-tag">dora ${w.dora}</span>`);
   if (w.aka) tagParts.push(`<span class="yaku-tag dora-tag">aka ${w.aka}</span>`);
-  const yakuTags = tagParts.length
-    ? tagParts.join(" ")
-    : `<span class="yaku-none">no yaku — riichi only</span>`;
+  if (!hasYaku) tagParts.push(`<span class="yaku-none">no yaku — riichi only</span>`);
+  const yakuTags = tagParts.join(" ");
 
   // Verdict line: short summary of the riichi premium (or, when there's no
   // dama, just "Riichi N pts").
@@ -290,16 +345,24 @@ function _renderWaitRow(w, scaleMax) {
   const verdict = verdictTxt
     ? `<span class="bar-verdict bad">${verdictTxt}</span>` : "";
 
-  const tileHtml = (typeof renderTile === "function")
-    ? renderTile(w.tile, "tile-big-wait")
-    : w.tile;
-  const countCls = w.furiten ? "live-count live-count-furiten" : "live-count";
-  const countTip = w.furiten ? `${w.tile} — furiten (already discarded)` : `${w.tile} ×${w.count}`;
+  // Tile column: one (tile + ×count) entry per group member, stacked
+  // vertically. Single-tile groups still get the same layout — one entry.
+  const tiles = w.tiles && w.tiles.length ? w.tiles : [{ tile: w.tile, count: w.count, furiten: w.furiten }];
+  const tileEntries = tiles.map(t => {
+    const tileHtml = (typeof renderTile === "function")
+      ? renderTile(t.tile, "tile-big-wait")
+      : t.tile;
+    const countCls = t.furiten ? "live-count live-count-furiten" : "live-count";
+    const countTip = t.furiten ? `${t.tile} — furiten (already discarded)` : `${t.tile} ×${t.count}`;
+    return `<div class="bar-tile-entry">
+      ${tileHtml}
+      <span class="${countCls}" title="${countTip}">×${t.count}</span>
+    </div>`;
+  }).join("");
 
   return `<div class="bar-row">
     <div class="bar-tile-col">
-      ${tileHtml}
-      <span class="${countCls}" title="${countTip}">×${w.count}</span>
+      ${tileEntries}
     </div>
     <div class="bar-body">
       <div class="bar-meta">
@@ -340,8 +403,15 @@ function renderBadRiichiBars(m) {
   }
   scaleMax = Math.ceil(scaleMax / 1000) * 1000;
 
-  const totalLive = evals.reduce((a, w) => a + (w.count || 0), 0);
-  const types = evals.length;
+  // totalLive sums each group's tile counts; types counts every tile across
+  // all groups so the header still reads "N types" the way users expect.
+  let totalLive = 0;
+  let types = 0;
+  for (const g of evals) {
+    const ts = g.tiles && g.tiles.length ? g.tiles : [g];
+    types += ts.length;
+    for (const t of ts) totalLive += t.count || 0;
+  }
   const heading = `${types} type${types === 1 ? "" : "s"} · ${totalLive} live tile${totalLive === 1 ? "" : "s"}`;
   const isMissedRiichi = m.category === "5B";
   const headerLabel = isMissedRiichi ? "Tenpai waits — riichi would gain" : "Tenpai waits";
