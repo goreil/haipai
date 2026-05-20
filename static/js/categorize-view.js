@@ -55,7 +55,64 @@ function generateExplanation(m) {
   const cat = m.category || "";
   const shantenStr = m.shanten != null ? `${m.shanten}-shanten` : null;
   const labels = (m.categorize_data && m.categorize_data.labels) || m.labels || [];
-  const hasRiichi = !!m.safety_ratings;
+  // Defense-situation read used by every category below. `hasRiichi` stays
+  // around for older dahai-vs-dahai branches that key off the legacy
+  // safety_ratings; new code should read `defenseCtx` so a future open-meld
+  // trigger lights up automatically.
+  const defenseCtx = (typeof defenseSituation === "function")
+    ? defenseSituation(m) : { in_defense: false, threats: [] };
+  const hasRiichi = !!m.safety_ratings || defenseCtx.riichi_threat;
+
+  // Pretty-format the riichi threat list as "West" or "South + West", and
+  // build a deal-in suffix for the player's discard. Returns an HTML
+  // fragment ready to drop into a trigger line, or null when no riichi opp
+  // is present. `discardTile` is the tile whose deal-in rate to annotate
+  // (e.g. the riichi tile for 5A); pass null to skip the suffix.
+  function defenseTriggerHtml(discardTile) {
+    const riichiOpps = defenseCtx.threats.filter(t => t.kind === "riichi");
+    if (!riichiOpps.length) return null;
+    const winds = riichiOpps.map(t => t.wind).filter(Boolean);
+    const subject = winds.length === 0
+      ? "An opponent"
+      : (winds.length === 1
+          ? winds[0]
+          : winds.slice(0, -1).join(", ") + " + " + winds.slice(-1)[0]);
+    const verb = winds.length > 1 ? "are" : "is";
+    let html = `${subject} ${verb} in riichi`;
+    if (discardTile) {
+      const r = (typeof defenseDealinForTile === "function")
+        ? defenseDealinForTile(m, discardTile) : null;
+      if (r != null) {
+        html += ` — your <span class="defense-tile">${discardTile}</span> has a `
+              + `<span class="defense-dealin">${r.toFixed(1)}% deal-in rate</span>`;
+      }
+    }
+    return html;
+  }
+
+  // Per-category defense info appended to the lead line of a card.
+  function defenseInfoFor(category, opts = {}) {
+    if (!defenseCtx.in_defense) return "";
+    const opener = defenseTriggerHtml(opts.discardTile);
+    if (!opener) return "";
+    let body;
+    if (category === "5A") {
+      body = `${opener}. Declaring riichi locks your hand — you can no longer fold or swap to safer tiles if the opponent's wait closes in on you.`;
+    } else if (category === "4A") {
+      body = `${opener}. Opening your hand with a call cuts off your ability to defend — you commit to pushing while options to fold disappear.`;
+    } else if (category === "4B") {
+      const ippatsu = defenseCtx.threats.some(t => t.kind === "riichi" && t.ippatsu_alive);
+      body = ippatsu
+        ? `${opener}, and ippatsu is still alive. Calling here would have broken their ippatsu — denying the bonus is itself a defense play, on top of the speed.`
+        : `${opener}.`;
+      if (!ippatsu) return "";  // outside ippatsu window we don't surface the riichi link for 4B
+    } else if (category === "6A") {
+      body = `${opener}. Kan reduces your ability to defend (you commit a tile shape) AND reveals a new dora indicator — that new dora can buff their hand value as much as yours.`;
+    } else {
+      return "";
+    }
+    return `<div class="defense-context-line">${body}</div>`;
+  }
 
   // --- Helper: find per-discard stats for a tile ---
   function statFor(tile) {
@@ -89,7 +146,8 @@ function generateExplanation(m) {
   // --- Meld decisions (4A/4B/4C) ---
   if (cat === "4A" || (at !== "dahai" && at !== "reach" && (at === "chi" || at === "pon") && et === "none")) {
     const meldType = at === "chi" ? "chi" : "pon";
-    let text = `You called ${meldType}, but Mortal says passing was better.`;
+    let text = defenseInfoFor("4A");
+    text += `You called ${meldType}, but Mortal says passing was better.`;
     if (handAlreadyOpen) {
       text += ` Your hand is already open, so there's no menzen penalty left to pay — but this ${meldType} likely narrows your shape or commits you to the wrong direction.`;
     } else {
@@ -105,7 +163,8 @@ function generateExplanation(m) {
 
   if (cat === "4B" || (at === "none" && (et === "chi" || et === "pon"))) {
     const meldType = et === "chi" ? "chi" : "pon";
-    let text = `You passed on a ${meldType} opportunity, but Mortal says you should have called.`;
+    let text = defenseInfoFor("4B");
+    text += `You passed on a ${meldType} opportunity, but Mortal says you should have called.`;
     if (shantenStr) text += ` Your hand is at ${shantenStr}`;
     if (shantenStr) text += ` — calling this ${meldType} would bring you closer to tenpai faster than waiting for a self-draw.`;
     if (handAlreadyOpen) {
@@ -130,6 +189,11 @@ function generateExplanation(m) {
     const waitCountPhrase = waitTypes
       ? `a ${waitTypes}-type wait with ${waitTotal} live ${waitTotal === 1 ? "tile" : "tiles"}`
       : null;
+    // Riichi tile = the tile you actually discarded when declaring. We've
+    // stored it on the mistake during prep; fall back to actual.pai for
+    // older mistakes that pre-date that field.
+    const riichiTile = m.actual_riichi_tile || actual.pai;
+    const defenseInfo = defenseInfoFor("5A", { discardTile: riichiTile });
     // Furiten is the strongest 5A signal — the riichi literally can't ron.
     // Put that up front and skip the generic "you could dama" framing.
     if (m.bad_riichi_reason === "furiten") {
@@ -137,26 +201,41 @@ function generateExplanation(m) {
         .map(t => renderTile(t, "tile-sm furiten-tile")).join("");
       const waitsHtml = waits
         .map(w => renderTile(w.tile, "tile-sm furiten-wait-tile")).join("");
-      let text = `<span class="furiten-alert">Furiten riichi</span>`;
+      let text = defenseInfo;
+      text += `<span class="furiten-alert">Furiten riichi</span>`;
       const waitPrefix = waitTypes
         ? `your ${waitCountPhrase} (${waitsHtml}) includes ${furitenTiles}, which you've already discarded`
         : `your wait includes tiles you've already discarded`;
       text += ` — ${waitPrefix}.`;
       text += ` While in furiten you can only win by tsumo, not ron, so declaring riichi locks you into the weaker half of your own wait.`;
-      if (hasRiichi) text += ` And with an opponent already in riichi, you can't even dodge their wait anymore.`;
       if (m.ev_loss) text += ` This cost ${m.ev_loss.toFixed(2)} EV compared to dama.`;
       return text;
     }
-    let text = `You declared riichi, but Mortal recommends just discarding ${expected.pai} (dama) instead.`;
-    if (waitCountPhrase) text += ` You've got ${waitCountPhrase} — thin waits especially make riichi costly since you lose the flexibility to abandon them.`;
-    text += ` Riichi locks your hand — you can't change your wait or defend against opponents.`;
-    if (hasRiichi) text += ` With an opponent already in riichi, declaring here is especially risky — you lose all ability to dodge dangerous tiles.`;
-    const yakuHints = detectClosedHandYaku(m);
-    if (yakuHints.length) {
-      text += ` <span class="yaku-hints">Dama would win with: ${yakuHints.map(y => `<span class="yaku-tag">${y}</span>`).join(" ")}</span>`;
-      text += ` — when the hand already has a yaku, dama is often correct (Riichi Book 1): you keep flexibility, can dodge dangerous tiles, and the riichi premium of 1 han + ippatsu chance may not be worth the lock-in.`;
+    // Mortal-raised-shanten on a riichi call: Mortal would rather break the
+    // tenpai shape than declare. That's a strategic call (better wait,
+    // bigger hand, or a defensive read), not a tile-efficiency one. The two
+    // branches below are mutually exclusive — when Mortal raised shanten we
+    // skip the dama framing entirely, because "Mortal picks dama" and
+    // "Mortal breaks tenpai" can't both be true.
+    const raisedSh = (typeof mortalRaisedShanten === "function")
+      ? mortalRaisedShanten(m) : null;
+    let text = defenseInfo;
+    if (raisedSh) {
+      text += `You declared riichi, but Mortal recommends discarding ${raisedSh.mortalTile} instead — breaking tenpai rather than locking in your shape.`;
+      if (waitCountPhrase) text += ` You've got ${waitCountPhrase} — thin waits especially make riichi costly since you lose the flexibility to abandon them.`;
+      text += ` Riichi locks your hand — you can't change your wait or defend against opponents.`;
+      text += ` <span class="raised-shanten-hint">Mortal even breaks tenpai (${raisedSh.userSh}→${raisedSh.mortalSh}-shanten) by picking ${raisedSh.mortalTile} — it wants a better wait, more hand value, or room to defend, and would rather give up tenpai than ride your shape into riichi.</span>`;
     } else {
-      text += ` Mortal still says dama works here — perhaps because of board state, score situation, or remaining tiles. Trust Mortal's read on this one.`;
+      text += `You declared riichi, but Mortal recommends just discarding ${expected.pai} (dama) instead.`;
+      if (waitCountPhrase) text += ` You've got ${waitCountPhrase} — thin waits especially make riichi costly since you lose the flexibility to abandon them.`;
+      text += ` Riichi locks your hand — you can't change your wait or defend against opponents.`;
+      const yakuHints = detectClosedHandYaku(m);
+      if (yakuHints.length) {
+        text += ` <span class="yaku-hints">Dama would win with: ${yakuHints.map(y => `<span class="yaku-tag">${y}</span>`).join(" ")}</span>`;
+        text += ` — when the hand already has a yaku, dama is often correct (Riichi Book 1): you keep flexibility, can dodge dangerous tiles, and the riichi premium of 1 han + ippatsu chance may not be worth the lock-in.`;
+      } else {
+        text += ` Mortal still says dama works here — perhaps because of board state, score situation, or remaining tiles. Trust Mortal's read on this one.`;
+      }
     }
     if (m.ev_loss) text += ` This cost ${m.ev_loss.toFixed(2)} EV compared to the best play.`;
     return text;
@@ -179,7 +258,8 @@ function generateExplanation(m) {
 
   // --- Kan decisions (6A/6B) ---
   if (cat === "6A") {
-    let text = `You declared kan, but Mortal says ${formatAction(expected)} was better.`;
+    let text = defenseInfoFor("6A");
+    text += `You declared kan, but Mortal says ${formatAction(expected)} was better.`;
     text += ` Kan gives you an extra draw and reveals a new dora indicator, but it also reveals information to opponents and changes the tile count.`;
     text += ` Here, the risk or timing wasn't worth the potential reward.`;
     return text;

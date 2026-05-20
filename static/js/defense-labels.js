@@ -97,3 +97,67 @@ function fineLabelForTile(mistake, tile) {
   const prefix = coarse === "suji" ? "suji" : "non-suji";
   return `${prefix} ${_digitGroup(parseInt(base[0], 10))}`;
 }
+
+// --- Generic defense-situation helper ---------------------------------------
+//
+// Single source of truth for "is this mistake in a defense situation?". Used
+// by the bad-riichi / bad-meld / missed-meld / bad-kan explanations and the
+// dahai-vs-dahai categorizer.
+//
+// Today the only trigger is a riichi threat (any opponent in riichi with
+// dealin data computed). When open-defense detection lands (3+ open calls →
+// threatening hand), it should attach into the same `threats` array so all
+// the category messages pick it up automatically.
+
+const _DEFENSE_WINDS_ABS = ["E", "S", "W", "N"];
+const _DEFENSE_WIND_DISPLAY = { E: "East", S: "South", W: "West", N: "North" };
+
+function _oyaSeat(m) {
+  const b = m && m.board_state;
+  if (!b || !b.seat_wind) return null;
+  const playerSeat = m.actual ? m.actual.actor : null;
+  if (playerSeat == null) return null;
+  const pw = _DEFENSE_WINDS_ABS.indexOf(b.seat_wind);
+  if (pw < 0) return null;
+  return ((playerSeat - pw) % 4 + 4) % 4;
+}
+
+function _seatWindLabel(m, seat) {
+  const oya = _oyaSeat(m);
+  if (oya == null || seat == null) return null;
+  const w = _DEFENSE_WINDS_ABS[(seat - oya + 4) % 4];
+  return _DEFENSE_WIND_DISPLAY[w] || null;
+}
+
+// Returns { in_defense, riichi_threat, threats:[{seat, wind, riichi_tile,
+//   ippatsu_alive}, ...] }. `riichi_threat` is true iff any threat comes from
+// an opponent in riichi. Future open-defense triggers can extend `threats`
+// without touching the consumers.
+function defenseSituation(m) {
+  const out = { in_defense: false, riichi_threat: false, threats: [] };
+  if (!m) return out;
+  const per = Array.isArray(m.per_threat) ? m.per_threat : [];
+  for (const t of per) {
+    if (!t || t.seat == null) continue;
+    out.threats.push({
+      seat: t.seat,
+      wind: _seatWindLabel(m, t.seat),
+      riichi_tile: t.riichi_tile || null,
+      ippatsu_alive: !!t.ippatsu_alive,
+      kind: "riichi",
+    });
+    out.riichi_threat = true;
+  }
+  out.in_defense = out.threats.length > 0;
+  return out;
+}
+
+// Deal-in % for one tile, with red-five fallback. Mirrors the dealinFor()
+// helpers scattered through the codebase — pulled out so the defense-context
+// messages and the hand-tile colouring share one lookup.
+function defenseDealinForTile(m, tile) {
+  if (!tile || !m || !m.dealin_rates) return null;
+  const r = m.dealin_rates[tile];
+  if (r != null) return r;
+  return m.dealin_rates[tileBase(tile)] ?? null;
+}

@@ -107,6 +107,7 @@
         discards_to_riichi,
         genbutsu,
         dora_indicator: first_dora_indicator,
+        ippatsu_alive: !!opp.ippatsu_alive,
       });
     }
     return threats;
@@ -231,6 +232,7 @@
       per_threat.push({
         seat,
         riichi_tile,
+        ippatsu_alive: td.threat.ippatsu_alive,
         genbutsu: genbutsu_mjai,
         dealin_rates: rates,
         wait_breakdowns: breakdowns,

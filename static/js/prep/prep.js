@@ -72,6 +72,20 @@
     }
   }
 
+  // Apply the same KD defense compute we use for dahai-vs-dahai to non-dahai
+  // mistakes (5A/5B/4A/4B/6A/6B). Same fields land on the mistake so the
+  // frontend's defense-situation helper / hand-tile colouring work uniformly.
+  function _maybe_apply_defense_patch(patch, mistake, defenseCtx, mortalData,
+                                      kyokuIdx, entry) {
+    if (!defenseCtx) return;
+    const tiles_left = entry ? entry.tiles_left : null;
+    if (tiles_left == null) return;
+    const wall = _wall_for_mistake(mistake, mortalData, kyokuIdx, entry);
+    if (!wall) return;
+    Object.assign(patch,
+      _compute_kd_defense_patch(mistake.hand || [], defenseCtx, tiles_left, wall));
+  }
+
   function _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry) {
     const hand = mistake.hand || [];
     if (hand.length !== 14) return [];
@@ -200,12 +214,17 @@
 
     // Non-dahai branch (meld/riichi/kan decisions). No discard tradeoff;
     // still want a per-tile shanten table for the EV-table view + 5A/5B
-    // furiten / wait data.
+    // furiten / wait data. Defense data (dealin_rates / per_threat) is
+    // populated here too so 5A/4A/4B/6A cards can detect a riichi opponent
+    // through the same channel dahai-vs-dahai uses.
     if (!(at === "dahai" && et === "dahai")) {
       const patch = {};
       if (board_state) patch.board_state = board_state;
       const stats = _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry);
       if (stats && stats.length) patch.discard_stats = stats;
+
+      _maybe_apply_defense_patch(patch, mistake, defenseCtx, mortalData,
+                                 kyokuIdx, entry);
 
       if (at === "reach" && et === "dahai") {
         Object.assign(patch,

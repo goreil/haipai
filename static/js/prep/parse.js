@@ -58,6 +58,7 @@
           reach_event_idx: null,
           reach_accepted: false,
           open_melds: 0,
+          ippatsu_alive: false,
         };
         opponents[actor] = o;
         opponent_order.push(actor);
@@ -75,6 +76,13 @@
         tiles_left -= 1;
         if (actor === player_id) {
           player_tsumo_riichi_state.push(reach_accepted_seats.size > 0);
+        }
+        // The riichi declarer's next draw ends their ippatsu window — one
+        // full go-around has completed. The window survives the player's
+        // and other non-riichi seats' draws.
+        if (actor !== undefined && actor !== null && actor !== player_id) {
+          const opp = opponents[actor];
+          if (opp && opp.ippatsu_alive) opp.ippatsu_alive = false;
         }
       } else if (etype === "dahai" && actor !== undefined && actor !== null) {
         const pai = e.pai;
@@ -94,16 +102,37 @@
             genbutsu_post_reach_by_seat[seat].push(pai);
           }
         }
+        // kakan interrupts an in-flight ippatsu window for every riichi opp.
+        for (const seat of reach_accepted_seats) {
+          const opp = opponents[seat];
+          if (opp) opp.ippatsu_alive = false;
+        }
       } else if (etype === "reach" && actor !== undefined && actor !== null && actor !== player_id) {
         const opp = ensureOpp(actor);
         opp.reach_event_idx = opp.discards.length;
       } else if (etype === "reach_accepted" && actor !== undefined && actor !== null && actor !== player_id) {
         const opp = ensureOpp(actor);
         opp.reach_accepted = true;
+        opp.ippatsu_alive = true;
         reach_accepted_seats.add(actor);
       } else if ((etype === "pon" || etype === "chi" || etype === "daiminkan")
                  && actor !== undefined && actor !== null && actor !== player_id) {
         ensureOpp(actor).open_melds += 1;
+        // Any open call by anyone breaks ippatsu for every riichi opponent.
+        for (const seat of reach_accepted_seats) {
+          const opp = opponents[seat];
+          if (opp) opp.ippatsu_alive = false;
+        }
+      } else if ((etype === "pon" || etype === "chi" || etype === "daiminkan"
+                  || etype === "ankan")
+                 && actor !== undefined && actor !== null && actor === player_id) {
+        // Player's own calls also break ippatsu for every riichi opp; ankan
+        // by anyone other than the riichi declarer themselves is treated as
+        // an interruption for the purposes of this signal.
+        for (const seat of reach_accepted_seats) {
+          const opp = opponents[seat];
+          if (opp) opp.ippatsu_alive = false;
+        }
       }
 
       if (tiles_left <= target_tiles_left) break;

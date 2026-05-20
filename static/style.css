@@ -1724,6 +1724,34 @@ body {
   margin-bottom: 6px;
 }
 
+/* Defense-context line shown above the lead of meld/riichi/kan cards when an
+   opponent is in riichi. Same red palette as the Defense group colour. */
+.speech-bubble .defense-context-line {
+  display: block;
+  font-weight: 500;
+  color: #ffb3b3;
+  margin-bottom: 6px;
+  padding-left: 8px;
+  border-left: 3px solid rgba(255, 107, 107, 0.5);
+}
+.defense-context-line .defense-tile {
+  font-family: var(--mono, monospace);
+  padding: 0 3px;
+  background: rgba(255, 107, 107, 0.12);
+  border-radius: 3px;
+}
+.defense-context-line .defense-dealin {
+  font-weight: 700;
+  color: #ff9999;
+}
+
+/* Inline hint when Mortal raised shanten on a 5A — distinct from the header
+   badge so it reads as part of the prose, not a chip. */
+.raised-shanten-hint {
+  display: inline;
+  color: #ffd28a;
+}
+
 .mascot-speech .speech-bubble {
   position: relative;
   font-size: 12.5px;

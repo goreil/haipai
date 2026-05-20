@@ -8,11 +8,26 @@
 // here — surface that fact in the UI so the student knows Mortal's pick
 // isn't a tile-efficiency call. Returns the per-tile shanten data when it
 // fires, null otherwise.
+//
+// Also fires for 5A (Bad Riichi): if the player declared riichi but Mortal
+// recommends a dahai that *raises* shanten, Mortal isn't just suggesting
+// dama — it would rather break tenpai for a better wait, value, or safer
+// shape. The user's effective discard is the tile they threw with riichi
+// (stored on the mistake as `actual_riichi_tile`).
 function mortalRaisedShanten(m) {
   if (!m || !m.discard_stats || !m.actual || !m.expected) return null;
-  if (m.actual.type !== "dahai" || m.expected.type !== "dahai") return null;
-  const userTile = m.actual.pai;
-  const mortalTile = m.expected.pai;
+  let userTile = null;
+  let mortalTile = null;
+  if (m.actual.type === "dahai" && m.expected.type === "dahai") {
+    userTile = m.actual.pai;
+    mortalTile = m.expected.pai;
+  } else if (m.actual.type === "reach" && m.expected.type === "dahai") {
+    // Bad riichi — the riichi tile is the user's effective discard.
+    userTile = m.actual_riichi_tile || m.actual.pai;
+    mortalTile = m.expected.pai;
+  } else {
+    return null;
+  }
   if (!userTile || !mortalTile) return null;
   const find = (t) => {
     const base = t.replace(/r$/, "");
@@ -65,8 +80,10 @@ function renderMistakeCard(m, opts = {}) {
   }
   const raised = mortalRaisedShanten(m);
   if (raised) {
-    const tip = `Your ${raised.userTile} keeps ${raised.userSh}-shanten; Mortal's ${raised.mortalTile} goes to ${raised.mortalSh}-shanten — Mortal is breaking up the hand for a strategic reason (likely yaku or value), not for tile efficiency.`;
-    html += `<span class="raised-shanten-badge" title="${tip}">Mortal raised shanten</span>`;
+    const reason = m.category === "5A"
+      ? `Your ${raised.userTile} keeps ${raised.userSh}-shanten and declares riichi; Mortal's ${raised.mortalTile} goes to ${raised.mortalSh}-shanten — Mortal would rather break tenpai for a better wait, more hand value, or room to defend than lock the hand with riichi.`
+      : `Your ${raised.userTile} keeps ${raised.userSh}-shanten; Mortal's ${raised.mortalTile} goes to ${raised.mortalSh}-shanten — Mortal is breaking up the hand for a strategic reason (likely yaku or value), not for tile efficiency.`;
+    html += `<span class="raised-shanten-badge" title="${reason}">Mortal raised shanten</span>`;
   }
   if (m.shanten != null) html += `<span class="shanten">${m.shanten}-shanten</span>`;
   if (showLink) html += `<span class="mistake-link" onclick="fetchGame(${showLink})">View game</span>`;
