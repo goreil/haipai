@@ -39,15 +39,24 @@ def delete_category_report(conn, report_id):
     return cur.rowcount > 0
 
 
-def list_category_reports(conn):
+def list_category_reports(conn, exclude_user_id=None):
     """List all category reports with mistake and user context.
 
     Each row also carries a fully-rehydrated ``mistake`` dict (the same shape
     the games view consumes) so the admin UI can embed the exact same
     mistake-card render the reporting user saw.
+
+    ``exclude_user_id``: if set, omit reports filed by that user — used by the
+    admin UI's default "other players" view so the admin's own reports don't
+    bloat the initial load.
     """
+    where = ""
+    params = ()
+    if exclude_user_id is not None:
+        where = "WHERE cr.user_id != ?"
+        params = (exclude_user_id,)
     rows = conn.execute(
-        """SELECT cr.id AS id,
+        f"""SELECT cr.id AS id,
                   cr.user_id AS user_id,
                   cr.mistake_id AS mistake_id,
                   cr.kind AS kind,
@@ -69,7 +78,9 @@ def list_category_reports(conn):
            JOIN users u ON cr.user_id = u.id
            JOIN mistakes m ON cr.mistake_id = m.id
            JOIN games g ON m.game_id = g.id
+           {where}
            ORDER BY cr.created_at DESC""",
+        params,
     ).fetchall()
     out = []
     for r in rows:

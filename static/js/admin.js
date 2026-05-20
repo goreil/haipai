@@ -1,7 +1,7 @@
 // Admin dashboard: category-reports list + user list with View-as
 // impersonation. Impersonate banner rendering also lives here.
 
-var adminState = { users: [], reports: [], reportKind: "" };
+var adminState = { users: [], reports: [], reportKind: "", reportScope: "others", reportsLoading: false };
 
 async function showAdmin() {
   state.currentGame = null;
@@ -12,7 +12,7 @@ async function showAdmin() {
 
   const [statsRes, reportsRes] = await Promise.all([
     fetch("/api/admin/stats"),
-    fetch("/api/admin/category-reports"),
+    fetch(`/api/admin/category-reports?scope=${encodeURIComponent(adminState.reportScope)}`),
   ]);
   if (statsRes.status === 403) {
     content.innerHTML = '<div class="empty-state">Admin access required</div>';
@@ -23,6 +23,20 @@ async function showAdmin() {
   const reportPayload = reportsRes.ok ? await reportsRes.json() : { reports: [], mortal_data_by_game: {} };
   adminState.reports = reportPayload.reports || [];
   prepAndCategorizeReports(adminState.reports, reportPayload.mortal_data_by_game || {});
+  renderAdmin();
+}
+
+// Re-fetch reports for the currently selected scope and re-render in place.
+// Used when the admin switches between "Other players" and "All reports".
+async function reloadAdminReports(scope) {
+  adminState.reportScope = scope;
+  adminState.reportsLoading = true;
+  renderAdmin();
+  const res = await fetch(`/api/admin/category-reports?scope=${encodeURIComponent(scope)}`);
+  const payload = res.ok ? await res.json() : { reports: [], mortal_data_by_game: {} };
+  adminState.reports = payload.reports || [];
+  prepAndCategorizeReports(adminState.reports, payload.mortal_data_by_game || {});
+  adminState.reportsLoading = false;
   renderAdmin();
 }
 
@@ -82,17 +96,24 @@ function renderAdmin() {
   // the underlying category/copy via a Claude skill).
   const reports = adminState.reports || [];
   const reportKind = adminState.reportKind;
+  const reportScope = adminState.reportScope;
   const filteredReports = reportKind ? reports.filter(r => r.kind === reportKind) : reports;
   const counts = reports.reduce((a, r) => { a[r.kind] = (a[r.kind] || 0) + 1; return a; }, {});
   html += `<div class="game-header" style="margin-top:8px"><h2>Category reports (${reports.length})</h2></div>`;
   html += `<div class="admin-filters">
+    <select onchange="reloadAdminReports(this.value)">
+      <option value="others" ${reportScope==="others"?"selected":""}>Other player reports</option>
+      <option value="all" ${reportScope==="all"?"selected":""}>All reports</option>
+    </select>
     <select onchange="adminState.reportKind=this.value;renderAdmin()">
       <option value="">All kinds (${reports.length})</option>
       <option value="wrong_category" ${reportKind==="wrong_category"?"selected":""}>wrong_category (${counts.wrong_category||0})</option>
       <option value="wrong_text" ${reportKind==="wrong_text"?"selected":""}>wrong_text (${counts.wrong_text||0})</option>
     </select>
   </div>`;
-  if (!filteredReports.length) {
+  if (adminState.reportsLoading) {
+    html += '<div class="empty-state">Loading reports...</div>';
+  } else if (!filteredReports.length) {
     html += '<div class="empty-state">No reports</div>';
   } else {
     for (const r of filteredReports) {

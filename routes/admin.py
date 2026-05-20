@@ -55,11 +55,17 @@ def api_admin_category_reports():
     """Return reports plus slim mortal_data per game so the admin UI can run
     the same JS prep + categorize the reporter saw. Without mortal_data the
     embedded mistake card would render with no board context and no AI
-    category (both are computed client-side after the b2f migration)."""
+    category (both are computed client-side after the b2f migration).
+
+    ``?scope=others`` (default) hides the effective admin's own reports so
+    the initial load stays small; ``?scope=all`` returns everything.
+    """
     from app import get_conn
     from routes.game import load_slim_mortal_data
     conn = get_conn()
-    reports = db.list_category_reports(conn)
+    scope = request.args.get("scope", "others")
+    exclude_user_id = _effective_admin_id(conn) if scope == "others" else None
+    reports = db.list_category_reports(conn, exclude_user_id=exclude_user_id)
 
     mortal_by_game = {}
     for r in reports:
