@@ -153,7 +153,7 @@ function generateExplanation(m) {
     if (hasRiichi) text += ` With an opponent already in riichi, declaring here is especially risky — you lose all ability to dodge dangerous tiles.`;
     const yakuHints = detectClosedHandYaku(m);
     if (yakuHints.length) {
-      text += ` <span class="yaku-hints">Likely yaku already in hand: ${yakuHints.map(y => `<span class="yaku-tag">${y}</span>`).join(" ")}</span>`;
+      text += ` <span class="yaku-hints">Dama would win with: ${yakuHints.map(y => `<span class="yaku-tag">${y}</span>`).join(" ")}</span>`;
       text += ` — when the hand already has a yaku, dama is often correct (Riichi Book 1): you keep flexibility, can dodge dangerous tiles, and the riichi premium of 1 han + ippatsu chance may not be worth the lock-in.`;
     } else {
       text += ` Mortal still says dama works here — perhaps because of board state, score situation, or remaining tiles. Trust Mortal's read on this one.`;
@@ -549,50 +549,150 @@ function generateExplanation(m) {
   return `Mortal recommends ${formatAction(expected)} instead of your ${formatAction(actual)}. The EV difference of ${m.ev_loss.toFixed(2)} suggests this was a meaningful mistake.`;
 }
 
-// Detect easy-to-spot closed-hand yaku from a riichi mistake's hand tiles.
-// Returns a list of yaku name strings (may be empty). Used by 5A explanation
-// to indicate when dama can win without the riichi yaku.
+// Convert our mjai tile notation to the riichi-package's notation
+// (1m–9m, 0m for red 5m, 1z–7z for honors E/S/W/N/P/F/C).
+function _mjaiToRiichiTile(t) {
+  switch (t) {
+    case "E": return "1z";
+    case "S": return "2z";
+    case "W": return "3z";
+    case "N": return "4z";
+    case "P": return "5z";  // haku
+    case "F": return "6z";  // hatsu
+    case "C": return "7z";  // chun
+    case "5mr": return "0m";
+    case "5pr": return "0p";
+    case "5sr": return "0s";
+    default:   return t;     // 1m..9s already match
+  }
+}
+
+function _windToKazeInt(w) {
+  return { E: 1, S: 2, W: 3, N: 4 }[w] || 0;
+}
+
+// Compact "234m1p55z"-style notation from an array of mjai tiles.
+function _formatRiichiHandStr(mjaiTiles) {
+  const groups = { m: [], p: [], s: [], z: [] };
+  for (const t of mjaiTiles) {
+    const r = _mjaiToRiichiTile(t);
+    if (r.length !== 2) continue;
+    const suit = r[1];
+    if (groups[suit]) groups[suit].push(r[0]);
+  }
+  let out = "";
+  for (const suit of ["m", "p", "s", "z"]) {
+    if (groups[suit].length) out += groups[suit].join("") + suit;
+  }
+  return out;
+}
+
+// Situational/board yaku we don't want to surface here: the user is asking
+// "would dama win?" — the answer should describe the natural hand shape, not
+// the yaku you'd only earn by declaring riichi or by drawing the haitei.
+var _SITUATIONAL_YAKU = new Set([
+  "立直", "ダブル立直", "一発", "門前清自摸和",
+  "嶺上開花", "搶槓", "海底摸月", "河底撈魚",
+  "天和", "地和", "人和",
+  "ドラ", "赤ドラ",
+]);
+
+var _YAKU_LABEL = {
+  // 1 han
+  "平和": "pinfu",
+  "断么九": "tanyao",
+  "一盃口": "iipeikou",
+  "役牌白": "yakuhai (haku)",
+  "役牌発": "yakuhai (hatsu)",
+  "役牌中": "yakuhai (chun)",
+  "場風東": "yakuhai (round east)",
+  "場風南": "yakuhai (round south)",
+  "場風西": "yakuhai (round west)",
+  "場風北": "yakuhai (round north)",
+  "自風東": "yakuhai (seat east)",
+  "自風南": "yakuhai (seat south)",
+  "自風西": "yakuhai (seat west)",
+  "自風北": "yakuhai (seat north)",
+  // 2 han
+  "二盃口": "ryanpeikou",
+  "一気通貫": "ittsu",
+  "三色同順": "sanshoku",
+  "三色同刻": "sanshoku doukou",
+  "対々和": "toitoi",
+  "三暗刻": "sanankou",
+  "三槓子": "sankantsu",
+  "混老頭": "honroutou",
+  "小三元": "shousangen",
+  "七対子": "chiitoitsu",
+  "混全帯么九": "chanta",
+  // 3 han
+  "純全帯么九": "junchan",
+  "混一色": "honitsu",
+  // 6 han
+  "清一色": "chinitsu",
+  // Yakuman
+  "国士無双": "kokushi musou",
+  "国士無双十三面待ち": "kokushi (13-sided)",
+  "四暗刻": "suuankou",
+  "四暗刻単騎待ち": "suuankou tanki",
+  "大三元": "daisangen",
+  "小四喜": "shousuushii",
+  "大四喜": "daisuushii",
+  "字一色": "tsuuiisou",
+  "緑一色": "ryuuiisou",
+  "清老頭": "chinroutou",
+  "四槓子": "suukantsu",
+  "九蓮宝燈": "chuuren poutou",
+  "純正九蓮宝燈": "pure chuuren poutou",
+  "大七星": "daichisei",
+};
+
+// Detect closed-hand yaku that would resolve a dama win for a 5A (Bad Riichi)
+// mistake. Walks every tenpai wait, asks the bundled riichi calculator what
+// yaku the completed hand earns on ron, and returns the union of natural-shape
+// yaku as English/romaji labels. Situational yaku (riichi, ippatsu, tsumo,
+// haitei…) are stripped so the list only reflects "the hand is already worth
+// something without declaring."
 function detectClosedHandYaku(m) {
-  const hand = m.hand || [];
-  if (!hand.length) return [];
-  const yaku = [];
-  const bases = hand.map(tileBase);
-
-  // Tanyao: no terminals, no honors
-  const hasTerminalOrHonor = bases.some(t =>
-    "ESWNPFC".includes(t) || /^[19][mps]$/.test(t)
-  );
-  if (!hasTerminalOrHonor) yaku.push("tanyao");
-
-  // Suit purity (honitsu / chinitsu): only one of m/p/s present
-  const suits = new Set();
-  let hasHonor = false;
-  for (const t of bases) {
-    if ("ESWNPFC".includes(t)) hasHonor = true;
-    else if (t.endsWith("m")) suits.add("m");
-    else if (t.endsWith("p")) suits.add("p");
-    else if (t.endsWith("s")) suits.add("s");
+  if (typeof window === "undefined" || !window.Riichi) return [];
+  let hand = (m.hand || []).slice();
+  // For 5A the pre-discard hand is 14 tiles; drop the riichi tile.
+  if (hand.length === 14) {
+    const riichiTile = m.actual_riichi_tile || (m.actual && m.actual.pai);
+    if (!riichiTile) return [];
+    const idx = hand.indexOf(riichiTile);
+    if (idx < 0) return [];
+    hand.splice(idx, 1);
   }
-  if (suits.size === 1 && !hasHonor) yaku.push("chinitsu");
-  else if (suits.size === 1 && hasHonor) yaku.push("honitsu");
+  if (hand.length !== 13) return [];
+  const waits = tenpaiWaitTiles(m);
+  if (!waits.length) return [];
 
-  // Yakuhai pair-or-better: 2+ of dragons or wind matching round/seat
   const bs = m.board_state || {};
-  const counts = {};
-  for (const t of bases) counts[t] = (counts[t] || 0) + 1;
-  for (const dragon of ["P", "F", "C"]) {
-    if ((counts[dragon] || 0) >= 2) {
-      yaku.push(`yakuhai (${dragon === "P" ? "haku" : dragon === "F" ? "hatsu" : "chun"})`);
+  const bakaze = _windToKazeInt(bs.round_wind) || 1;
+  const jikaze = _windToKazeInt(bs.seat_wind) || 2;
+  const kazeSuffix = `${bakaze}${jikaze}`;
+
+  const handStr = _formatRiichiHandStr(hand);
+  const seen = new Set();
+  for (const w of waits) {
+    if (!w || !w.tile) continue;
+    const winTile = _mjaiToRiichiTile(w.tile);
+    // `+<winTile>` flags ron in the parser, so menzen-tsumo doesn't trigger.
+    const data = `${handStr}+${winTile}+${kazeSuffix}`;
+    let result;
+    try {
+      result = new window.Riichi(data).calc();
+    } catch (e) {
+      continue;
+    }
+    if (!result || !result.isAgari) continue;
+    for (const jp in result.yaku) {
+      if (_SITUATIONAL_YAKU.has(jp)) continue;
+      seen.add(_YAKU_LABEL[jp] || jp);
     }
   }
-  for (const wind of ["E", "S", "W", "N"]) {
-    if ((counts[wind] || 0) >= 2 && (wind === bs.round_wind || wind === bs.seat_wind)) {
-      const which = (wind === bs.round_wind && wind === bs.seat_wind) ? "double wind"
-                    : wind === bs.round_wind ? "round wind" : "seat wind";
-      yaku.push(`yakuhai (${which})`);
-    }
-  }
-  return yaku;
+  return Array.from(seen);
 }
 
 // EV-loss driven tier — display-only; backend severity string is ignored.
