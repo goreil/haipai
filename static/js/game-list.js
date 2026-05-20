@@ -84,8 +84,62 @@ async function fetchGame(id) {
   recategorizeGameInPlace(state.currentGameData);
   state.currentGameData.summary = recomputeSummaryByCategory(state.currentGameData);
   state.prepProgress = _prepProgressInitial(state.currentGameData);
+  autoSetSeverityFilters(state.currentGameData);
+  if (state.scrollToMistakeId != null) {
+    ensureMistakeVisible(state.currentGameData, state.scrollToMistakeId);
+  }
   renderGame();
   await refreshPrepAndRecategorize(state.currentGameData, id);
+}
+
+// Pick a default severity filter for the loaded game: severe is always on,
+// then enable Mistake → Light → Unsure cumulatively until at least 5 cards
+// are visible. The user can still toggle off afterwards — this just avoids
+// the case where a quiet game shows only 1-2 severe cards by default.
+function autoSetSeverityFilters(game) {
+  state.showMistake = false;
+  state.showLight = false;
+  state.showUnsure = false;
+  const counts = { severe: 0, mistake: 0, light: 0, unsure: 0 };
+  for (const rnd of game.rounds || []) {
+    for (const m of rnd.mistakes || []) counts[sevTier(m.ev_loss)]++;
+  }
+  let visible = counts.severe;
+  if (visible < 5) { state.showMistake = true; visible += counts.mistake; }
+  if (visible < 5) { state.showLight = true; visible += counts.light; }
+  if (visible < 5) { state.showUnsure = true; }
+  _syncSeverityCheckboxes();
+}
+
+// Force the filter for `mistakeId`'s tier on so a #mistake=<id> deep-link
+// can't land on a hidden card. Severe is always visible, so no-op there.
+function ensureMistakeVisible(game, mistakeId) {
+  if (!game || mistakeId == null) return;
+  let target = null;
+  for (const rnd of game.rounds || []) {
+    for (const m of rnd.mistakes || []) {
+      if (m.id === mistakeId) { target = m; break; }
+    }
+    if (target) break;
+  }
+  if (!target) return;
+  const tier = sevTier(target.ev_loss);
+  if (tier === "mistake") state.showMistake = true;
+  else if (tier === "light") state.showLight = true;
+  else if (tier === "unsure") state.showUnsure = true;
+  _syncSeverityCheckboxes();
+}
+
+// Mirror state.show* into the toolbar checkboxes. The checkboxes live in
+// index.html (not re-rendered), so we write their `.checked` property
+// directly. Order matches index.html: Mistake, Light, Unsure.
+function _syncSeverityCheckboxes() {
+  const filters = document.getElementById("severity-filters");
+  if (!filters) return;
+  const cbs = filters.querySelectorAll("input[type=checkbox]");
+  if (cbs[0]) cbs[0].checked = state.showMistake;
+  if (cbs[1]) cbs[1].checked = state.showLight;
+  if (cbs[2]) cbs[2].checked = state.showUnsure;
 }
 
 function _prepProgressInitial(game) {

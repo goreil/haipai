@@ -88,7 +88,9 @@ async function applyHashRoute() {
     if (loc.game_id !== state.currentGame) {
       await fetchGame(loc.game_id);
     } else {
-      // Same game already loaded — just scroll.
+      // Same game already loaded — just scroll. Still force the target
+      // mistake's tier on in case the user had it filtered out.
+      ensureMistakeVisible(state.currentGameData, mistakeId);
       renderGame();
     }
     return;
