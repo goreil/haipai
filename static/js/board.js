@@ -137,6 +137,17 @@ function renderTenpaiWaitsRow(m) {
   // removing the chosen riichi tile) and 5B (after the silently-discarded
   // would-be riichi tile). Placement directly below the discards block so
   // the student can see their hand's waits against what's been thrown away.
+
+  // For 5A/5B specifically, swap the chip strip for the rich EV-bars view
+  // (yaku, han·fu, dama vs riichi for both ron and tsumo, per wait). Falls
+  // through to the legacy chip strip if the bars renderer can't build —
+  // e.g. open hand, missing draw, or the Riichi calculator bailed.
+  if ((m.category === "5A" || m.category === "5B")
+      && typeof renderBadRiichiBars === "function") {
+    const bars = renderBadRiichiBars(m);
+    if (bars) return bars;
+  }
+
   const waits = tenpaiWaitTiles(m);
   if (!waits.length) return "";
   const total = waits.reduce((a, w) => a + (w.count || 0), 0);

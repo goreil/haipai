@@ -2771,6 +2771,202 @@ body {
   border: 1px solid rgba(168, 85, 247, 0.35);
 }
 
+/* ============ Bad-Riichi EV bars (5A / 5B mistake cards) ============ */
+/* Replaces the legacy tenpai-waits chip strip on Riichi-category cards.
+   Each wait is one .bar-row: tile + count on the left, then stacked Ron and
+   Tsumo bars on the right. All numbers live in the breakdown line ABOVE the
+   bar so the colored segments can be pure visual proportion — no text inside
+   them to overflow at small widths. */
+.bad-riichi-waits-section {
+  /* Local palette tokens — match the design variables. */
+  --dama: var(--accent);
+  --riichi: var(--sev-major);
+  --premium: var(--sev-medium);
+
+  padding: 10px 12px 14px;
+  margin: 6px 0;
+  background: linear-gradient(180deg, rgba(239,83,80,0.04) 0%, rgba(239,83,80,0) 70%);
+  border-left: 3px solid rgba(239, 83, 80, 0.45);
+  border-radius: 3px;
+}
+.bad-riichi-waits-section .waits-section-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.bad-riichi-waits-section .h-label {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--text);
+  text-transform: uppercase;
+}
+.bad-riichi-waits-section .h-count {
+  font-size: 11px; color: var(--text-dim); font-weight: 500;
+}
+.bad-riichi-waits-section .scope-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 8px; border-radius: 11px;
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.bad-riichi-waits-section .scope-pill .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--sev-medium);
+}
+.bad-riichi-waits-section .h-legend {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10.5px; color: var(--text-dim);
+  margin-left: auto;
+}
+.bad-riichi-waits-section .h-legend .legend-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.bad-riichi-waits-section .legend-dot.dama   { background: var(--dama); }
+.bad-riichi-waits-section .legend-dot.riichi { background: var(--riichi); }
+.bad-riichi-waits-section .legend-dot.bonus  {
+  background: repeating-linear-gradient(135deg,
+    rgba(255,167,38,0.7) 0 3px,
+    rgba(255,167,38,0.1) 3px 6px);
+}
+.bad-riichi-waits-section .h-legend .sep { color: var(--text-dim); opacity: 0.6; padding: 0 2px; }
+
+.bad-riichi-waits-section .wait-bars {
+  display: flex; flex-direction: column; gap: 18px;
+}
+.bad-riichi-waits-section .bar-row {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  column-gap: 14px;
+  align-items: start;
+}
+.bad-riichi-waits-section .bar-tile-col {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+  padding-top: 2px;
+}
+.bad-riichi-waits-section .tile.tile-big-wait {
+  height: 44px;
+}
+.bad-riichi-waits-section .live-count {
+  font-weight: 700; font-size: 11.5px;
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.bad-riichi-waits-section .live-count-furiten {
+  color: #ef9a9a;
+  background: rgba(239,83,80,0.12);
+  border-color: rgba(239,83,80,0.4);
+}
+
+.bad-riichi-waits-section .bar-body {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.bad-riichi-waits-section .bar-meta {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11.5px; color: var(--text-dim);
+  flex-wrap: wrap;
+}
+.bad-riichi-waits-section .yaku-list {
+  margin-right: auto;
+  display: inline-flex; gap: 4px; flex-wrap: wrap;
+}
+.bad-riichi-waits-section .yaku-none {
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--text-dim);
+}
+.bad-riichi-waits-section .bar-verdict {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.2px;
+}
+.bad-riichi-waits-section .bar-verdict.bad {
+  background: rgba(239,83,80,0.12);
+  color: #ef9a9a;
+  border: 1px solid rgba(239,83,80,0.3);
+}
+
+.bad-riichi-waits-section .bar-stack {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.bad-riichi-waits-section .bar-block {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.bad-riichi-waits-section .bar-breakdown {
+  display: flex; align-items: baseline;
+  gap: 6px 12px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.bad-riichi-waits-section .bd-mode {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  opacity: 0.8;
+  margin-right: 2px;
+}
+.bad-riichi-waits-section .bd-item {
+  display: inline-flex; align-items: baseline; gap: 5px;
+}
+.bad-riichi-waits-section .bd-item .bd-tag {
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.bad-riichi-waits-section .bd-item.dama   .bd-tag { color: var(--dama); }
+.bad-riichi-waits-section .bd-item.riichi .bd-tag { color: #ef9a9a; }
+.bad-riichi-waits-section .bd-item.bonus  .bd-tag { color: var(--sev-medium); }
+.bad-riichi-waits-section .bd-hanfu {
+  font-size: 10.5px; color: var(--text-dim);
+}
+.bad-riichi-waits-section .bd-points {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  letter-spacing: -0.2px;
+}
+.bad-riichi-waits-section .bd-sep { color: var(--text-dim); opacity: 0.5; }
+
+.bad-riichi-waits-section .bar-track {
+  position: relative;
+  height: 14px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(42,58,90,0.6);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bad-riichi-waits-section .bar-seg {
+  position: absolute; top: 0; bottom: 0;
+}
+.bad-riichi-waits-section .bar-seg.dama {
+  background: linear-gradient(90deg, rgba(79,195,247,0.55) 0%, rgba(79,195,247,0.35) 100%);
+  border-right: 1px solid rgba(79,195,247,0.7);
+}
+.bad-riichi-waits-section .bar-seg.riichi {
+  background: linear-gradient(90deg, rgba(239,83,80,0.45) 0%, rgba(239,83,80,0.25) 100%);
+  border-right: 1px solid rgba(239,83,80,0.6);
+}
+.bad-riichi-waits-section .bar-bonus {
+  position: absolute; top: 0; bottom: 0;
+  background: repeating-linear-gradient(135deg,
+    rgba(255,167,38,0.55) 0 4px,
+    rgba(255,167,38,0.15) 4px 8px);
+  border-right: 1px dashed rgba(255,167,38,0.7);
+}
+
 /* ============ Mailbox ============ */
 .mailbox { position: relative; }
 .mailbox-btn {
