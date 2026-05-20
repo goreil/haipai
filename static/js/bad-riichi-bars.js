@@ -15,6 +15,26 @@ function _badRiichiBonusEv(riichiTen) {
   return Math.round(riichiTen * 0.13 / 100) * 100;
 }
 
+// Compact "5z" / "5z6m"-style dora notation for the Riichi lib. Takes the
+// resolved dora tiles (not indicators) from board_state.dora_tiles and emits
+// the string that goes after `+d` in the calculator input.
+function _formatRiichiDoraStr(mjaiTiles) {
+  if (!mjaiTiles || !mjaiTiles.length) return null;
+  if (typeof _mjaiToRiichiTile !== "function") return null;
+  const groups = { m: [], p: [], s: [], z: [] };
+  for (const t of mjaiTiles) {
+    const r = _mjaiToRiichiTile(t);
+    if (!r || r.length !== 2) continue;
+    if (!groups[r[1]]) continue;
+    groups[r[1]].push(r[0]);
+  }
+  let out = "";
+  for (const s of "mpsz") {
+    if (groups[s].length) out += groups[s].join("") + s;
+  }
+  return out || null;
+}
+
 // Build a hand string for the Riichi lib such that the win tile is parsed as
 // the agari (last tile). Required for tsumo, where the win tile is part of
 // the 14-tile hand rather than passed as `+<winTile>`.
@@ -62,6 +82,8 @@ function _evalWaitScore(hand13, winTile, m, opts) {
   const bakaze = _windToKazeInt(bs.round_wind) || 1;
   const jikaze = _windToKazeInt(bs.seat_wind) || 2;
   const extras = (opts.riichi ? "r" : "") + `${bakaze}${jikaze}`;
+  const doraStr = _formatRiichiDoraStr(bs.dora_tiles);
+  const doraSuffix = doraStr ? `+d${doraStr}` : "";
 
   let data;
   if (opts.tsumo) {
@@ -69,11 +91,11 @@ function _evalWaitScore(hand13, winTile, m, opts) {
     hand14.push(winTile);
     const handStr = _formatRiichiTsumoHandStr(hand14, winTile);
     if (!handStr) return null;
-    data = `${handStr}+${extras}`;
+    data = `${handStr}+${extras}${doraSuffix}`;
   } else {
     const handStr = _formatRiichiHandStr(hand13);
     const winR = _mjaiToRiichiTile(winTile);
-    data = `${handStr}+${winR}+${extras}`;
+    data = `${handStr}+${winR}+${extras}${doraSuffix}`;
   }
 
   let result;
@@ -89,15 +111,26 @@ function _evalWaitScore(hand13, winTile, m, opts) {
   // ron or tsumo on dora alone. Riichi and menzen-tsumo both count as real
   // yaku here.
   let hasRealYaku = false;
+  let dora = 0;
+  let aka = 0;
   const yaku = [];
   for (const jp in result.yaku) {
-    if (jp === "ドラ" || jp === "赤ドラ") continue;
+    if (jp === "ドラ") {
+      const v = String(result.yaku[jp]).match(/^(\d+)/);
+      if (v) dora = parseInt(v[1], 10);
+      continue;
+    }
+    if (jp === "赤ドラ") {
+      const v = String(result.yaku[jp]).match(/^(\d+)/);
+      if (v) aka = parseInt(v[1], 10);
+      continue;
+    }
     hasRealYaku = true;
     if (_SITUATIONAL_YAKU && _SITUATIONAL_YAKU.has(jp)) continue;
     yaku.push((_YAKU_LABEL && _YAKU_LABEL[jp]) || jp);
   }
   if (!hasRealYaku) return null;
-  return { han: result.han, fu: result.fu, ten: result.ten, yaku };
+  return { han: result.han, fu: result.fu, ten: result.ten, yaku, dora, aka };
 }
 
 // Build the 13-tile tenpai hand for 5A/5B by dropping the actual discard
@@ -139,11 +172,22 @@ function _buildBadRiichiWaitEval(m) {
     let yaku = (ronDama && ronDama.yaku) || (tsumoDama && tsumoDama.yaku) || [];
     yaku = yaku.filter(y => y && y !== "立直");
 
+    // Dora/aka counts are identical across all 4 modes for a given wait —
+    // the lib counts them from the completed hand, which is the same shape
+    // for ron/tsumo/dama/riichi. Pick from whichever eval is non-null. (A
+    // wait tile that is itself dora is reflected here because each eval uses
+    // its own agari.)
+    const anyEval = ronRiichi || tsumoRiichi || ronDama || tsumoDama;
+    const dora = anyEval ? (anyEval.dora || 0) : 0;
+    const aka = anyEval ? (anyEval.aka || 0) : 0;
+
     out.push({
       tile: w.tile,
       count: w.count || 0,
       furiten: furitenSet.has(w.tile),
       yaku,
+      dora,
+      aka,
       ronDama, ronRiichi, tsumoDama, tsumoRiichi,
     });
   }
@@ -219,8 +263,14 @@ function _renderWaitRow(w, scaleMax) {
   const ronBonus = w.ronRiichi ? _badRiichiBonusEv(w.ronRiichi.ten) : 0;
   const tsumoBonus = w.tsumoRiichi ? _badRiichiBonusEv(w.tsumoRiichi.ten) : 0;
 
-  const yakuTags = w.yaku && w.yaku.length
-    ? w.yaku.map(y => `<span class="yaku-tag">${y}</span>`).join(" ")
+  const tagParts = [];
+  if (w.yaku && w.yaku.length) {
+    for (const y of w.yaku) tagParts.push(`<span class="yaku-tag">${y}</span>`);
+  }
+  if (w.dora) tagParts.push(`<span class="yaku-tag dora-tag">dora ${w.dora}</span>`);
+  if (w.aka) tagParts.push(`<span class="yaku-tag dora-tag">aka ${w.aka}</span>`);
+  const yakuTags = tagParts.length
+    ? tagParts.join(" ")
     : `<span class="yaku-none">no yaku — riichi only</span>`;
 
   // Verdict line: short summary of the riichi premium (or, when there's no

@@ -2770,6 +2770,11 @@ body {
   color: #c084fc;
   border: 1px solid rgba(168, 85, 247, 0.35);
 }
+.yaku-tag.dora-tag {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
 
 /* ============ Bad-Riichi EV bars (5A / 5B mistake cards) ============ */
 /* Replaces the legacy tenpai-waits chip strip on Riichi-category cards.
