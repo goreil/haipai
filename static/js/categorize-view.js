@@ -232,7 +232,7 @@ function generateExplanation(m) {
       const yakuHints = detectClosedHandYaku(m);
       if (yakuHints.length) {
         text += ` <span class="yaku-hints">Dama would win with: ${yakuHints.map(y => `<span class="yaku-tag">${y}</span>`).join(" ")}</span>`;
-        text += ` — when the hand already has a yaku, dama is often correct (Riichi Book 1): you keep flexibility, can dodge dangerous tiles, and the riichi premium of 1 han + ippatsu chance may not be worth the lock-in.`;
+        text += ` — with dama you keep flexibility, can dodge dangerous tiles, and the riichi premium of 1 han + ippatsu chance may not be worth the lock-in.`;
       } else {
         text += ` Mortal still says dama works here — perhaps because of board state, score situation, or remaining tiles. Trust Mortal's read on this one.`;
       }
