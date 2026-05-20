@@ -364,10 +364,11 @@ function renderGame() {
 
       const sc = sevClass(m);
       const dataAttrs = `data-game="${state.currentGame}" data-round="${rnd.round}" data-turn="${m.turn}" data-index="${idx}"`;
+      const midAttr = m.id ? ` data-mid="${m.id}"` : "";
       const catGrpColor = GROUP_COLORS[catGroup(m.category)] || null;
       const cardStyle = catGrpColor ? ` style="border-left-color:${catGrpColor}"` : "";
 
-      html += `<div class="mistake ${sc}" ${dataAttrs}${cardStyle}>`;
+      html += `<div class="mistake ${sc}" ${dataAttrs}${midAttr}${cardStyle}>`;
       html += `<div class="mistake-top">`;
       html += `<span class="turn-num">T${m.turn}</span>`;
       if (m.id) html += `<span class="dev-id" title="mistake id">#${m.id}</span>`;
@@ -583,6 +584,21 @@ function renderGame() {
 
   // Re-highlight active game in sidebar
   renderGameList();
+
+  // Honour a pending scroll-to-mistake request from the #mistake=<id>
+  // deep-link router. Only scrolls in the rounds view — the summary view
+  // collapses cards into expandable groups, so there's nothing to scroll to.
+  if (state.scrollToMistakeId && state.gameView === "rounds") {
+    const target = state.scrollToMistakeId;
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`.mistake[data-mid="${target}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.classList.add("mistake-flash");
+      setTimeout(() => el.classList.remove("mistake-flash"), 2000);
+    });
+    state.scrollToMistakeId = null;
+  }
 }
 
 function switchGameView(view) {

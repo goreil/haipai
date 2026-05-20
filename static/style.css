@@ -521,6 +521,16 @@ body {
 .mistake.sev-major { border-left-color: var(--sev-major); }
 .mistake.sev-flag { border-left-color: var(--sev-flag); }
 
+/* Brief highlight when navigated to via #mistake=<id>, so the target card
+   doesn't blend into the round it lives in once scrolled into view. */
+.mistake.mistake-flash {
+  animation: mistake-flash-anim 1.8s ease-out;
+}
+@keyframes mistake-flash-anim {
+  0%   { box-shadow: 0 0 0 2px var(--accent), 0 0 14px rgba(79, 195, 247, 0.5); }
+  100% { box-shadow: 0 0 0 2px transparent, 0 0 14px rgba(79, 195, 247, 0); }
+}
+
 .mistake-top {
   display: flex;
   align-items: center;

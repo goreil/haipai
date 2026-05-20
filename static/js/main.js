@@ -44,19 +44,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   CATEGORY_INFO = await catRes.json();
   await fetchGames();
 
-  // Deep-link to a specific game via #game=<id>. After fetchGames so the
-  // sidebar is populated regardless of whether the deep-link target loads.
-  const hashGameId = parseGameHash();
-  if (hashGameId != null) fetchGame(hashGameId);
+  // Deep-link to a specific game via #game=<id> or to a specific mistake via
+  // #mistake=<id>. After fetchGames so the sidebar is populated regardless
+  // of whether the deep-link target loads.
+  await applyHashRoute();
 
-  window.addEventListener("hashchange", () => {
-    const id = parseGameHash();
-    if (id == null) {
-      if (state.currentGame != null) navigateHome();
-    } else if (id !== state.currentGame) {
-      fetchGame(id);
-    }
-  });
+  window.addEventListener("hashchange", () => { applyHashRoute(); });
 });
 
 // Returns the integer game id from `#game=<id>`, or null if the hash is
@@ -66,4 +59,44 @@ function parseGameHash() {
   if (!m) return null;
   const n = parseInt(m[1], 10);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Returns the integer mistake id from `#mistake=<id>`, or null otherwise.
+function parseMistakeHash() {
+  const m = (window.location.hash || "").match(/^#mistake=(\d+)$/);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Route the current location.hash to a game load. #mistake=<id> resolves to a
+// game via /api/mistakes/<id>/locate, stashes the target mistake id so
+// renderGame can scroll to it, and (in summary view) bounces to rounds so the
+// target card is actually on screen.
+async function applyHashRoute() {
+  const mistakeId = parseMistakeHash();
+  if (mistakeId != null) {
+    const res = await fetch(`/api/mistakes/${mistakeId}/locate`);
+    if (!res.ok) {
+      // Drop the hash so the listener doesn't refire on history changes.
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+      return;
+    }
+    const loc = await res.json();
+    state.scrollToMistakeId = mistakeId;
+    if (state.gameView !== "rounds") state.gameView = "rounds";
+    if (loc.game_id !== state.currentGame) {
+      await fetchGame(loc.game_id);
+    } else {
+      // Same game already loaded — just scroll.
+      renderGame();
+    }
+    return;
+  }
+  const gameId = parseGameHash();
+  if (gameId == null) {
+    if (state.currentGame != null) navigateHome();
+  } else if (gameId !== state.currentGame) {
+    await fetchGame(gameId);
+  }
 }

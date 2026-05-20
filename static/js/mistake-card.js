@@ -86,7 +86,18 @@ function renderMistakeCard(m, opts = {}) {
     html += `<span class="raised-shanten-badge" title="${reason}">Mortal raised shanten</span>`;
   }
   if (m.shanten != null) html += `<span class="shanten">${m.shanten}-shanten</span>`;
-  if (showLink) html += `<span class="mistake-link" onclick="fetchGame(${showLink})">View game</span>`;
+  if (showLink) {
+    // Prefer a stable deep-link to the mistake when we know its id — that
+    // updates location.hash so the browser's back button rewinds the jump,
+    // and the rounds view scrolls + flashes the target card. Falls back to a
+    // plain game fetch for cards without an id (shouldn't happen for stored
+    // mistakes, but keep the link from being a dead end).
+    if (m.id) {
+      html += `<a class="mistake-link" href="#mistake=${m.id}">View mistake</a>`;
+    } else {
+      html += `<span class="mistake-link" onclick="fetchGame(${showLink})">View game</span>`;
+    }
+  }
   if (m.actual && m.expected) {
     const actStr = formatAction(m.actual);
     const expStr = formatAction(m.expected);
