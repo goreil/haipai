@@ -54,7 +54,29 @@ function renderEvComparison(m, options) {
   const shown = new Set();
   if (actualTile) shown.add(actualTile);
   if (expectedTile) shown.add(expectedTile);
-  if (m.best_discard) shown.add(m.best_discard);
+
+  // Speed (calculator) row: only worth its own row when it strictly beats
+  // both user and AI choices on (shanten, ukeire). If either choice ties
+  // it, the "Speed" marker is applied to that row instead — and if both
+  // tie, both get the marker. Avoids a redundant third row when the
+  // student's pick is already the fastest.
+  const speedStat = m.best_discard
+    ? (statMap[m.best_discard] || statMap[normalizeRed(m.best_discard)])
+    : null;
+  const actualStat = actualTile
+    ? (statMap[actualTile] || statMap[normalizeRed(actualTile)])
+    : null;
+  const expectedStat = expectedTile
+    ? (statMap[expectedTile] || statMap[normalizeRed(expectedTile)])
+    : null;
+  const tiesSpeed = (s) => s && speedStat
+    && s.shanten === speedStat.shanten
+    && s.necessary_count === speedStat.necessary_count;
+  const speedAbsorbedByActual = tiesSpeed(actualStat);
+  const speedAbsorbedByExpected = tiesSpeed(expectedStat);
+  if (m.best_discard && !speedAbsorbedByActual && !speedAbsorbedByExpected) {
+    shown.add(m.best_discard);
+  }
 
   // (Historical note: previously we pinned the highest-dealin hand tile as
   // a "Threat" row on genbutsu-vs-genbutsu defense mistakes. Removed — added
@@ -142,7 +164,10 @@ function renderEvComparison(m, options) {
     const markers = [];
     if (isActual) markers.push('<span class="marker played">You</span>');
     if (isExpected) markers.push('<span class="marker ai">AI</span>');
-    if (isBestDiscard) markers.push('<span class="marker speed" title="The tile that reaches tenpai fastest (most tile acceptance, ignoring hand value and defense)">Speed</span>');
+    const showSpeedMarker = isBestDiscard
+      || (isActual && speedAbsorbedByActual)
+      || (isExpected && speedAbsorbedByExpected);
+    if (showSpeedMarker) markers.push('<span class="marker speed" title="The tile that reaches tenpai fastest (most tile acceptance, ignoring hand value and defense)">Speed</span>');
 
     html += `<tr class="${rowClass}">`;
     html += `<td class="tile-cell">${renderTile(tile, "ev-tile")} ${markers.join("")}</td>`;
