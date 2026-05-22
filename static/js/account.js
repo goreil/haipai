@@ -132,7 +132,7 @@ function showHelp() {
       <p>Mistakes are ranked by difficulty, from most basic to most complex. All comparisons are against Mortal's recommended discard:</p>
       <p style="padding-left:16px">&bull; <b>P1 Shanten Failure</b> &mdash; Your discard ends up at a worse shanten than Mortal's pick &mdash; your hand moved further from winning</p>
       <p style="padding-left:16px">&bull; <b>P2 Tile Efficiency</b> &mdash; Same shanten as Mortal's pick, but fewer tile acceptance (ukeire)</p>
-      <p style="padding-left:16px">&bull; <b>P3 Hand Value</b> &mdash; Similar tile acceptance, but Mortal's pick keeps a yakuhai or dora that you discarded</p>
+      <p style="padding-left:16px">&bull; <b>P3 Hand Value</b> &mdash; Your discard gives up a yakuhai or dora that Mortal's pick preserves</p>
       <p style="padding-left:16px">&bull; <b>P4 Complex Decision</b> &mdash; Mortal prefers a different tile for reasons that aren't pure shanten, ukeire, or hand value &mdash; a real judgment call</p>
       <p>&bull; <b>Non-discard actions</b> (chi, pon, riichi, kan) are categorized by type: Meld, Riichi, or Kan.</p>
     </div>

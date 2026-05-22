@@ -21,11 +21,12 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 3;
+  const CATEGORIZER_VERSION = 4;
   const CATEGORIZER_CHANGELOG = {
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
     2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
     3: "P3 now requires Mortal's ukeire to be at least equal to the player's (strict, no similarity threshold). Rule is now: more ukeire or better shanten → push; otherwise complex. Affects #12151.",
+    4: "P3 reverted to a pure dora/yakuhai check — no ukeire comparison. The v3 gate misclassified #12611 (E discard is round-wind + dora, but had more ukeire than Mortal's 6p) as P4 Complex. Also drops the `similar_acceptance` flag and its '*0.9' similarity threshold from value_preserve.",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
@@ -212,14 +213,12 @@
       if (sameShanten && eNec > aNec) return "P2";
     }
 
-    // P3: hand-value preservation. Fires when at least one value
-    // dimension applies (your discard carries dora/yakuhai, Mortal's
-    // doesn't) AND Mortal's ukeire is at least equal to yours. Strict:
-    // the rule is "Mortal has more efficiency or better shanten → push,
-    // else complex" — so if Mortal sacrificed any ukeire, value alone
-    // doesn't qualify as a push; bump to P4.
-    if (valueCtx && (valueCtx.doraApplies || valueCtx.yakuhaiApplies)
-        && eNec >= aNec) {
+    // P3: hand-value preservation. Fires whenever your discard carries
+    // dora/yakuhai that Mortal's pick doesn't — pure value check, no
+    // ukeire comparison. (#12611: discarding E gives more ukeire than
+    // Mortal's 6p, but E is round wind + dora so the mistake is still
+    // hand value, not "complex".)
+    if (valueCtx && (valueCtx.doraApplies || valueCtx.yakuhaiApplies)) {
       return "P3";
     }
 
@@ -316,18 +315,9 @@
     const valueCtx = { doraApplies, yakuhaiApplies };
 
     if (doraApplies || yakuhaiApplies) {
-      // Stash for the explainer. similar_acceptance flips the trigger
-      // line between "Similar tile acceptance, …" and the looser
-      // "Mortal is preserving hand value." framing (#4263).
-      const aStat = findInStats(actual.pai, discardStats);
-      const eStat = findInStats(expected.pai, discardStats);
-      const aNec = (aStat && aStat.necessary_count) || 0;
-      const eNec = (eStat && eStat.necessary_count) || 0;
-      const similarAcceptance = aNec === 0 || eNec >= aNec * 0.9;
       catData.value_preserve = {
         dora: doraApplies,
         yakuhai: yakuhaiApplies,
-        similar_acceptance: similarAcceptance,
       };
     }
 

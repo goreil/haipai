@@ -448,10 +448,7 @@ function generateExplanation(m) {
     if (cat === "P3") {
       const vp = (m.categorize_data || {}).value_preserve || {};
       let text = shantenWarning;
-      const trigger = vp.similar_acceptance
-        ? `Similar tile acceptance, but Mortal is preserving hand value.`
-        : `Mortal is preserving hand value.`;
-      text += `<span class="trigger-line">${trigger}</span>`;
+      text += `<span class="trigger-line">Mortal is preserving hand value.</span>`;
       if (shantenStr) text += `Your hand is at ${shantenStr}. `;
       if (expectedStat && actualStat) {
         text += `${expected.pai}: ${tileCountStr(expectedStat)} vs ${actual.pai}: ${tileCountStr(actualStat)}. `;
