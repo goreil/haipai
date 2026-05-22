@@ -47,6 +47,14 @@ function renderEvComparison(m, options) {
   const statMap = {};
   for (const s of m.discard_stats) {
     statMap[s.tile] = s;
+    // Cross-alias red/regular fives. shanten_calc emits one stat per base
+    // tile, keyed "5pr" when the hand holds the red copy and "5p" otherwise
+    // — but a discard of the other copy is still the same per-base-tile
+    // decision. Without the alias, a "5p" discard against a "5pr"-keyed
+    // stat (or vice versa) misses the lookup and the row's shanten /
+    // tile-acceptance disappear.
+    if (/^5[mps]r$/.test(s.tile)) statMap[s.tile.slice(0, -1)] = s;
+    else if (/^5[mps]$/.test(s.tile)) statMap[s.tile + "r"] = s;
   }
 
   // Review view is decluttered: just the three decisions the user cares about
