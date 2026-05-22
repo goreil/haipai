@@ -282,7 +282,6 @@ function generateExplanation(m) {
   if (at === "dahai" && et === "dahai") {
     const actualStat = statFor(actual.pai);
     const expectedStat = statFor(expected.pai);
-    const bestDiscard = m.best_discard;
     const actualSafety = safetyFor(actual.pai);
     const expectedSafety = safetyFor(expected.pai);
 
@@ -416,7 +415,7 @@ function generateExplanation(m) {
       if (expectedDealin != null) text += ` (deal-in ${pctStr(expectedDealin)}${expectedLabel ? ", " + expectedLabel : ""})`;
       text += ` is riskier than your ${actual.pai}`;
       if (actualDealin != null) text += ` (${pctStr(actualDealin)}${actualLabel ? ", " + actualLabel : ""})`;
-      text += `. Mortal is weighing hand value, yaku potential, or score-situation factors that the tile-efficiency calculator can't see.`;
+      text += `. Mortal is weighing hand value, yaku potential, or score-situation factors that pure tile efficiency can't see.`;
       return text;
     }
 
@@ -434,11 +433,8 @@ function generateExplanation(m) {
 
     // --- P2: Tile Efficiency ---
     if (cat === "P2") {
-      let trigger = `Your tile has worse acceptance (ukeire) than Mortal's choice`;
-      if (bestDiscard && bestDiscard === expected.pai?.replace(/r$/, "")) trigger += ` — both Mortal and calculator agree`;
-      trigger += `.`;
       let text = shantenWarning;
-      text += `<span class="trigger-line">${trigger}</span>`;
+      text += `<span class="trigger-line">Your tile has worse acceptance (ukeire) than Mortal's choice.</span>`;
       if (shantenStr) text += `Your hand is at ${shantenStr}. `;
       if (expectedStat && actualStat) {
         text += `Discarding ${expected.pai} gives ${tileCountStr(expectedStat)} acceptance`;
@@ -484,22 +480,18 @@ function generateExplanation(m) {
     // --- P4: Complex Decision ---
     if (cat === "P4") {
       let text = shantenWarning;
-      text += `<span class="trigger-line">Mortal and calculator genuinely disagree on the best discard — often a score or yaku tradeoff the calculator can't see.</span>`;
+      text += `<span class="trigger-line">Mortal recommends ${expected.pai} over your ${actual.pai} — a judgment call beyond pure tile efficiency.</span>`;
       if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-      if (bestDiscard && bestDiscard !== expected.pai) {
-        const bestEntry = statFor(bestDiscard);
-        text += `Calculator recommends ${bestDiscard}`;
-        if (bestEntry) text += ` (${tileCountStr(bestEntry)})`;
-        text += `, but Mortal prefers ${expected.pai}. `;
-        text += `Mortal sees strategic value beyond tile counting — `;
-        const factors = [];
-        if (labels.includes("yakuhai") || labels.includes("dora")) factors.push("hand value optimization");
-        if (m.board_state && m.board_state.scores) factors.push("score situation");
-        factors.push("hand shape", "yaku potential");
-        text += `${factors.slice(0, 3).join(", ")}.`;
+      if (expectedStat && actualStat) {
+        text += `Mortal does not seem to have better tile acceptance so the decision is about something else — `;
       } else {
-        text += `Mortal recommends ${expected.pai} over your ${actual.pai} — a judgment call beyond pure efficiency.`;
+        text += `Mortal sees strategic value beyond tile counting — `;
       }
+      const factors = [];
+      if (labels.includes("yakuhai") || labels.includes("dora")) factors.push("hand value");
+      if (m.board_state && m.board_state.scores) factors.push("score situation");
+      factors.push("hand shape", "yaku potential");
+      text += `${factors.slice(0, 3).join(", ")}.`;
       return text;
     }
 
@@ -508,7 +500,7 @@ function generateExplanation(m) {
     // 1A: Pure efficiency (legacy)
     if (cat === "1A") {
       let text = shantenWarning;
-      text += `This is a pure tile efficiency mistake — both Mortal and the calculator agree on the best discard.`;
+      text += `This is a pure tile efficiency mistake — Mortal's pick keeps more tile acceptance than yours.`;
       if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
       if (expectedStat && actualStat) {
         text += ` Discarding ${expected.pai} gives you ${tileCountStr(expectedStat)} acceptance`;
@@ -548,7 +540,7 @@ function generateExplanation(m) {
       }
 
       if (expectedStat && actualStat) {
-        text += ` The calculator sees these as similar (${tileCountStr(expectedStat)} vs ${tileCountStr(actualStat)}), but Mortal weighs the hand value difference.`;
+        text += ` Tile acceptance is similar (${tileCountStr(expectedStat)} vs ${tileCountStr(actualStat)}), but Mortal weighs the hand value difference.`;
       }
       text += ` When tile acceptance is close, prioritize keeping tiles that add han (yaku value) to your hand.`;
       return text;
@@ -574,41 +566,26 @@ function generateExplanation(m) {
       if (actualSafety != null) text += ` (safety: ${actualSafety.toFixed ? actualSafety.toFixed(0) : actualSafety}, ${safetyLabel(actualSafety)})`;
       text += `.`;
 
-      if (bestDiscard && bestDiscard !== expected.pai) {
-        text += ` The calculator, which doesn't consider defense, would prefer ${bestDiscard} for pure efficiency.`;
-        text += ` But Mortal overrides this because surviving is more important than hand progress when someone is threatening to win.`;
-      } else {
-        text += ` When an opponent declares riichi, tile safety becomes critical — prioritize tiles already in their discard pool (100% safe), then suji-safe tiles, before considering efficiency.`;
-      }
+      text += ` When an opponent declares riichi, tile safety becomes critical — prioritize tiles already in their discard pool (100% safe), then suji-safe tiles, before considering efficiency.`;
       return text;
     }
 
     // 3A: Complex/strategic decision
     if (cat === "3A") {
       let text = shantenWarning;
-      text += `This is a complex strategic decision where Mortal and the calculator disagree.`;
+      text += `This is a complex strategic decision — Mortal prefers ${expected.pai} for reasons beyond pure tile efficiency.`;
       if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
-
-      if (bestDiscard && bestDiscard !== expected.pai) {
-        text += ` The calculator recommends ${bestDiscard} for maximum tile efficiency`;
-        const bestEntry = statFor(bestDiscard);
-        if (bestEntry) text += ` (${tileCountStr(bestEntry)})`;
-        text += `, but Mortal prefers ${expected.pai}.`;
-        text += ` This means Mortal is considering factors beyond pure tile counting — things like`;
-        const factors = [];
-        if (hasRiichi) factors.push("opponent riichi pressure");
-        if (labels.includes("yakuhai") || labels.includes("dora")) factors.push("hand value optimization");
-        if (m.board_state && m.board_state.scores) factors.push("score situation");
-        factors.push("hand shape flexibility", "yaku potential");
-        text += ` ${factors.slice(0, 3).join(", ")}.`;
-      } else if (bestDiscard && bestDiscard === expected.pai) {
-        text += ` Both Mortal and the calculator agree on ${expected.pai}, but you chose ${actual.pai}.`;
-        if (expectedStat && actualStat) {
-          text += ` The efficiency difference: ${tileCountStr(expectedStat)} vs ${tileCountStr(actualStat)}.`;
-        }
+      if (expectedStat && actualStat) {
+        text += ` Tile acceptance is comparable (${tileCountStr(expectedStat)} vs ${tileCountStr(actualStat)}), so the decision turns on other factors —`;
       } else {
-        text += ` Mortal recommends ${expected.pai} over your ${actual.pai} — this likely involves judgment about hand direction, yaku potential, or game state factors that go beyond simple tile counting.`;
+        text += ` Mortal is considering factors beyond pure tile counting —`;
       }
+      const factors = [];
+      if (hasRiichi) factors.push("opponent riichi pressure");
+      if (labels.includes("yakuhai") || labels.includes("dora")) factors.push("hand value optimization");
+      if (m.board_state && m.board_state.scores) factors.push("score situation");
+      factors.push("hand shape flexibility", "yaku potential");
+      text += ` ${factors.slice(0, 3).join(", ")}.`;
       text += ` You chose ${actual.pai} instead. These strategic decisions are the hardest to learn — they require reading the game state holistically.`;
       return text;
     }
@@ -617,7 +594,7 @@ function generateExplanation(m) {
     let text = `Mortal recommends discarding ${expected.pai} instead of your ${actual.pai}.`;
     if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
     if (expectedStat && actualStat) {
-      text += ` Calculator: ${tileCountStr(expectedStat)} acceptance for ${expected.pai} vs ${tileCountStr(actualStat)} for ${actual.pai}.`;
+      text += ` Tile acceptance: ${tileCountStr(expectedStat)} for ${expected.pai} vs ${tileCountStr(actualStat)} for ${actual.pai}.`;
     }
     if (m.top_actions && m.top_actions.length >= 2) {
       text += ` Mortal's EV: ${m.top_actions[0].q_value.toFixed(2)} for the best play vs ${(mortalFor(actual.pai)?.q_value || m.top_actions[m.top_actions.length - 1].q_value).toFixed(2)} for yours.`;

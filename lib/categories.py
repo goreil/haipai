@@ -7,10 +7,10 @@ P1–P4, Defense D1–D3, Meld 4A–4C, Riichi 5A–5B, Kan 6A–6B, plus legacy
 
 CATEGORY_INFO = {
     # --- Attack categories (no riichi threat, increasing difficulty) ---
-    "P1": {"group": "Attack", "label": "Shanten Failure", "desc": "Chose a discard that increased shanten — hand moved further from winning",                                                  "study": "Riichi Book Ch 3"},
-    "P2": {"group": "Attack", "label": "Tile Efficiency", "desc": "Chose a discard with lower tile acceptance (ukeire)",                                                                       "study": "Riichi Book Ch 3-4"},
+    "P1": {"group": "Attack", "label": "Shanten Failure", "desc": "Your discard ends up at a worse shanten than Mortal's pick — your hand moved further from winning",                          "study": "Riichi Book Ch 3"},
+    "P2": {"group": "Attack", "label": "Tile Efficiency", "desc": "Same shanten as Mortal's pick, but fewer tile acceptance (ukeire)",                                                          "study": "Riichi Book Ch 3-4"},
     "P3": {"group": "Attack", "label": "Hand Value",      "desc": "Similar tile acceptance, but Mortal's pick keeps a yakuhai or dora — preserves more value if you win",                      "study": "Riichi Book Ch 5-6"},
-    "P4": {"group": "Attack", "label": "Complex Decision","desc": "Mortal and calculator genuinely disagree with no clear hand-value signal — a real strategic judgment call",                 "study": "Riichi Book Ch 8.1"},
+    "P4": {"group": "Attack", "label": "Complex Decision","desc": "Mortal prefers a different tile for reasons that aren't pure shanten, ukeire, or hand value — a strategic judgment call",   "study": "Riichi Book Ch 8.1"},
     # --- Defense categories (opponent in riichi; compared by deal-in rate) ---
     "D1": {"group": "Defense", "label": "Defend",              "desc": "Mortal's discard has a lower deal-in rate than yours — a defensive read.",                                                "study": "Riichi Book Ch 8.2-8.4"},
     "D2": {"group": "Defense", "label": "Push",                "desc": "Mortal chose a more dangerous tile, but basic strategy (shanten or tile acceptance) justifies the push.",                 "study": "Riichi Book Ch 8.1"},

@@ -122,20 +122,18 @@ function showHelp() {
   html += `
     <div class="help-section">
       <h3>How Auto-Categorization Works</h3>
-      <p>Every discard mistake is categorized in two steps using two independent analyses:</p>
-      <p><span style="color:#81c784"><b>Mortal AI</b></span> &mdash; A neural-network mahjong AI that considers the full game state: tile efficiency, defense, hand value, riichi timing, opponent behavior, and more.</p>
-      <p><span style="color:#64b5f6"><b>Tile Calculator</b></span> &mdash; A pure tile efficiency engine for shanten and ukeire. It ignores defense and strategy entirely.</p>
+      <p>Every discard mistake is categorized against <span style="color:#81c784"><b>Mortal AI</b></span> &mdash; a neural-network mahjong AI that considers the full game state: tile efficiency, defense, hand value, riichi timing, opponent behavior, and more. Mortal's pick is the reference for every category below; the in-app speed calculator (<b>Speed</b> marker in the EV table) is shown for context only and never drives a category.</p>
       <p style="margin-top:8px"><b>Step 1: Defense check</b></p>
       <p>If an opponent declared riichi, the mistake is categorized as <span style="color:#ff6b6b">Defense</span>, comparing your tile's deal-in rate to Mortal's:</p>
       <p style="padding-left:16px">&bull; <b>D1 Defend</b> &mdash; Mortal's discard has a lower deal-in rate than yours</p>
       <p style="padding-left:16px">&bull; <b>D2 Push</b> &mdash; Mortal took the riskier tile, but basic strategy (shanten or tile acceptance) justifies it</p>
       <p style="padding-left:16px">&bull; <b>D3 Complex</b> &mdash; Mortal took the riskier tile and it's not a basic-strategy call (a real judgment call)</p>
       <p style="margin-top:8px"><b>Step 2: Attack classification</b> (no riichi threat)</p>
-      <p>Mistakes are ranked by difficulty, from most basic to most complex:</p>
-      <p style="padding-left:16px">&bull; <b>P1 Shanten Failure</b> &mdash; Your discard moved your hand further from winning</p>
-      <p style="padding-left:16px">&bull; <b>P2 Tile Efficiency</b> &mdash; Your discard has fewer tile acceptance (ukeire) than Mortal's</p>
+      <p>Mistakes are ranked by difficulty, from most basic to most complex. All comparisons are against Mortal's recommended discard:</p>
+      <p style="padding-left:16px">&bull; <b>P1 Shanten Failure</b> &mdash; Your discard ends up at a worse shanten than Mortal's pick &mdash; your hand moved further from winning</p>
+      <p style="padding-left:16px">&bull; <b>P2 Tile Efficiency</b> &mdash; Same shanten as Mortal's pick, but fewer tile acceptance (ukeire)</p>
       <p style="padding-left:16px">&bull; <b>P3 Hand Value</b> &mdash; Similar tile acceptance, but Mortal's pick keeps a yakuhai or dora that you discarded</p>
-      <p style="padding-left:16px">&bull; <b>P4 Complex Decision</b> &mdash; Mortal and calculator disagree with no clear hand-value signal &mdash; a real judgment call</p>
+      <p style="padding-left:16px">&bull; <b>P4 Complex Decision</b> &mdash; Mortal prefers a different tile for reasons that aren't pure shanten, ukeire, or hand value &mdash; a real judgment call</p>
       <p>&bull; <b>Non-discard actions</b> (chi, pon, riichi, kan) are categorized by type: Meld, Riichi, or Kan.</p>
     </div>
 
@@ -169,10 +167,9 @@ function showHelp() {
 
     <div class="help-section">
       <h3>EV Comparison Table</h3>
-      <p><span style="color:#81c784">Mortal Q</span> &mdash; Mortal AI's evaluation. Higher = better strategic play considering defense, hand value, game state. The <b>AI</b> marker shows Mortal's top pick.</p>
-      <p>The <b>Speed</b> marker shows the calculator's top pick — the tile that reaches tenpai fastest, ignoring hand value and defense.</p>
-      <p><span style="color:var(--sev-major)">You</span> &mdash; The tile you actually played. Compare your choice against both analyses.</p>
-      <p>When Mortal Q and Exp Score agree, the correct play is clear. When they disagree, Mortal is weighing factors like defense or hand value that pure efficiency misses.</p>
+      <p><span style="color:#81c784">Mortal Q</span> &mdash; Mortal AI's evaluation. Higher = better strategic play considering defense, hand value, game state. The <b>AI</b> marker shows Mortal's top pick — this is the reference every category is graded against.</p>
+      <p>The <b>Speed</b> marker shows the tile with the highest tile acceptance (ukeire), ignoring hand value and defense. It's a cosmetic hint — it never drives a category or appears in the trainer text. When Speed and Mortal disagree, trust Mortal.</p>
+      <p><span style="color:var(--sev-major)">You</span> &mdash; The tile you actually played.</p>
     </div>
 
     <div class="help-section">

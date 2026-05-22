@@ -21,9 +21,11 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 1;
+  const CATEGORIZER_VERSION = 3;
   const CATEGORIZER_CHANGELOG = {
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
+    2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
+    3: "P3 now requires Mortal's ukeire to be at least equal to the player's (strict, no similarity threshold). Rule is now: more ukeire or better shanten → push; otherwise complex. Affects #12151.",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
@@ -183,35 +185,41 @@
   // "Mortal preserves a value tile" (P3) from "both sides give up the
   // same kind of value" (P4) — see #6165 (both red five), #6710 (both
   // dragons).
+  //
+  // All shanten / ukeire comparisons are against Mortal's expected pick,
+  // never against the in-app speed calculator's top — see #6805, #6283,
+  // #12151 / #12164 where calc found a faster line than Mortal and the
+  // user was falsely flagged with a shanten failure or worse ukeire.
   function classifyPush(actualTile, expectedTile, discardStats, catData, labels, valueCtx) {
     const actualStat = findInStats(actualTile, discardStats);
     const expectedStat = findInStats(expectedTile, discardStats);
 
-    // P1: shanten increase. Detect from discard_stats first (works on legacy
-    // mistakes that pre-date the shanten_increase flag).
-    const bestShanten = discardStats && discardStats.length ? (discardStats[0].shanten ?? null) : null;
-    if (actualStat && bestShanten != null
+    // P1: your discard's shanten is strictly worse than Mortal's pick.
+    if (actualStat && expectedStat
         && actualStat.shanten != null
-        && actualStat.shanten > bestShanten) {
+        && expectedStat.shanten != null
+        && actualStat.shanten > expectedStat.shanten) {
       return "P1";
     }
-    if (catData && catData.shanten_increase) return "P1";
 
-    // P2: strictly worse ukeire. Skip when Mortal's pick is at a worse
-    // shanten — that's BUG-01 (comparing ukeire across shanten is bogus).
+    // P2: strictly worse ukeire at the same shanten as Mortal.
+    const aNec = (actualStat && actualStat.necessary_count) || 0;
+    const eNec = (expectedStat && expectedStat.necessary_count) || 0;
     if (actualStat && expectedStat) {
       const aSh = actualStat.shanten;
       const eSh = expectedStat.shanten;
-      const shantenOk = aSh == null || eSh == null || eSh <= aSh;
-      const aNec = actualStat.necessary_count || 0;
-      const eNec = expectedStat.necessary_count || 0;
-      if (shantenOk && eNec > aNec) return "P2";
+      const sameShanten = aSh == null || eSh == null || eSh === aSh;
+      if (sameShanten && eNec > aNec) return "P2";
     }
 
     // P3: hand-value preservation. Fires when at least one value
-    // dimension applies — meaning the YOUR-discard tile carries that
-    // value and Mortal's pick does not.
-    if (valueCtx && (valueCtx.doraApplies || valueCtx.yakuhaiApplies)) {
+    // dimension applies (your discard carries dora/yakuhai, Mortal's
+    // doesn't) AND Mortal's ukeire is at least equal to yours. Strict:
+    // the rule is "Mortal has more efficiency or better shanten → push,
+    // else complex" — so if Mortal sacrificed any ukeire, value alone
+    // doesn't qualify as a push; bump to P4.
+    if (valueCtx && (valueCtx.doraApplies || valueCtx.yakuhaiApplies)
+        && eNec >= aNec) {
       return "P3";
     }
 
@@ -264,17 +272,21 @@
 
     // categorize_data accumulator.
     const catData = {};
-    if (discardStats.length) {
-      catData.shanten = discardStats[0].shanten ?? null;
+    // Headline shanten = Mortal's expected discard's resulting shanten.
+    // Calc-only fields (discardStats[0]) are display-only and never enter
+    // categorize_data; the trainer text always reasons off Mortal's pick.
+    const expectedShanten = getShantenForTile(expected.pai, discardStats);
+    if (expectedShanten != null) {
+      catData.shanten = expectedShanten;
     }
 
-    // Shanten-increase signals.
+    // Shanten-increase signal: your discard puts you at a worse shanten
+    // than Mortal's choice would have.
     const actualShanten = getShantenForTile(actual.pai, discardStats);
-    const bestShanten = discardStats.length ? (discardStats[0].shanten ?? null) : null;
-    if (actualShanten != null && bestShanten != null && actualShanten > bestShanten) {
+    if (actualShanten != null && expectedShanten != null && actualShanten > expectedShanten) {
       catData.shanten_increase = true;
       catData.actual_shanten = actualShanten;
-      catData.best_shanten = bestShanten;
+      catData.best_shanten = expectedShanten;
     }
 
     if (dealinRates && Object.keys(dealinRates).length > 0) {
