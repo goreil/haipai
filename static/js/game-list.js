@@ -424,6 +424,9 @@ function renderGame() {
 
       html += `<div class="mistake ${sc}" ${dataAttrs}${midAttr}${cardStyle}>`;
       html += `<div class="mistake-top">`;
+      if (m.is_all_last) {
+        html += `<span class="all-last-badge" title="Final round of the hand — placement matters more than raw EV here.">All last</span>`;
+      }
       html += `<span class="turn-num">T${m.turn}</span>`;
       if (m.id) html += `<span class="dev-id" title="mistake id">#${m.id}</span>`;
       html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;

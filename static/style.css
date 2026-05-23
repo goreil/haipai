@@ -1249,6 +1249,21 @@ body {
   border-radius: 4px;
   cursor: help;
 }
+/* All-last (final round) — situational chip rather than a mistake-quality
+   warning. Cool gold/amber to evoke endgame without competing with the red
+   defense palette or the orange raised-shanten warning. */
+.all-last-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  color: #ffe39a;
+  background: rgba(255, 200, 80, 0.10);
+  border: 1px solid rgba(255, 200, 80, 0.45);
+  border-radius: 4px;
+  cursor: help;
+}
 .furiten-alert {
   display: inline-block;
   font-weight: 700;
@@ -1753,6 +1768,17 @@ body {
 .defense-context-line .defense-dealin {
   font-weight: 700;
   color: #ff9999;
+}
+
+/* All-last note above the lead of a 5A card — same shape as
+   .defense-context-line, gold accent to match .all-last-badge. */
+.speech-bubble .all-last-context-line {
+  display: block;
+  font-weight: 500;
+  color: #ffe39a;
+  margin-bottom: 6px;
+  padding-left: 8px;
+  border-left: 3px solid rgba(255, 200, 80, 0.5);
 }
 
 /* Inline hint when Mortal raised shanten on a 5A — distinct from the header

@@ -290,7 +290,7 @@
 
   // Per-kyoku body shared by prepGame (sync) and prepGameAsync (chunked).
   function _prepKyoku(game, mortalData, ki, kyokus, events, start_positions,
-                     player_id, rounds_by_header) {
+                     player_id, rounds_by_header, all_last_sig) {
     const kyoku = kyokus[ki];
     const start = events[start_positions[ki]];
     if (!start) return;
@@ -298,6 +298,14 @@
     if (start.honba > 0) header += `-${start.honba}`;
     const round = rounds_by_header[header];
     if (!round || !round.mistakes || !round.mistakes.length) return;
+
+    // All-last covers every kyoku sharing the (bakaze, kyoku) of the game's
+    // final played round — so S4, S4-1, S4-2 all light up when the game
+    // ended at S4-2. The same rule catches tonpuusen E4 and any extended
+    // west/north sudden-death round.
+    const is_all_last = !!(all_last_sig
+      && start.bakaze === all_last_sig.bakaze
+      && start.kyoku === all_last_sig.kyoku);
 
     const start_pos = start_positions[ki];
     const end_pos = (ki + 1 < start_positions.length)
@@ -324,6 +332,7 @@
       try {
         const patch = prepMistake(m, mortalData, ki, entry, defenseCtx);
         if (patch) Object.assign(m, patch);
+        if (is_all_last) m.is_all_last = true;
       } catch (e) {
         _warn("prepMistake failed for mistake turn=" + m.turn + ":", e);
       }
@@ -342,7 +351,16 @@
     for (const r of game.rounds || []) {
       rounds_by_header[r.round] = r;
     }
-    return { kyokus, events, start_positions, player_id, rounds_by_header };
+    // Bakaze+kyoku of the final played kyoku. Shared by every kyoku in
+    // _prepKyoku so the all-last flag covers honba repeats too.
+    let all_last_sig = null;
+    if (kyokus.length) {
+      const lastStart = events[start_positions[kyokus.length - 1]];
+      if (lastStart) {
+        all_last_sig = { bakaze: lastStart.bakaze, kyoku: lastStart.kyoku };
+      }
+    }
+    return { kyokus, events, start_positions, player_id, rounds_by_header, all_last_sig };
   }
 
   // Game-level walker. Iterates each kyoku's review entries, matches them
@@ -360,7 +378,8 @@
     const ctx = _prepGameSetup(game, mortalData);
     for (let ki = 0; ki < ctx.kyokus.length; ki++) {
       _prepKyoku(game, mortalData, ki, ctx.kyokus, ctx.events,
-                 ctx.start_positions, ctx.player_id, ctx.rounds_by_header);
+                 ctx.start_positions, ctx.player_id, ctx.rounds_by_header,
+                 ctx.all_last_sig);
     }
     return game;
   }
@@ -380,7 +399,8 @@
     if (onProgress) onProgress(0, total);
     for (let ki = 0; ki < total; ki++) {
       _prepKyoku(game, mortalData, ki, ctx.kyokus, ctx.events,
-                 ctx.start_positions, ctx.player_id, ctx.rounds_by_header);
+                 ctx.start_positions, ctx.player_id, ctx.rounds_by_header,
+                 ctx.all_last_sig);
       if (onProgress) onProgress(ki + 1, total);
       if (ki + 1 < total) await new Promise((r) => setTimeout(r, 0));
     }
@@ -427,6 +447,13 @@
     try {
       const patch = prepMistake(mistake, mortalData, roundIdx, entry, defenseCtx);
       if (patch) Object.assign(mistake, patch);
+      const lastStart = events[start_positions[kyokus.length - 1]];
+      const thisStart = events[start_pos];
+      if (lastStart && thisStart
+          && lastStart.bakaze === thisStart.bakaze
+          && lastStart.kyoku === thisStart.kyoku) {
+        mistake.is_all_last = true;
+      }
     } catch (e) {
       _warn("prepReport failed for mistake turn=" + mistake.turn + ":", e);
     }

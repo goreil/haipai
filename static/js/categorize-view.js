@@ -90,6 +90,38 @@ function generateExplanation(m) {
     return html;
   }
 
+  // 1-indexed standing of the mistake's player at the time of the mistake.
+  // Ties round to the better placement (player tied for 1st is 1st). Null
+  // when scores aren't available — older mistakes from before board_state
+  // prep can hit this.
+  function playerStanding(m) {
+    const bs = m && m.board_state;
+    const scores = bs && bs.scores;
+    if (!scores || !scores.length) return null;
+    const actor = m.actual && m.actual.actor;
+    if (actor == null) return null;
+    const my = scores[actor];
+    if (my == null) return null;
+    let standing = 1;
+    for (let i = 0; i < scores.length; i++) {
+      if (i === actor) continue;
+      if (scores[i] > my) standing += 1;
+    }
+    return standing;
+  }
+
+  // Context line for 5A in all last — placement is the framing the student
+  // needs, not raw EV. The "doesn't affect your standing" claim is the
+  // teaching point: in all last the riichi premium rarely changes the
+  // points table even when it lands.
+  function allLastRiichiInfo(m) {
+    if (!m || !m.is_all_last) return "";
+    const place = playerStanding(m);
+    if (!place) return "";
+    const ord = ["1st", "2nd", "3rd", "4th"][place - 1] || `${place}th`;
+    return `<div class="all-last-context-line">It's all last and you are in ${ord} place — the riichi bonus probably doesn't affect your standing.</div>`;
+  }
+
   // Per-category defense info appended to the lead line of a card.
   function defenseInfoFor(category, opts = {}) {
     if (!defenseCtx.in_defense) return "";
@@ -193,6 +225,7 @@ function generateExplanation(m) {
     // stored it on the mistake during prep; fall back to actual.pai for
     // older mistakes that pre-date that field.
     const riichiTile = m.actual_riichi_tile || actual.pai;
+    const allLastInfo = allLastRiichiInfo(m);
     const defenseInfo = defenseInfoFor("5A", { discardTile: riichiTile });
     // Furiten is the strongest 5A signal — the riichi literally can't ron.
     // Put that up front and skip the generic "you could dama" framing.
@@ -201,7 +234,7 @@ function generateExplanation(m) {
         .map(t => renderTile(t, "tile-sm furiten-tile")).join("");
       const waitsHtml = waits
         .map(w => renderTile(w.tile, "tile-sm furiten-wait-tile")).join("");
-      let text = defenseInfo;
+      let text = allLastInfo + defenseInfo;
       text += `<span class="furiten-alert">Furiten riichi</span>`;
       const waitPrefix = waitTypes
         ? `your ${waitCountPhrase} (${waitsHtml}) includes ${furitenTiles}, which you've already discarded`
@@ -219,7 +252,7 @@ function generateExplanation(m) {
     // "Mortal breaks tenpai" can't both be true.
     const raisedSh = (typeof mortalRaisedShanten === "function")
       ? mortalRaisedShanten(m) : null;
-    let text = defenseInfo;
+    let text = allLastInfo + defenseInfo;
     if (raisedSh) {
       text += `You declared riichi, but Mortal recommends discarding ${raisedSh.mortalTile} instead — breaking tenpai rather than locking in your shape.`;
       if (waitCountPhrase) text += ` You've got ${waitCountPhrase} — thin waits especially make riichi costly since you lose the flexibility to abandon them.`;
