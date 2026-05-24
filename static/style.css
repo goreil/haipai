@@ -300,6 +300,14 @@ body {
   margin-top: 4px;
   line-height: 1.6;
 }
+.onboarding-video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 12px 0 16px;
+  border-radius: 6px;
+  background: #000;
+}
 
 /* Game header */
 .game-header {

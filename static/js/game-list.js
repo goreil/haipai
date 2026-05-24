@@ -45,6 +45,7 @@ function showOnboarding() {
       <h2>Welcome to Haipai</h2>
       <p>Haipai analyzes your Riichi Mahjong games using Mortal AI to help you study your mistakes and track improvement over time.</p>
       <h3>How to add your first game</h3>
+      <video class="onboarding-video" src="/static/haipai-bookmarklet-upload.mp4" controls muted playsinline preload="metadata"></video>
       <ol>
         <li>Play a game on <a href="https://tenhou.net" target="_blank">Tenhou</a> or <a href="https://mahjongsoul.game.yo-star.com" target="_blank">Mahjong Soul</a></li>
         <li>Go to <a href="https://mjai.ekyu.moe" target="_blank">mjai.ekyu.moe</a> and paste your replay link</li>
