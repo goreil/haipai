@@ -70,6 +70,19 @@ function _formatRiichiTsumoHandStr(handTiles14, winTile) {
   return out;
 }
 
+// Double riichi (daburu rīchi) requires the player's first uninterrupted
+// discard with no calls anywhere in the round. mistake.turn is junme; an
+// opp meld at this point would mean a call broke the first go-around.
+function _isDoubleRiichiContext(m) {
+  if (!m || m.turn !== 1) return false;
+  if (m.melds && m.melds.length) return false;
+  const opp = (m.board_state && m.board_state.opponent_melds) || [];
+  for (const o of opp) {
+    if (o && o.melds && o.melds.length) return false;
+  }
+  return true;
+}
+
 // One score evaluation. opts: { riichi: bool, tsumo: bool }.
 // `hand13` is the 13-tile tenpai hand (does NOT include the win tile).
 // Returns { han, fu, ten, yaku: [labels] } or null when the win is invalid
@@ -81,7 +94,11 @@ function _evalWaitScore(hand13, winTile, m, opts) {
   const bs = m.board_state || {};
   const bakaze = _windToKazeInt(bs.round_wind) || 1;
   const jikaze = _windToKazeInt(bs.seat_wind) || 2;
-  const extras = (opts.riichi ? "r" : "") + `${bakaze}${jikaze}`;
+  // Pass `w` (double riichi, 2 han) instead of `r` (regular riichi, 1 han)
+  // when junme 1 with no calls. The Riichi lib's 立直 check excludes itself
+  // when ダブル立直 fires, so the two never double-count.
+  const riichiFlag = opts.riichi ? (_isDoubleRiichiContext(m) ? "w" : "r") : "";
+  const extras = riichiFlag + `${bakaze}${jikaze}`;
   const doraStr = _formatRiichiDoraStr(bs.dora_tiles);
   const doraSuffix = doraStr ? `+d${doraStr}` : "";
 
@@ -251,7 +268,7 @@ function _fmtPts(n) {
   return n.toLocaleString();
 }
 
-function _renderBarBlock(modeLabel, dama, riichi, bonus, scaleMax) {
+function _renderBarBlock(modeLabel, dama, riichi, bonus, scaleMax, isDaburi) {
   // No-yaku case: dama is impossible (e.g. ron with no yaku). Show riichi
   // value as the full bar — no comparison framing.
   const hasDama = dama && dama.ten > 0;
@@ -263,6 +280,7 @@ function _renderBarBlock(modeLabel, dama, riichi, bonus, scaleMax) {
   const damaW = hasDama ? pct(dama.ten) : 0;
   const bonusW = bonus > 0 ? pct(bonus) : 0;
 
+  const riichiTag = isDaburi ? "Double Riichi" : "Riichi";
   let breakdown = `<span class="bd-mode">${modeLabel}</span>`;
   if (hasDama) {
     breakdown += `<span class="bd-item dama">
@@ -272,13 +290,13 @@ function _renderBarBlock(modeLabel, dama, riichi, bonus, scaleMax) {
       </span>
       <span class="bd-sep">+</span>
       <span class="bd-item riichi">
-        <span class="bd-tag">Riichi</span>
+        <span class="bd-tag">${riichiTag}</span>
         <span class="bd-hanfu">${riichi.han} han · ${riichi.fu} fu</span>
         <span class="bd-points">+${_fmtPts(riichi.ten - dama.ten)}</span>
       </span>`;
   } else {
     breakdown += `<span class="bd-item riichi">
-        <span class="bd-tag">Riichi</span>
+        <span class="bd-tag">${riichiTag}</span>
         <span class="bd-hanfu">${riichi.han} han · ${riichi.fu} fu</span>
         <span class="bd-points">${_fmtPts(riichi.ten)}</span>
       </span>`;
@@ -311,7 +329,7 @@ function _renderBarBlock(modeLabel, dama, riichi, bonus, scaleMax) {
   </div>`;
 }
 
-function _renderWaitRow(w, scaleMax) {
+function _renderWaitRow(w, scaleMax, isDaburi) {
   const ronBonus = w.ronRiichi ? _badRiichiBonusEv(w.ronRiichi.ten) : 0;
   const tsumoBonus = w.tsumoRiichi ? _badRiichiBonusEv(w.tsumoRiichi.ten) : 0;
 
@@ -370,8 +388,8 @@ function _renderWaitRow(w, scaleMax) {
         ${verdict}
       </div>
       <div class="bar-stack">
-        ${_renderBarBlock("Ron",   w.ronDama,   w.ronRiichi,   ronBonus,   scaleMax)}
-        ${_renderBarBlock("Tsumo", w.tsumoDama, w.tsumoRiichi, tsumoBonus, scaleMax)}
+        ${_renderBarBlock("Ron",   w.ronDama,   w.ronRiichi,   ronBonus,   scaleMax, isDaburi)}
+        ${_renderBarBlock("Tsumo", w.tsumoDama, w.tsumoRiichi, tsumoBonus, scaleMax, isDaburi)}
       </div>
     </div>
   </div>`;
@@ -415,14 +433,14 @@ function renderBadRiichiBars(m) {
   const heading = `${types} type${types === 1 ? "" : "s"} · ${totalLive} live tile${totalLive === 1 ? "" : "s"}`;
   const isMissedRiichi = m.category === "5B";
   const headerLabel = isMissedRiichi ? "Tenpai waits — riichi would gain" : "Tenpai waits";
+  const isDaburi = _isDoubleRiichiContext(m);
 
-  const rows = evals.map(w => _renderWaitRow(w, scaleMax)).join("");
+  const rows = evals.map(w => _renderWaitRow(w, scaleMax, isDaburi)).join("");
 
   return `<div class="bad-riichi-waits-section">
     <div class="waits-section-head">
       <span class="h-label">${headerLabel}</span>
       <span class="h-count">${heading}</span>
-      <span class="scope-pill both"><span class="dot"></span>Ron + Tsumo</span>
       <span class="h-legend">
         <span class="legend-dot dama"></span>Dama
         <span class="sep">·</span>

@@ -259,13 +259,15 @@ function generateExplanation(m) {
       text += ` Riichi locks your hand — you can't change your wait or defend against opponents.`;
       text += ` <span class="raised-shanten-hint">Mortal even breaks tenpai (${raisedSh.userSh}→${raisedSh.mortalSh}-shanten) by picking ${raisedSh.mortalTile} — it wants a better wait, more hand value, or room to defend, and would rather give up tenpai than ride your shape into riichi.</span>`;
     } else {
+      const isDaburi = typeof _isDoubleRiichiContext === "function" && _isDoubleRiichiContext(m);
+      const riichiHanStr = isDaburi ? "2 han (double riichi)" : "1 han";
       text += `You declared riichi, but Mortal recommends just discarding ${expected.pai} (dama) instead.`;
       if (waitCountPhrase) text += ` You've got ${waitCountPhrase} — thin waits especially make riichi costly since you lose the flexibility to abandon them.`;
       text += ` Riichi locks your hand — you can't change your wait or defend against opponents.`;
       const yakuHints = detectClosedHandYaku(m);
       if (yakuHints.length) {
         text += ` <span class="yaku-hints">Dama would win with: ${yakuHints.map(y => `<span class="yaku-tag">${y}</span>`).join(" ")}</span>`;
-        text += ` — with dama you keep flexibility, can dodge dangerous tiles, and the riichi premium of 1 han + ippatsu chance may not be worth the lock-in.`;
+        text += ` — with dama you keep flexibility, can dodge dangerous tiles, and the riichi premium of ${riichiHanStr} + ippatsu chance may not be worth the lock-in.`;
       } else {
         text += ` Mortal still says dama works here — perhaps because of board state, score situation, or remaining tiles. Trust Mortal's read on this one.`;
       }
@@ -278,11 +280,13 @@ function generateExplanation(m) {
     const waits = tenpaiWaitTiles(m);
     const waitTypes = waits.length;
     const waitTotal = waits.reduce((a, w) => a + (w.count || 0), 0);
+    const isDaburi = typeof _isDoubleRiichiContext === "function" && _isDoubleRiichiContext(m);
+    const minHanStr = isDaburi ? "2 han (double riichi)" : "1 han";
     let text = `Your hand is tenpai and ready to declare riichi, but you chose to discard ${actual.pai} silently.`;
     if (waitTypes) {
-      text += ` You've got a ${waitTypes}-type wait with ${waitTotal} live ${waitTotal === 1 ? "tile" : "tiles"} remaining — declaring riichi would lock it in but add at least 1 han plus the ippatsu/uradora chances.`;
+      text += ` You've got a ${waitTypes}-type wait with ${waitTotal} live ${waitTotal === 1 ? "tile" : "tiles"} remaining — declaring riichi would lock it in but add at least ${minHanStr} plus the ippatsu/uradora chances.`;
     } else {
-      text += ` Riichi adds at least 1 han to your hand value, plus the chance of ippatsu (winning within one round).`;
+      text += ` Riichi adds at least ${minHanStr} to your hand value, plus the chance of ippatsu (winning within one round).`;
     }
     text += ` It also intimidates opponents into playing defensively, which can protect your winning tile from being blocked.`;
     if (m.ev_loss) text += ` This cost ${m.ev_loss.toFixed(2)} EV compared to declaring riichi.`;

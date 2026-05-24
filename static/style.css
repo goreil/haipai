@@ -2872,19 +2872,6 @@ body {
 .bad-riichi-waits-section .h-count {
   font-size: 11px; color: var(--text-dim); font-weight: 500;
 }
-.bad-riichi-waits-section .scope-pill {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
-  text-transform: uppercase;
-  padding: 2px 8px; border-radius: 11px;
-  background: rgba(255,255,255,0.04);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-.bad-riichi-waits-section .scope-pill .dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--sev-medium);
-}
 .bad-riichi-waits-section .h-legend {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 10.5px; color: var(--text-dim);
