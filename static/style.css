@@ -1400,6 +1400,16 @@ body {
   border-color: var(--accent);
   color: var(--accent);
 }
+.report-undo {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 3px 6px;
+  text-decoration: underline;
+}
+.report-undo:hover { color: var(--text); }
 .report-status {
   font-size: 11px;
   color: var(--text-dim);

@@ -39,6 +39,17 @@ def delete_category_report(conn, report_id):
     return cur.rowcount > 0
 
 
+def delete_category_report_for_user(conn, user_id, mistake_id):
+    """Delete a user's own report on a given mistake (idempotent — returns
+    True if a row was removed, False if there was nothing to remove)."""
+    cur = conn.execute(
+        "DELETE FROM category_reports WHERE user_id = ? AND mistake_id = ?",
+        (user_id, mistake_id),
+    )
+    conn.commit()
+    return cur.rowcount > 0
+
+
 def list_category_reports(conn, exclude_user_id=None):
     """List all category reports with mistake and user context.
 

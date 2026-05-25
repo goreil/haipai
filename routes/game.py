@@ -204,6 +204,27 @@ def api_report_category(mistake_id):
     return jsonify({"ok": True, "id": report_id})
 
 
+@games_bp.route("/api/mistakes/<int:mistake_id>/report", methods=["DELETE"])
+@login_required
+def api_unreport_category(mistake_id):
+    """Clear the caller's own report on this mistake — used by the in-card
+    "Undo" button so a misclick on the report row can be reverted. Idempotent:
+    returns ok=True with removed indicating whether a row was actually deleted."""
+    from app import get_conn
+    conn = get_conn()
+    uid = current_user.id
+
+    owner = conn.execute(
+        "SELECT g.user_id FROM mistakes m JOIN games g ON m.game_id = g.id WHERE m.id = ?",
+        (mistake_id,),
+    ).fetchone()
+    if not owner or owner["user_id"] != uid:
+        return jsonify({"error": "Mistake not found"}), 404
+
+    removed = db.delete_category_report_for_user(conn, uid, mistake_id)
+    return jsonify({"ok": True, "removed": removed})
+
+
 @games_bp.route("/api/games/backfill-decisions", methods=["POST"])
 @login_required
 def api_backfill_decisions():

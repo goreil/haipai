@@ -226,10 +226,18 @@ function renderReportRow(m) {
                     onclick="onReportClick(this, ${m.id}, '${k}')">${label}</button>`;
   }
 
+  // "Undo" only shows once a report exists — gives misclickers an explicit
+  // out without cluttering the row before they've reported anything.
+  const undoBtn = rep
+    ? `<button type="button" class="report-undo"
+               title="Remove this report"
+               onclick="onReportClear(${m.id})">Undo</button>`
+    : "";
   let html = `<div class="report-row" data-mid="${m.id}">
     <span class="report-ask">Was this right?</span>
     ${btn("wrong_category", "Wrong category", "The category label is wrong")}
     ${btn("wrong_text", "Explanation wrong", "The category is fine but the explanation is off")}
+    ${undoBtn}
     <span class="report-status"></span>
     <div class="report-details" style="display:${detailsOpen ? "" : "none"}">`;
 
@@ -310,6 +318,42 @@ async function onReportDetails(el, mid) {
   if (!st || !st.kind) return;
   if (st.kind === "wrong_category" && !st.suggested) return;
   await saveReport(mid, st.kind, st.suggested || null, st.reason || null);
+}
+
+async function onReportClear(mid) {
+  const row = document.querySelector(`.report-row[data-mid="${mid}"]`);
+  const status = row && row.querySelector(".report-status");
+  if (status) { status.textContent = "Clearing…"; status.className = "report-status saving"; }
+  try {
+    const res = await fetch(`/api/mistakes/${mid}/report`, {
+      method: "DELETE",
+      headers: {"X-CSRFToken": csrfToken},
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (status) { status.textContent = body.error || "Error"; status.className = "report-status err"; }
+      return;
+    }
+  } catch (e) {
+    if (status) { status.textContent = "Network error"; status.className = "report-status err"; }
+    return;
+  }
+  // Drop the report from the in-memory mistake so re-renders match the new state.
+  if (state.currentGameData) {
+    for (const rnd of state.currentGameData.rounds || []) {
+      for (const m of rnd.mistakes || []) {
+        if (m.id === mid) m.my_report = null;
+      }
+    }
+  }
+  if (row) {
+    row.querySelectorAll(".report-btn").forEach(b => b.classList.remove("active"));
+    const details = row.querySelector(".report-details");
+    if (details) details.style.display = "none";
+    const undo = row.querySelector(".report-undo");
+    if (undo) undo.remove();
+  }
+  if (status) { status.textContent = "Removed"; status.className = "report-status ok"; }
 }
 
 // --- Filter handlers (severity checkboxes in the toolbar) ---

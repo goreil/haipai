@@ -422,6 +422,55 @@ class TestCategoryReport:
         res = client.post("/api/mistakes/1/report", json={"kind": "wrong_text"})
         assert res.status_code == 401
 
+    def test_unreport_removes_report(self, client):
+        """DELETE /api/mistakes/<id>/report clears the user's own report."""
+        _login(client)
+        me = client.get("/api/me").get_json()
+        _, mistake_id = _insert_game(me["id"], with_mistakes=True)
+
+        client.post(f"/api/mistakes/{mistake_id}/report", json={
+            "kind": "wrong_text", "reason": "misclick",
+        })
+        res = client.delete(f"/api/mistakes/{mistake_id}/report")
+        assert res.status_code == 200
+        body = res.get_json()
+        assert body["ok"] is True and body["removed"] is True
+
+        conn = db.get_db()
+        n = conn.execute(
+            "SELECT COUNT(*) FROM category_reports WHERE mistake_id = ? AND user_id = ?",
+            (mistake_id, me["id"]),
+        ).fetchone()[0]
+        conn.close()
+        assert n == 0
+
+    def test_unreport_idempotent(self, client):
+        """DELETE with no existing report returns ok=True, removed=False."""
+        _login(client)
+        me = client.get("/api/me").get_json()
+        _, mistake_id = _insert_game(me["id"], with_mistakes=True)
+
+        res = client.delete(f"/api/mistakes/{mistake_id}/report")
+        assert res.status_code == 200
+        assert res.get_json() == {"ok": True, "removed": False}
+
+    def test_unreport_other_users_mistake(self, client):
+        """DELETE 404s when the mistake belongs to someone else, even if
+        they have an existing report — ownership check runs first."""
+        _login(client)
+        conn = db.get_db()
+        from werkzeug.security import generate_password_hash
+        uid2 = db.create_user(conn, "stranger2", generate_password_hash("longpassword"))
+        conn.close()
+        _, mistake_id = _insert_game(uid2, with_mistakes=True)
+
+        res = client.delete(f"/api/mistakes/{mistake_id}/report")
+        assert res.status_code == 404
+
+    def test_unreport_unauthenticated(self, client):
+        res = client.delete("/api/mistakes/1/report")
+        assert res.status_code == 401
+
     def test_report_upsert_replaces_prior(self, client):
         """Re-reporting the same mistake replaces the earlier report."""
         _login(client)

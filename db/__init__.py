@@ -50,6 +50,7 @@ from db.users import (
 from db.reports import (
     REPORT_KINDS,
     delete_category_report,
+    delete_category_report_for_user,
     get_report_for_mistake,
     list_category_reports,
     submit_category_report,
@@ -118,6 +119,7 @@ __all__ = [
     # reports
     "REPORT_KINDS",
     "delete_category_report",
+    "delete_category_report_for_user",
     "get_report_for_mistake",
     "list_category_reports",
     "submit_category_report",
