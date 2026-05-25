@@ -339,6 +339,25 @@
     }
   }
 
+  // Ordinal of a (bakaze, kyoku) so rounds compare in play order:
+  // E1<E2<E3<E4<S1<…<S4<W1<… Used to tell a real all-last from a tobi.
+  function _roundOrd(bakaze, kyoku) {
+    const wind = { E: 0, S: 1, W: 2, N: 3 }[bakaze];
+    if (wind === undefined || !kyoku) return null;
+    return wind * 4 + (kyoku - 1);
+  }
+
+  // True when `start` is at or past the game's natural last round: S4 for a
+  // hanchan (incl. west-round sudden death), E4 for a tonpuusen. A game that
+  // stops short of this ended early via tobi, so it isn't really all-last.
+  function _reachedAllLast(start, game_length) {
+    const ord = _roundOrd(start.bakaze, start.kyoku);
+    if (ord === null) return false;
+    const isEastOnly = /tonpu/i.test(game_length || "");
+    const naturalLast = isEastOnly ? _roundOrd("E", 4) : _roundOrd("S", 4);
+    return ord >= naturalLast;
+  }
+
   function _prepGameSetup(game, mortalData) {
     const kyokus = (mortalData.review && mortalData.review.kyokus) || [];
     const events = flatten_mjai_log(mortalData.mjai_log);
@@ -352,11 +371,15 @@
       rounds_by_header[r.round] = r;
     }
     // Bakaze+kyoku of the final played kyoku. Shared by every kyoku in
-    // _prepKyoku so the all-last flag covers honba repeats too.
+    // _prepKyoku so the all-last flag covers honba repeats too. Only set it
+    // when the game actually reached its natural last round — a tobi
+    // (bankruptcy) ends the game early (e.g. East-1 of a hanchan), and that
+    // round was never strategically "all last": nobody knew it was the final
+    // hand, so framing decisions by placement there is misleading.
     let all_last_sig = null;
     if (kyokus.length) {
       const lastStart = events[start_positions[kyokus.length - 1]];
-      if (lastStart) {
+      if (lastStart && _reachedAllLast(lastStart, mortalData.game_length)) {
         all_last_sig = { bakaze: lastStart.bakaze, kyoku: lastStart.kyoku };
       }
     }
