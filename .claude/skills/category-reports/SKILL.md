@@ -13,7 +13,7 @@ Production reports live only in the Docker DB at `/app/data/games.db`. The local
 docker exec haipai-app-1 python3 /app/scripts/show_reports.py
 ```
 
-The dump is sorted newest-first and includes the mistake's current category, severity, ev_loss, and the user's suggested category / reason.
+The dump is sorted newest-first and includes the mistake's ev_loss and turn, plus the report's kind and the user's suggested category / reason. (Category is **not** stored on the mistake — it's recomputed client-side, so the dump can't show a "current category".)
 
 ## Useful filters
 
@@ -35,7 +35,14 @@ docker exec haipai-app-1 python3 /app/scripts/show_reports.py --json
 
 ## Inspecting the underlying mistake
 
-To pull the full data_json (discard_stats, labels, categorize_data) for a reported mistake:
+The `mistakes` row stores only `data_json` (TEXT) plus `ev_loss`, `turn`, `note`
+— there is **no `category` column** (`r['category']` will KeyError). Category is
+recomputed client-side from `data_json`; to see what category a mistake *gets*,
+trace `data_json` through `static/js/categorize.js`. Live `data_json` keys:
+`actual`, `expected`, `draw`, `shanten`, `hand`, `melds`, `top_actions`,
+`labels` (all rows); `board_state` (most); `opponent_discards` +
+`safety_ratings` (defense rows only). Discard stats are **not** stored — the
+frontend recomputes them via backend shanten/ukeire endpoints.
 
 ```bash
 docker exec haipai-app-1 python3 -c "
@@ -45,16 +52,15 @@ conn.row_factory = sqlite3.Row
 r = dict(conn.execute('SELECT * FROM mistakes WHERE id = 5747').fetchone())
 dj = json.loads(r['data_json'] or '{}')
 print('actual:', dj.get('actual'), 'expected:', dj.get('expected'))
-print('category:', r['category'], 'labels:', dj.get('labels'))
-for s in (dj.get('discard_stats') or [])[:6]:
-    print(' ', s.get('tile'), 'sh=', s.get('shanten'), 'nec=', s.get('necessary_count'))
+print('labels:', dj.get('labels'), 'ev_loss:', r['ev_loss'])
 "
 ```
 
-## Backfill after a categorization fix
+## After a categorization fix — no backfill
 
-When a fix changes how mistakes are categorized, re-run the categorizer over the whole DB so existing rows pick up the new labels:
-
-```bash
-bash scripts/recategorize_all.sh
-```
+Categorization is **100% client-side** (`static/js/categorize.js`) and recomputed
+on every fetch; the category is never persisted. So a categorizer fix needs **no
+DB backfill** — there is no `recategorize_all.sh` (it was removed). Just ship the
+`categorize.js` change and bump `CATEGORIZER_VERSION` + its changelog. (Backfills
+are only for changes that alter stored `data_json` fields — see the parse/defense
+backfill functions, not categorization.)

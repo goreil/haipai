@@ -21,12 +21,13 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 4;
+  const CATEGORIZER_VERSION = 5;
   const CATEGORIZER_CHANGELOG = {
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
     2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
     3: "P3 now requires Mortal's ukeire to be at least equal to the player's (strict, no similarity threshold). Rule is now: more ukeire or better shanten → push; otherwise complex. Affects #12151.",
     4: "P3 reverted to a pure dora/yakuhai check — no ukeire comparison. The v3 gate misclassified #12611 (E discard is round-wind + dora, but had more ukeire than Mortal's 6p) as P4 Complex. Also drops the `similar_acceptance` flag and its '*0.9' similarity threshold from value_preserve.",
+    5: "Kan-vs-call mismatches (chi/pon vs a kan, either direction) now route to 6A/6B instead of falling through to P4. Fixes #14173 (R-179): pon East when daiminkan East was the play is now 6B Missed Kan, not Complex Decision.",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
@@ -111,8 +112,13 @@
     if (at === "dahai" && et === "reach") return "5B";
 
     const KAN = new Set(["ankan", "kakan", "daiminkan"]);
-    if (KAN.has(at) && (et === "dahai" || et === "none")) return "6A";
-    if ((at === "dahai" || at === "none") && KAN.has(et)) return "6B";
+    // Kan vs (pass / dahai / a lesser call): declared kan when a non-kan was
+    // better. Includes chi/pon so "kan'd when a plain pon was right" lands here
+    // rather than the catch-all. (Both-chi/pon is already caught above as 4C.)
+    if (KAN.has(at) && (et === "dahai" || et === "none" || et === "chi" || et === "pon")) return "6A";
+    // The reverse: only pon'd/chi'd (or passed) when a kan was better — e.g.
+    // pon East when daiminkan East was the play. "Missed Kan", not "Bad Call".
+    if ((at === "dahai" || at === "none" || at === "chi" || at === "pon") && KAN.has(et)) return "6B";
 
     if (et === "hora") return "P4";
     if (at === "dahai" && et === "dahai") return null;
