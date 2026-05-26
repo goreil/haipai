@@ -799,8 +799,8 @@ body {
 }
 
 /* Riichi is the bigger threat (guaranteed tenpai + stick + yaku floor), so
-   paint it red. 3+ open melds get the softer orange since they're only a
-   possibility of tenpai. */
+   paint it red. 3+ open melds or 3+ dora exposed in melds get the softer
+   orange since they're only a possibility of tenpai / a big hand. */
 .discard-row.danger-row {
   background: rgba(255, 169, 77, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 169, 77, 0.35);

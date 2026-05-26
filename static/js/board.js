@@ -90,6 +90,46 @@ function renderMeld(meld, tileClass = "action-tile-sm", actorSeat, doraTiles, oy
   return `<span class="meld-group">${all.map(t => meldTile(t)).join("")}</span>`;
 }
 
+// Count the dora across a seat's melds for the "N dora" badge. Uses the same
+// per-tile rule as renderMeld's dora-highlight (red fives + active dora), over
+// every tile in each group: a kan counts all four (the tile is known even for
+// an ankan, where renderMeld only draws two face-up). Binary per tile — a tile
+// that is both a red five and the active dora counts once, not twice.
+function meldDoraCount(melds, doraTiles) {
+  if (!melds || !doraTiles) return 0;
+  const isDora = t => t === "5mr" || t === "5pr" || t === "5sr" || doraTiles.has(tileBase(t));
+  // A kakan upgrades an earlier pon of the same tile to a kan; mjai (and so
+  // the stored melds) keeps both events, so skip the superseded pon to avoid
+  // counting that group's dora twice.
+  const kakanBases = new Set();
+  for (const meld of melds) {
+    if (meld.type === "kakan") kakanBases.add(tileBase((meld.consumed || [])[0] || meld.pai));
+  }
+  let count = 0;
+  for (const meld of melds) {
+    const consumed = meld.consumed || [];
+    let tiles;
+    if (meld.type === "ankan") {
+      // mjai lists all four tiles in consumed.
+      tiles = consumed;
+    } else if (meld.type === "kakan") {
+      // Pon upgraded to a kan: three copies of the base tile + the added pai,
+      // matching what renderMeld draws.
+      const base = consumed[0] || meld.pai;
+      tiles = base ? [base, base, base] : [];
+      if (meld.pai) tiles.push(meld.pai);
+    } else if (meld.type === "pon" && kakanBases.has(tileBase(meld.pai || consumed[0]))) {
+      // Superseded by a kakan of the same tile — count it once, via the kakan.
+      continue;
+    } else {
+      // chi / pon / daiminkan: called tile + tiles from hand.
+      tiles = meld.pai ? consumed.concat([meld.pai]) : consumed.slice();
+    }
+    for (const t of tiles) if (isDora(t)) count++;
+  }
+  return count;
+}
+
 function renderHand(tiles, draw, mistake, doraTiles) {
   if (!tiles || !tiles.length) return "";
   // Prefer the new KD-derived deal-in data when present — tooltip becomes
@@ -337,10 +377,16 @@ function renderBoardContext(m) {
         if (!d.discards.length && !seatMelds) continue;
         const seatName = seatWindLabel(d.seat);
         const isYou = playerSeat != null && d.seat === playerSeat;
-        // Threatening: opponent with 3+ open calls (not you). Defense code
-        // uses the same 3-meld threshold to trigger the defense gate.
+        // Two threat signals for an opponent (not you), each rendered as its
+        // own orange badge and both painting the row orange:
+        //  - 3+ open calls: defense code uses the same 3-meld threshold to
+        //    trigger the defense gate.
+        //  - 3+ dora exposed in melds: a big hand even without three calls.
         const openMeldCount = seatMelds ? seatMelds.filter(mm => mm.type !== "ankan").length : 0;
-        const isDanger = !isYou && openMeldCount >= 3;
+        const isMeldDanger = !isYou && openMeldCount >= 3;
+        const meldDora = !isYou ? meldDoraCount(seatMelds, doraTiles) : 0;
+        const isDoraDanger = meldDora >= 3;
+        const isDanger = isMeldDanger || isDoraDanger;
         const isRiichiOpp = !isYou && d.riichi_idx != null;
         let rowCls = "discard-row";
         if (isYou) rowCls += " you-row";
@@ -350,7 +396,8 @@ function renderBoardContext(m) {
         html += `<span class="discard-label">${seatName}`;
         if (isYou) html += `<span class="you-tag">(you)</span>`;
         if (isRiichiOpp) html += `<span class="riichi-tag">RIICHI</span>`;
-        if (isDanger) html += `<span class="danger-tag" title="${openMeldCount} open calls">⚠ ${openMeldCount} melds</span>`;
+        if (isMeldDanger) html += `<span class="danger-tag" title="${openMeldCount} open calls">⚠ ${openMeldCount} melds</span>`;
+        if (isDoraDanger) html += `<span class="danger-tag" title="${meldDora} dora exposed in melds">⚠ ${meldDora} dora</span>`;
         html += `</span>`;
         html += `<span class="tiles">`;
         const seatSkipCallers = skipCallersBefore.get(d.seat) || [];
