@@ -1017,6 +1017,171 @@ body {
 .yp:hover .yp-detail { opacity: 1; pointer-events: auto; }
 .yp.yp-empty .yp-detail { display: none; }
 
+/* ── Sanshoku pill (v1.5) ─────────────────────────────────────────────
+   Variant B in the strip: run number + the run's start tile per suit
+   (opaque + green outline = melded, dim = pending, dim + red = dead). Two
+   new states beyond locked/possible: close (2/3, orange — one tile from the
+   yaku, worth a defensive read) and dead (strike + ×). Hover lifts Variant D
+   below. */
+.yp.ss.close {
+  color: #f0c674;
+  background: rgba(255, 167, 38, 0.08);
+  border-color: rgba(255, 167, 38, 0.45);
+}
+.yp.ss.close .yp-state { color: #ffa726; }
+.yp.ss.dead {
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--border);
+  opacity: 0.6;
+}
+.yp.ss.dead .yp-state { color: var(--sev-major); }
+.yp.ss.dead .yp-name,
+.yp.ss.dead .yp-seq {
+  text-decoration: line-through;
+  text-decoration-color: rgba(239, 83, 80, 0.7);
+  text-decoration-thickness: 1px;
+}
+.yp .yp-seq {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500;
+  font-size: 10.5px;
+  color: var(--text);
+  letter-spacing: 0.4px;
+  padding: 0 1px;
+}
+.yp.ss.dead .yp-seq { color: var(--text-dim); }
+.yp .yp-ss-tile {
+  height: 16px;
+  width: auto;
+  border: 0;
+  border-radius: 2px;
+  background: #f6f4ec;
+  opacity: 0.32;
+  filter: grayscale(0.4);
+}
+.yp .yp-ss-tile.done {
+  opacity: 1;
+  filter: none;
+  outline: 1.5px solid #66bb6a;
+  outline-offset: 1px;
+}
+.yp .yp-ss-tile.dead {
+  opacity: 0.18;
+  filter: grayscale(1);
+  outline: 1.5px solid rgba(239, 83, 80, 0.5);
+  outline-offset: 1px;
+}
+
+/* Variant D popover — full sequence per suit with copies-remaining counts. */
+.yp .ss-detail {
+  width: auto;
+  min-width: 250px;
+  max-width: 340px;
+  padding: 10px 12px 11px;
+}
+.yp .ss-detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.yp .ss-detail-head .ssd-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+.yp .ss-detail-head .ssd-state { font-size: 10px; margin-left: auto; }
+.yp .ssd-state.locked   { color: #9fd9a2; }
+.yp .ssd-state.close    { color: #ffa726; }
+.yp .ssd-state.possible { color: #d8b766; }
+.yp .ssd-state.dead     { color: var(--sev-major); }
+.yp .ss-detail-rows {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px 10px;
+  align-items: center;
+}
+.yp .ssd-row { display: contents; }
+.yp .ssd-suit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.4px;
+}
+.yp .ssd-suit .ssd-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.yp .ssd-suit.m .ssd-dot { background: var(--tile-m); }
+.yp .ssd-suit.p .ssd-dot { background: var(--tile-p); }
+.yp .ssd-suit.s .ssd-dot { background: var(--tile-s); }
+.yp .ssd-tiles { display: inline-flex; gap: 3px; }
+.yp .ssd-tile {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.yp .ssd-tile img.tile {
+  height: 24px;
+  width: auto;
+  border: 0;
+  border-radius: 3px;
+  background: #f6f4ec;
+  opacity: 0.4;
+  filter: grayscale(0.3);
+}
+.yp .ssd-tile .ssd-count {
+  font-family: 'Outfit', sans-serif;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  min-width: 10px;
+  text-align: center;
+}
+.yp .ssd-status {
+  font-family: 'Outfit', sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+/* Done row — full-opacity tiles + green outline, counts hidden. */
+.yp .ssd-row.done .ssd-tile img.tile {
+  opacity: 1;
+  filter: none;
+  outline: 1.5px solid #66bb6a;
+  outline-offset: 1px;
+}
+.yp .ssd-row.done .ssd-count { visibility: hidden; }
+.yp .ssd-row.done .ssd-status { color: #9fd9a2; }
+/* Pending row — dim tiles, count = copies remaining. */
+.yp .ssd-row.possible .ssd-tile.low .ssd-count { color: #f0c674; }
+.yp .ssd-row.possible .ssd-status { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.yp .ssd-row.possible.low .ssd-status { color: #f0c674; }
+/* Dead row — the exhausted tile gets a red outline + 0. */
+.yp .ssd-row.dead .ssd-tile img.tile { opacity: 0.25; filter: grayscale(1); }
+.yp .ssd-row.dead .ssd-tile.zero img.tile {
+  opacity: 0.18;
+  outline: 1.5px solid rgba(239, 83, 80, 0.7);
+  outline-offset: 1px;
+}
+.yp .ssd-tile.zero .ssd-count { color: var(--sev-major); font-weight: 700; }
+.yp .ssd-row.dead .ssd-status { color: var(--sev-major); font-weight: 500; }
+.yp .ss-detail-foot {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 10.5px;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+.yp .ss-detail-foot b { color: var(--text); font-weight: 500; }
+
 /* Ghost tile (called from discard pool) */
 .tile.ghost-tile {
   opacity: 0.3;

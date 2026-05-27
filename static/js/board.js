@@ -241,11 +241,12 @@ function tenpaiWaitTiles(m) {
 // chanta shows a +pip when junchan is still alive.
 // An opened seat with no surviving yaku gets a muted placeholder.
 const YAKU_META = {
-  yakuhai: { label: "Yakuhai" },
-  tanyao:  { label: "Tanyao" },
-  toitoi:  { label: "Toitoi" },
-  chanta:  { label: "Chanta" },
-  honitsu: { label: "Honitsu" },
+  yakuhai:  { label: "Yakuhai" },
+  tanyao:   { label: "Tanyao" },
+  toitoi:   { label: "Toitoi" },
+  chanta:   { label: "Chanta" },
+  honitsu:  { label: "Honitsu" },
+  sanshoku: { label: "Sanshoku" },
 };
 const SUIT_NAME = { m: "man", p: "pin", s: "sou" };
 const SUIT_TILE = { m: "1m", p: "1p", s: "1s" };   // representative suit tile
@@ -334,7 +335,91 @@ function yakuDetail(d) {
   return `<b>${(YAKU_META[d.type] || {}).label || d.type}</b>`;
 }
 
+// Sanshoku-doujun pill (v1.5). Variant B in the strip: the run number plus the
+// run's start tile in each suit (opaque + green outline = melded, dim = pending,
+// dim + red outline = the suit that killed the candidate). Hover lifts Variant
+// D — the full three-tile sequence per suit with copies-remaining under each
+// pending tile, plus a bottleneck/foot callout. States: possible (1/3, gold),
+// close (2/3, orange), locked (3/3, green ✓), dead (strike + ×).
+const SANSHOKU_STATE_CHAR = { locked: "✓", close: "◐", possible: "◐", dead: "×" };
+const SANSHOKU_STATE_LABEL = {
+  locked: "✓ locked", close: "2/3 close", possible: "1/3 possible", dead: "× dead",
+};
+
+function renderSanshokuTiles(d) {
+  // Variant B suit-tile row — the run's start tile in each suit.
+  const chips = d.rows.map(row => {
+    const cls = row.melded ? "yp-ss-tile done"
+              : row.dead ? "yp-ss-tile dead"
+              : "yp-ss-tile";
+    return renderTile(row.tiles[0].tile, cls, SUIT_NAME[row.suit]);
+  }).join("");
+  return `<span class="yp-tiles">${chips}</span>`;
+}
+
+function sanshokuFoot(d) {
+  if (d.state === "locked") {
+    return `Sanshoku <b>${d.seq}</b> complete across all three suits.`;
+  }
+  if (d.state === "dead") {
+    const r = d.rows.find(row => row.dead);
+    return r ? `All four <b>${r.deadTile}</b> already visible — `
+             + `sequence in ${SUIT_NAME[r.suit]} impossible.` : "";
+  }
+  if (d.bottleneck) {
+    const lead = d.state === "close" ? "One sequence away. " : "";
+    return `${lead}<b>${d.bottleneck.tile}</b> bottleneck — `
+      + `only ${d.bottleneck.count} cop${d.bottleneck.count === 1 ? "y" : "ies"} remain.`;
+  }
+  return "";   // mid/high counts get no foot text — keep the popover terse
+}
+
+function renderSanshokuDetail(d) {
+  let rowsHtml = "";
+  for (const row of d.rows) {
+    const rowLow = !row.melded && !row.dead
+      && row.tiles.some(t => t.count !== null && t.count <= 2);
+    const rowCls = row.melded ? "ssd-row done"
+                 : row.dead ? "ssd-row dead"
+                 : rowLow ? "ssd-row possible low"
+                 : "ssd-row possible";
+    let tilesHtml = "";
+    for (const t of row.tiles) {
+      const tileCls = t.zero ? "ssd-tile zero"
+                    : (!row.melded && t.count !== null && t.count <= 2) ? "ssd-tile low"
+                    : "ssd-tile";
+      const count = row.melded ? "·" : String(t.count);
+      tilesHtml += `<span class="${tileCls}">${renderTile(t.tile, "")}`
+        + `<span class="ssd-count">${count}</span></span>`;
+    }
+    const status = row.melded ? "✓ melded"
+                 : row.dead ? `× ${row.deadTile} out`
+                 : `${row.live} live`;
+    rowsHtml += `<div class="ssd-suit ${row.suit}"><span class="ssd-dot"></span>${row.suit}</div>`
+      + `<div class="${rowCls}"><div class="ssd-tiles">${tilesHtml}</div>`
+      + `<div class="ssd-status">${status}</div></div>`;
+  }
+  const foot = sanshokuFoot(d);
+  return `<span class="yp-detail ss-detail">`
+    + `<div class="ss-detail-head"><span class="ssd-title">Sanshoku · ${d.seq}</span>`
+    + `<span class="ssd-state ${d.state}">${SANSHOKU_STATE_LABEL[d.state]}</span></div>`
+    + `<div class="ss-detail-rows">${rowsHtml}</div>`
+    + (foot ? `<div class="ss-detail-foot">${foot}</div>` : "")
+    + `</span>`;
+}
+
+function renderSanshokuPill(d) {
+  return `<span class="yp ss ${d.state}" title="Sanshoku ${d.seq}">`
+    + `<span class="yp-state">${SANSHOKU_STATE_CHAR[d.state]}</span>`
+    + `<span class="yp-name">Sanshoku</span>`
+    + `<span class="yp-seq">${d.seq}</span>`
+    + renderSanshokuTiles(d)
+    + renderSanshokuDetail(d)
+    + `</span>`;
+}
+
 function renderYakuPill(d) {
+  if (d.type === "sanshoku") return renderSanshokuPill(d);
   const meta = YAKU_META[d.type] || { label: d.type };
   const stateChar = d.state === "locked" ? "✓" : "◐";
   let tiles = "";
