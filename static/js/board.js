@@ -237,12 +237,14 @@ function tenpaiWaitTiles(m) {
 // is board_state.yaku[seat] from prep: an array of { type, state, ... }.
 // Pills are green (locked, ✓) or gold (possible, ◐); each carries a hover
 // detail. Yakuhai shows tile chips (locked ✓ / reachable ×N), honitsu shows
-// the committable suit as a tile plus a +pip when chinitsu is still alive.
+// the committable suit as a tile plus a +pip when chinitsu is still alive, and
+// chanta shows a +pip when junchan is still alive.
 // An opened seat with no surviving yaku gets a muted placeholder.
 const YAKU_META = {
   yakuhai: { label: "Yakuhai" },
   tanyao:  { label: "Tanyao" },
   toitoi:  { label: "Toitoi" },
+  chanta:  { label: "Chanta" },
   honitsu: { label: "Honitsu" },
 };
 const SUIT_NAME = { m: "man", p: "pin", s: "sou" };
@@ -284,6 +286,14 @@ function renderHonitsuTiles(d) {
   return tiles || upgrade ? `<span class="yp-tiles">${tiles}${upgrade}</span>` : "";
 }
 
+function renderChantaTiles(d) {
+  // No suit/tile chips for chanta; just the green +pip (matching honitsu's
+  // chinitsu marker) when the terminals-only junchan finish is still reachable.
+  return d.junchanReachable
+    ? `<span class="yp-tiles"><span class="yp-upgrade" title="Junchan still reachable — no honor melded.">+</span></span>`
+    : "";
+}
+
 function yakuDetail(d) {
   if (d.type === "yakuhai") {
     let html = `<b>Yakuhai</b> · <span class="muted">${d.state}</span><br>`;
@@ -297,6 +307,13 @@ function yakuDetail(d) {
       html += live.map(p => `${p.tile}×${p.count}`).join(" · ");
     }
     return html;
+  }
+  if (d.type === "chanta") {
+    const title = d.junchanReachable ? "Chanta / Junchan" : "Chanta";
+    return `<b>${title}</b> · <span class="muted">possible</span><br>`
+      + `<span class="muted">Every meld holds a terminal or honor. Dies if a meld has none (a 2–8 run or triplet).</span><br>`
+      + `Junchan upgrade: <b style="color:${d.junchanReachable ? "#9fd9a2" : "var(--text-dim)"}">`
+      + `${d.junchanReachable ? "still reachable" : "dead (honor already melded)"}</b>.`;
   }
   if (d.type === "honitsu") {
     const suits = (d.suits || []).map(s => SUIT_NAME[s]).join(" / ");
@@ -323,6 +340,7 @@ function renderYakuPill(d) {
   let tiles = "";
   if (d.type === "yakuhai") tiles = renderYakuhaiTiles(d);
   else if (d.type === "honitsu") tiles = renderHonitsuTiles(d);
+  else if (d.type === "chanta") tiles = renderChantaTiles(d);
   return `<span class="yp ${d.state}" title="${meta.label}">`
     + `<span class="yp-state">${stateChar}</span>`
     + `<span class="yp-name">${meta.label}</span>`

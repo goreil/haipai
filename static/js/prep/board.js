@@ -260,6 +260,9 @@
   // opponent's view: locking them needs the concealed shape we can't see.
   //   tanyao  — alive while no meld holds a terminal or honor.
   //   toitoi  — alive while no meld is a chi (every group a triplet/kan).
+  //   chanta  — alive while every meld holds a terminal or honor. The badge
+  //             folds in junchan: `junchanReachable` is true when no honor has
+  //             been melded (the terminals-only finish is still open).
   //   honitsu — alive while numbered melds stay within one suit. The badge
   //             folds in chinitsu: `chinitsuReachable` is true when no honor
   //             has been melded (the no-honor finish is still open). With only
@@ -268,18 +271,27 @@
     let hasChi = false;
     let termOrHonor = false;
     let honorMelded = false;
+    let everyMeldTermOrHonor = melds.length > 0;
     const suits = new Set();
     for (const meld of melds) {
       if (meld.type === "chi") hasChi = true;
+      let meldTermOrHonor = false;
       for (const t of _meld_tiles(meld)) {
-        if (is_honor_mjai(t)) { honorMelded = true; termOrHonor = true; continue; }
+        if (is_honor_mjai(t)) { honorMelded = true; termOrHonor = true; meldTermOrHonor = true; continue; }
         suits.add(_tile_suit_mjai(t));
-        if (_is_terminal_or_honor_mjai(t)) termOrHonor = true;
+        if (_is_terminal_or_honor_mjai(t)) { termOrHonor = true; meldTermOrHonor = true; }
       }
+      if (!meldTermOrHonor) everyMeldTermOrHonor = false;
     }
     const out = [];
     if (!termOrHonor) out.push({ type: "tanyao", state: "possible" });
     if (!hasChi) out.push({ type: "toitoi", state: "possible" });
+    if (everyMeldTermOrHonor) {
+      out.push({
+        type: "chanta", state: "possible",
+        junchanReachable: !honorMelded,
+      });
+    }
     if (suits.size <= 1) {
       out.push({
         type: "honitsu", state: "possible",
@@ -298,11 +310,12 @@
   //   the wall's unseen count for the triplet gate.
   // Returns { seat -> [yaku, ...] } for opened seats only — one entry per yaku
   // that survives the seat's melds, in display order (yakuhai, tanyao, toitoi,
-  // honitsu). Dead yakus are omitted; an opened seat with none surviving gets
-  // an empty array (the render shows a muted placeholder). Shapes:
+  // chanta, honitsu). Dead yakus are omitted; an opened seat with none surviving
+  // gets an empty array (the render shows a muted placeholder). Shapes:
   //   yakuhai: { type, state:'locked'|'possible',
   //             locked:[{tile,note}], possible:[{tile,count,inHand,note}] }
   //   tanyao / toitoi: { type, state:'possible' }
+  //   chanta:  { type, state:'possible', junchanReachable }
   //   honitsu: { type, state:'possible', suits:['m'|'p'|'s'], chinitsuReachable }
   function compute_yaku_panel(meldsBySeat, wall, oya, round_wind, hand) {
     const out = {};
@@ -357,7 +370,7 @@
           locked, possible,
         });
       }
-      // tanyao / toitoi / honitsu, in display order after yakuhai.
+      // tanyao / toitoi / chanta / honitsu, in display order after yakuhai.
       for (const y of _shape_yakus(melds)) entries.push(y);
       out[seat] = entries;
     }

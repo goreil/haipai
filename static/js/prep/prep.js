@@ -205,7 +205,7 @@
     }
   }
 
-  // Attach the per-opponent yaku panel (yakuhai/tanyao/toitoi/honitsu) to board_state.
+  // Attach the per-opponent yaku panel (yakuhai/tanyao/toitoi/chanta/honitsu) to board_state.
   // Opponent-only by design — the panel reads opponents' threats; we don't
   // second-guess the student's own yaku, so the player's own melds are left
   // out (board_state.opponent_melds already excludes the player). Needs the
