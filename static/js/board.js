@@ -237,7 +237,7 @@ function tenpaiWaitTiles(m) {
 // is board_state.yaku[seat] from prep: an array of { type, state, ... }.
 // Pills are green (locked, ✓) or gold (possible, ◐); each carries a hover
 // detail. Yakuhai shows tile chips (locked ✓ / reachable ×N), honitsu shows
-// the committable suit as a tile plus a +清 pip when chinitsu is still alive.
+// the committable suit as a tile plus a +pip when chinitsu is still alive.
 // An opened seat with no surviving yaku gets a muted placeholder.
 const YAKU_META = {
   yakuhai: { label: "Yakuhai" },
@@ -273,13 +273,13 @@ function renderYakuhaiTiles(d) {
 }
 
 function renderHonitsuTiles(d) {
-  // One tile per still-committable suit; a +清 pip when the no-honor chinitsu
+  // One tile per still-committable suit; a +pip when the no-honor chinitsu
   // finish is also reachable.
   const tiles = (d.suits || [])
     .map(s => renderTile(SUIT_TILE[s], "yp-suit-tile", SUIT_NAME[s]))
     .join("");
   const upgrade = d.chinitsuReachable
-    ? `<span class="yp-upgrade" title="Chinitsu still reachable — no honor melded.">+清</span>`
+    ? `<span class="yp-upgrade" title="Chinitsu still reachable — no honor melded.">+</span>`
     : "";
   return tiles || upgrade ? `<span class="yp-tiles">${tiles}${upgrade}</span>` : "";
 }
