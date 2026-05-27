@@ -4,13 +4,24 @@
 var WIND_DISPLAY = { "E": "East", "S": "South", "W": "West", "N": "North" };
 var SEAT_NAMES = ["East", "South", "West", "North"];
 
+// The player's own seat for a mistake. Most carry it on the action the player
+// took (`actual.actor`), but a pass/skip decision is `actual = {type:"none"}`
+// with no actor — fall back to the expected action, whose actor is still the
+// player. Without this fallback, pon/chi/riichi-pass cards lose the "(you)" tag
+// and (in non-East rounds) mislabel every seat's wind.
+function mistakeActorSeat(m) {
+  if (m && m.actual && m.actual.actor != null) return m.actual.actor;
+  if (m && m.expected && m.expected.actor != null) return m.expected.actor;
+  return null;
+}
+
 // Derive the dealer (oya) seat from a mistake's snapshot. Needed to convert
 // an absolute seat number into the correct round-relative wind letter (E/S
 // /W/N rotates every round, so seat 0 isn't always East).
 function mistakeOya(m) {
   const b = m && m.board_state;
   if (!b || !b.seat_wind) return null;
-  const playerSeat = m.actual ? m.actual.actor : null;
+  const playerSeat = mistakeActorSeat(m);
   if (playerSeat == null) return null;
   const WINDS = ["E", "S", "W", "N"];
   const pw = WINDS.indexOf(b.seat_wind);
@@ -221,6 +232,53 @@ function tenpaiWaitTiles(m) {
   return waits;
 }
 
+// Yaku panel (v1: yakuhai only) — a right-aside on each opened seat's discard
+// row. `yd` is board_state.yaku[seat] from prep: { state, locked, possible }.
+// Green ✓ chips mark locked yakuhai; ×N chips list still-reachable ones (>=3
+// unseen). Opened with neither → a muted "No yakuhai reachable" badge.
+function renderYakuAside(yd) {
+  if (!yd) return "";
+  const locked = yd.locked || [];
+  const possible = yd.possible || [];
+
+  // Opened but nothing locked and nothing reachable: quiet placeholder.
+  if (yd.state !== "locked" && !possible.length) {
+    return `<span class="yaku-aside possible">`
+      + `<span class="yaku-aside-head">No yakuhai reachable</span></span>`;
+  }
+
+  const isLocked = yd.state === "locked";
+  const head = isLocked
+    ? `Yakuhai · ${locked.map(l => l.tile).join(" + ")}`
+    : "Possible yakuhai";
+
+  let chips = "";
+  if (isLocked) {
+    for (const l of locked) {
+      const note = l.note ? ` (${l.note})` : "";
+      chips += `<span class="yaku-chip locked-chip" title="Yakuhai · ${l.tile}${note}">`
+        + renderTile(l.tile, "")
+        + `<span class="yaku-chip-count">✓</span></span>`;
+    }
+  }
+  for (const p of possible) {
+    const note = p.note ? ` (${p.note})` : "";
+    // A copy in your own hand still counts toward their triplet — discarding it
+    // feeds the pon/ron — so flag it: the chip you're being warned not to throw.
+    const inHand = p.inHand > 0;
+    const title = inHand
+      ? `${p.tile}${note}: ${p.count} live — ${p.inHand} in your hand (don't feed the pon)`
+      : `${p.tile}${note}: ${p.count} left`;
+    chips += `<span class="yaku-chip${inHand ? " yaku-chip-inhand" : ""}" title="${title}">`
+      + renderTile(p.tile, "")
+      + `<span class="yaku-chip-count">×${p.count}</span></span>`;
+  }
+
+  return `<span class="yaku-aside ${yd.state}">`
+    + `<span class="yaku-aside-head">${head}</span>`
+    + `<span class="yaku-chips">${chips}</span></span>`;
+}
+
 function renderBoardContext(m) {
   const b = m.board_state;
   if (!b) return "";
@@ -271,7 +329,7 @@ function renderBoardContext(m) {
       const cat = m.category || "";
       const expandDiscards = !cat || m.safety_ratings
                              || /^[3-6]/.test(cat) || /^D/.test(cat);
-      const playerSeat = m.actual ? m.actual.actor : null;
+      const playerSeat = mistakeActorSeat(m);
       // Each seat's wind label rotates from the dealer (oya). We derive oya
       // from the player's absolute actor id + their stored seat wind — the
       // backend doesn't serialize oya directly.
@@ -438,6 +496,12 @@ function renderBoardContext(m) {
           }
           html += `</span>`;
         }
+        // Yaku panel (right-aside) for any OPPONENT that has opened. Never the
+        // player's own row — prep omits the player from board_state.yaku, and
+        // this guard keeps that intent explicit at the render site.
+        if (b.yaku && b.yaku[d.seat] && d.seat !== playerSeat) {
+          html += renderYakuAside(b.yaku[d.seat]);
+        }
         html += `</div>`;
       }
       html += `</details>`;
@@ -448,7 +512,7 @@ function renderBoardContext(m) {
   // discard rows above.
   if (b.scores && b.scores.length) {
     const WINDS = ["E", "S", "W", "N"];
-    const playerSeat = m.actual ? m.actual.actor : null;
+    const playerSeat = mistakeActorSeat(m);
     let oya = null;
     if (playerSeat != null && b.seat_wind) {
       const pw = WINDS.indexOf(b.seat_wind);

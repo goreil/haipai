@@ -14,7 +14,8 @@
   }
 }(typeof self !== "undefined" ? self : this, function (tiles, parse) {
 
-  const { mjai_to_tile_id, tile_id_to_base, dora_indicator_to_dora_mjai } = tiles;
+  const { mjai_to_tile_id, tile_id_to_base, dora_indicator_to_dora_mjai,
+          is_honor_mjai } = tiles;
   const { flatten_mjai_log } = parse;
 
   function decrement_wall(wall, mjai_tile) {
@@ -194,10 +195,101 @@
     return w;
   }
 
+  // ── Yaku panel (v1: yakuhai only) ─────────────────────────────────
+  // Per opened seat, decide whether a yakuhai is already locked in (a meld of
+  // a dragon, the round wind, or that seat's own seat wind) or still reachable
+  // (a yakuhai tile with >=3 unseen copies — a pon needs 3 total, so anything
+  // below is dead). Mirrors the v1.1 spec in the Yaku-Panel design handoff.
+
+  const _YAKU_DRAGONS = ["P", "F", "C"];
+  const _WIND_LETTERS = ["E", "S", "W", "N"];
+  // A yakuhai triplet needs 3 copies still live (not dead in discards/melds/
+  // dora indicators), at least 2 of them unseen so the opponent can conceal a
+  // pair. A copy in YOUR hand counts toward the 3 — discarding it feeds their
+  // pon/ron — but can't be one of the concealed pair, hence the separate gates.
+  const _YAKUHAI_TRIPLET_MIN = 3;
+  const _YAKUHAI_HOLD_MIN = 2;
+
+  function _seat_wind(seat, oya) {
+    return _WIND_LETTERS[((seat - oya) % 4 + 4) % 4];
+  }
+
+  // The honor tiles already exposed in a seat's melds. chi sequences are never
+  // honors, so this only ever picks up pon/kan groups. mjai stores the group's
+  // tile on `pai` and/or `consumed[0]`; both are checked.
+  function _meld_honor_tiles(melds) {
+    const out = new Set();
+    for (const meld of melds || []) {
+      const cand = [meld.pai, (meld.consumed || [])[0]];
+      for (const t of cand) if (t && is_honor_mjai(t)) out.add(t);
+    }
+    return out;
+  }
+
+  // meldsBySeat: { seat -> [melds] } for every seat that has opened.
+  // wall: 37-entry unseen-copy counts (player's hand already subtracted).
+  // oya: dealer seat (for per-seat wind). round_wind: bakaze mjai letter.
+  // hand: the player's concealed tiles — copies of a yakuhai you hold are still
+  //   "live" for an opponent (you might discard them), so they're added back to
+  //   the wall's unseen count for the triplet gate.
+  // Returns { seat -> { state, locked:[{tile,note}], possible:[{tile,count,inHand,note}] } }
+  // for opened seats only. `state` is 'locked' | 'possible' | 'none'.
+  function compute_yaku_panel(meldsBySeat, wall, oya, round_wind, hand) {
+    const out = {};
+    const handHonors = {};
+    for (const t of hand || []) {
+      if (is_honor_mjai(t)) handHonors[t] = (handHonors[t] || 0) + 1;
+    }
+    for (const key of Object.keys(meldsBySeat || {})) {
+      const seat = Number(key);
+      const melds = meldsBySeat[key];
+      if (!melds || !melds.length) continue;
+
+      const seat_wind = _seat_wind(seat, oya);
+      // Candidate yakuhai tiles for this seat, deduped, in display order:
+      // the three dragons, then round wind, then seat wind.
+      const cands = [];
+      const seen = new Set();
+      for (const t of [..._YAKU_DRAGONS, round_wind, seat_wind]) {
+        if (t && !seen.has(t)) { seen.add(t); cands.push(t); }
+      }
+
+      const exposed = _meld_honor_tiles(melds);
+      const note_for = (t) => {
+        const isRound = t === round_wind;
+        const isSeat = t === seat_wind;
+        if (isRound && isSeat) return "round + seat";
+        if (isSeat) return "seat";
+        return null;   // dragon, or round wind (applies to everyone — no note)
+      };
+
+      const locked = [];
+      const possible = [];
+      for (const t of cands) {
+        const note = note_for(t);
+        if (exposed.has(t)) {
+          locked.push({ tile: t, note });
+        } else {
+          const unseen = wall[mjai_to_tile_id(t)] || 0;
+          const inHand = handHonors[t] || 0;
+          const live = unseen + inHand;
+          if (unseen >= _YAKUHAI_HOLD_MIN && live >= _YAKUHAI_TRIPLET_MIN) {
+            possible.push({ tile: t, count: live, inHand, note });
+          }
+        }
+      }
+
+      const state = locked.length ? "locked" : (possible.length ? "possible" : "none");
+      out[seat] = { state, locked, possible };
+    }
+    return out;
+  }
+
   return {
     decrement_wall,
     reconstruct_context,
     extract_board_state,
     subtract_hand_from_wall,
+    compute_yaku_panel,
   };
 }));

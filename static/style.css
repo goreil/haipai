@@ -792,6 +792,8 @@ body {
   gap: 6px;
   padding: 2px 4px;
   border-radius: 4px;
+  /* Let the trailing yaku-aside drop to its own line on narrow widths. */
+  flex-wrap: wrap;
 }
 
 .discard-row.you-row {
@@ -880,6 +882,67 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+/* Yaku panel (v1: yakuhai only) — right-aside on each opened seat's row.
+   Locked = green border + ✓ chips; possible = gold border + ×N chips;
+   "No yakuhai reachable" reuses the possible (gold) framing, muted. */
+.yaku-aside {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+}
+.yaku-aside.locked { border-color: rgba(102, 187, 106, 0.4); }
+.yaku-aside.possible { border-color: rgba(201, 166, 87, 0.4); }
+.yaku-aside .yaku-aside-head {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
+.yaku-aside.locked .yaku-aside-head { color: #66bb6a; }
+.yaku-aside.possible .yaku-aside-head { color: #c9a657; }
+.yaku-aside .yaku-chips {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.yaku-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px 1px 2px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1;
+}
+.yaku-chip .tile {
+  height: 18px;
+  border-width: 0;
+}
+.yaku-chip .yaku-chip-count { font-variant-numeric: tabular-nums; }
+.yaku-chip.locked-chip {
+  background: rgba(102, 187, 106, 0.10);
+  border-color: rgba(102, 187, 106, 0.5);
+  color: #9fd9a2;
+}
+/* A reachable yakuhai where one copy sits in YOUR hand — the tile you're being
+   warned not to discard. Warmer accent than a plain possible chip. */
+.yaku-chip.yaku-chip-inhand {
+  background: rgba(255, 169, 77, 0.12);
+  border-color: rgba(255, 169, 77, 0.55);
+  color: #ffc98a;
 }
 
 /* Ghost tile (called from discard pool) */

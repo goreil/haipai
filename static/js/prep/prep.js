@@ -31,7 +31,8 @@
 
   const { ID_TO_MJAI } = tilesMod;
   const { flatten_mjai_log } = parseMod;
-  const { reconstruct_context, subtract_hand_from_wall, extract_board_state } = boardMod;
+  const { reconstruct_context, subtract_hand_from_wall, extract_board_state,
+          compute_yaku_panel } = boardMod;
   const {
     tenpai_wait_tiles, is_furiten,
     find_riichi_context, find_discard_history_for_turn,
@@ -204,6 +205,35 @@
     }
   }
 
+  // Attach the per-opponent yaku panel (v1: yakuhai only) to board_state.
+  // Opponent-only by design — the panel reads opponents' threats; we don't
+  // second-guess the student's own yaku, so the player's own melds are left
+  // out (board_state.opponent_melds already excludes the player). Needs the
+  // unseen-copy wall (player's hand subtracted) for the "still reachable"
+  // counts, and oya to map each seat to its seat wind. No-op when board_state
+  // or the wall is missing.
+  function _attach_yaku_panel(board_state, mistake, mortalData, kyokuIdx, entry) {
+    if (!board_state) return;
+    const wall = _wall_for_mistake(mistake, mortalData, kyokuIdx, entry);
+    if (!wall) return;
+    const player_id = mortalData.player_id;
+    const WINDS = ["E", "S", "W", "N"];
+    const pw = WINDS.indexOf(board_state.seat_wind);
+    if (pw < 0) return;
+    const oya = ((player_id - pw) % 4 + 4) % 4;
+
+    const meldsBySeat = {};
+    for (const om of board_state.opponent_melds || []) meldsBySeat[om.seat] = om.melds;
+
+    try {
+      const yaku = compute_yaku_panel(meldsBySeat, wall, oya, board_state.round_wind,
+                                      mistake.hand || []);
+      if (yaku && Object.keys(yaku).length) board_state.yaku = yaku;
+    } catch (e) {
+      _warn("yaku panel compute failed:", e);
+    }
+  }
+
   function prepMistake(mistake, mortalData, kyokuIdx, entry, defenseCtx) {
     const actual = mistake.actual || {};
     const expected = mistake.expected || {};
@@ -211,6 +241,7 @@
     const et = expected.type;
 
     const board_state = _compute_board_state(mortalData, kyokuIdx, entry);
+    _attach_yaku_panel(board_state, mistake, mortalData, kyokuIdx, entry);
 
     // Non-dahai branch (meld/riichi/kan decisions). No discard tradeoff;
     // still want a per-tile shanten table for the EV-table view + 5A/5B
