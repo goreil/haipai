@@ -232,36 +232,32 @@ function tenpaiWaitTiles(m) {
   return waits;
 }
 
-// Yaku panel (v1: yakuhai only) — a right-aside on each opened seat's discard
-// row. `yd` is board_state.yaku[seat] from prep: { state, locked, possible }.
-// Green ✓ chips mark locked yakuhai; ×N chips list still-reachable ones (>=3
-// unseen). Opened with neither → a muted "No yakuhai reachable" badge.
-function renderYakuAside(yd) {
-  if (!yd) return "";
-  const locked = yd.locked || [];
-  const possible = yd.possible || [];
+// Yaku panel (v1.3) — a right-aside strip of pills on each opened seat's
+// discard row, one pill per yaku that survives that seat's melds. `entries`
+// is board_state.yaku[seat] from prep: an array of { type, state, ... }.
+// Pills are green (locked, ✓) or gold (possible, ◐); each carries a hover
+// detail. Yakuhai shows tile chips (locked ✓ / reachable ×N), honitsu shows
+// the committable suit as a tile plus a +清 pip when chinitsu is still alive.
+// An opened seat with no surviving yaku gets a muted placeholder.
+const YAKU_META = {
+  yakuhai: { label: "Yakuhai" },
+  tanyao:  { label: "Tanyao" },
+  toitoi:  { label: "Toitoi" },
+  honitsu: { label: "Honitsu" },
+};
+const SUIT_NAME = { m: "man", p: "pin", s: "sou" };
+const SUIT_TILE = { m: "1m", p: "1p", s: "1s" };   // representative suit tile
 
-  // Opened but nothing locked and nothing reachable: quiet placeholder.
-  if (yd.state !== "locked" && !possible.length) {
-    return `<span class="yaku-aside possible">`
-      + `<span class="yaku-aside-head">No yakuhai reachable</span></span>`;
-  }
-
-  const isLocked = yd.state === "locked";
-  const head = isLocked
-    ? `Yakuhai · ${locked.map(l => l.tile).join(" + ")}`
-    : "Possible yakuhai";
-
+function renderYakuhaiTiles(d) {
   let chips = "";
-  if (isLocked) {
-    for (const l of locked) {
-      const note = l.note ? ` (${l.note})` : "";
-      chips += `<span class="yaku-chip locked-chip" title="Yakuhai · ${l.tile}${note}">`
-        + renderTile(l.tile, "")
-        + `<span class="yaku-chip-count">✓</span></span>`;
-    }
+  for (const l of d.locked || []) {
+    const note = l.note ? ` (${l.note})` : "";
+    chips += `<span class="yp-tile-chip is-locked" title="Yakuhai · ${l.tile}${note}">`
+      + renderTile(l.tile, "")
+      + `<span class="yp-tile-count">✓</span></span>`;
   }
-  for (const p of possible) {
+  for (const p of d.possible || []) {
+    if (p.count < 3) continue;   // a pon needs 3 copies; below that is dead
     const note = p.note ? ` (${p.note})` : "";
     // A copy in your own hand still counts toward their triplet — discarding it
     // feeds the pon/ron — so flag it: the chip you're being warned not to throw.
@@ -269,14 +265,78 @@ function renderYakuAside(yd) {
     const title = inHand
       ? `${p.tile}${note}: ${p.count} live — ${p.inHand} in your hand (don't feed the pon)`
       : `${p.tile}${note}: ${p.count} left`;
-    chips += `<span class="yaku-chip${inHand ? " yaku-chip-inhand" : ""}" title="${title}">`
+    chips += `<span class="yp-tile-chip${inHand ? " yp-tile-chip-inhand" : ""}" title="${title}">`
       + renderTile(p.tile, "")
-      + `<span class="yaku-chip-count">×${p.count}</span></span>`;
+      + `<span class="yp-tile-count">×${p.count}</span></span>`;
   }
+  return chips ? `<span class="yp-tiles">${chips}</span>` : "";
+}
 
-  return `<span class="yaku-aside ${yd.state}">`
-    + `<span class="yaku-aside-head">${head}</span>`
-    + `<span class="yaku-chips">${chips}</span></span>`;
+function renderHonitsuTiles(d) {
+  // One tile per still-committable suit; a +清 pip when the no-honor chinitsu
+  // finish is also reachable.
+  const tiles = (d.suits || [])
+    .map(s => renderTile(SUIT_TILE[s], "yp-suit-tile", SUIT_NAME[s]))
+    .join("");
+  const upgrade = d.chinitsuReachable
+    ? `<span class="yp-upgrade" title="Chinitsu still reachable — no honor melded.">+清</span>`
+    : "";
+  return tiles || upgrade ? `<span class="yp-tiles">${tiles}${upgrade}</span>` : "";
+}
+
+function yakuDetail(d) {
+  if (d.type === "yakuhai") {
+    let html = `<b>Yakuhai</b> · <span class="muted">${d.state}</span><br>`;
+    html += d.state === "locked"
+      ? `<span class="muted">Locked via</span> ` + (d.locked || [])
+          .map(l => l.tile + (l.note ? ` (${l.note})` : "")).join(", ") + "."
+      : `<span class="muted">No yakuhai meld yet.</span>`;
+    const live = (d.possible || []).filter(p => p.count >= 3);
+    if (live.length) {
+      html += `<br><span class="muted">${d.state === "locked" ? "Other still-reachable:" : "Reachable tiles:"}</span> `;
+      html += live.map(p => `${p.tile}×${p.count}`).join(" · ");
+    }
+    return html;
+  }
+  if (d.type === "honitsu") {
+    const suits = (d.suits || []).map(s => SUIT_NAME[s]).join(" / ");
+    const title = d.chinitsuReachable ? "Honitsu / Chinitsu" : "Honitsu";
+    return `<b>${title}</b> · <span class="muted">${d.state}</span><br>`
+      + `Committable suit${(d.suits || []).length > 1 ? "s" : ""}: <b>${suits || "—"}</b>.<br>`
+      + `Chinitsu upgrade: <b style="color:${d.chinitsuReachable ? "#9fd9a2" : "var(--text-dim)"}">`
+      + `${d.chinitsuReachable ? "still reachable" : "dead (honor already melded)"}</b>.`;
+  }
+  if (d.type === "tanyao") {
+    return `<b>Tanyao</b> · <span class="muted">possible</span><br>`
+      + `<span class="muted">All melds are simples (2–8). Dies if a terminal or honor enters a meld.</span>`;
+  }
+  if (d.type === "toitoi") {
+    return `<b>Toitoi</b> · <span class="muted">possible</span><br>`
+      + `<span class="muted">Every meld is a triplet. Dies on any chi.</span>`;
+  }
+  return `<b>${(YAKU_META[d.type] || {}).label || d.type}</b>`;
+}
+
+function renderYakuPill(d) {
+  const meta = YAKU_META[d.type] || { label: d.type };
+  const stateChar = d.state === "locked" ? "✓" : "◐";
+  let tiles = "";
+  if (d.type === "yakuhai") tiles = renderYakuhaiTiles(d);
+  else if (d.type === "honitsu") tiles = renderHonitsuTiles(d);
+  return `<span class="yp ${d.state}" title="${meta.label}">`
+    + `<span class="yp-state">${stateChar}</span>`
+    + `<span class="yp-name">${meta.label}</span>`
+    + tiles
+    + `<span class="yp-detail">${yakuDetail(d)}</span></span>`;
+}
+
+function renderYakuStrip(entries) {
+  if (!entries) return "";
+  if (!entries.length) {
+    return `<span class="yaku-strip">`
+      + `<span class="yp yp-empty"><span class="yp-name">No yaku reachable</span></span></span>`;
+  }
+  return `<span class="yaku-strip">${entries.map(renderYakuPill).join("")}</span>`;
 }
 
 function renderBoardContext(m) {
@@ -500,7 +560,7 @@ function renderBoardContext(m) {
         // player's own row — prep omits the player from board_state.yaku, and
         // this guard keeps that intent explicit at the render site.
         if (b.yaku && b.yaku[d.seat] && d.seat !== playerSeat) {
-          html += renderYakuAside(b.yaku[d.seat]);
+          html += renderYakuStrip(b.yaku[d.seat]);
         }
         html += `</div>`;
       }

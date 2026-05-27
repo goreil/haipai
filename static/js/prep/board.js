@@ -226,14 +226,84 @@
     return out;
   }
 
+  // Every tile in a meld (consumed + the called/added tile). Duplicates are
+  // fine — callers only inspect tile kinds (suit / terminal / honor), never
+  // counts. Covers chi/pon/daiminkan (consumed + pai), kakan (the 3 ponned +
+  // added pai) and ankan (4 in consumed, no pai).
+  function _meld_tiles(meld) {
+    const out = (meld.consumed || []).slice();
+    if (meld.pai) out.push(meld.pai);
+    return out;
+  }
+
+  function _base_mjai(t) {
+    if (t === "5mr") return "5m";
+    if (t === "5pr") return "5p";
+    if (t === "5sr") return "5s";
+    return t;
+  }
+  // Numbered tile -> its suit letter ('m'|'p'|'s'); honor -> null.
+  function _tile_suit_mjai(t) {
+    if (is_honor_mjai(t)) return null;
+    return _base_mjai(t)[1];
+  }
+  // 1/9 of any suit, or any honor — i.e. anything that kills tanyao.
+  function _is_terminal_or_honor_mjai(t) {
+    if (is_honor_mjai(t)) return true;
+    const r = _base_mjai(t)[0];
+    return r === "1" || r === "9";
+  }
+
+  // Shape yakus a seat's melds keep alive, per the v1.3 Yaku-Panel handoff.
+  // Each survives only while the melds don't contradict it (no likelihood
+  // ranking yet — binary alive/dead). All three stay 'possible' from an
+  // opponent's view: locking them needs the concealed shape we can't see.
+  //   tanyao  — alive while no meld holds a terminal or honor.
+  //   toitoi  — alive while no meld is a chi (every group a triplet/kan).
+  //   honitsu — alive while numbered melds stay within one suit. The badge
+  //             folds in chinitsu: `chinitsuReachable` is true when no honor
+  //             has been melded (the no-honor finish is still open). With only
+  //             honor melds, every suit is still committable (suits = all 3).
+  function _shape_yakus(melds) {
+    let hasChi = false;
+    let termOrHonor = false;
+    let honorMelded = false;
+    const suits = new Set();
+    for (const meld of melds) {
+      if (meld.type === "chi") hasChi = true;
+      for (const t of _meld_tiles(meld)) {
+        if (is_honor_mjai(t)) { honorMelded = true; termOrHonor = true; continue; }
+        suits.add(_tile_suit_mjai(t));
+        if (_is_terminal_or_honor_mjai(t)) termOrHonor = true;
+      }
+    }
+    const out = [];
+    if (!termOrHonor) out.push({ type: "tanyao", state: "possible" });
+    if (!hasChi) out.push({ type: "toitoi", state: "possible" });
+    if (suits.size <= 1) {
+      out.push({
+        type: "honitsu", state: "possible",
+        suits: suits.size === 1 ? [...suits] : ["m", "p", "s"],
+        chinitsuReachable: !honorMelded && suits.size === 1,
+      });
+    }
+    return out;
+  }
+
   // meldsBySeat: { seat -> [melds] } for every seat that has opened.
   // wall: 37-entry unseen-copy counts (player's hand already subtracted).
   // oya: dealer seat (for per-seat wind). round_wind: bakaze mjai letter.
   // hand: the player's concealed tiles — copies of a yakuhai you hold are still
   //   "live" for an opponent (you might discard them), so they're added back to
   //   the wall's unseen count for the triplet gate.
-  // Returns { seat -> { state, locked:[{tile,note}], possible:[{tile,count,inHand,note}] } }
-  // for opened seats only. `state` is 'locked' | 'possible' | 'none'.
+  // Returns { seat -> [yaku, ...] } for opened seats only — one entry per yaku
+  // that survives the seat's melds, in display order (yakuhai, tanyao, toitoi,
+  // honitsu). Dead yakus are omitted; an opened seat with none surviving gets
+  // an empty array (the render shows a muted placeholder). Shapes:
+  //   yakuhai: { type, state:'locked'|'possible',
+  //             locked:[{tile,note}], possible:[{tile,count,inHand,note}] }
+  //   tanyao / toitoi: { type, state:'possible' }
+  //   honitsu: { type, state:'possible', suits:['m'|'p'|'s'], chinitsuReachable }
   function compute_yaku_panel(meldsBySeat, wall, oya, round_wind, hand) {
     const out = {};
     const handHonors = {};
@@ -279,8 +349,17 @@
         }
       }
 
-      const state = locked.length ? "locked" : (possible.length ? "possible" : "none");
-      out[seat] = { state, locked, possible };
+      const entries = [];
+      if (locked.length || possible.length) {
+        entries.push({
+          type: "yakuhai",
+          state: locked.length ? "locked" : "possible",
+          locked, possible,
+        });
+      }
+      // tanyao / toitoi / honitsu, in display order after yakuhai.
+      for (const y of _shape_yakus(melds)) entries.push(y);
+      out[seat] = entries;
     }
     return out;
   }

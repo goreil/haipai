@@ -792,7 +792,7 @@ body {
   gap: 6px;
   padding: 2px 4px;
   border-radius: 4px;
-  /* Let the trailing yaku-aside drop to its own line on narrow widths. */
+  /* Let the trailing yaku-strip drop to its own line on narrow widths. */
   flex-wrap: wrap;
 }
 
@@ -884,66 +884,138 @@ body {
   gap: 4px;
 }
 
-/* Yaku panel (v1: yakuhai only) — right-aside on each opened seat's row.
-   Locked = green border + ✓ chips; possible = gold border + ×N chips;
-   "No yakuhai reachable" reuses the possible (gold) framing, muted. */
-.yaku-aside {
+/* Yaku panel (v1.3) — right-aside strip of pills on each opened seat's row,
+   one pill per yaku that survives the seat's melds. Green = locked (✓),
+   gold = possible (◐); yakuhai carries tile chips, honitsu a suit tile (+清
+   pip when chinitsu is alive). Each pill lifts a hover detail above the row. */
+.yaku-strip {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 10.5px;
+  gap: 4px;
+}
+
+.yp {
+  position: relative;
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 16px;
   color: var(--text-dim);
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border);
+  white-space: nowrap;
 }
-.yaku-aside.locked { border-color: rgba(102, 187, 106, 0.4); }
-.yaku-aside.possible { border-color: rgba(201, 166, 87, 0.4); }
-.yaku-aside .yaku-aside-head {
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-dim);
-}
-.yaku-aside.locked .yaku-aside-head { color: #66bb6a; }
-.yaku-aside.possible .yaku-aside-head { color: #c9a657; }
-.yaku-aside .yaku-chips {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-}
-
-.yaku-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 5px 1px 2px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border);
-  font-size: 10px;
-  color: var(--text-dim);
-  line-height: 1;
-}
-.yaku-chip .tile {
-  height: 18px;
-  border-width: 0;
-}
-.yaku-chip .yaku-chip-count { font-variant-numeric: tabular-nums; }
-.yaku-chip.locked-chip {
+.yp.locked {
+  color: #9fd9a2;
   background: rgba(102, 187, 106, 0.10);
   border-color: rgba(102, 187, 106, 0.5);
-  color: #9fd9a2;
 }
+.yp.possible {
+  color: #d8b766;
+  background: rgba(201, 166, 87, 0.07);
+  border-color: rgba(201, 166, 87, 0.4);
+}
+.yp .yp-state { font-size: 10px; line-height: 1; font-weight: 700; }
+.yp.locked   .yp-state { color: #66bb6a; }
+.yp.possible .yp-state { color: #c9a657; }
+.yp .yp-name { font-size: 10px; letter-spacing: 0.2px; }
+.yp.yp-empty {
+  cursor: default;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+/* Inline tile chips — shared by the yakuhai pill (count chips) and the
+   honitsu pill (suit chips). */
+.yp .yp-tiles {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  margin-left: 2px;
+  padding-left: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+.yp .yp-suit-tile {
+  height: 16px;
+  width: auto;
+  border: 0;
+  border-radius: 2px;
+}
+/* Chinitsu upgrade marker — green pip after the suit tile(s). */
+.yp .yp-upgrade {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 3px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(102, 187, 106, 0.15);
+  color: #9fd9a2;
+  border: 1px solid rgba(102, 187, 106, 0.4);
+  line-height: 13px;
+}
+.yp .yp-tile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 9.5px;
+}
+.yp .yp-tile-chip .tile {
+  height: 16px;
+  width: auto;
+  border: 0;
+}
+.yp .yp-tile-chip .yp-tile-count {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.yp.locked .yp-tile-chip.is-locked .tile {
+  outline: 1.5px solid #66bb6a;
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+.yp.locked .yp-tile-chip.is-locked .yp-tile-count { color: #9fd9a2; }
 /* A reachable yakuhai where one copy sits in YOUR hand — the tile you're being
    warned not to discard. Warmer accent than a plain possible chip. */
-.yaku-chip.yaku-chip-inhand {
+.yp .yp-tile-chip.yp-tile-chip-inhand {
+  padding: 0 3px;
+  border-radius: 6px;
   background: rgba(255, 169, 77, 0.12);
-  border-color: rgba(255, 169, 77, 0.55);
-  color: #ffc98a;
+  border: 1px solid rgba(255, 169, 77, 0.55);
 }
+.yp .yp-tile-chip.yp-tile-chip-inhand .yp-tile-count { color: #ffc98a; }
+
+/* Hover detail — lifts above the discard row. */
+.yp .yp-detail {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--text);
+  width: 240px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 50;
+  line-height: 1.4;
+  white-space: normal;
+  text-align: left;
+}
+.yp .yp-detail b { color: var(--text); }
+.yp .yp-detail .muted { color: var(--text-dim); }
+.yp:hover .yp-detail { opacity: 1; pointer-events: auto; }
+.yp.yp-empty .yp-detail { display: none; }
 
 /* Ghost tile (called from discard pool) */
 .tile.ghost-tile {
