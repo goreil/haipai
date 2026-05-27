@@ -19,8 +19,11 @@ FLASK_ENV=development .venv/bin/python app.py       # http://localhost:5000
 .venv/bin/pytest tests/ -v
 
 # Docker (production)
-docker-compose up -d --build
-docker-compose restart app
+# Source dirs (static/, templates/, app.py, db/, lib/, routes/, scripts/) are
+# bind-mounted and gunicorn runs --reload, so code/static/template edits go live
+# on the next request — no restart needed. Rebuild only when deps/image change.
+docker-compose up -d --build      # after requirements/Dockerfile/compose changes
+docker-compose restart app        # rarely needed; only to force a clean reload
 docker-compose logs -f app
 
 # Lower-level
