@@ -333,18 +333,28 @@
   //   • Viability needs the still-missing suits to fit in the seat's remaining
   //     concealed sets (4 - meldCount). This is what yields the handoff's
   //     progression: 2 melds → up to 2 candidates, 3 melds → 1, 4 → done.
-  //   • A pending suit's run dies when any of its three tiles is fully visible
-  //     (0 unseen). A dead candidate is surfaced (strike-through) only at
-  //     >=2 melds; with a single meld the hand can still abandon this run for a
-  //     different sanshoku formed entirely in the concealed sets ("sanshoku
-  //     any" stays alive), so we just drop the dead candidate rather than flag
-  //     it. Only the concrete chi candidate (progress 1) is ever shown at one
-  //     meld; the dormant "any" possibility carries no number to render.
+  //   • A pending suit's tile is reachable if the opponent can still draw it
+  //     (>=1 unseen) OR you hold the last copies — discarding one feeds their
+  //     chi/ron. So, like yakuhai, a copy in YOUR hand counts as live (a
+  //     "deal-in"). A pending suit only dies when (a) one of its tiles is gone
+  //     everywhere — 0 unseen AND 0 in your hand — or (b) two of its tiles are
+  //     last-copies in your hand: a call takes just one tile from outside, so
+  //     the opponent can never collect both. Two last-copies in *different*
+  //     suits is fine — they're fed on separate turns.
+  //   • A dead candidate is surfaced (strike-through) only at >=2 melds; with a
+  //     single meld the hand can still abandon this run for a different
+  //     sanshoku formed entirely in the concealed sets ("sanshoku any" stays
+  //     alive), so we just drop the dead candidate rather than flag it. Only
+  //     the concrete chi candidate (progress 1) is ever shown at one meld; the
+  //     dormant "any" possibility carries no number to render.
   // Returns candidates in run order, each:
   //   { type:'sanshoku', state:'possible'|'close'|'locked'|'dead', seq:'234',
-  //     progress, rows:[{ suit, melded, tiles:[{tile,count,zero}],
-  //                       live, dead, deadTile }], bottleneck:{tile,count}|null }
-  function _sanshoku_candidates(melds, wall) {
+  //     progress, bottleneck:{tile,count}|null,
+  //     dealInTiles:[tile] (last-copies you hold on still-live suits),
+  //     rows:[{ suit, melded, live, dead, deadTile,
+  //             tiles:[{tile,count,inHand,zero,dealIn}] }] }
+  // handCounts maps base mjai tile -> copies in the player's hand.
+  function _sanshoku_candidates(melds, wall, handCounts) {
     const meldCount = melds.length;
     const concealedSlots = 4 - meldCount;
     const byStart = new Map();   // run start -> Set of melded suits
@@ -364,25 +374,34 @@
 
       const rows = [];
       let dead = false;
-      let minLive = Infinity, minTile = null;
+      const dealInTiles = [];          // last-copies you hold on live suits
+      let minDraw = Infinity, minDrawTile = null;
       for (const suit of _SUITS) {
         const melded = meldedSuits.has(suit);
         const tiles = [];
-        let suitDead = false, deadTile = null, live = 0;
+        let exhaustedTile = null;      // a tile gone everywhere (kills the suit)
+        const suitDealIn = [];         // last-copies you hold in this suit
+        let live = 0;
         for (let k = 0; k < 3; k++) {
           const tile = `${start + k}${suit}`;
-          const count = melded ? null : _unseen(wall, tile);
-          const zero = !melded && count === 0;
+          let count = null, inHand = 0, zero = false, dealIn = false;
           if (!melded) {
+            count = _unseen(wall, tile);
+            inHand = handCounts[_base_mjai(tile)] || 0;
             live += count;
-            if (zero) { suitDead = true; deadTile = tile; }
-            else if (count < minLive) { minLive = count; minTile = tile; }
+            if (count === 0 && inHand === 0) { zero = true; exhaustedTile = tile; }
+            else if (count === 0) { dealIn = true; suitDealIn.push(tile); }
+            else if (count < minDraw) { minDraw = count; minDrawTile = tile; }
           }
-          tiles.push({ tile, count, zero });
+          tiles.push({ tile, count, inHand, zero, dealIn });
         }
+        // Suit dies if a tile is gone everywhere, or if two of its tiles are
+        // last-copies in hand (a single call can't pull both).
+        const suitDead = !melded && (exhaustedTile !== null || suitDealIn.length >= 2);
         if (suitDead) dead = true;
+        else for (const t of suitDealIn) dealInTiles.push(t);
         rows.push({ suit, melded, tiles, live: melded ? null : live,
-                    dead: suitDead, deadTile });
+                    dead: suitDead, deadTile: exhaustedTile });
       }
 
       let state;
@@ -395,12 +414,12 @@
       if (state === "dead" && meldCount < 2) continue;
 
       const bottleneck = (state === "possible" || state === "close")
-        && minTile !== null && minLive <= 2
-        ? { tile: minTile, count: minLive } : null;
+        && minDrawTile !== null && minDraw <= 2
+        ? { tile: minDrawTile, count: minDraw } : null;
 
       out.push({
         type: "sanshoku", state, seq: `${start}${start + 1}${start + 2}`,
-        progress, rows, bottleneck,
+        progress, rows, bottleneck, dealInTiles,
       });
     }
     return out;
@@ -423,11 +442,13 @@
   //   tanyao / toitoi: { type, state:'possible' }
   //   chanta:  { type, state:'possible', junchanReachable }
   //   honitsu: { type, state:'possible', suits:['m'|'p'|'s'], chinitsuReachable }
-  //   sanshoku: { type, state, seq, progress, rows, bottleneck } (see above)
+  //   sanshoku: { type, state, seq, progress, rows, bottleneck, dealInTiles } (see above)
   function compute_yaku_panel(meldsBySeat, wall, oya, round_wind, hand) {
     const out = {};
     const handHonors = {};
+    const handCounts = {};   // base mjai tile -> copies in hand (red fives folded)
     for (const t of hand || []) {
+      handCounts[_base_mjai(t)] = (handCounts[_base_mjai(t)] || 0) + 1;
       if (is_honor_mjai(t)) handHonors[t] = (handHonors[t] || 0) + 1;
     }
     for (const key of Object.keys(meldsBySeat || {})) {
@@ -480,7 +501,7 @@
       // tanyao / toitoi / chanta / honitsu, in display order after yakuhai.
       for (const y of _shape_yakus(melds)) entries.push(y);
       // Sanshoku-doujun candidates derived from the seat's melded chi runs.
-      for (const s of _sanshoku_candidates(melds, wall)) entries.push(s);
+      for (const s of _sanshoku_candidates(melds, wall, handCounts)) entries.push(s);
       out[seat] = entries;
     }
     return out;

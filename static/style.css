@@ -1163,6 +1163,16 @@ body {
 .yp .ssd-row.possible .ssd-tile.low .ssd-count { color: #f0c674; }
 .yp .ssd-row.possible .ssd-status { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .yp .ssd-row.possible.low .ssd-status { color: #f0c674; }
+/* Deal-in tile — a last copy you hold (0 unseen). Warm amber outline + count,
+   matching the yakuhai in-hand chip: the tile you're warned not to discard. */
+.yp .ssd-tile.dealin img.tile {
+  opacity: 0.85;
+  filter: none;
+  outline: 1.5px solid rgba(255, 169, 77, 0.7);
+  outline-offset: 1px;
+}
+.yp .ssd-tile.dealin .ssd-count { color: #ffc98a; font-weight: 600; }
+.yp .ssd-row.possible.dealin .ssd-status { color: #ffc98a; font-weight: 500; }
 /* Dead row — the exhausted tile gets a red outline + 0. */
 .yp .ssd-row.dead .ssd-tile img.tile { opacity: 0.25; filter: grayscale(1); }
 .yp .ssd-row.dead .ssd-tile.zero img.tile {
@@ -1171,6 +1181,12 @@ body {
   outline-offset: 1px;
 }
 .yp .ssd-tile.zero .ssd-count { color: var(--sev-major); font-weight: 700; }
+/* Suit killed by two last-copies in hand — outline both so it's clear which
+   pair can't both be fed. */
+.yp .ssd-row.dead .ssd-tile.dealin img.tile {
+  outline: 1.5px solid rgba(255, 169, 77, 0.6);
+  outline-offset: 1px;
+}
 .yp .ssd-row.dead .ssd-status { color: var(--sev-major); font-weight: 500; }
 .yp .ss-detail-foot {
   margin-top: 9px;

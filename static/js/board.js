@@ -341,6 +341,10 @@ function yakuDetail(d) {
 // D — the full three-tile sequence per suit with copies-remaining under each
 // pending tile, plus a bottleneck/foot callout. States: possible (1/3, gold),
 // close (2/3, orange), locked (3/3, green ✓), dead (strike + ×).
+// A pending tile you hold the last copy of (0 unseen, in your hand) is a
+// deal-in: amber outline + "deal-in" status, and the foot warns you not to
+// discard it. The suit only dies when a tile is gone everywhere, or when two of
+// its tiles are last-copies you hold (a call can pull just one).
 const SANSHOKU_STATE_CHAR = { locked: "✓", close: "◐", possible: "◐", dead: "×" };
 const SANSHOKU_STATE_LABEL = {
   locked: "✓ locked", close: "2/3 close", possible: "1/3 possible", dead: "× dead",
@@ -363,8 +367,24 @@ function sanshokuFoot(d) {
   }
   if (d.state === "dead") {
     const r = d.rows.find(row => row.dead);
-    return r ? `All four <b>${r.deadTile}</b> already visible — `
-             + `sequence in ${SUIT_NAME[r.suit]} impossible.` : "";
+    if (!r) return "";
+    if (r.deadTile) {
+      return `All four <b>${r.deadTile}</b> already visible — `
+        + `sequence in ${SUIT_NAME[r.suit]} impossible.`;
+    }
+    // Killed by two last-copies in your hand — a call pulls only one.
+    const [a, b] = r.tiles.filter(t => t.dealIn).map(t => t.tile);
+    return `${SUIT_NAME[r.suit]} needs both <b>${a}</b> and <b>${b}</b> from your `
+      + `hand — a call takes one tile, so the run can't complete.`;
+  }
+  // A last-copy you hold completes the yaku if you discard it — the strongest
+  // signal in the popover, so it leads over the draw-count bottleneck.
+  if (d.dealInTiles && d.dealInTiles.length) {
+    const lead = d.state === "close" ? "One sequence away. " : "";
+    const tiles = d.dealInTiles.map(t => `<b>${t}</b>`).join(" / ");
+    const multi = d.dealInTiles.length > 1;
+    return `${lead}You hold the last ${tiles} — discarding `
+      + `${multi ? "either" : "it"} feeds sanshoku ${d.seq}.`;
   }
   if (d.bottleneck) {
     const lead = d.state === "close" ? "One sequence away. " : "";
@@ -377,24 +397,33 @@ function sanshokuFoot(d) {
 function renderSanshokuDetail(d) {
   let rowsHtml = "";
   for (const row of d.rows) {
-    const rowLow = !row.melded && !row.dead
+    // A last-copy you hold (0 unseen, 1+ in hand) on a still-live suit — the
+    // tile you're warned not to feed. Distinct from a dead suit.
+    const dealInAlive = !row.melded && !row.dead && row.tiles.some(t => t.dealIn);
+    const rowLow = !row.melded && !row.dead && !dealInAlive
       && row.tiles.some(t => t.count !== null && t.count <= 2);
     const rowCls = row.melded ? "ssd-row done"
                  : row.dead ? "ssd-row dead"
+                 : dealInAlive ? "ssd-row possible dealin"
                  : rowLow ? "ssd-row possible low"
                  : "ssd-row possible";
     let tilesHtml = "";
     for (const t of row.tiles) {
       const tileCls = t.zero ? "ssd-tile zero"
+                    : t.dealIn ? "ssd-tile dealin"
                     : (!row.melded && t.count !== null && t.count <= 2) ? "ssd-tile low"
                     : "ssd-tile";
-      const count = row.melded ? "·" : String(t.count);
+      // Deal-in tiles can't be drawn — show the copies you hold instead.
+      const count = row.melded ? "·"
+                  : t.dealIn ? String(t.inHand)
+                  : String(t.count);
       tilesHtml += `<span class="${tileCls}">${renderTile(t.tile, "")}`
         + `<span class="ssd-count">${count}</span></span>`;
     }
+    // A suit killed by two last-copies in hand has no single exhausted tile.
     const status = row.melded ? "✓ melded"
-                 : row.dead ? `× ${row.deadTile} out`
-                 : `${row.live} live`;
+                 : row.dead ? (row.deadTile ? `× ${row.deadTile} out` : "× both in hand")
+                 : dealInAlive ? "deal-in" : `${row.live} live`;
     rowsHtml += `<div class="ssd-suit ${row.suit}"><span class="ssd-dot"></span>${row.suit}</div>`
       + `<div class="${rowCls}"><div class="ssd-tiles">${tilesHtml}</div>`
       + `<div class="ssd-status">${status}</div></div>`;
