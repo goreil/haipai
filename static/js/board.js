@@ -247,6 +247,7 @@ const YAKU_META = {
   chanta:   { label: "Chanta" },
   honitsu:  { label: "Honitsu" },
   sanshoku: { label: "Sanshoku" },
+  ittsuu:   { label: "Ittsuu" },
 };
 const SUIT_NAME = { m: "man", p: "pin", s: "sou" };
 const SUIT_TILE = { m: "1m", p: "1p", s: "1s" };   // representative suit tile
@@ -447,8 +448,108 @@ function renderSanshokuPill(d) {
     + `</span>`;
 }
 
+// Ittsuu pill (一気通貫). Visual twin of the sanshoku pill: same `.yp.ss`
+// CSS hooks (so the close/dead/popover styling carries over), same hover
+// detail layout. The differences are pivoted — one yaku per suit instead
+// of per run, and rows are the three fixed runs (123/456/789) within
+// that suit rather than three suits sharing a run. The strip-tile row
+// shows the start tile of each run (1X, 4X, 7X).
+function renderIttsuuTiles(d) {
+  const chips = d.rows.map(row => {
+    const cls = row.melded ? "yp-ss-tile done"
+              : row.dead ? "yp-ss-tile dead"
+              : "yp-ss-tile";
+    return renderTile(row.tiles[0].tile, cls, `${row.start}–${row.start + 2}`);
+  }).join("");
+  return `<span class="yp-tiles">${chips}</span>`;
+}
+
+function ittsuuFoot(d) {
+  if (d.state === "locked") {
+    return `Ittsuu in <b>${SUIT_NAME[d.suit]}</b> complete (123 / 456 / 789).`;
+  }
+  if (d.state === "dead") {
+    const r = d.rows.find(row => row.dead);
+    if (!r) return "";
+    const seq = `${r.start}${r.start + 1}${r.start + 2}${d.suit}`;
+    if (r.deadTile) {
+      return `All four <b>${r.deadTile}</b> already visible — `
+        + `<b>${seq}</b> impossible.`;
+    }
+    const [a, b] = r.tiles.filter(t => t.dealIn).map(t => t.tile);
+    return `<b>${seq}</b> needs both <b>${a}</b> and <b>${b}</b> from your `
+      + `hand — a call takes one tile, so the run can't complete.`;
+  }
+  if (d.dealInTiles && d.dealInTiles.length) {
+    const lead = d.state === "close" ? "One run away. " : "";
+    const tiles = d.dealInTiles.map(t => `<b>${t}</b>`).join(" / ");
+    const multi = d.dealInTiles.length > 1;
+    return `${lead}You hold the last ${tiles} — discarding `
+      + `${multi ? "any" : "it"} feeds ittsuu in ${SUIT_NAME[d.suit]}.`;
+  }
+  if (d.bottleneck) {
+    const lead = d.state === "close" ? "One run away. " : "";
+    return `${lead}<b>${d.bottleneck.tile}</b> bottleneck — `
+      + `only ${d.bottleneck.count} cop${d.bottleneck.count === 1 ? "y" : "ies"} remain.`;
+  }
+  return "";
+}
+
+function renderIttsuuDetail(d) {
+  let rowsHtml = "";
+  for (const row of d.rows) {
+    const dealInAlive = !row.melded && !row.dead && row.tiles.some(t => t.dealIn);
+    const rowLow = !row.melded && !row.dead && !dealInAlive
+      && row.tiles.some(t => t.count !== null && t.count <= 2);
+    const rowCls = row.melded ? "ssd-row done"
+                 : row.dead ? "ssd-row dead"
+                 : dealInAlive ? "ssd-row possible dealin"
+                 : rowLow ? "ssd-row possible low"
+                 : "ssd-row possible";
+    let tilesHtml = "";
+    for (const t of row.tiles) {
+      const tileCls = t.zero ? "ssd-tile zero"
+                    : t.dealIn ? "ssd-tile dealin"
+                    : (!row.melded && t.count !== null && t.count <= 2) ? "ssd-tile low"
+                    : "ssd-tile";
+      const count = row.melded ? "·"
+                  : t.dealIn ? String(t.inHand)
+                  : String(t.count);
+      tilesHtml += `<span class="${tileCls}">${renderTile(t.tile, "")}`
+        + `<span class="ssd-count">${count}</span></span>`;
+    }
+    const status = row.melded ? "✓ melded"
+                 : row.dead ? (row.deadTile ? `× ${row.deadTile} out` : "× both in hand")
+                 : dealInAlive ? "deal-in" : `${row.live} live`;
+    // All rows share the candidate's suit; the row label distinguishes which
+    // of the three fixed runs (123 / 456 / 789) we're inspecting.
+    const runLabel = `${row.start}–${row.start + 2}`;
+    rowsHtml += `<div class="ssd-suit ${d.suit}"><span class="ssd-dot"></span>${runLabel}</div>`
+      + `<div class="${rowCls}"><div class="ssd-tiles">${tilesHtml}</div>`
+      + `<div class="ssd-status">${status}</div></div>`;
+  }
+  const foot = ittsuuFoot(d);
+  return `<span class="yp-detail ss-detail">`
+    + `<div class="ss-detail-head"><span class="ssd-title">Ittsuu · ${SUIT_NAME[d.suit]}</span>`
+    + `<span class="ssd-state ${d.state}">${SANSHOKU_STATE_LABEL[d.state]}</span></div>`
+    + `<div class="ss-detail-rows">${rowsHtml}</div>`
+    + (foot ? `<div class="ss-detail-foot">${foot}</div>` : "")
+    + `</span>`;
+}
+
+function renderIttsuuPill(d) {
+  return `<span class="yp ss it ${d.state}" title="Ittsuu · ${SUIT_NAME[d.suit]}">`
+    + `<span class="yp-state">${SANSHOKU_STATE_CHAR[d.state]}</span>`
+    + `<span class="yp-name">Ittsuu</span>`
+    + `<span class="yp-seq">${d.suit}</span>`
+    + renderIttsuuTiles(d)
+    + renderIttsuuDetail(d)
+    + `</span>`;
+}
+
 function renderYakuPill(d) {
   if (d.type === "sanshoku") return renderSanshokuPill(d);
+  if (d.type === "ittsuu") return renderIttsuuPill(d);
   const meta = YAKU_META[d.type] || { label: d.type };
   const stateChar = d.state === "locked" ? "✓" : "◐";
   let tiles = "";

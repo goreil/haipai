@@ -425,6 +425,91 @@
     return out;
   }
 
+  // Ittsuu (一気通貫) candidates a seat's melds keep alive. Mirrors the
+  // sanshoku candidate logic, but pivoted: the variation axis is the suit
+  // (one yaku per m/p/s), and progress is across the three fixed runs
+  // 123 / 456 / 789. A candidate is seeded by any melded chi whose run is
+  // one of those three; chi melds with other starts (e.g. 234, 567) don't
+  // contribute to ittsuu and aren't surfaced. Same close/dead/deal-in
+  // semantics, same 1-meld policy (don't surface a lone-meld dead — the hand
+  // can pivot to a concealed-only ittsuu in another suit). `rows` are per
+  // run, not per suit.
+  const _ITTSUU_STARTS = [1, 4, 7];
+
+  function _ittsuu_candidates(melds, wall, handCounts) {
+    const meldCount = melds.length;
+    const concealedSlots = 4 - meldCount;
+    const bySuit = new Map();   // suit -> Set of melded run indices (0/1/2)
+    for (const meld of melds) {
+      const run = _chi_run(meld);
+      if (!run) continue;
+      const idx = _ITTSUU_STARTS.indexOf(run.start);
+      if (idx < 0) continue;   // chi run is not one of 123/456/789
+      if (!bySuit.has(run.suit)) bySuit.set(run.suit, new Set());
+      bySuit.get(run.suit).add(idx);
+    }
+
+    const out = [];
+    for (const suit of _SUITS) {
+      if (!bySuit.has(suit)) continue;
+      const meldedRuns = bySuit.get(suit);
+      const progress = meldedRuns.size;
+      if (3 - progress > concealedSlots) continue;
+
+      const rows = [];
+      let dead = false;
+      const dealInTiles = [];
+      let minDraw = Infinity, minDrawTile = null;
+      for (let r = 0; r < 3; r++) {
+        const start = _ITTSUU_STARTS[r];
+        const melded = meldedRuns.has(r);
+        const tiles = [];
+        let exhaustedTile = null;
+        const runDealIn = [];
+        let live = 0;
+        for (let k = 0; k < 3; k++) {
+          const tile = `${start + k}${suit}`;
+          let count = null, inHand = 0, zero = false, dealIn = false;
+          if (!melded) {
+            count = _unseen(wall, tile);
+            inHand = handCounts[_base_mjai(tile)] || 0;
+            live += count;
+            if (count === 0 && inHand === 0) { zero = true; exhaustedTile = tile; }
+            else if (count === 0) { dealIn = true; runDealIn.push(tile); }
+            else if (count < minDraw) { minDraw = count; minDrawTile = tile; }
+          }
+          tiles.push({ tile, count, inHand, zero, dealIn });
+        }
+        // Run dies if a tile is gone everywhere, or two of its tiles are
+        // last-copies you hold (a call pulls only one).
+        const runDead = !melded && (exhaustedTile !== null || runDealIn.length >= 2);
+        if (runDead) dead = true;
+        else for (const t of runDealIn) dealInTiles.push(t);
+        rows.push({ run: r, start, melded, tiles, live: melded ? null : live,
+                    dead: runDead, deadTile: exhaustedTile });
+      }
+
+      let state;
+      if (progress === 3) state = "locked";
+      else if (dead) state = "dead";
+      else state = progress === 2 ? "close" : "possible";
+
+      // 1-meld policy: a lone ittsuu run going dead could pivot to a
+      // different suit concealed — don't surface as dead.
+      if (state === "dead" && meldCount < 2) continue;
+
+      const bottleneck = (state === "possible" || state === "close")
+        && minDrawTile !== null && minDraw <= 2
+        ? { tile: minDrawTile, count: minDraw } : null;
+
+      out.push({
+        type: "ittsuu", state, suit,
+        progress, rows, bottleneck, dealInTiles,
+      });
+    }
+    return out;
+  }
+
   // meldsBySeat: { seat -> [melds] } for every seat that has opened.
   // wall: 37-entry unseen-copy counts (player's hand already subtracted).
   // oya: dealer seat (for per-seat wind). round_wind: bakaze mjai letter.
@@ -450,6 +535,7 @@
   //   chanta:  { type, state:'possible', junchanReachable }
   //   honitsu: { type, state:'possible', suits:['m'|'p'|'s'], chinitsuReachable }
   //   sanshoku: { type, state, seq, progress, rows, bottleneck, dealInTiles } (see above)
+  //   ittsuu:   { type, state, suit, progress, rows, bottleneck, dealInTiles } (see above)
   function compute_yaku_panel(meldsBySeat, wall, oya, round_wind, hand) {
     const out = {};
     const handHonors = {};
@@ -514,6 +600,8 @@
       for (const y of _shape_yakus(melds)) entries.push(y);
       // Sanshoku-doujun candidates derived from the seat's melded chi runs.
       for (const s of _sanshoku_candidates(melds, wall, handCounts)) entries.push(s);
+      // Ittsuu candidates — one per suit with a melded 123/456/789 chi.
+      for (const s of _ittsuu_candidates(melds, wall, handCounts)) entries.push(s);
       out[seat] = entries;
     }
     return out;
