@@ -182,27 +182,6 @@ class TestDatabase:
         assert db.delete_game(conn, gid, user_id=uid) is True
         assert db.get_game(conn, gid, user_id=uid) is None
 
-    def test_update_mistake_data(self, sample_user):
-        conn, uid = sample_user
-        game_dict = {
-            "date": "2026-01-01",
-            "rounds": [{"round": "E1", "honba": 0, "turn_count": 10,
-                         "outcome": None, "mistakes": [{
-                "turn": 3, "ev_loss": 0.05, "note": None,
-                "hand": ["1m"], "melds": [], "actual": {"type": "dahai", "pai": "1m"},
-                "expected": {"type": "dahai", "pai": "2m"}, "top_actions": [],
-            }]}],
-        }
-        gid = db.add_game(conn, uid, game_dict)
-        mid = conn.execute("SELECT id FROM mistakes WHERE game_id = ?", (gid,)).fetchone()["id"]
-
-        db.update_mistake_data(conn, mid, {"note": "manual review", "best_discard": "2m"})
-
-        row = conn.execute("SELECT * FROM mistakes WHERE id = ?", (mid,)).fetchone()
-        assert row["note"] == "manual review"
-        data = json.loads(row["data_json"])
-        assert data["best_discard"] == "2m"
-
     def test_list_games(self, sample_user):
         conn, uid = sample_user
         for i in range(3):

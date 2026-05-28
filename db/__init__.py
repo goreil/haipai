@@ -6,7 +6,7 @@ Submodule layout (see `docs/backlogs/REFACTOR-TARGET.md`):
 
 - `db.schema`    — SCHEMA string + `migrate(conn)`
 - `db.mistakes`  — `MISTAKE_COLUMNS`, `mistake_to_row`, `row_to_mistake`,
-                   `annotate_mistake`, `update_mistake_data`
+                   `annotate_mistake`
 - `db.games`     — list/get/add/delete + `compute_summary_for_game`,
                    `get_trends`
 - `db.users`     — users, OAuth linking
@@ -24,7 +24,6 @@ from db.mistakes import (
     annotate_mistake,
     mistake_to_row,
     row_to_mistake,
-    update_mistake_data,
 )
 from db.games import (
     add_game,
@@ -51,7 +50,6 @@ from db.reports import (
     REPORT_KINDS,
     delete_category_report,
     delete_category_report_for_user,
-    get_report_for_mistake,
     list_category_reports,
     submit_category_report,
 )
@@ -96,7 +94,6 @@ __all__ = [
     "annotate_mistake",
     "mistake_to_row",
     "row_to_mistake",
-    "update_mistake_data",
     # games
     "add_game",
     "compute_summary_for_game",
@@ -120,7 +117,6 @@ __all__ = [
     "REPORT_KINDS",
     "delete_category_report",
     "delete_category_report_for_user",
-    "get_report_for_mistake",
     "list_category_reports",
     "submit_category_report",
     # admin

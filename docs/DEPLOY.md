@@ -145,8 +145,4 @@ docker-compose logs -f nginx
 # Renew HTTPS cert manually
 docker-compose run --rm --entrypoint "certbot" certbot renew
 docker-compose restart nginx
-
-# Run backfill after code updates
-# (logged in via browser console)
-fetch('/api/games/backfill-decisions', {method:'POST'}).then(r=>r.json()).then(console.log)
 ```

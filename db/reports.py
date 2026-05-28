@@ -106,12 +106,3 @@ def list_category_reports(conn, exclude_user_id=None):
         d["mistake"] = row_to_mistake(mistake_row)
         out.append(d)
     return out
-
-
-def get_report_for_mistake(conn, user_id, mistake_id):
-    """Check if a user already reported on a specific mistake."""
-    row = conn.execute(
-        "SELECT * FROM category_reports WHERE user_id = ? AND mistake_id = ?",
-        (user_id, mistake_id),
-    ).fetchone()
-    return dict(row) if row else None

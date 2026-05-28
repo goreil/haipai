@@ -205,6 +205,10 @@ def migrate(conn):
         "furiten_tiles", "prior_own_discards",
         # categorize.js: categorizer output
         "categorize_data", "labels",
+        # pre-cutover speed-calculator copies (prep.js recomputes both)
+        "cpp_best", "cpp_stats",
+        # pre-cutover defense labels (defense-labels.js derives them live)
+        "safety_labels", "safety_label_text",
     )
     _remove_args = ", ".join(f"'$.{f}'" for f in _LEGACY_DATA_JSON_FIELDS)
     _where_clause = " OR ".join(

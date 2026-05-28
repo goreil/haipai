@@ -2,8 +2,8 @@
 
 `MISTAKE_COLUMNS` is the source of truth for which mistake keys are
 promoted to dedicated SQL columns; everything else lives inside
-`data_json`. Both `mistake_to_row` (insert path, used by `add_game`)
-and `update_mistake_data` (in-place patch) read this set.
+`data_json`. `mistake_to_row` (insert path, used by `add_game`) reads
+this set.
 """
 
 import json
@@ -68,45 +68,3 @@ def annotate_mistake(conn, game_id, round_name, turn, index, note, user_id=None)
     )
     conn.commit()
     return True
-
-
-def update_mistake_data(conn, mistake_id, updates):
-    """Update columns and/or data_json fields on a mistake.
-
-    `updates` can contain column names (ev_loss, turn, note) and data
-    fields (best_discard, discard_stats, dealin_rates, etc.).
-    Uses SQLite json_set() for atomic data_json updates to avoid
-    read-modify-write races.
-    """
-    col_updates = {}
-    data_updates = {}
-    for k, v in updates.items():
-        if k in MISTAKE_COLUMNS:
-            col_updates[k] = v
-        else:
-            data_updates[k] = v
-
-    if data_updates:
-        # Atomic merge using json_set — no read-modify-write needed
-        json_expr = "data_json"
-        params = []
-        for key, val in data_updates.items():
-            json_expr = f"json_set({json_expr}, '$.{key}', json(?))"
-            params.append(json.dumps(val, ensure_ascii=False))
-        col_updates["data_json"] = None  # placeholder, handled by raw SQL below
-
-    set_parts = []
-    params_final = []
-    for k, v in col_updates.items():
-        if k == "data_json" and data_updates:
-            set_parts.append(f"data_json = {json_expr}")
-            params_final.extend(params)
-        else:
-            set_parts.append(f"{k} = ?")
-            params_final.append(v)
-
-    if set_parts:
-        sql = f"UPDATE mistakes SET {', '.join(set_parts)} WHERE id = ?"
-        params_final.append(mistake_id)
-        conn.execute(sql, params_final)
-        conn.commit()
