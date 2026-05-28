@@ -437,8 +437,15 @@
   // are omitted (sanshoku's dead state is the exception — see
   // _sanshoku_candidates); an opened seat with none surviving gets an empty
   // array (the render shows a muted placeholder). Shapes:
-  //   yakuhai: { type, state:'locked'|'possible',
-  //             locked:[{tile,note}], possible:[{tile,count,inHand,note}] }
+  //   yakuhai: { type, state:'locked'|'possible'|'dead',
+  //             locked:[{tile,note}], possible:[{tile,count,inHand,note}],
+  //             dead:[{tile,unseen,inHand,note}] }
+  //     `dead` carries the seat's yakuhai candidates killed by tile count —
+  //     not exposed in a meld and below the live gate (unseen < 2 or
+  //     unseen+inHand < 3). Surfaced via the collapsible "N dead" toggle on
+  //     the strip (see board.js). The yakuhai entry may have state='dead'
+  //     when all candidates are dead; it skips live rendering then but its
+  //     `dead[]` is still picked up by the dead-row collector.
   //   tanyao / toitoi: { type, state:'possible' }
   //   chanta:  { type, state:'possible', junchanReachable }
   //   honitsu: { type, state:'possible', suits:['m'|'p'|'s'], chinitsuReachable }
@@ -476,26 +483,31 @@
 
       const locked = [];
       const possible = [];
+      const dead = [];
       for (const t of cands) {
         const note = note_for(t);
         if (exposed.has(t)) {
           locked.push({ tile: t, note });
+          continue;
+        }
+        const unseen = wall[mjai_to_tile_id(t)] || 0;
+        const inHand = handHonors[t] || 0;
+        const live = unseen + inHand;
+        if (unseen >= _YAKUHAI_HOLD_MIN && live >= _YAKUHAI_TRIPLET_MIN) {
+          possible.push({ tile: t, count: live, inHand, note });
         } else {
-          const unseen = wall[mjai_to_tile_id(t)] || 0;
-          const inHand = handHonors[t] || 0;
-          const live = unseen + inHand;
-          if (unseen >= _YAKUHAI_HOLD_MIN && live >= _YAKUHAI_TRIPLET_MIN) {
-            possible.push({ tile: t, count: live, inHand, note });
-          }
+          // Below the triplet/hold threshold — a pon of this honor is no
+          // longer mathematically possible. Surfaced in the dead-row toggle.
+          dead.push({ tile: t, unseen, inHand, note });
         }
       }
 
       const entries = [];
-      if (locked.length || possible.length) {
+      if (locked.length || possible.length || dead.length) {
         entries.push({
           type: "yakuhai",
-          state: locked.length ? "locked" : "possible",
-          locked, possible,
+          state: locked.length ? "locked" : (possible.length ? "possible" : "dead"),
+          locked, possible, dead,
         });
       }
       // tanyao / toitoi / chanta / honitsu, in display order after yakuhai.

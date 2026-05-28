@@ -1017,6 +1017,82 @@ body {
 .yp:hover .yp-detail { opacity: 1; pointer-events: auto; }
 .yp.yp-empty .yp-detail { display: none; }
 
+/* ── Dead yakuhai pill + collapsible toggle (v1.3 dead row) ───────────
+   Surfaces yakuhai honors whose pon is no longer possible (unseen<2 or
+   live<3 and not melded). Hidden by default behind a dashed "N dead ▸"
+   toggle at the end of the strip; expanded inline on click. Sanshoku's
+   inline dead pill (`.ss.dead`) is intentionally excluded — it has its own
+   v1.5 styling and stays visible in the live strip. */
+.yp.dead:not(.ss) {
+  color: var(--text-dim);
+  background: transparent;
+  border-color: var(--border);
+  border-style: dashed;
+  opacity: 0.7;
+}
+.yp.dead:not(.ss) .yp-name {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(211, 84, 84, 0.7);
+}
+.yp.dead:not(.ss) .yp-state { color: #d35454; }
+.yp.dead:not(.ss) .yp-tile-chip img.tile {
+  filter: grayscale(1) brightness(0.78);
+  outline: 1.5px solid rgba(211, 84, 84, 0.55);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+.yp.dead:not(.ss) .yp-tile-chip .yp-tile-count {
+  color: #d35454;
+  font-weight: 700;
+}
+
+.yaku-strip .yp.dead:not(.ss),
+.yaku-strip .yp-dead-sep { display: none; }
+.yaku-strip[data-expanded="true"] .yp.dead:not(.ss),
+.yaku-strip[data-expanded="true"] .yp-dead-sep { display: inline-flex; }
+
+.yp-dead-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 4px;
+  align-self: center;
+}
+
+.yp-dead-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px dashed var(--border);
+  cursor: pointer;
+  font-family: inherit;
+  user-select: none;
+  transition: color 0.12s, border-color 0.12s;
+}
+.yp-dead-toggle:hover {
+  color: var(--text);
+  border-color: rgba(211, 84, 84, 0.5);
+}
+.yp-dead-toggle .toggle-arrow {
+  font-size: 8px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.yaku-strip[data-expanded="true"] .yp-dead-toggle {
+  color: var(--text);
+  border-color: rgba(211, 84, 84, 0.5);
+}
+.yaku-strip[data-expanded="true"] .yp-dead-toggle .toggle-arrow {
+  transform: rotate(90deg);
+}
+
 /* ── Sanshoku pill (v1.5) ─────────────────────────────────────────────
    Variant B in the strip: run number + the run's start tile per suit
    (opaque + green outline = melded, dim = pending, dim + red = dead). Two

@@ -462,13 +462,90 @@ function renderYakuPill(d) {
     + `<span class="yp-detail">${yakuDetail(d)}</span></span>`;
 }
 
+// Dead-yakuhai pill — one per honor whose pon is no longer possible (unseen<2
+// or live<3 and not melded). Lives behind the strip's "N dead" toggle; the
+// badge under the tile is `unseen` (copies still hidden somewhere — the
+// defender-relevant count). Sanshoku-dead keeps its existing inline rendering
+// via the `.ss` class and is intentionally NOT routed through this collector.
+function renderDeadYakuhaiPill(h) {
+  const noteSuffix = h.note ? ` (${h.note})` : "";
+  let reason;
+  if (h.unseen === 0 && h.inHand === 0) {
+    reason = `All 4 copies of ${h.tile} already visible. No pon possible.`;
+  } else if (h.unseen === 0) {
+    reason = `${4 - h.inHand} visible, ${h.inHand} in your hand. Opponent can't form a triplet.`;
+  } else {
+    const live = h.unseen + h.inHand;
+    reason = `Only ${live} cop${live === 1 ? "y" : "ies"} of ${h.tile} left`
+      + (h.inHand ? ` (${h.inHand} in your hand)` : "")
+      + ` — not enough for a pon.`;
+  }
+  const detail = `<b>Yakuhai · ${h.tile}${noteSuffix}</b> <span class="muted">dead</span><br>`
+    + `<span class="muted">${reason}</span>`;
+  return `<span class="yp dead" title="Yakuhai ${h.tile} dead">`
+    + `<span class="yp-state">✗</span>`
+    + `<span class="yp-name">Yakuhai</span>`
+    + `<span class="yp-tiles">`
+    + `<span class="yp-tile-chip">`
+    + renderTile(h.tile, "")
+    + `<span class="yp-tile-count">${h.unseen}</span>`
+    + `</span></span>`
+    + `<span class="yp-detail">${detail}</span></span>`;
+}
+
+function collectDeadPills(entries) {
+  const out = [];
+  for (const d of entries) {
+    if (d.type === "yakuhai" && Array.isArray(d.dead)) {
+      for (const h of d.dead) out.push(renderDeadYakuhaiPill(h));
+    }
+  }
+  return out;
+}
+
 function renderYakuStrip(entries) {
   if (!entries) return "";
   if (!entries.length) {
     return `<span class="yaku-strip">`
       + `<span class="yp yp-empty"><span class="yp-name">No yaku reachable</span></span></span>`;
   }
-  return `<span class="yaku-strip">${entries.map(renderYakuPill).join("")}</span>`;
+  // A yakuhai entry whose state is 'dead' has only dead candidates — skip the
+  // live pill render. Sanshoku-dead has its own inline treatment (`.ss.dead`)
+  // and is not filtered here.
+  const liveHtml = entries
+    .filter(d => !(d.type === "yakuhai" && d.state === "dead"))
+    .map(renderYakuPill).join("");
+  const deadPills = collectDeadPills(entries);
+  if (!deadPills.length) {
+    return `<span class="yaku-strip">${liveHtml}</span>`;
+  }
+  // If every live yaku was filtered out (only dead yakuhai for this seat),
+  // anchor the strip with the muted placeholder so the row isn't a bare toggle.
+  const emptyHtml = liveHtml
+    ? ""
+    : `<span class="yp yp-empty"><span class="yp-name">No yaku reachable</span></span>`;
+  const toggle = `<button type="button" class="yp-dead-toggle" aria-expanded="false"`
+    + ` title="Yakus eliminated by tile count">`
+    + `<span class="toggle-arrow">▸</span>`
+    + `<span class="toggle-label">${deadPills.length} dead</span>`
+    + `</button>`
+    + `<span class="yp-dead-sep"></span>`;
+  return `<span class="yaku-strip" data-expanded="false">`
+    + `${emptyHtml}${liveHtml}${toggle}${deadPills.join("")}</span>`;
+}
+
+// Delegated click handler for the dead-yaku toggle. Strips are re-rendered on
+// every mistake change, so listening on document avoids re-binding per render.
+if (typeof document !== "undefined") {
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest && e.target.closest(".yp-dead-toggle");
+    if (!btn) return;
+    const strip = btn.closest(".yaku-strip");
+    if (!strip) return;
+    const expanded = strip.dataset.expanded === "true";
+    strip.dataset.expanded = expanded ? "false" : "true";
+    btn.setAttribute("aria-expanded", String(!expanded));
+  });
 }
 
 function renderBoardContext(m) {
