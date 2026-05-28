@@ -23,9 +23,7 @@ function renderEvComparison(m, options) {
   const displaySujiPartners = threatIdx != null
     ? (m.per_threat[threatIdx].suji_partners || m.suji_partners)
     : m.suji_partners;
-  const hasDealin = displayDealin && Object.keys(displayDealin).length > 0;
-  const hasSafety = m.safety_ratings && Object.keys(m.safety_ratings).length > 0;
-  const useKd = hasDealin;  // KD fields take over the safety columns when present
+  const useKd = displayDealin && Object.keys(displayDealin).length > 0;
 
   // A reach action has no pai of its own — the riichi tile is the next
   // dahai by the same player in the mjai log. For 5A the backend stores it
@@ -155,7 +153,7 @@ function renderEvComparison(m, options) {
     <th>Tile</th>
     <th class="mortal-col" title="EV loss vs Mortal's best pick. 0.00 = Mortal's top choice. Negative values = how much EV this row costs relative to the best. Gap: &gt;1 severe, 0.5–1 mistake, 0.2–0.5 light, &lt;0.2 AI not confident.">Mortal EV Δ</th>
     <th class="shanten-col">Shanten</th>
-    ${useKd ? '<th class="dealin-col" title="Probability this tile deals in — aggregated across all riichi threats">Deal-in</th><th class="dealin-col" title="Finer safety category (last honor, no-suji 4-6, etc.). Shows &quot;Safe&quot; when the deal-in rate is 0% — the tile can\'t possibly be the winning wait.">Type</th>' : (hasSafety ? '<th class="safety-col">Safety</th>' : '')}
+    ${useKd ? '<th class="dealin-col" title="Probability this tile deals in — aggregated across all riichi threats">Deal-in</th><th class="dealin-col" title="Finer safety category (last honor, no-suji 4-6, etc.). Shows &quot;Safe&quot; when the deal-in rate is 0% — the tile can\'t possibly be the winning wait.">Type</th>' : ''}
   </tr></thead><tbody>`;
 
   for (const tile of tiles) {
@@ -223,21 +221,13 @@ function renderEvComparison(m, options) {
       } else {
         html += `<td class="dealin-col dim">-</td><td class="dealin-col dim">-</td>`;
       }
-    } else if (hasSafety) {
-      const sr = getSafetyRating(m.safety_ratings, tile);
-      if (sr != null) {
-        html += `<td class="safety-col ${safetyClass(sr)}" title="${sr}/15">${safetyLabel(sr)}</td>`;
-      } else {
-        html += `<td class="safety-col dim">-</td>`;
-      }
     }
 
     html += `</tr>`;
 
     // Column count drives the colspan for the ukeire / wait-breakdown rows.
     // 3 base columns: Tile, Mortal EV, Shanten (Exp Score removed 2026-04-20).
-    const defenseCols = useKd ? 2 : (hasSafety ? 1 : 0);
-    const colspan = 3 + defenseCols;
+    const colspan = 3 + (useKd ? 2 : 0);
 
     // Under each "important" pick (AI / player / calc best), show its ukeire
     // tiles if we have per-tile data. Saves space vs a separate block and
@@ -279,25 +269,6 @@ function renderEvComparison(m, options) {
 
   html += `</tbody></table></div>`;
   return html;
-}
-
-function getSafetyRating(safetyRatings, tile) {
-  if (!safetyRatings) return null;
-  if (safetyRatings[tile] != null) return safetyRatings[tile];
-  const normalized = normalizeRed(tile);
-  if (normalized !== tile && safetyRatings[normalized] != null) return safetyRatings[normalized];
-  if (tile.match(/^5[mps]$/)) {
-    const red = tile + "r";
-    if (safetyRatings[red] != null) return safetyRatings[red];
-  }
-  return null;
-}
-
-function safetyClass(rating) {
-  if (rating == null) return "";
-  if (rating >= 10) return "safety-safe";
-  if (rating >= 6) return "safety-caution";
-  return "safety-danger";
 }
 
 function getFieldForTile(dict, tile) {
@@ -386,26 +357,6 @@ function renderWaitBreakdown(waits) {
       + `<span class="${rateCls}">${w.rate.toFixed(1)}%</span>`
       + `</span>`;
   }).join("");
-}
-
-// Long-form 0-15 suji safety label — used by the EV table's Safety column
-// and renderHand's tooltip when the legacy safety_ratings field is present
-// (before KD deal-in rates were backfilled).
-function safetyLabel(rating) {
-  if (rating == null) return "";
-  if (rating >= 15) return "Genbutsu";
-  if (rating >= 14) return "Suji terminal / dead honor";
-  if (rating >= 13) return "Honor (1 left) / suji terminal";
-  if (rating >= 11) return "Suji terminal";
-  if (rating >= 10) return "Honor (2 left)";
-  if (rating >= 9) return "Suji 4-5-6";
-  if (rating >= 8) return "Suji 2/8";
-  if (rating >= 7) return "Suji 3/7";
-  if (rating >= 6) return "Honor (3 left)";
-  if (rating >= 5) return "Non-suji terminal";
-  if (rating >= 3) return "Non-suji 2/8";
-  if (rating >= 2) return "Non-suji 3/7";
-  return "Non-suji 4-5-6";
 }
 
 // --- Multi-riichi threat-view toggle ---

@@ -1,10 +1,10 @@
 // Per-mistake input prep — sole owner of the per-mistake derived data the
 // frontend categorizer reads at render time: `discard_stats` /
-// `best_discard` / `safety_ratings` / `opponent_discards` / `dealin_rates`
-// / `wait_breakdowns` / `suji_partners` / `per_threat`, and the 5A/5B
-// riichi patches (`tenpai_waits`, `bad_riichi_reason`, `furiten_tiles`,
-// `actual_riichi_tile`, `prior_own_discards`). Categorization itself lives
-// in static/js/categorize.js.
+// `best_discard` / `dealin_rates` / `wait_breakdowns` / `suji_partners` /
+// `per_threat`, and the 5A/5B riichi patches (`tenpai_waits`,
+// `bad_riichi_reason`, `furiten_tiles`, `actual_riichi_tile`,
+// `prior_own_discards`). Categorization itself lives in
+// static/js/categorize.js.
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -40,8 +40,6 @@
   const { calculate: calcShanten } = shantenCalcMod;
   const {
     compute_kd_defense_data,
-    get_tile_safety_for_mistake,
-    get_opponent_discards,
   } = defenseMod;
 
   function _warn(msg, ...args) {
@@ -281,18 +279,6 @@
     if (board_state) patch.board_state = board_state;
 
     if (defenseCtx) {
-      const safety = get_tile_safety_for_mistake(
-        hand, defenseCtx.mjai_events, defenseCtx.start_pos,
-        defenseCtx.end_pos, defenseCtx.player_id, tiles_left, wall,
-      );
-      if (safety) {
-        // Already rounded to 1 decimal in compute_kd_defense_data.
-        patch.safety_ratings = safety;
-        patch.opponent_discards = get_opponent_discards(
-          defenseCtx.mjai_events, defenseCtx.start_pos,
-          defenseCtx.end_pos, defenseCtx.player_id, tiles_left,
-        );
-      }
       Object.assign(patch, _compute_kd_defense_patch(hand, defenseCtx, tiles_left, wall));
     }
 

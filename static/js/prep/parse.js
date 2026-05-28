@@ -32,8 +32,7 @@
     const opponents = {};
     // First-seen seat order — Python's dict preserves insertion order; JS
     // objects with numeric-string keys do not, so we track it explicitly so
-    // downstream consumers (notably `get_opponent_discards`) emit the same
-    // ordering as the Python prep layer.
+    // downstream defense consumers emit a stable seat ordering across runs.
     const opponent_order = [];
     const player_tsumo_riichi_state = [];
     const reach_accepted_seats = new Set();

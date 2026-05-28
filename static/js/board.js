@@ -143,10 +143,9 @@ function meldDoraCount(melds, doraTiles) {
 
 function renderHand(tiles, draw, mistake, doraTiles) {
   if (!tiles || !tiles.length) return "";
-  // Prefer the new KD-derived deal-in data when present — tooltip becomes
-  // "<tile> — Type · X.X%" and the underline matches the EV table's
-  // green / yellow-red gradient. Falls back to the legacy 0-15 suji rating
-  // for mistakes that haven't been re-backfilled.
+  // KD-derived deal-in colouring — tooltip is "<tile> — Type · X.X%" and the
+  // underline matches the EV table's green / yellow-red gradient. Skipped
+  // when there's no active threat (no per_threat / dealin_rates).
   const useKd = mistake
     && mistake.dealin_rates
     && Object.keys(mistake.dealin_rates).length > 0;
@@ -168,12 +167,6 @@ function renderHand(tiles, draw, mistake, doraTiles) {
         } else {
           extraAttrs = `style="border-bottom:3px solid ${dealinColor(rate)}"`;
         }
-      }
-    } else {
-      const sr = getSafetyRating(mistake && mistake.safety_ratings, t);
-      if (sr != null) {
-        extra += ` ${safetyClass(sr)}`;
-        title = `${t} — ${safetyLabel(sr)} (${sr}/15)`;
       }
     }
     if (t === "5mr" || t === "5pr" || t === "5sr" || (doraTiles && doraTiles.has(tileBase(t)))) {
@@ -722,7 +715,8 @@ function renderBoardContext(m) {
     if (hasDiscards) {
       const doraTiles = getDoraTiles(b);
       const cat = m.category || "";
-      const expandDiscards = !cat || m.safety_ratings
+      const expandDiscards = !cat
+                             || (Array.isArray(m.per_threat) && m.per_threat.length > 0)
                              || /^[3-6]/.test(cat) || /^D/.test(cat);
       const playerSeat = mistakeActorSeat(m);
       // Each seat's wind label rotates from the dealer (oya). We derive oya

@@ -41,9 +41,6 @@
     akaDiscard: 0.14,
   });
 
-  // Matches GS.C_db_dealinMax — deal-in pct at which safety hits 0.
-  const DEALIN_MAX_PCT = 15.0;
-
   function normRedFive(t) {
     if (t < 51) return t;
     if (t === 51) return 15;
@@ -197,19 +194,12 @@
     return combos[t].all / combos.all;
   }
 
-  function dealinToSafety(prob) {
-    const pct = prob * 100;
-    return Math.max(0.0, DEALIN_MAX_PCT - pct);
-  }
-
   return {
     WAIT_TYPE,
     WEIGHTS,
-    DEALIN_MAX_PCT,
     normRedFive,
     generateWaits,
     calcCombos,
     dealinProbability,
-    dealinToSafety,
   };
 }));

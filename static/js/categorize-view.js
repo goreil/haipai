@@ -54,14 +54,13 @@ function generateExplanation(m) {
   const et = expected.type;
   const cat = m.category || "";
   const shantenStr = m.shanten != null ? `${m.shanten}-shanten` : null;
-  const labels = (m.categorize_data && m.categorize_data.labels) || m.labels || [];
-  // Defense-situation read used by every category below. `hasRiichi` stays
-  // around for older dahai-vs-dahai branches that key off the legacy
-  // safety_ratings; new code should read `defenseCtx` so a future open-meld
-  // trigger lights up automatically.
+  const labels = m.labels || [];
+  // Defense-situation read used by every category below. `hasRiichi` aliases
+  // the riichi flag from defenseCtx so a future open-meld trigger lights up
+  // automatically once it joins the same threats array.
   const defenseCtx = (typeof defenseSituation === "function")
     ? defenseSituation(m) : { in_defense: false, threats: [] };
-  const hasRiichi = !!m.safety_ratings || defenseCtx.riichi_threat;
+  const hasRiichi = !!defenseCtx.riichi_threat;
 
   // Pretty-format the riichi threat list as "West" or "South + West", and
   // build a deal-in suffix for the player's discard. Returns an HTML
@@ -155,18 +154,6 @@ function generateExplanation(m) {
   function mortalFor(tile) {
     if (!m.top_actions) return null;
     return m.top_actions.find(a => a.action && a.action.pai === tile) || null;
-  }
-  function safetyFor(tile) {
-    if (!m.safety_ratings) return null;
-    return m.safety_ratings[tile] ?? m.safety_ratings[tile.replace(/r$/, "")] ?? null;
-  }
-  function safetyLabel(rating) {
-    if (rating == null) return "unknown";
-    if (rating >= 14) return "safe";
-    if (rating >= 10) return "fairly safe";
-    if (rating >= 7) return "moderate (suji)";
-    if (rating >= 4) return "risky";
-    return "dangerous";
   }
   function tileCountStr(stat) {
     if (!stat) return "";
@@ -319,8 +306,6 @@ function generateExplanation(m) {
   if (at === "dahai" && et === "dahai") {
     const actualStat = statFor(actual.pai);
     const expectedStat = statFor(expected.pai);
-    const actualSafety = safetyFor(actual.pai);
-    const expectedSafety = safetyFor(expected.pai);
 
     // Shanten increase prefix
     const catData = m.categorize_data || {};
@@ -594,11 +579,7 @@ function generateExplanation(m) {
         text = `This is a defense-oriented decision.`;
       }
       if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
-      text += ` Mortal recommends ${expected.pai}`;
-      if (expectedSafety != null) text += ` (safety: ${expectedSafety.toFixed ? expectedSafety.toFixed(0) : expectedSafety}, ${safetyLabel(expectedSafety)})`;
-      text += ` over your ${actual.pai}`;
-      if (actualSafety != null) text += ` (safety: ${actualSafety.toFixed ? actualSafety.toFixed(0) : actualSafety}, ${safetyLabel(actualSafety)})`;
-      text += `.`;
+      text += ` Mortal recommends ${expected.pai} over your ${actual.pai}.`;
 
       text += ` When an opponent declares riichi, tile safety becomes critical — prioritize tiles already in their discard pool (100% safe), then suji-safe tiles, before considering efficiency.`;
       return text;

@@ -487,23 +487,6 @@ function renderGame() {
       html += renderBoardContext(m);
       html += renderTenpaiWaitsRow(m);
 
-      // Fallback: old opponent_discards (for mistakes without board_state)
-      if (!m.board_state && m.opponent_discards && m.opponent_discards.length) {
-        html += `<div class="opp-discards">`;
-        for (const opp of m.opponent_discards) {
-          const seatName = SEAT_NAMES[opp.seat] || `P${opp.seat}`;
-          html += `<div class="opp-discard-row">`;
-          html += `<span class="opp-label">${seatName}</span>`;
-          html += `<span class="tiles">`;
-          for (let di = 0; di < opp.discards.length; di++) {
-            const isRiichi = di === opp.riichi_idx;
-            html += renderTile(opp.discards[di], `action-tile-sm${isRiichi ? " riichi-tile" : ""}`);
-          }
-          html += `</span></div>`;
-        }
-        html += `</div>`;
-      }
-
       // EV Comparison table (Mortal vs local shanten/ukeire)
       if (m.top_actions && m.top_actions.length && m.discard_stats && m.discard_stats.length) {
         html += renderEvComparison(m);

@@ -186,6 +186,37 @@ def migrate(conn):
     if _has_column("mistakes", "severity"):
         conn.execute("ALTER TABLE mistakes DROP COLUMN severity")
         altered = True
+    # Drop every pre-cutover-stored data_json field that the frontend now
+    # rebuilds on each fetch. `static/js/prep/prep.js` recomputes the board /
+    # discard / defense fields; `static/js/categorize.js` recomputes the
+    # categorizer output. Anything in this list is dead weight, and stale
+    # copies cause regressions (e.g. mistake #3986 was rendering the legacy
+    # 0-15 Safety column because `safety_ratings` lingered after the kyoku's
+    # riichi went away). The canonical Mortal-emitted fields (hand, melds,
+    # shanten, draw, actual, expected, top_actions) are left alone.
+    _LEGACY_DATA_JSON_FIELDS = (
+        # prep.js: board + discard
+        "board_state", "discard_stats", "best_discard",
+        # prep.js: KD defense (and the legacy 0-15 scale that fell back to it)
+        "safety_ratings", "dealin_rates", "wait_breakdowns",
+        "suji_partners", "per_threat", "opponent_discards",
+        # prep.js: 5A/5B riichi patches
+        "tenpai_waits", "actual_riichi_tile", "bad_riichi_reason",
+        "furiten_tiles", "prior_own_discards",
+        # categorize.js: categorizer output
+        "categorize_data", "labels",
+    )
+    _remove_args = ", ".join(f"'$.{f}'" for f in _LEGACY_DATA_JSON_FIELDS)
+    _where_clause = " OR ".join(
+        f"json_type(data_json, '$.{f}') IS NOT NULL"
+        for f in _LEGACY_DATA_JSON_FIELDS
+    )
+    stripped = conn.execute(
+        f"UPDATE mistakes SET data_json = json_remove(data_json, {_remove_args}) "
+        f"WHERE {_where_clause}"
+    )
+    if stripped.rowcount:
+        altered = True
     # Drop legacy mistakes.category column. The JS categorizer is the source
     # of truth and recomputes on every fetch; user annotations only persist
     # the free-form note. See docs/backlogs/BACKEND-TO-FRONTEND.md.

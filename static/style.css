@@ -1282,11 +1282,7 @@ body {
   border-radius: 3px;
 }
 
-/* Safety indicators on hand tiles */
-.tile.safety-safe { border-bottom: 3px solid var(--sev-minor); }
-.tile.safety-caution { border-bottom: 3px solid var(--sev-medium); }
-.tile.safety-danger { border-bottom: 3px solid var(--sev-major); }
-/* New KD-driven hand highlight: "Safe" = green underline; unsafe tiles get
+/* KD-driven hand highlight: "Safe" = green underline; unsafe tiles get
    an HSL gradient via inline style set by renderHand. */
 .tile.hand-tile-safe { border-bottom: 3px solid var(--sev-minor); }
 
@@ -1472,10 +1468,6 @@ body {
 
 .ev-table .mortal-col { color: #81c784; }
 .ev-table .shanten-col { color: #64b5f6; }
-.ev-table .safety-col { color: var(--text-dim); }
-.ev-table .safety-safe { color: var(--sev-minor); font-weight: 700; }
-.ev-table .safety-caution { color: var(--sev-medium); font-weight: 700; }
-.ev-table .safety-danger { color: var(--sev-major); font-weight: 700; }
 .ev-table .dealin-col { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 /* Dealin cells are bold; colour comes from an inline HSL gradient driven
    by the deal-in rate. Safe cells still use the theme green for visual

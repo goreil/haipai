@@ -74,7 +74,7 @@ def update_mistake_data(conn, mistake_id, updates):
     """Update columns and/or data_json fields on a mistake.
 
     `updates` can contain column names (ev_loss, turn, note) and data
-    fields (best_discard, discard_stats, safety_ratings, etc.).
+    fields (best_discard, discard_stats, dealin_rates, etc.).
     Uses SQLite json_set() for atomic data_json updates to avoid
     read-modify-write races.
     """

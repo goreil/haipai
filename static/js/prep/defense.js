@@ -1,6 +1,6 @@
 // Defense glue — twin of lib/defense.py + the adapter half of
 // lib/defense_kd.py:compute_kd_defense_data. The algorithmic core
-// (generateWaits, calcCombos, dealinProbability, dealinToSafety) lives in
+// (generateWaits, calcCombos, dealinProbability) lives in
 // prep/defense_kd.js; this module handles threat extraction from the
 // canonical kyoku walker, mjai↔tenhou translation, and aggregation across
 // multiple riichi opponents.
@@ -8,13 +8,8 @@
 // Public surface:
 //   - compute_kd_defense_data(hand_mjai, events, start_pos, end_pos,
 //                             player_id, tiles_left, wall)
-//       → {safety_ratings, dealin_rates, wait_breakdowns, suji_partners,
-//          per_threat} or null when no opponent is in riichi.
-//   - get_opponent_discards(events, start_pos, end_pos, player_id,
-//                           target_tiles_left)
-//       → [{seat, discards, riichi_idx}, …] or null.
-//   - get_tile_safety_for_mistake(...) — same args as compute_kd, returns
-//     just safety_ratings.
+//       → {dealin_rates, wait_breakdowns, suji_partners, per_threat} or
+//         null when no opponent is in riichi.
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -42,7 +37,6 @@
     generateWaits,
     calcCombos,
     dealinProbability,
-    dealinToSafety,
   } = kd;
 
   const WAIT_NAMES = {
@@ -173,7 +167,6 @@
     }
 
     const dealin_rates = {};
-    const safety_ratings = {};
     const wait_breakdowns = {};
     const suji_partners = {};
 
@@ -192,7 +185,6 @@
       }
       const combined = 1.0 - prob_not;
       dealin_rates[mjai_tile] = Math.round(combined * 10000) / 100;
-      safety_ratings[mjai_tile] = Math.round(dealinToSafety(combined) * 10) / 10;
       wait_breakdowns[mjai_tile] = _build_wait_breakdown(th, most_dangerous.combos);
       const partners = _suji_partners(th, most_dangerous.threat.genbutsu);
       if (partners.length) {
@@ -241,7 +233,6 @@
     }
 
     return {
-      safety_ratings,
       dealin_rates,
       wait_breakdowns,
       suji_partners,
@@ -249,33 +240,7 @@
     };
   }
 
-  function get_tile_safety_for_mistake(hand_mjai, events, start_pos, end_pos,
-                                       player_id, tiles_left, wall) {
-    const data = compute_kd_defense_data(hand_mjai, events, start_pos, end_pos,
-                                         player_id, tiles_left, wall);
-    return data ? data.safety_ratings : null;
-  }
-
-  function get_opponent_discards(events, start_pos, end_pos, player_id,
-                                 target_tiles_left) {
-    const state = walk_kyoku(events, start_pos, end_pos, player_id, target_tiles_left);
-    const order = state.opponent_order || Object.keys(state.opponents).map(Number);
-    const riichi_opps = [];
-    for (const seat of order) {
-      const opp = state.opponents[seat];
-      if (!opp || opp.reach_event_idx == null) continue;
-      riichi_opps.push({
-        seat,
-        discards: opp.discards,
-        riichi_idx: opp.reach_event_idx,
-      });
-    }
-    return riichi_opps.length ? riichi_opps : null;
-  }
-
   return {
     compute_kd_defense_data,
-    get_tile_safety_for_mistake,
-    get_opponent_discards,
   };
 }));
