@@ -240,14 +240,16 @@ function tenpaiWaitTiles(m) {
 // the committable suit as a tile plus a +pip when chinitsu is still alive, and
 // chanta shows a +pip when junchan is still alive.
 // An opened seat with no surviving yaku gets a muted placeholder.
+// Listed here in strip display order (open-hand frequency on amae-koromo);
+// the actual ordering is enforced by prep/board.js's _YAKU_DISPLAY_ORDER sort.
 const YAKU_META = {
   yakuhai:  { label: "Yakuhai" },
   tanyao:   { label: "Tanyao" },
-  toitoi:   { label: "Toitoi" },
-  chanta:   { label: "Chanta" },
   honitsu:  { label: "Honitsu" },
   sanshoku: { label: "Sanshoku" },
+  toitoi:   { label: "Toitoi" },
   ittsuu:   { label: "Ittsuu" },
+  chanta:   { label: "Chanta" },
 };
 const SUIT_NAME = { m: "man", p: "pin", s: "sou" };
 const SUIT_TILE = { m: "1m", p: "1p", s: "1s" };   // representative suit tile
@@ -563,45 +565,66 @@ function renderYakuPill(d) {
     + `<span class="yp-detail">${yakuDetail(d)}</span></span>`;
 }
 
-// Dead-yakuhai pill — one per honor whose pon is no longer possible (unseen<2
-// or live<3 and not melded). Lives behind the strip's "N dead" toggle; the
-// badge under the tile is `unseen` (copies still hidden somewhere — the
-// defender-relevant count). Sanshoku-dead keeps its existing inline rendering
-// via the `.ss` class and is intentionally NOT routed through this collector.
-function renderDeadYakuhaiPill(h) {
-  const noteSuffix = h.note ? ` (${h.note})` : "";
-  let reason;
-  if (h.unseen === 0 && h.inHand === 0) {
-    reason = `All 4 copies of ${h.tile} already visible. No pon possible.`;
-  } else if (h.unseen === 0) {
-    reason = `${4 - h.inHand} visible, ${h.inHand} in your hand. Opponent can't form a triplet.`;
-  } else {
-    const live = h.unseen + h.inHand;
-    reason = `Only ${live} cop${live === 1 ? "y" : "ies"} of ${h.tile} left`
-      + (h.inHand ? ` (${h.inHand} in your hand)` : "")
-      + ` — not enough for a pon.`;
+// Dead-yakuhai pill — one compressed pill per yakuhai entry, with one
+// tile chip per dead honor (pon no longer possible: unseen<2 or live<3
+// and not melded). Mirrors the live yakuhai pill which packs multiple
+// honors into one "Yakuhai" pill with ✓ / ×N chips; the dead variant
+// shows the unseen count under each chip. Lives behind the strip's "N
+// dead" toggle. Dead sanshoku/ittsuu candidates are also routed behind
+// the same toggle by collectDeadPills (via their normal pill renderer,
+// so the v1.5 `.ss.dead` strike-through styling carries over inside the
+// expanded row).
+function renderDeadYakuhaiPill(d) {
+  const dead = d.dead || [];
+  if (!dead.length) return "";
+  let chips = "";
+  let rows = "";
+  for (const h of dead) {
+    const noteSuffix = h.note ? ` (${h.note})` : "";
+    let reason;
+    if (h.unseen === 0 && h.inHand === 0) {
+      reason = `All 4 copies visible. No pon possible.`;
+    } else if (h.unseen === 0) {
+      reason = `${4 - h.inHand} visible, ${h.inHand} in your hand. Opponent can't form a triplet.`;
+    } else {
+      const live = h.unseen + h.inHand;
+      reason = `Only ${live} cop${live === 1 ? "y" : "ies"} left`
+        + (h.inHand ? ` (${h.inHand} in your hand)` : "")
+        + ` — not enough for a pon.`;
+    }
+    chips += `<span class="yp-tile-chip" title="${h.tile}${noteSuffix}: ${reason}">`
+      + renderTile(h.tile, "")
+      + `<span class="yp-tile-count">${h.unseen}</span></span>`;
+    rows += `<b>${h.tile}${noteSuffix}</b> <span class="muted">${reason}</span><br>`;
   }
-  const detail = `<b>Yakuhai · ${h.tile}${noteSuffix}</b> <span class="muted">dead</span><br>`
-    + `<span class="muted">${reason}</span>`;
-  return `<span class="yp dead" title="Yakuhai ${h.tile} dead">`
+  const detail = `<b>Yakuhai</b> <span class="muted">dead</span><br>${rows}`;
+  return `<span class="yp dead" title="Yakuhai dead">`
     + `<span class="yp-state">✗</span>`
     + `<span class="yp-name">Yakuhai</span>`
-    + `<span class="yp-tiles">`
-    + `<span class="yp-tile-chip">`
-    + renderTile(h.tile, "")
-    + `<span class="yp-tile-count">${h.unseen}</span>`
-    + `</span></span>`
+    + `<span class="yp-tiles">${chips}</span>`
     + `<span class="yp-detail">${detail}</span></span>`;
 }
 
+// Returns { pills, count } — `pills` is the HTML chunks (one compressed
+// yakuhai pill + one pill per dead sanshoku/ittsuu), `count` is the
+// per-yaku tally shown in the toggle ("3 dead" = three impossible yakus,
+// not three pills).
 function collectDeadPills(entries) {
-  const out = [];
+  const pills = [];
+  let count = 0;
   for (const d of entries) {
-    if (d.type === "yakuhai" && Array.isArray(d.dead)) {
-      for (const h of d.dead) out.push(renderDeadYakuhaiPill(h));
+    if (d.type === "yakuhai" && Array.isArray(d.dead) && d.dead.length) {
+      pills.push(renderDeadYakuhaiPill(d));
+      count += d.dead.length;
+    } else if ((d.type === "sanshoku" || d.type === "ittsuu") && d.state === "dead") {
+      // Dead sanshoku/ittsuu candidates ride the same "N dead" toggle as
+      // dead yakuhai — the pill's own `.ss.dead` styling (strike + ×) is
+      // preserved by the normal renderer; only the live/dead bucket changes.
+      pills.push(renderYakuPill(d));
+      count += 1;
     }
   }
-  return out;
+  return { pills, count };
 }
 
 function renderYakuStrip(entries) {
@@ -610,13 +633,15 @@ function renderYakuStrip(entries) {
     return `<span class="yaku-strip">`
       + `<span class="yp yp-empty"><span class="yp-name">No yaku reachable</span></span></span>`;
   }
-  // A yakuhai entry whose state is 'dead' has only dead candidates — skip the
-  // live pill render. Sanshoku-dead has its own inline treatment (`.ss.dead`)
-  // and is not filtered here.
+  // Entries routed behind the dead-toggle are skipped from the live row:
+  //   - yakuhai with state='dead' (all candidates eliminated)
+  //   - sanshoku / ittsuu with state='dead' (suit/run impossible)
+  // collectDeadPills below picks them up.
   const liveHtml = entries
     .filter(d => !(d.type === "yakuhai" && d.state === "dead"))
+    .filter(d => !((d.type === "sanshoku" || d.type === "ittsuu") && d.state === "dead"))
     .map(renderYakuPill).join("");
-  const deadPills = collectDeadPills(entries);
+  const { pills: deadPills, count: deadCount } = collectDeadPills(entries);
   if (!deadPills.length) {
     return `<span class="yaku-strip">${liveHtml}</span>`;
   }
@@ -628,7 +653,7 @@ function renderYakuStrip(entries) {
   const toggle = `<button type="button" class="yp-dead-toggle" aria-expanded="false"`
     + ` title="Yakus eliminated by tile count">`
     + `<span class="toggle-arrow">▸</span>`
-    + `<span class="toggle-label">${deadPills.length} dead</span>`
+    + `<span class="toggle-label">${deadCount} dead</span>`
     + `</button>`
     + `<span class="yp-dead-sep"></span>`;
   return `<span class="yaku-strip" data-expanded="false">`

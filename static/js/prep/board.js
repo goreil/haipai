@@ -210,6 +210,20 @@
   const _YAKUHAI_TRIPLET_MIN = 3;
   const _YAKUHAI_HOLD_MIN = 2;
 
+  // Yaku-strip display order — open-hand frequency on amae-koromo
+  // (https://amae-koromo.sapk.ch/statistics/fan-stats). Most-likely first so
+  // the eye lands on the threats opponents actually finish with. Sorting
+  // happens after all candidates are pushed; see extract_board_state below.
+  const _YAKU_DISPLAY_ORDER = {
+    yakuhai:  0,
+    tanyao:   1,
+    honitsu:  2,
+    sanshoku: 3,
+    toitoi:   4,
+    ittsuu:   5,
+    chanta:   6,
+  };
+
   function _seat_wind(seat, oya) {
     return _WIND_LETTERS[((seat - oya) % 4 + 4) % 4];
   }
@@ -596,12 +610,19 @@
           locked, possible, dead,
         });
       }
-      // tanyao / toitoi / chanta / honitsu, in display order after yakuhai.
+      // tanyao / toitoi / chanta / honitsu — pushed in detection order, then
+      // re-sorted with the rest below into the strip's display order.
       for (const y of _shape_yakus(melds)) entries.push(y);
       // Sanshoku-doujun candidates derived from the seat's melded chi runs.
       for (const s of _sanshoku_candidates(melds, wall, handCounts)) entries.push(s);
       // Ittsuu candidates — one per suit with a melded 123/456/789 chi.
       for (const s of _ittsuu_candidates(melds, wall, handCounts)) entries.push(s);
+      // Strip display order matches open-hand frequency on amae-koromo
+      // (https://amae-koromo.sapk.ch/statistics/fan-stats): yakuhai > tanyao >
+      // honitsu > sanshoku > toitoi > ittsuu > chanta. Stable so multiple
+      // sanshoku/ittsuu candidates keep their detection-order grouping.
+      entries.sort((a, b) =>
+        (_YAKU_DISPLAY_ORDER[a.type] ?? 99) - (_YAKU_DISPLAY_ORDER[b.type] ?? 99));
       out[seat] = entries;
     }
     return out;

@@ -1020,9 +1020,10 @@ body {
 /* ── Dead yakuhai pill + collapsible toggle (v1.3 dead row) ───────────
    Surfaces yakuhai honors whose pon is no longer possible (unseen<2 or
    live<3 and not melded). Hidden by default behind a dashed "N dead ▸"
-   toggle at the end of the strip; expanded inline on click. Sanshoku's
-   inline dead pill (`.ss.dead`) is intentionally excluded — it has its own
-   v1.5 styling and stays visible in the live strip. */
+   toggle at the end of the strip; expanded inline on click. Dead
+   sanshoku/ittsuu (`.yp.ss.dead`) ride the same toggle — they keep their
+   v1.5 strike-through styling, but :not(.ss) below applies the dim/dashed
+   look only to yakuhai pills (where the strike is on the .yp-name span). */
 .yp.dead:not(.ss) {
   color: var(--text-dim);
   background: transparent;
@@ -1047,9 +1048,9 @@ body {
   font-weight: 700;
 }
 
-.yaku-strip .yp.dead:not(.ss),
+.yaku-strip .yp.dead,
 .yaku-strip .yp-dead-sep { display: none; }
-.yaku-strip[data-expanded="true"] .yp.dead:not(.ss),
+.yaku-strip[data-expanded="true"] .yp.dead,
 .yaku-strip[data-expanded="true"] .yp-dead-sep { display: inline-flex; }
 
 .yp-dead-sep {

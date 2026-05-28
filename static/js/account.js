@@ -173,6 +173,20 @@ function showHelp() {
     </div>
 
     <div class="help-section">
+      <h3>Opponent Yaku Panel</h3>
+      <p>When an opponent opens their hand (calls chi/pon/kan), a strip of pills appears to the right of their discard row showing which yaku that meld combination still allows. <span style="color:#9fd9a2"><b>Green ✓</b></span> = locked, <span style="color:#e6c275"><b>gold ◐</b></span> = still reachable. The number under a tile chip is how many copies are still live in the wall and opponents' hands; a highlighted chip is a copy <em>you</em> hold — discarding it would feed the pon/ron.</p>
+      <p>Pills are ordered by how often each yaku actually closes out an open hand &mdash; the most likely threats sit leftmost so your eye lands on them first. Order follows the open-hand frequency stats at <a href="https://amae-koromo.sapk.ch/statistics/fan-stats" target="_blank" style="color:var(--accent-dim)">amae-koromo.sapk.ch/statistics/fan-stats</a>:</p>
+      <p style="padding-left:16px">1. <b>Yakuhai</b> &mdash; triplet of dragons, round wind, or seat wind</p>
+      <p style="padding-left:16px">2. <b>Tanyao</b> &mdash; all simples (2&ndash;8 only)</p>
+      <p style="padding-left:16px">3. <b>Honitsu</b> &mdash; one suit + honors (+ marks a still-reachable chinitsu upgrade)</p>
+      <p style="padding-left:16px">4. <b>Sanshoku</b> &mdash; same run in all three suits</p>
+      <p style="padding-left:16px">5. <b>Toitoi</b> &mdash; all triplets (no chi melds)</p>
+      <p style="padding-left:16px">6. <b>Ittsuu</b> &mdash; 1&ndash;9 straight in a single suit</p>
+      <p style="padding-left:16px">7. <b>Chanta</b> &mdash; every group touches a terminal or honor (+ marks a still-reachable junchan upgrade)</p>
+      <p>Yaku eliminated by tile count (a honor with too few copies left to pon, a sanshoku/ittsuu with a dead bottleneck) collapse behind an <b>N dead</b> toggle so the live row stays scannable.</p>
+    </div>
+
+    <div class="help-section">
       <h3>Game Ratings</h3>
       <p>★ <b>One of your best</b> &mdash; EV/decision in the top 25% of your games</p>
       <p>☆ <b>Above your average</b> &mdash; EV/decision in the top 50% of your games</p>
