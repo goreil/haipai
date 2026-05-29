@@ -29,7 +29,7 @@ function tileSrc(t) {
 }
 
 // Active-dora set helper. Reads the resolved dora list off the canonical
-// BoardState (static/js/prep/board.js emits dora_tiles alongside
+// BoardState (static/js/prep/prep-board-state.js emits dora_tiles alongside
 // dora_indicators).
 function getDoraTiles(boardState) {
   if (!boardState || !boardState.dora_tiles) return new Set();

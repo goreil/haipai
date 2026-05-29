@@ -52,7 +52,7 @@
 
   // String-level red→base for mjai notation. The integer-level twin is
   // tile_id_to_base above; this one is for callers that operate on mjai
-  // strings directly (prep/board.js shape/yaku helpers).
+  // strings directly (prep/prep-board-yaku.js shape/yaku helpers).
   function base_mjai(tile) {
     if (tile === "5mr") return "5m";
     if (tile === "5pr") return "5p";

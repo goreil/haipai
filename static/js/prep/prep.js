@@ -10,29 +10,32 @@
   if (typeof module === "object" && module.exports) {
     const tiles = require("./tiles.js");
     const parse = require("./parse.js");
-    const board = require("./board.js");
+    const boardState = require("./prep-board-state.js");
+    const boardYaku = require("./prep-board-yaku.js");
     const furiten = require("./furiten.js");
     const shantenCalc = require("./shanten_calc.js");
     const defense = require("./defense.js");
-    module.exports = factory(tiles, parse, board, furiten, shantenCalc, defense);
+    module.exports = factory(tiles, parse, boardState, boardYaku, furiten, shantenCalc, defense);
   } else {
     root.haipaiPrep = factory(
       root.haipaiPrepTiles,
       root.haipaiPrepParse,
-      root.haipaiPrepBoard,
+      root.haipaiPrepBoardState,
+      root.haipaiPrepBoardYaku,
       root.haipaiPrepFuriten,
       root.haipaiPrepShantenCalc,
       root.haipaiPrepDefense
     );
   }
 }(typeof self !== "undefined" ? self : this, function (
-  tilesMod, parseMod, boardMod, furitenMod, shantenCalcMod, defenseMod
+  tilesMod, parseMod, boardStateMod, boardYakuMod, furitenMod, shantenCalcMod, defenseMod
 ) {
 
   const { ID_TO_MJAI } = tilesMod;
   const { flatten_mjai_log } = parseMod;
-  const { reconstruct_context, subtract_hand_from_wall, extract_board_state,
-          compute_yaku_panel } = boardMod;
+  const { reconstruct_context, subtract_hand_from_wall, extract_board_state }
+    = boardStateMod;
+  const { compute_yaku_panel } = boardYakuMod;
   const {
     tenpai_wait_tiles, is_furiten,
     find_riichi_context, find_discard_history_for_turn,
