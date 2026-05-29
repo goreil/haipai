@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Tests for core functionality: parsing, categorization, database, and API routes."""
+"""Tests for db.py advanced surface: trends, summary, annotation, category
+reports, weakness snapshots, OAuth lookup/link/create.
+
+Basic CRUD (init, user, game add/get/delete/list) lives in test_db_core.py.
+"""
 
 import json
 import os
@@ -8,7 +12,6 @@ import tempfile
 
 import pytest
 
-# Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
@@ -18,15 +21,11 @@ except ImportError:
         return f"fakehash:{pw}"
 
 import db
-from lib.parse import parse_game, round_header, severity
 from tests.fixtures import make_game, make_mistake, make_round
 
 
-# --- Fixtures ---
-
 @pytest.fixture
 def tmp_db():
-    """Create a temporary SQLite database."""
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     conn = db.get_db(db_path=path)
@@ -38,141 +37,36 @@ def tmp_db():
 
 @pytest.fixture
 def sample_user(tmp_db):
-    """Create a test user and return (conn, user_id)."""
     uid = db.create_user(tmp_db, "testuser", _gen_pw_hash("testpass"))
     return tmp_db, uid
 
 
-FIXTURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+def _add_game_with_mistake(conn, uid):
+    """Insert a game with a '??' severity discard-vs-discard mistake.
+    Returns (game_id, mistake_id)."""
+    game_dict = make_game(rounds=[make_round(decision_count=8, mistakes=[
+        make_mistake(
+            hand=["1m", "2m", "3m", "5m", "6m", "7m", "1p", "2p", "3p",
+                  "5s", "6s", "7s", "9s"],
+            shanten=0,
+            actual={"type": "dahai", "pai": "9s"},
+            expected={"type": "dahai", "pai": "5m"},
+            top_actions=[
+                {"action": "dahai 5m", "q_value": 1.0},
+                {"action": "dahai 9s", "q_value": 0.5},
+            ],
+        ),
+    ])])
+    gid = db.add_game(conn, uid, game_dict)
+    mid = conn.execute(
+        "SELECT id FROM mistakes WHERE game_id = ?", (gid,)
+    ).fetchone()["id"]
+    return gid, mid
 
 
-@pytest.fixture
-def mortal_data():
-    """Load a sample Mortal analysis JSON (multi-kyoku, has riichi + multiple mistake types)."""
-    path = os.path.join(FIXTURES_DIR, "game_multi_mistake.json")
-    with open(path) as f:
-        return json.load(f)
+# --- get_trends ---
 
-
-# --- mj_parse tests ---
-
-class TestParsing:
-    def test_severity_levels(self):
-        assert severity(0.01) == "?"
-        assert severity(0.49) == "?"
-        assert severity(0.50) == "??"
-        assert severity(1.00) == "??"
-        assert severity(1.01) == "???"
-
-    def test_round_header(self):
-        assert round_header({"bakaze": "E", "kyoku": 1, "honba": 0}) == "E1"
-        assert round_header({"bakaze": "S", "kyoku": 3, "honba": 2}) == "S3-2"
-
-    def test_parse_game_structure(self, mortal_data):
-        game = parse_game(mortal_data, game_date="2026-01-01")
-        assert game["date"] == "2026-01-01"
-        assert isinstance(game["rounds"], list)
-        assert len(game["rounds"]) > 0
-
-        rnd = game["rounds"][0]
-        assert "round" in rnd
-        assert isinstance(rnd["mistakes"], list)
-
-    def test_parse_game_mistakes(self, mortal_data):
-        game = parse_game(mortal_data, game_date="2026-01-01")
-        # Find a round with mistakes
-        mistakes = [m for rnd in game["rounds"] for m in rnd["mistakes"]]
-        assert len(mistakes) > 0
-
-        m = mistakes[0]
-        assert "turn" in m
-        assert "ev_loss" in m
-        assert "hand" in m
-        assert isinstance(m["hand"], list)
-        assert "actual" in m
-        assert "expected" in m
-        assert "top_actions" in m
-
-
-# --- db tests ---
-
-class TestDatabase:
-    def test_init_db(self, tmp_db):
-        tables = tmp_db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
-        table_names = {r["name"] for r in tables}
-        assert "users" in table_names
-        assert "games" in table_names
-        assert "mistakes" in table_names
-
-    def test_create_user(self, tmp_db):
-        uid = db.create_user(tmp_db, "alice", _gen_pw_hash("pw"))
-        assert uid is not None
-        user = db.get_user_by_username(tmp_db, "alice")
-        assert user is not None
-        assert user["username"] == "alice"
-
-    def test_add_and_get_game(self, sample_user):
-        conn, uid = sample_user
-        game_dict = make_game(
-            date="2026-01-01",
-            log_url=None,
-            mortal_file=None,
-            summary={"total_mistakes": 1, "total_ev_loss": 0.5},
-            mistakes=[make_mistake(hand=["1m", "2m", "3m"], top_actions=[])],
-        )
-        gid = db.add_game(conn, uid, game_dict)
-        assert gid is not None
-
-        game = db.get_game(conn, gid, user_id=uid)
-        assert game is not None
-        assert game["date"] == "2026-01-01"
-        assert len(game["rounds"]) == 1
-        assert len(game["rounds"][0]["mistakes"]) == 1
-        assert game["rounds"][0]["mistakes"][0]["turn"] == 5
-
-    def test_delete_game(self, sample_user):
-        conn, uid = sample_user
-        game_dict = make_game(date="2026-01-01",
-                              rounds=[make_round(turn_count=5, mistakes=[])])
-        gid = db.add_game(conn, uid, game_dict)
-        assert db.delete_game(conn, gid, user_id=uid) is True
-        assert db.get_game(conn, gid, user_id=uid) is None
-
-    def test_list_games(self, sample_user):
-        conn, uid = sample_user
-        for i in range(3):
-            db.add_game(conn, uid, make_game(
-                date=f"2026-01-0{i+1}",
-                rounds=[make_round(turn_count=5, mistakes=[])],
-            ))
-        games = db.list_games(conn, uid)
-        assert len(games) == 3
-
-    # --- Helper to insert a game with a discard mistake ---
-
-    def _add_game_with_mistake(self, conn, uid):
-        """Insert a game with a '??' severity discard-vs-discard mistake."""
-        game_dict = make_game(rounds=[make_round(decision_count=8, mistakes=[
-            make_mistake(
-                hand=["1m", "2m", "3m", "5m", "6m", "7m", "1p", "2p", "3p",
-                      "5s", "6s", "7s", "9s"],
-                shanten=0,
-                actual={"type": "dahai", "pai": "9s"},
-                expected={"type": "dahai", "pai": "5m"},
-                top_actions=[
-                    {"action": "dahai 5m", "q_value": 1.0},
-                    {"action": "dahai 9s", "q_value": 0.5},
-                ],
-            ),
-        ])])
-        gid = db.add_game(conn, uid, game_dict)
-        mid = conn.execute("SELECT id FROM mistakes WHERE game_id = ?", (gid,)).fetchone()["id"]
-        return gid, mid
-
-    # --- get_trends tests ---
-
+class TestGetTrends:
     def test_get_trends_empty(self, sample_user):
         """get_trends returns empty list when user has no games."""
         conn, uid = sample_user
@@ -205,8 +99,10 @@ class TestDatabase:
         assert t["by_severity"] == {"??": 1, "???": 1}
         assert "by_category" not in t
 
-    # --- compute_summary_for_game tests ---
 
+# --- compute_summary_for_game ---
+
+class TestComputeSummary:
     def test_compute_summary_for_game(self, sample_user):
         """compute_summary_for_game recomputes stats from mistake rows."""
         conn, uid = sample_user
@@ -230,12 +126,16 @@ class TestDatabase:
         assert stats["ev_per_decision"] is not None
 
         # Verify it was persisted
-        row = conn.execute("SELECT stats_json FROM games WHERE id = ?", (gid,)).fetchone()
+        row = conn.execute(
+            "SELECT stats_json FROM games WHERE id = ?", (gid,)
+        ).fetchone()
         saved = json.loads(row["stats_json"])
         assert saved["total_mistakes"] == 2
 
-    # --- annotate_mistake tests ---
 
+# --- annotate_mistake ---
+
+class TestAnnotateMistake:
     def test_annotate_mistake_ownership(self, sample_user):
         """annotate_mistake returns None when user doesn't own the game."""
         conn, uid = sample_user
@@ -246,8 +146,8 @@ class TestDatabase:
         ])
         gid = db.add_game(conn, uid, game_dict)
 
-        # Other user should not be able to annotate
-        result = db.annotate_mistake(conn, gid, "E1", 5, 0, "test note", user_id=other_uid)
+        result = db.annotate_mistake(conn, gid, "E1", 5, 0, "test note",
+                                     user_id=other_uid)
         assert result is None
 
     def test_annotate_mistake_update(self, sample_user):
@@ -258,7 +158,8 @@ class TestDatabase:
         ])
         gid = db.add_game(conn, uid, game_dict)
 
-        result = db.annotate_mistake(conn, gid, "E1", 5, 0, "defense play", user_id=uid)
+        result = db.annotate_mistake(conn, gid, "E1", 5, 0, "defense play",
+                                     user_id=uid)
         assert result is True
 
         row = conn.execute(
@@ -273,23 +174,28 @@ class TestDatabase:
             make_mistake(hand=["1m"], top_actions=[]),
         ])
         gid = db.add_game(conn, uid, game_dict)
-        result = db.annotate_mistake(conn, gid, "E1", 5, 99, "note", user_id=uid)
+        result = db.annotate_mistake(conn, gid, "E1", 5, 99, "note",
+                                     user_id=uid)
         assert result is None
 
-    # --- submit_category_report / list_category_reports tests ---
 
+# --- submit_category_report / list_category_reports ---
+
+class TestCategoryReports:
     def test_submit_category_report(self, sample_user):
         """submit_category_report inserts a report and returns its ID."""
         conn, uid = sample_user
-        gid, mid = self._add_game_with_mistake(conn, uid)
+        gid, mid = _add_game_with_mistake(conn, uid)
 
-        report_id = db.submit_category_report(conn, uid, mid, kind="wrong_category",
-                                               suggested_category="3A", reason="Should be push/fold")
+        report_id = db.submit_category_report(
+            conn, uid, mid, kind="wrong_category",
+            suggested_category="3A", reason="Should be push/fold")
         assert report_id is not None
         assert isinstance(report_id, int)
 
-        # Verify it's in the DB
-        row = conn.execute("SELECT * FROM category_reports WHERE id = ?", (report_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM category_reports WHERE id = ?", (report_id,)
+        ).fetchone()
         assert row["user_id"] == uid
         assert row["mistake_id"] == mid
         assert row["kind"] == "wrong_category"
@@ -298,13 +204,17 @@ class TestDatabase:
         assert row["reason"] == "Should be push/fold"
 
     def test_submit_category_report_wrong_text(self, sample_user):
-        """submit_category_report with kind=wrong_text stores reason and no suggestion."""
+        """submit_category_report with kind=wrong_text stores reason and no
+        suggestion."""
         conn, uid = sample_user
-        gid, mid = self._add_game_with_mistake(conn, uid)
+        gid, mid = _add_game_with_mistake(conn, uid)
 
-        report_id = db.submit_category_report(conn, uid, mid, kind="wrong_text",
-                                              reason="explanation reads off")
-        row = conn.execute("SELECT * FROM category_reports WHERE id = ?", (report_id,)).fetchone()
+        report_id = db.submit_category_report(
+            conn, uid, mid, kind="wrong_text",
+            reason="explanation reads off")
+        row = conn.execute(
+            "SELECT * FROM category_reports WHERE id = ?", (report_id,)
+        ).fetchone()
         assert row["kind"] == "wrong_text"
         assert row["reason"] == "explanation reads off"
         assert row["suggested_category"] is None
@@ -312,15 +222,16 @@ class TestDatabase:
     def test_submit_category_report_rejects_agree(self, sample_user):
         """The legacy 'agree' kind has been removed and is rejected."""
         conn, uid = sample_user
-        gid, mid = self._add_game_with_mistake(conn, uid)
+        gid, mid = _add_game_with_mistake(conn, uid)
         with pytest.raises(ValueError):
             db.submit_category_report(conn, uid, mid, kind="agree")
 
     def test_delete_category_report(self, sample_user):
         """delete_category_report removes the row and reports True."""
         conn, uid = sample_user
-        gid, mid = self._add_game_with_mistake(conn, uid)
-        rid = db.submit_category_report(conn, uid, mid, kind="wrong_text", reason="r")
+        gid, mid = _add_game_with_mistake(conn, uid)
+        rid = db.submit_category_report(conn, uid, mid, kind="wrong_text",
+                                        reason="r")
 
         assert db.delete_category_report(conn, rid) is True
         assert conn.execute(
@@ -330,14 +241,15 @@ class TestDatabase:
         assert db.delete_category_report(conn, rid) is False
 
     def test_submit_category_report_upserts(self, sample_user):
-        """Re-submitting for the same (user, mistake) replaces the prior report."""
+        """Re-submitting for the same (user, mistake) replaces the prior
+        report."""
         conn, uid = sample_user
-        gid, mid = self._add_game_with_mistake(conn, uid)
+        gid, mid = _add_game_with_mistake(conn, uid)
 
         db.submit_category_report(conn, uid, mid, kind="wrong_category",
-                                   suggested_category="3A", reason="first")
+                                  suggested_category="3A", reason="first")
         db.submit_category_report(conn, uid, mid, kind="wrong_text",
-                                   reason="second")
+                                  reason="second")
 
         rows = conn.execute(
             "SELECT kind, reason, suggested_category FROM category_reports "
@@ -351,17 +263,18 @@ class TestDatabase:
     def test_submit_category_report_invalid_kind(self, sample_user):
         """An unknown kind raises ValueError."""
         conn, uid = sample_user
-        gid, mid = self._add_game_with_mistake(conn, uid)
+        gid, mid = _add_game_with_mistake(conn, uid)
         with pytest.raises(ValueError):
             db.submit_category_report(conn, uid, mid, kind="nope")
 
     def test_list_category_reports(self, sample_user):
         """list_category_reports returns all reports with context."""
         conn, uid = sample_user
-        gid, mid = self._add_game_with_mistake(conn, uid)
+        gid, mid = _add_game_with_mistake(conn, uid)
 
         db.submit_category_report(conn, uid, mid, kind="wrong_category",
-                                   suggested_category="3B", reason="Defense mistake")
+                                  suggested_category="3B",
+                                  reason="Defense mistake")
 
         reports = db.list_category_reports(conn)
         assert len(reports) == 1
@@ -381,15 +294,18 @@ class TestDatabase:
         reports = db.list_category_reports(tmp_db)
         assert reports == []
 
-    # --- weakness_snapshots tests ---
 
+# --- weakness_snapshots ---
+
+class TestSnapshots:
     def test_insert_snapshot_basic(self, sample_user):
-        """insert_snapshot stores the aggregated totals + version + game_count."""
+        """insert_snapshot stores aggregated totals + version + game_count."""
         conn, uid = sample_user
         sid = db.insert_snapshot(
             conn, uid, 1, [10, 20, 30],
             by_category={"P1": {"count": 2, "ev": 1.5}},
-            decision_counts={"attack": 100, "defense": 0, "meld": 0, "riichi": 0, "kan": 0},
+            decision_counts={"attack": 100, "defense": 0, "meld": 0,
+                             "riichi": 0, "kan": 0},
         )
         assert isinstance(sid, int)
         snaps = db.list_snapshots(conn, uid)
@@ -405,7 +321,7 @@ class TestDatabase:
         """Re-saving with the same version + game_id set is a no-op."""
         conn, uid = sample_user
         sid1 = db.insert_snapshot(conn, uid, 1, [1, 2], {}, {"attack": 5})
-        sid2 = db.insert_snapshot(conn, uid, 1, [2, 1], {}, {"attack": 5})  # ids reordered
+        sid2 = db.insert_snapshot(conn, uid, 1, [2, 1], {}, {"attack": 5})  # reordered
         assert sid1 is not None
         assert sid2 is None
         assert len(db.list_snapshots(conn, uid)) == 1
@@ -443,8 +359,10 @@ class TestDatabase:
         assert len(db.list_snapshots(tmp_db, u1)) == 1
         assert len(db.list_snapshots(tmp_db, u2)) == 1
 
-    # --- get_user_by_oauth tests ---
 
+# --- OAuth lookup / create / link ---
+
+class TestOAuth:
     def test_get_user_by_oauth_not_found(self, tmp_db):
         """get_user_by_oauth returns None when no matching user."""
         result = db.get_user_by_oauth(tmp_db, "discord", "nonexistent_id")
@@ -461,8 +379,6 @@ class TestDatabase:
         result = db.get_user_by_oauth(tmp_db, "discord", "disc_123")
         assert result is not None
         assert result["id"] == uid
-
-    # --- create_oauth_user tests ---
 
     def test_create_oauth_user(self, tmp_db):
         """create_oauth_user creates a user with OAuth provider ID."""
@@ -498,8 +414,6 @@ class TestDatabase:
         with pytest.raises(ValueError):
             db.create_oauth_user(tmp_db, "twitter", "tw_123", "someone")
 
-    # --- link_oauth tests ---
-
     def test_link_oauth(self, sample_user):
         """link_oauth links an OAuth provider to an existing user."""
         conn, uid = sample_user
@@ -533,159 +447,3 @@ class TestDatabase:
         assert found is not None
         assert found["id"] == uid
         assert found["username"] == "testuser"
-
-
-# --- API route tests ---
-
-class TestAPI:
-    @pytest.fixture
-    def client(self, tmp_path):
-        """Create a Flask test client with a temporary database."""
-        db_path = tmp_path / "test.db"
-        os.environ["DB_PATH"] = str(db_path)
-        os.environ["SECRET_KEY"] = "test-secret"
-
-        # Re-import to pick up new DB_PATH
-        import importlib
-        importlib.reload(db)
-
-        conn = db.get_db()
-        db.init_db(conn)
-
-        db.create_user(conn, "testuser", _gen_pw_hash("testpass"))
-        conn.close()
-
-        # Import app after DB setup
-        import app as app_module
-        importlib.reload(app_module)
-        app_module.app.config["TESTING"] = True
-        app_module.app.config["WTF_CSRF_ENABLED"] = False
-
-        with app_module.app.test_client() as client:
-            yield client
-
-    def _login(self, client):
-        return client.post("/login", data={
-            "username": "testuser",
-            "password": "testpass",
-        }, follow_redirects=True)
-
-    def test_login_required(self, client):
-        res = client.get("/api/games")
-        assert res.status_code == 401
-
-    def test_login_and_games(self, client):
-        self._login(client)
-        res = client.get("/api/games")
-        assert res.status_code == 200
-        data = res.get_json()
-        assert isinstance(data, list)
-
-    def test_categories_api(self, client):
-        self._login(client)
-        res = client.get("/api/categories")
-        assert res.status_code == 200
-        data = res.get_json()
-        assert "1A" in data
-
-    def test_annotate_validation(self, client):
-        """Input validation on annotate endpoint."""
-        self._login(client)
-        # Missing required fields
-        res = client.post("/api/games/1/annotate", json={})
-        assert res.status_code == 400
-        # Wrong-typed note still fails validation before the lookup
-        res = client.post("/api/games/1/annotate", json={
-            "round": "E1", "turn": 1, "note": 42,
-        })
-        assert res.status_code == 400
-
-    def test_trends_snapshots_empty(self, client):
-        self._login(client)
-        res = client.get("/api/trends/snapshots")
-        assert res.status_code == 200
-        assert res.get_json() == []
-
-    def test_trends_snapshot_post_requires_owned_games(self, client):
-        """game_ids that don't belong to the user are silently filtered;
-        if none remain we 400 rather than persist an empty snapshot."""
-        self._login(client)
-        res = client.post("/api/trends/snapshot", json={
-            "categorizer_version": 1,
-            "game_ids": [9999],
-            "by_category": {},
-            "decision_counts": {"attack": 10},
-        })
-        assert res.status_code == 400
-
-    def test_trends_snapshot_validation(self, client):
-        self._login(client)
-        # Missing version
-        res = client.post("/api/trends/snapshot", json={"game_ids": [1]})
-        assert res.status_code == 400
-        # Bad version type
-        res = client.post("/api/trends/snapshot", json={
-            "categorizer_version": "1", "game_ids": [1],
-        })
-        assert res.status_code == 400
-        # Empty game_ids
-        res = client.post("/api/trends/snapshot", json={
-            "categorizer_version": 1, "game_ids": [],
-        })
-        assert res.status_code == 400
-
-# --- Add-game pipeline tests ---
-#
-# Upload/fetch/delete/trends round-trips through the HTTP + DB layer. The
-# shared `client` fixture (tests/conftest.py) seeds a temp DB + logged-in
-# testuser; test_snapshots.py covers the upload→fetch shape, so we only
-# pin the bits unique to this layer here.
-
-SMALL_MORTAL_FILE = os.path.join(FIXTURES_DIR, "game_short.json")
-
-
-class TestAddGamePipeline:
-    @pytest.fixture(autouse=True)
-    def _login(self, client):
-        client.post("/login",
-                    data={"username": "testuser", "password": "testpass1"},
-                    follow_redirects=True)
-
-    @pytest.fixture
-    def mortal_json(self):
-        with open(SMALL_MORTAL_FILE) as f:
-            return json.load(f)
-
-    def _add_game(self, client, mortal_json):
-        res = client.post("/api/games/add", json={"mortal_data": mortal_json},
-                          content_type="application/json")
-        assert res.status_code == 200, f"Status {res.status_code}: {res.data[:200]}"
-        return res.get_json()
-
-    def test_add_game_marks_done(self, client, mortal_json):
-        """JS prep is authoritative now — newly-added games skip the
-        backend prep thread and ship with categorization_status='done'
-        so the frontend doesn't sit on a stale banner."""
-        data = self._add_game(client, mortal_json)
-        game_id = data["game_id"]
-
-        conn = db.get_db()
-        row = conn.execute(
-            "SELECT categorization_status FROM games WHERE id = ?", (game_id,),
-        ).fetchone()
-        assert row and row["categorization_status"] == "done"
-
-    def test_delete_game(self, client, mortal_json):
-        data = self._add_game(client, mortal_json)
-        game_id = data["game_id"]
-        assert client.delete(f"/api/games/{game_id}").status_code == 200
-        assert client.get(f"/api/games/{game_id}").status_code == 404
-
-    def test_trends_after_add(self, client, mortal_json):
-        self._add_game(client, mortal_json)
-        res = client.get("/api/trends")
-        assert res.status_code == 200
-        trends = res.get_json()
-        assert len(trends) > 0
-        assert "date" in trends[0]
-        assert "total_ev_loss" in trends[0]

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""Tests for lib/parse.py — format_action and parse_game error handling."""
+"""Tests for lib/parse.py — severity/round_header, format_action,
+parse_game shape + error handling, decision-count bucketing."""
 
+import json
 import os
 import sys
 
@@ -9,6 +11,58 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from lib.parse import format_action, parse_game, severity, round_header
+
+
+FIXTURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+
+
+@pytest.fixture
+def mortal_data():
+    """Load a sample Mortal analysis JSON (multi-kyoku, has riichi + multiple
+    mistake types)."""
+    path = os.path.join(FIXTURES_DIR, "game_multi_mistake.json")
+    with open(path) as f:
+        return json.load(f)
+
+
+# --- severity / round_header / parse_game shape tests ---
+
+class TestParsing:
+    def test_severity_levels(self):
+        assert severity(0.01) == "?"
+        assert severity(0.49) == "?"
+        assert severity(0.50) == "??"
+        assert severity(1.00) == "??"
+        assert severity(1.01) == "???"
+
+    def test_round_header(self):
+        assert round_header({"bakaze": "E", "kyoku": 1, "honba": 0}) == "E1"
+        assert round_header({"bakaze": "S", "kyoku": 3, "honba": 2}) == "S3-2"
+
+    def test_parse_game_structure(self, mortal_data):
+        game = parse_game(mortal_data, game_date="2026-01-01")
+        assert game["date"] == "2026-01-01"
+        assert isinstance(game["rounds"], list)
+        assert len(game["rounds"]) > 0
+
+        rnd = game["rounds"][0]
+        assert "round" in rnd
+        assert isinstance(rnd["mistakes"], list)
+
+    def test_parse_game_mistakes(self, mortal_data):
+        game = parse_game(mortal_data, game_date="2026-01-01")
+        # Find a round with mistakes
+        mistakes = [m for rnd in game["rounds"] for m in rnd["mistakes"]]
+        assert len(mistakes) > 0
+
+        m = mistakes[0]
+        assert "turn" in m
+        assert "ev_loss" in m
+        assert "hand" in m
+        assert isinstance(m["hand"], list)
+        assert "actual" in m
+        assert "expected" in m
+        assert "top_actions" in m
 
 
 # --- format_action tests ---
