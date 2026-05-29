@@ -19,7 +19,6 @@ except ImportError:
 
 import db
 from lib.parse import parse_game, round_header, severity
-from lib.tiles import MJAI_TO_ID, ID_TO_MJAI, mjai_to_tile_id, tile_id_to_base
 
 
 # --- Fixtures ---
@@ -92,28 +91,6 @@ class TestParsing:
         assert "actual" in m
         assert "expected" in m
         assert "top_actions" in m
-
-
-# --- mj_categorize tests ---
-
-class TestTileConversion:
-    def test_mjai_to_id_basic(self):
-        assert mjai_to_tile_id("1m") == 0
-        assert mjai_to_tile_id("9s") == 26
-        assert mjai_to_tile_id("E") == 27
-        assert mjai_to_tile_id("C") == 33
-        assert mjai_to_tile_id("5mr") == 34
-
-    def test_id_to_mjai_roundtrip(self):
-        for mjai, tid in MJAI_TO_ID.items():
-            assert ID_TO_MJAI[tid] == mjai
-
-    def test_tile_id_to_base(self):
-        assert tile_id_to_base(4) == 4   # 5m base
-        assert tile_id_to_base(34) == 4  # 5mr -> 5m
-        assert tile_id_to_base(35) == 13  # 5pr -> 5p
-        assert tile_id_to_base(36) == 22  # 5sr -> 5s
-        assert tile_id_to_base(27) == 27  # E stays E
 
 
 # --- db tests ---

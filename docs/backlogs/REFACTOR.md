@@ -30,16 +30,12 @@ remaining wins are split + de-duplicate.
 Cheapest, lowest-risk PRs. Ship each as its own commit so a regression bisects
 cleanly.
 
-### 1.1 Drop dead Python (~94 LOC)
-- **`lib/tiles.py`** — entire module (35 LOC). Only `tests/test_core.py`
-  imports it; production paths use the JS equivalent (`static/js/prep/tiles.js`).
-  Move the few constants the test still needs into the test file or delete
-  those tests if they cover JS-mirrored logic.
-- **`lib/parse.py:409-435`** — `print_text()` CLI-only formatter; no caller.
-- **`lib/parse.py:438-464`** — `main()` wrapper for the dead `print_text()`.
-  Keep `parse_game()`, `severity()`, `round_header()`, `format_action()`,
-  `flatten_mjai_log()`, `walk_kyoku()`, `skill_area_for_entry()`,
-  `_decision_counts_for_kyoku()` — all referenced by routes.
+### 1.1 Drop dead Python (~94 LOC) — DONE
+- **`lib/tiles.py`** — deleted (34 LOC). The `TestTileConversion` class in
+  `tests/test_core.py` covered JS-mirrored logic and was removed with it.
+- **`lib/parse.py`** `print_text()` + `main()` — deleted, along with the now
+  unused `argparse`/`json`/`sys` imports. CLAUDE.md's stale
+  `python3 -m lib.parse analysis.json` example removed in the same commit.
 
 ### 1.2 Verify before deleting
 The earlier prune commits aggressively cleaned routes, helpers, and CSS, so

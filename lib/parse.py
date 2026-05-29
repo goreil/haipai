@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
-"""Parse Mortal AI JSON analysis into structured game data or text format."""
+"""Parse Mortal AI JSON analysis into structured game data."""
 
-import argparse
-import json
-import sys
 from datetime import date
 from typing import Any, NotRequired, TypedDict
 
@@ -406,59 +403,3 @@ def parse_game(data, game_date=None) -> GameRecord:
     }
 
 
-def print_text(game):
-    """Print game in legacy text format with auto-generated discard notes."""
-    print(f"Date: {game['date']}")
-    print(f"Log: {game['log_url'] or ''}")
-    print()
-
-    for rnd in game["rounds"]:
-        header = rnd["round"]
-        if rnd["turn_count"]:
-            header += f"T{rnd['turn_count']}"
-        print(header)
-
-        for m in rnd["mistakes"]:
-            actual_str = format_action(m["actual"])
-            expected_str = format_action(m["expected"])
-            if actual_str != expected_str:
-                note = f"(|{actual_str}| > |{expected_str}|)"
-            else:
-                note = ""
-            print(f"{m['turn']} {severity(m['ev_loss'])} {m['ev_loss']:.2f} {note}".rstrip())
-
-    print()
-    print("SUMMARY:")
-    print("TOTAL:")
-    print("TURNS:")
-    print()
-    print("=" * 70)
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Extract mistakes from a Mortal AI JSON analysis."
-    )
-    parser.add_argument("json_file", help="Path to the Mortal JSON file")
-    parser.add_argument("--date", default=None, help="Game date (default: today)")
-    parser.add_argument(
-        "--text", action="store_true",
-        help="Output legacy text format instead of JSON",
-    )
-    args = parser.parse_args()
-
-    with open(args.json_file) as f:
-        data = json.load(f)
-
-    game = parse_game(data, game_date=args.date)
-    game["mortal_file"] = args.json_file
-
-    if args.text:
-        print_text(game)
-    else:
-        json.dump(game, sys.stdout, indent=2, ensure_ascii=False)
-        print()
-
-
-if __name__ == "__main__":
-    main()

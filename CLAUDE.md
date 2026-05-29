@@ -25,9 +25,6 @@ FLASK_ENV=development .venv/bin/python app.py       # http://localhost:5000
 docker-compose up -d --build      # after requirements/Dockerfile/compose changes
 docker-compose restart app        # rarely needed; only to force a clean reload
 docker-compose logs -f app
-
-# Lower-level
-python3 -m lib.parse analysis.json
 ```
 
 ## Important notes
