@@ -1,0 +1,65 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #1a1a2e;
+  --bg-card: #16213e;
+  --bg-card-hover: #1a2744;
+  --bg-input: #0f1a2e;
+  --text: #e0e0e0;
+  --text-dim: #8892a4;
+  --accent: #4fc3f7;
+  --accent-dim: #2a7aa3;
+  --sev-minor: #66bb6a;
+  --sev-light: #fdd835;
+  --sev-medium: #ffa726;
+  --sev-major: #ef5350;
+  --sev-flag: #ab47bc;
+  --tile-m: #e53935;
+  --tile-p: #1e88e5;
+  --tile-s: #43a047;
+  --tile-z: #78909c;
+  --tile-bg: #2a2a4a;
+  --border: #2a3a5a;
+  --success: #66bb6a;
+
+  /* Translucent severity tints used as backgrounds — paired with the solid
+     --sev-* colours above. Severity-aware components (e.g. .severity,
+     .mistake, .tier-count) read these via per-modifier --sev-color /
+     --sev-tint custom props defined on .sev-* classes. */
+  --sev-tint-minor:  rgba(102, 187, 106, 0.12);
+  --sev-tint-light:  rgba(253, 216,  53, 0.12);
+  --sev-tint-medium: rgba(255, 167,  38, 0.12);
+  --sev-tint-major:  rgba(239,  83,  80, 0.12);
+  --sev-tint-flag:   rgba(171,  71, 188, 0.12);
+}
+
+/* Severity colour tokens (consumed by .severity / .mistake / .tier-count etc.).
+   Each modifier class sets the two custom props its host component reads —
+   colour for text/border, tint for background. */
+.sev-minor  { --sev-color: var(--sev-minor);  --sev-tint: var(--sev-tint-minor); }
+.sev-light  { --sev-color: var(--sev-light);  --sev-tint: var(--sev-tint-light); }
+.sev-medium { --sev-color: var(--sev-medium); --sev-tint: var(--sev-tint-medium); }
+.sev-major  { --sev-color: var(--sev-major);  --sev-tint: var(--sev-tint-major); }
+.sev-flag   { --sev-color: var(--sev-flag);   --sev-tint: var(--sev-tint-flag); }
+
+body {
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .landing { padding: 40px 16px 32px; }
+  .landing-brand h1 { font-size: 32px; }
+  .landing-features { grid-template-columns: 1fr; }
+  .landing-tile { height: 40px; }
+  .mailbox-panel { width: calc(100vw - 24px); right: -8px; }
+}

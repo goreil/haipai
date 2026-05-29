@@ -1,0 +1,282 @@
+/* Hand display */
+.hand-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hand-row .label {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  min-width: 40px;
+}
+
+.tiles {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+/* Tile sizing is driven by --tile-size so the size modifier classes
+   (.tile-sm, .action-tile, .action-tile-sm) only override the custom
+   property — everything else (border, background, vertical-align) stays
+   shared on the base .tile rule. */
+.tile {
+  height: var(--tile-size, 36px);
+  width: auto;
+  border-radius: 3px;
+  border: 2px solid transparent;
+  vertical-align: middle;
+  background: #fff;
+}
+
+.tile.tile-sm        { --tile-size: 24px; }
+.tile.action-tile    { --tile-size: 32px; }
+.tile.action-tile-sm { --tile-size: 24px; }
+
+.action-text {
+  font-size: 13px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.tile.draw {
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(79,195,247,0.5);
+  margin-left: 10px;
+  position: relative;
+}
+
+/* Riichi tile: rotated in place via CSS transform. The img keeps its normal
+   layout box (~22×28 border-box), so later columns stay aligned across all
+   rows — the rotated visual just overflows its layout box slightly, which
+   is the desired "tilted tile" look. */
+.tile.riichi-tile {
+  transform: rotate(90deg);
+  transform-origin: center center;
+  border-color: var(--sev-major);
+  box-shadow: 0 0 4px rgba(239, 83, 80, 0.4);
+}
+
+/* Skipped-turn placeholder: a blank tile img with the same layout box as a
+   real tile, so columns stay aligned when a player was passed by a pon /
+   kan call. Invisible but still hoverable, so the native `title` tooltip
+   can explain why the gap exists. */
+.tile.skip-placeholder {
+  opacity: 0;
+}
+
+/* Hovering a specific riichi tile scopes a green "safe against this riichi"
+   highlight to: (a) every discard from the riichi player (always genbutsu
+   against themselves), and (b) every tile across all rows discarded after
+   that riichi's absolute turn. Applied by JS so two separate riichis can
+   be hovered independently. */
+.tile.safe-from-riichi {
+  outline: 2px solid rgba(102, 187, 106, 0.75);
+  outline-offset: -1px;
+  box-shadow: 0 0 4px rgba(102, 187, 106, 0.45);
+  position: relative;
+  z-index: 1;
+}
+
+/* Board context */
+.board-context {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+
+.board-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.wind-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.wind-badge .wind-tile {
+  height: 20px;
+}
+
+.wind-badge .wind-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.wind-badge.round-wind {
+  background: rgba(74, 158, 255, 0.1);
+}
+.wind-badge.round-wind .wind-label { color: var(--accent); }
+
+.wind-badge.seat-wind {
+  background: rgba(168, 85, 247, 0.1);
+}
+.wind-badge.seat-wind .wind-label { color: #a855f7; }
+
+.dora-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dora-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tile.dora-indicator {
+  border-color: #ffa94d;
+  box-shadow: 0 0 4px rgba(255, 169, 77, 0.3);
+}
+
+.tile.dora-highlight {
+  border-color: #ffa94d;
+}
+
+.tile.tile-hover {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  z-index: 1;
+  position: relative;
+}
+
+
+.all-discards {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.all-discards summary {
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 4px;
+}
+
+.discard-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  /* Let the trailing yaku-strip drop to its own line on narrow widths. */
+  flex-wrap: wrap;
+}
+
+.discard-row.you-row {
+  background: rgba(74, 158, 255, 0.06);
+}
+
+/* Riichi is the bigger threat (guaranteed tenpai + stick + yaku floor), so
+   paint it red. 3+ open melds or 3+ dora exposed in melds get the softer
+   orange since they're only a possibility of tenpai / a big hand. */
+.discard-row.danger-row {
+  background: rgba(255, 169, 77, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 169, 77, 0.35);
+}
+
+.discard-row.riichi-row {
+  background: rgba(255, 107, 107, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 107, 107, 0.35);
+}
+
+.discard-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex: 0 0 110px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.you-tag {
+  color: var(--accent);
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0;
+}
+
+.danger-tag {
+  color: #ffa94d;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 9.5px;
+  padding: 0 4px;
+  border: 1px solid rgba(255, 169, 77, 0.5);
+  border-radius: 8px;
+  background: rgba(255, 169, 77, 0.1);
+}
+
+.riichi-tag {
+  color: #ff9999;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 9.5px;
+  padding: 0 5px;
+  border: 1px solid rgba(255, 107, 107, 0.5);
+  border-radius: 8px;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.scores-bar {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+  padding: 2px 0;
+}
+
+.score-item {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.score-seat {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  margin-right: 2px;
+}
+
+.inline-melds {
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Ghost tile (called from discard pool) */
+.tile.ghost-tile {
+  opacity: 0.3;
+  border: 1px dashed var(--text-dim);
+  border-radius: 3px;
+}
+
+/* KD-driven hand highlight: "Safe" = green underline; unsafe tiles get
+   an HSL gradient via inline style set by renderHand. */
+.tile.hand-tile-safe { border-bottom: 3px solid var(--sev-minor); }
