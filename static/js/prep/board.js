@@ -15,7 +15,7 @@
 }(typeof self !== "undefined" ? self : this, function (tiles, parse) {
 
   const { mjai_to_tile_id, tile_id_to_base, dora_indicator_to_dora_mjai,
-          is_honor_mjai } = tiles;
+          is_honor_mjai, base_mjai } = tiles;
   const { flatten_mjai_log } = parse;
 
   function decrement_wall(wall, mjai_tile) {
@@ -250,21 +250,15 @@
     return out;
   }
 
-  function _base_mjai(t) {
-    if (t === "5mr") return "5m";
-    if (t === "5pr") return "5p";
-    if (t === "5sr") return "5s";
-    return t;
-  }
   // Numbered tile -> its suit letter ('m'|'p'|'s'); honor -> null.
   function _tile_suit_mjai(t) {
     if (is_honor_mjai(t)) return null;
-    return _base_mjai(t)[1];
+    return base_mjai(t)[1];
   }
   // 1/9 of any suit, or any honor — i.e. anything that kills tanyao.
   function _is_terminal_or_honor_mjai(t) {
     if (is_honor_mjai(t)) return true;
-    const r = _base_mjai(t)[0];
+    const r = base_mjai(t)[0];
     return r === "1" || r === "9";
   }
 
@@ -323,7 +317,7 @@
   // chi's three tiles across consumed + pai; red fives fold to their base.
   function _chi_run(meld) {
     if (meld.type !== "chi") return null;
-    const tiles = _meld_tiles(meld).map(_base_mjai);
+    const tiles = _meld_tiles(meld).map(base_mjai);
     if (tiles.length !== 3) return null;
     const suit = _tile_suit_mjai(tiles[0]);
     if (!suit) return null;
@@ -335,7 +329,7 @@
   // dora indicators, and the player's hand subtracted, so this is exactly how
   // many copies an opponent could still draw. Red fives share their base count.
   function _unseen(wall, mjai) {
-    return wall[mjai_to_tile_id(_base_mjai(mjai))] || 0;
+    return wall[mjai_to_tile_id(base_mjai(mjai))] || 0;
   }
 
   // Sanshoku-doujun candidates a seat's melds keep alive (v1.5 Yaku-Panel
@@ -401,7 +395,7 @@
           let count = null, inHand = 0, zero = false, dealIn = false;
           if (!melded) {
             count = _unseen(wall, tile);
-            inHand = handCounts[_base_mjai(tile)] || 0;
+            inHand = handCounts[base_mjai(tile)] || 0;
             live += count;
             if (count === 0 && inHand === 0) { zero = true; exhaustedTile = tile; }
             else if (count === 0) { dealIn = true; suitDealIn.push(tile); }
@@ -486,7 +480,7 @@
           let count = null, inHand = 0, zero = false, dealIn = false;
           if (!melded) {
             count = _unseen(wall, tile);
-            inHand = handCounts[_base_mjai(tile)] || 0;
+            inHand = handCounts[base_mjai(tile)] || 0;
             live += count;
             if (count === 0 && inHand === 0) { zero = true; exhaustedTile = tile; }
             else if (count === 0) { dealIn = true; runDealIn.push(tile); }
@@ -555,7 +549,7 @@
     const handHonors = {};
     const handCounts = {};   // base mjai tile -> copies in hand (red fives folded)
     for (const t of hand || []) {
-      handCounts[_base_mjai(t)] = (handCounts[_base_mjai(t)] || 0) + 1;
+      handCounts[base_mjai(t)] = (handCounts[base_mjai(t)] || 0) + 1;
       if (is_honor_mjai(t)) handHonors[t] = (handHonors[t] || 0) + 1;
     }
     for (const key of Object.keys(meldsBySeat || {})) {

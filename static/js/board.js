@@ -244,8 +244,7 @@ const YAKU_META = {
   ittsuu:   { label: "Ittsuu" },
   chanta:   { label: "Chanta" },
 };
-const SUIT_NAME = { m: "man", p: "pin", s: "sou" };
-const SUIT_TILE = { m: "1m", p: "1p", s: "1s" };   // representative suit tile
+// SUIT_NAME / SUIT_TILE moved to static/js/tiles.js.
 
 function renderYakuhaiTiles(d) {
   let chips = "";

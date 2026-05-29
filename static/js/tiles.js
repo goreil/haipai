@@ -5,6 +5,12 @@
 // _is_terminal_mjai / _is_value_tile_mjai. Same logic, two languages — kept
 // in sync by hand. If you add a predicate on the Python side, mirror it here.
 
+// Suit letter ('m'|'p'|'s') -> display name + representative tile.
+// Read by board.js's yaku-panel renderers (sanshoku / ittsuu / honitsu
+// chips). Kept here so the Phase 3.2 board.js split shares one definition.
+var SUIT_NAME = { m: "man", p: "pin", s: "sou" };
+var SUIT_TILE = { m: "1m", p: "1p", s: "1s" };
+
 // mjai notation -> SVG filename
 var TILE_FILE = {
   "1m": "Man1", "2m": "Man2", "3m": "Man3", "4m": "Man4", "5m": "Man5",

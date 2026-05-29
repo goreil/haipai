@@ -50,6 +50,16 @@
     return tile === "5mr" || tile === "5pr" || tile === "5sr";
   }
 
+  // String-level red→base for mjai notation. The integer-level twin is
+  // tile_id_to_base above; this one is for callers that operate on mjai
+  // strings directly (prep/board.js shape/yaku helpers).
+  function base_mjai(tile) {
+    if (tile === "5mr") return "5m";
+    if (tile === "5pr") return "5p";
+    if (tile === "5sr") return "5s";
+    return tile;
+  }
+
   const MJAI_TO_RT = {
     "1m": 1, "2m": 2, "3m": 3, "4m": 4, "5m": 5, "6m": 6, "7m": 7, "8m": 8, "9m": 9,
     "5mr": 5,
@@ -123,6 +133,7 @@
     tile_id_to_base,
     is_honor_mjai,
     is_red_five_mjai,
+    base_mjai,
     dora_indicator_to_dora_mjai,
     dora_indicator_to_dora_tenhou,
   };

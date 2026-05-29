@@ -86,13 +86,16 @@ Each item is one canonical place per concept.
   uses `catGroup`/`GROUP_COLORS` instead, which is a different concept and
   stays where it is until 2.4.
 
-### 2.4 Suit/tile helpers (cross-language and cross-file)
-- `_SUIT_NAME` / `_SUIT_TILE` maps exist in both `static/js/board.js` and
-  `static/js/categorize-view.js`.
-- `_base_mjai()` in `static/js/prep/board.js` overlaps with `tileBase()` above.
-- **Target:** consolidate suit/tile constants into `static/js/tiles.js`;
-  re-export from `categorize.js` only if existing call sites hide the suit
-  helpers behind that namespace.
+### 2.4 Suit/tile helpers (cross-language and cross-file) — DONE
+- `SUIT_NAME` / `SUIT_TILE` moved from `static/js/board.js` to
+  `static/js/tiles.js` so the Phase 3.2 board.js split inherits one
+  definition. categorize-view.js never actually had them despite the
+  original plan note — verified via grep.
+- `_base_mjai()` in `static/js/prep/board.js` promoted to `base_mjai()` in
+  `static/js/prep/tiles.js` (the prep-namespace canonical home, twin of the
+  integer-level `tile_id_to_base`). prep/board.js now destructures it.
+- No re-export from `categorize.js` was needed — no caller hid suit helpers
+  behind that namespace.
 
 ### 2.5 Test fixture factories
 - The `{"date": ..., "rounds": [{"round": "E1", "mistakes": [...]}]}` game
