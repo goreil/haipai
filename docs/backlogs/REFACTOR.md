@@ -62,13 +62,13 @@ last delete pass.
 
 Each item is one canonical place per concept.
 
-### 2.1 Tile base normalization
-- `static/js/tiles.js:34-39` `tileBase()` and `static/js/tiles.js:74-78`
-  `normalizeRed()` both strip the `r` red-five suffix.
-- `static/js/categorize.js:50-53` has a third copy (exported as
-  `haipaiCategorize.tileBase`).
-- **Target:** one exported `tileBase()` in `static/js/tiles.js`; import
-  everywhere else. Update `ev-table.js` call sites (5 `normalizeRed()` calls).
+### 2.1 Tile base normalization — DONE
+- `static/js/tiles.js` `tileBase()` is now the general `.endsWith("r")` form;
+  `normalizeRed()` deleted. `ev-table.js` (5 call sites) switched to `tileBase`.
+- `categorize.js` keeps an IIFE-private copy with identical logic, commented as
+  intentionally duplicated for standalone vm loading by
+  `scripts/verify_categorize_js.mjs` / `scripts/snapshot_categorize_fixture.mjs`.
+  The unused `tileBase` entry in the `haipaiCategorize` export object is gone.
 
 ### 2.2 Severity/EV thresholds
 - EV-per-decision tier logic (`p25` / `p50` thresholds, tier mapping, color

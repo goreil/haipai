@@ -67,13 +67,13 @@ function renderEvComparison(m, options) {
   // tie, both get the marker. Avoids a redundant third row when the
   // student's pick is already the fastest.
   const speedStat = m.best_discard
-    ? (statMap[m.best_discard] || statMap[normalizeRed(m.best_discard)])
+    ? (statMap[m.best_discard] || statMap[tileBase(m.best_discard)])
     : null;
   const actualStat = actualTile
-    ? (statMap[actualTile] || statMap[normalizeRed(actualTile)])
+    ? (statMap[actualTile] || statMap[tileBase(actualTile)])
     : null;
   const expectedStat = expectedTile
-    ? (statMap[expectedTile] || statMap[normalizeRed(expectedTile)])
+    ? (statMap[expectedTile] || statMap[tileBase(expectedTile)])
     : null;
   const tiesSpeed = (s) => s && speedStat
     && s.shanten === speedStat.shanten
@@ -158,7 +158,7 @@ function renderEvComparison(m, options) {
 
   for (const tile of tiles) {
     const ma = mortalMap[tile];
-    const ca = statMap[tile] || statMap[normalizeRed(tile)];
+    const ca = statMap[tile] || statMap[tileBase(tile)];
     const isActual = actualTile === tile;
     const isExpected = expectedTile === tile;
     const isBestDiscard = m.best_discard === tile;
@@ -274,7 +274,7 @@ function renderEvComparison(m, options) {
 function getFieldForTile(dict, tile) {
   if (!dict) return null;
   if (dict[tile] != null) return dict[tile];
-  const normalized = normalizeRed(tile);
+  const normalized = tileBase(tile);
   if (normalized !== tile && dict[normalized] != null) return dict[normalized];
   if (tile && tile.match(/^5[mps]$/)) {
     const red = tile + "r";

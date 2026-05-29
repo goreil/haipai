@@ -30,12 +30,13 @@ function getDoraTiles(boardState) {
   return new Set(boardState.dora_tiles);
 }
 
-// Normalize tile for comparison (red five -> base tile)
+// Strip the red-five suffix. The only `r`-suffixed mjai tiles in the wild are
+// 5mr/5pr/5sr, so this is exactly the red→base mapping for those — and a no-op
+// for everything else. Canonical home; categorize.js keeps a private copy
+// (identical logic) so it can load standalone in a vm context.
 function tileBase(t) {
-  if (t === "5mr") return "5m";
-  if (t === "5pr") return "5p";
-  if (t === "5sr") return "5s";
-  return t;
+  if (!t) return t;
+  return t.endsWith("r") ? t.slice(0, -1) : t;
 }
 
 function renderTile(t, extraClass = "", titleOverride = null, extraAttrs = "") {
@@ -69,12 +70,6 @@ function renderUkeireTiles(tiles) {
     html += `</span>`;
   }
   return html;
-}
-
-function normalizeRed(tile) {
-  // 5mr -> 5m, 5pr -> 5p, 5sr -> 5s
-  if (tile && tile.endsWith("r")) return tile.slice(0, -1);
-  return tile;
 }
 
 // --- Tile-category predicates (CS-06) ---

@@ -47,6 +47,10 @@
   function isValueTileMjai(t) {
     return isHonorMjai(t) || isTerminalMjai(t);
   }
+  // Private copy of static/js/tiles.js::tileBase. Kept here so categorize.js
+  // can load standalone in a vm context (scripts/verify_categorize_js.mjs,
+  // scripts/snapshot_categorize_fixture.mjs). Same logic as tiles.js — sync
+  // the two if either changes.
   function tileBase(t) {
     if (!t) return t;
     return t.endsWith("r") ? t.slice(0, -1) : t;
@@ -361,6 +365,6 @@
     tileIsDora,
     tileIsYakuhai,
     statsReasonablyAgree,
-    isHonorMjai, isTerminalMjai, isValueTileMjai, tileBase,
+    isHonorMjai, isTerminalMjai, isValueTileMjai,
   };
 }));
