@@ -19,6 +19,7 @@ except ImportError:
 
 import db
 from lib.parse import parse_game, round_header, severity
+from tests.fixtures import make_game, make_mistake, make_round
 
 
 # --- Fixtures ---
@@ -114,30 +115,13 @@ class TestDatabase:
 
     def test_add_and_get_game(self, sample_user):
         conn, uid = sample_user
-        game_dict = {
-            "date": "2026-01-01",
-            "log_url": None,
-            "mortal_file": None,
-            "summary": {"total_mistakes": 1, "total_ev_loss": 0.5},
-            "rounds": [{
-                "round": "E1",
-                "honba": 0,
-                "turn_count": 10,
-                "outcome": None,
-                "mistakes": [{
-                    "turn": 5,
-                    "ev_loss": 0.50,
-                    "note": None,
-                    "hand": ["1m", "2m", "3m"],
-                    "melds": [],
-                    "shanten": 1,
-                    "draw": "4m",
-                    "actual": {"type": "dahai", "pai": "1m"},
-                    "expected": {"type": "dahai", "pai": "3m"},
-                    "top_actions": [],
-                }],
-            }],
-        }
+        game_dict = make_game(
+            date="2026-01-01",
+            log_url=None,
+            mortal_file=None,
+            summary={"total_mistakes": 1, "total_ev_loss": 0.5},
+            mistakes=[make_mistake(hand=["1m", "2m", "3m"], top_actions=[])],
+        )
         gid = db.add_game(conn, uid, game_dict)
         assert gid is not None
 
@@ -150,11 +134,8 @@ class TestDatabase:
 
     def test_delete_game(self, sample_user):
         conn, uid = sample_user
-        game_dict = {
-            "date": "2026-01-01",
-            "rounds": [{"round": "E1", "honba": 0, "turn_count": 5,
-                         "outcome": None, "mistakes": []}],
-        }
+        game_dict = make_game(date="2026-01-01",
+                              rounds=[make_round(turn_count=5, mistakes=[])])
         gid = db.add_game(conn, uid, game_dict)
         assert db.delete_game(conn, gid, user_id=uid) is True
         assert db.get_game(conn, gid, user_id=uid) is None
@@ -162,11 +143,10 @@ class TestDatabase:
     def test_list_games(self, sample_user):
         conn, uid = sample_user
         for i in range(3):
-            db.add_game(conn, uid, {
-                "date": f"2026-01-0{i+1}",
-                "rounds": [{"round": "E1", "honba": 0, "turn_count": 5,
-                             "outcome": None, "mistakes": []}],
-            })
+            db.add_game(conn, uid, make_game(
+                date=f"2026-01-0{i+1}",
+                rounds=[make_round(turn_count=5, mistakes=[])],
+            ))
         games = db.list_games(conn, uid)
         assert len(games) == 3
 
@@ -174,31 +154,19 @@ class TestDatabase:
 
     def _add_game_with_mistake(self, conn, uid):
         """Insert a game with a '??' severity discard-vs-discard mistake."""
-        game_dict = {
-            "date": "2026-01-15",
-            "rounds": [{
-                "round": "E1",
-                "honba": 0,
-                "turn_count": 10,
-                "decision_count": 8,
-                "outcome": None,
-                "mistakes": [{
-                    "turn": 5,
-                    "ev_loss": 0.50,
-                    "note": None,
-                    "hand": ["1m", "2m", "3m", "5m", "6m", "7m", "1p", "2p", "3p", "5s", "6s", "7s", "9s"],
-                    "melds": [],
-                    "shanten": 0,
-                    "draw": "4m",
-                    "actual": {"type": "dahai", "pai": "9s"},
-                    "expected": {"type": "dahai", "pai": "5m"},
-                    "top_actions": [
-                        {"action": "dahai 5m", "q_value": 1.0},
-                        {"action": "dahai 9s", "q_value": 0.5},
-                    ],
-                }],
-            }],
-        }
+        game_dict = make_game(rounds=[make_round(decision_count=8, mistakes=[
+            make_mistake(
+                hand=["1m", "2m", "3m", "5m", "6m", "7m", "1p", "2p", "3p",
+                      "5s", "6s", "7s", "9s"],
+                shanten=0,
+                actual={"type": "dahai", "pai": "9s"},
+                expected={"type": "dahai", "pai": "5m"},
+                top_actions=[
+                    {"action": "dahai 5m", "q_value": 1.0},
+                    {"action": "dahai 9s", "q_value": 0.5},
+                ],
+            ),
+        ])])
         gid = db.add_game(conn, uid, game_dict)
         mid = conn.execute("SELECT id FROM mistakes WHERE game_id = ?", (gid,)).fetchone()["id"]
         return gid, mid
@@ -214,17 +182,16 @@ class TestDatabase:
     def test_get_trends_with_data(self, sample_user):
         """get_trends returns per-game trend data with stats."""
         conn, uid = sample_user
-        game_dict = {
-            "date": "2026-01-15",
-            "summary": {
+        game_dict = make_game(
+            summary={
                 "total_mistakes": 2,
                 "total_ev_loss": 1.5,
                 "total_decisions": 20,
                 "ev_per_decision": 0.075,
                 "by_severity": {"??": 1, "???": 1},
             },
-            "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None, "mistakes": []}],
-        }
+            mistakes=[],
+        )
         db.add_game(conn, uid, game_dict)
 
         trends = db.get_trends(conn, uid)
@@ -243,20 +210,14 @@ class TestDatabase:
     def test_compute_summary_for_game(self, sample_user):
         """compute_summary_for_game recomputes stats from mistake rows."""
         conn, uid = sample_user
-        game_dict = {
-            "date": "2026-01-20",
-            "rounds": [{
-                "round": "E1", "honba": 0, "turn_count": 15, "decision_count": 12, "outcome": None,
-                "mistakes": [
-                    {"turn": 3, "ev_loss": 0.10, "note": None,
-                     "hand": ["1m"], "melds": [], "actual": {"type": "dahai", "pai": "1m"},
-                     "expected": {"type": "dahai", "pai": "2m"}, "top_actions": []},
-                    {"turn": 7, "ev_loss": 0.80, "note": None,
-                     "hand": ["5p"], "melds": [], "actual": {"type": "dahai", "pai": "5p"},
-                     "expected": {"type": "dahai", "pai": "6p"}, "top_actions": []},
-                ],
-            }],
-        }
+        game_dict = make_game(date="2026-01-20", rounds=[make_round(
+            turn_count=15, decision_count=12, mistakes=[
+                make_mistake(turn=3, ev_loss=0.10, hand=["1m"], top_actions=[]),
+                make_mistake(turn=7, ev_loss=0.80, hand=["5p"], top_actions=[],
+                             actual={"type": "dahai", "pai": "5p"},
+                             expected={"type": "dahai", "pai": "6p"}),
+            ],
+        )])
         gid = db.add_game(conn, uid, game_dict)
 
         stats = db.compute_summary_for_game(conn, gid)
@@ -280,16 +241,9 @@ class TestDatabase:
         conn, uid = sample_user
         other_uid = db.create_user(conn, "otheruser", _gen_pw_hash("pw"))
 
-        game_dict = {
-            "date": "2026-01-20",
-            "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
-                         "mistakes": [{"turn": 5, "ev_loss": 0.5,
-                                        "note": None,
-                                        "hand": ["1m"], "melds": [],
-                                        "actual": {"type": "dahai", "pai": "1m"},
-                                        "expected": {"type": "dahai", "pai": "2m"},
-                                        "top_actions": []}]}],
-        }
+        game_dict = make_game(date="2026-01-20", mistakes=[
+            make_mistake(hand=["1m"], top_actions=[]),
+        ])
         gid = db.add_game(conn, uid, game_dict)
 
         # Other user should not be able to annotate
@@ -299,16 +253,9 @@ class TestDatabase:
     def test_annotate_mistake_update(self, sample_user):
         """annotate_mistake persists the user's note on a valid mistake."""
         conn, uid = sample_user
-        game_dict = {
-            "date": "2026-01-20",
-            "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
-                         "mistakes": [{"turn": 5, "ev_loss": 0.5,
-                                        "note": None,
-                                        "hand": ["1m"], "melds": [],
-                                        "actual": {"type": "dahai", "pai": "1m"},
-                                        "expected": {"type": "dahai", "pai": "2m"},
-                                        "top_actions": []}]}],
-        }
+        game_dict = make_game(date="2026-01-20", mistakes=[
+            make_mistake(hand=["1m"], top_actions=[]),
+        ])
         gid = db.add_game(conn, uid, game_dict)
 
         result = db.annotate_mistake(conn, gid, "E1", 5, 0, "defense play", user_id=uid)
@@ -322,16 +269,9 @@ class TestDatabase:
     def test_annotate_mistake_invalid_index(self, sample_user):
         """annotate_mistake returns None for out-of-range index."""
         conn, uid = sample_user
-        game_dict = {
-            "date": "2026-01-20",
-            "rounds": [{"round": "E1", "honba": 0, "turn_count": 10, "outcome": None,
-                         "mistakes": [{"turn": 5, "ev_loss": 0.5,
-                                        "note": None,
-                                        "hand": ["1m"], "melds": [],
-                                        "actual": {"type": "dahai", "pai": "1m"},
-                                        "expected": {"type": "dahai", "pai": "2m"},
-                                        "top_actions": []}]}],
-        }
+        game_dict = make_game(date="2026-01-20", mistakes=[
+            make_mistake(hand=["1m"], top_actions=[]),
+        ])
         gid = db.add_game(conn, uid, game_dict)
         result = db.annotate_mistake(conn, gid, "E1", 5, 99, "note", user_id=uid)
         assert result is None

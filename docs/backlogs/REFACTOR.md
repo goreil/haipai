@@ -97,12 +97,13 @@ Each item is one canonical place per concept.
 - No re-export from `categorize.js` was needed — no caller hid suit helpers
   behind that namespace.
 
-### 2.5 Test fixture factories
-- The `{"date": ..., "rounds": [{"round": "E1", "mistakes": [...]}]}` game
-  dict and the mistake dict appear 10+ times across `tests/test_core.py` and
-  `tests/test_api.py` (`_insert_game()`).
-- **Target:** new `tests/fixtures.py` with `make_game()` / `make_mistake()`
-  factories. Both test modules import.
+### 2.5 Test fixture factories — DONE
+- New `tests/fixtures.py` exports `make_mistake()`, `make_round()`, and
+  `make_game()`. Each takes keyword overrides; sensible defaults cover the
+  common "one round, one mistake" shape with no args.
+- `test_core.py` and `test_api.py` both import. Across the two modules: 139
+  lines of fixture boilerplate deleted, 61 added (net −78). All 135 tests
+  still pass.
 
 ---
 

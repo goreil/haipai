@@ -10,6 +10,7 @@ import json
 import pytest
 
 import db
+from tests.fixtures import make_game, make_mistake, make_round
 
 
 def _login(client, username="testuser", password="testpass1"):
@@ -154,37 +155,18 @@ class TestGameEndpoints:
 def _insert_game(user_id, with_mistakes=True):
     """Insert a game directly into the DB and return (game_id, mistake_id or None)."""
     conn = db.get_db()
-    game_dict = {
-        "date": "2026-01-15",
-        "log_url": None,
-        "mortal_file": None,
-        "summary": {"total_mistakes": 1 if with_mistakes else 0,
-                     "total_ev_loss": 0.50 if with_mistakes else 0,
-                     "by_severity": {"??": 1} if with_mistakes else {}},
-        "rounds": [{
-            "round": "E1",
-            "honba": 0,
-            "turn_count": 10,
-            "decision_count": 8,
-            "outcome": None,
-            "mistakes": [{
-                "turn": 5,
-                "ev_loss": 0.50,
-                "note": None,
-                "hand": ["1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m",
-                         "1p", "2p", "3p", "4p"],
-                "melds": [],
-                "shanten": 1,
-                "draw": "4m",
-                "actual": {"type": "dahai", "pai": "1m"},
-                "expected": {"type": "dahai", "pai": "3m"},
-                "top_actions": [
-                    {"type": "dahai", "pai": "3m", "q_value": 1.0},
-                    {"type": "dahai", "pai": "1m", "q_value": 0.5},
-                ],
-            }] if with_mistakes else [],
-        }],
-    }
+    summary = ({"total_mistakes": 1, "total_ev_loss": 0.50, "by_severity": {"??": 1}}
+               if with_mistakes
+               else {"total_mistakes": 0, "total_ev_loss": 0, "by_severity": {}})
+    game_dict = make_game(
+        log_url=None,
+        mortal_file=None,
+        summary=summary,
+        rounds=[make_round(
+            decision_count=8,
+            mistakes=[make_mistake()] if with_mistakes else [],
+        )],
+    )
     game_id = db.add_game(conn, user_id, game_dict)
     mistake_id = None
     if with_mistakes:
