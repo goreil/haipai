@@ -767,47 +767,4 @@ function detectClosedHandYaku(m) {
   return Array.from(seen);
 }
 
-// EV-loss driven tier — display-only; backend severity string is ignored.
-function sevTier(evLoss) {
-  const ev = evLoss == null ? 0 : evLoss;
-  if (ev > 1.0) return "severe";
-  if (ev >= 0.5) return "mistake";
-  if (ev >= 0.2) return "light";
-  return "unsure";
-}
-
-var TIER_LABEL = {
-  severe: "Severe",
-  mistake: "Mistake",
-  light: "Light",
-  unsure: "Unsure",
-};
-
-var TIER_CLASS = {
-  severe: "sev-major",
-  mistake: "sev-medium",
-  light: "sev-light",
-  unsure: "sev-minor",
-};
-
-var TIER_TOOLTIP = {
-  severe: "Severe — Mortal EV gap >1.0",
-  mistake: "Mistake — Mortal EV gap 0.5–1.0",
-  light: "Light — Mortal EV gap 0.2–0.5",
-  unsure: "Unsure — Mortal EV gap <0.2 (AI not confident)",
-};
-
-function sevClass(m) {
-  const ev = typeof m === "object" && m !== null ? m.ev_loss : null;
-  return TIER_CLASS[sevTier(ev)] || "";
-}
-
-function sevLabel(m) {
-  const ev = typeof m === "object" && m !== null ? m.ev_loss : null;
-  return TIER_LABEL[sevTier(ev)] || "";
-}
-
-function sevTooltip(m) {
-  const ev = typeof m === "object" && m !== null ? m.ev_loss : null;
-  return TIER_TOOLTIP[sevTier(ev)] || "";
-}
+// sevTier / sevClass / sevLabel / sevTooltip moved to static/js/severity.js.

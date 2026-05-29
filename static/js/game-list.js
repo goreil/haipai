@@ -2,25 +2,16 @@
 // thresholds + categorization polling + delete.
 
 // --- Game rating ---
-
-function computeRatingThresholds() {
-  // Compute percentile thresholds from all games with ev_per_decision
-  const evpts = state.games
-    .map(g => (g.summary || {}).ev_per_decision)
-    .filter(v => v != null)
-    .sort((a, b) => a - b);
-  if (evpts.length < 3) return { p25: 0.14, p50: 0.19 };
-  const p25 = evpts[Math.floor(evpts.length * 0.25)];
-  const p50 = evpts[Math.floor(evpts.length * 0.50)];
-  return { p25, p50 };
-}
+// Thresholds + sevTier/sevClass/sevLabel/sevTooltip live in
+// static/js/severity.js. gameRating() converts the threshold pair into the
+// star icon + tooltip used in the sidebar list.
 
 function gameRating(summary) {
   if (!summary || !summary.total_decisions) return { icon: "", label: "", cls: "" };
   const evpt = summary.ev_per_decision;
   if (evpt == null) return { icon: "", label: "", cls: "" };
 
-  const th = computeRatingThresholds();
+  const th = computeThresholds(state.games);
   // Top 25%: excellent
   if (evpt <= th.p25) return { icon: "★", label: "One of your best", cls: "rating-excellent" };
   // Top 50%: good

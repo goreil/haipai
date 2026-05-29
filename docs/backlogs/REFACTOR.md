@@ -70,13 +70,13 @@ Each item is one canonical place per concept.
   `scripts/verify_categorize_js.mjs` / `scripts/snapshot_categorize_fixture.mjs`.
   The unused `tileBase` entry in the `haipaiCategorize` export object is gone.
 
-### 2.2 Severity/EV thresholds
-- EV-per-decision tier logic (`p25` / `p50` thresholds, tier mapping, color
-  selection) lives in `static/js/trends.js`, `static/js/game-list.js`,
-  and `static/js/categorize-view.js`.
-- **Target:** new `static/js/severity.js` exporting
-  `computeThresholds()`, `sevTier()`, `sevClass()`, `sevLabel()`,
-  `sevTooltip()`. Trends/game-list/categorize-view import.
+### 2.2 Severity/EV thresholds — DONE
+- New `static/js/severity.js` owns `sevTier`/`sevClass`/`sevLabel`/
+  `sevTooltip` and `computeThresholds(games)`. categorize-view.js no longer
+  defines them; game-list.js dropped its local `computeRatingThresholds`
+  and calls `computeThresholds(state.games)` from `gameRating`.
+- Trends.js was not a consumer (it reads server-side `by_severity`), so it
+  was left untouched.
 
 ### 2.3 Skill-area metadata
 - `TREND_SKILL_AREAS` and the lookup helpers in `static/js/trends.js:18-60`
