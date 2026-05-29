@@ -4,8 +4,8 @@
 // areas" (attack, defense, meld, riichi, kan) — each with its own
 // decision-count denominator so per-area EV/D bars are comparable. The
 // metadata (display order, color, situational copy, study reference) lives
-// here so every chunk of trends.js (currently one file, splits in Phase 3.3)
-// reads from a single canonical place.
+// here so every chunk of the Trends page (trends-charts.js,
+// trends-analysis.js, trends-view.js) reads from a single canonical place.
 //
 // Load order: depends on `CATEGORY_INFO` (categorize-metadata.js → main.js
 // async-loads /api/categories on boot) — but only at call time, since
