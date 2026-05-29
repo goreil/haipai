@@ -107,81 +107,118 @@ Each item is one canonical place per concept.
 
 ---
 
-## Phase 3 — Split oversized files
+## Phase 3 — Split oversized files — DONE
 
-Each split is its own PR. The new module names match the concept so a `grep`
-or `rg` for the right noun lands on the first try.
+All eight splits shipped 2026-05-29. New module names match concepts so
+`grep`/`rg` for the right noun lands on the first try. Actual line counts
+are in parentheses; the plan's estimates were loose, the splits are real.
 
-### 3.1 `static/style.css` (3367 → 4 files)
-- `style-theme.css` (~150) — vars, typography, dark theme.
-- `style-layout.css` (~400) — sidebar, toolbar, content/tabs, modals/forms.
-- `style-game-detail.css` (~800) — header, summary bar, round/mistake cards,
-  tiles, EV table, yaku panels (yakuhai/sanshoku/ittsuu/dead) and popovers.
-- `style-board-display.css` (~900) — board context (winds/dora/scores),
-  discard rows, threat pills, hand-tile safety coloring, melds, actions.
+### 3.1 `static/style.css` (3367 → 4 files) — DONE
+- `style-theme.css` (65) — :root tokens incl. new `--sev-tint-*`,
+  `.sev-*` modifier rules exposing `--sev-color`/`--sev-tint`, body
+  typography, scrollbar, responsive.
+- `style-layout.css` (1242) — app shell, sidebar, toolbar, content,
+  tabs, modals/forms, account, trends layout, help, landing, admin,
+  mailbox.
+- `style-game-detail.css` (1781) — game header, summary bar, round /
+  mistake cards, yaku panels (yakuhai/sanshoku/ittsuu/dead) + popovers,
+  action pills, top actions, EV table, suji, dev IDs, furiten,
+  all-last, tenpai-waits, note row, category feedback, summary view,
+  mascot, defense-context, shanten hint, ukeire-inline, dead-wait
+  chips, furiten-overlap, bad-riichi EV bars, category-report cards.
+- `style-board-display.css` (282) — hand display (with `.tile` sized
+  via `--tile-size`), riichi tile, skipped-turn placeholder,
+  safe-from-riichi hover, board context (winds/dora/scores), discard
+  rows, inline melds, threat pills, ghost tile, KD safety.
 
-Internal duplication to flatten while splitting:
-- Severity-badge color classes — consolidate to a shared pattern.
-- Tile sizing classes (`.tile`, `.tile-sm`, `.action-tile`, `.action-tile-sm`)
-  — drive sizes from CSS custom properties.
+Dedup applied: 14 `.{severity,mistake,tier-count}.sev-*` rules → 5
+`.sev-*` modifier rules in theme. `.tile`, `.tile-sm`, `.action-tile`,
+`.action-tile-sm` now share one base block driven by `--tile-size`.
 
-### 3.2 `static/js/board.js` (960 → 3 files)
-- `board-melds.js` (~120) — `renderMeld()`, `meldDoraCount()`.
-- `board-yaku-panel.js` (~380) — yakuhai/honitsu/chanta/tanyao/toitoi
-  helpers, sanshoku Variant B+D, ittsuu, `renderYakuPill()`, dead-pill, strip
-  assembly, dead-toggle handler.
-- `board-discards.js` (~280) — turn-sequence reconstruction, discard rows
-  (you/danger/riichi), inline melds, safe-from-riichi hover, scores bar.
+`style-game-detail.css` (1781) and `style-layout.css` (1242) still
+cross the 600-LOC ceiling — but no obvious finer-grained boundary
+exists today (these are flat sequences of small unrelated rules).
+Revisit only if a concept inside them grows enough to factor out.
 
-While splitting, extract a `YAKU_STATES` constant for the `locked/possible/
-close/dead` metadata that currently lives inline in three places, and a
-popover-builder helper shared by sanshoku and ittsuu.
+### 3.2 `static/js/board.js` (959 → 3 files) — DONE
+- `board-melds.js` (157) — `renderMeld`, `meldDoraCount`,
+  `formatAction`, `renderAction`.
+- `board-yaku-panel.js` (429) — `YAKU_META`, new shared `YAKU_STATES`,
+  yakuhai/honitsu/chanta renderers, sanshoku + ittsuu via shared
+  `renderRunCandidateDetail`, `renderYakuPill` /
+  `renderDeadYakuhaiPill` / `collectDeadPills` / `renderYakuStrip`,
+  dead-toggle click handler.
+- `board-discards.js` (371) — `WIND_DISPLAY`, `SEAT_NAMES`,
+  `mistakeActorSeat` / `mistakeOya`, `renderHand`,
+  `renderTenpaiWaitsRow` / `tenpaiWaitTiles`, `renderBoardContext`.
 
-### 3.3 `static/js/trends.js` (823 → 3 files)
-- `trends-charts.js` (~180) — SVG line chart with MA, stacked-bar, grouped
-  stacked, width helper.
-- `trends-analysis.js` (~320) — async worker pool, progress, categorize in
-  place, snapshot autosave, cancel handler, aggregation helpers,
-  recommendation, per-skill-area breakdown.
-- `trends-view.js` (~320) — fetch, page render, cache validation,
-  snapshots history, toggle handlers.
+Extracted `YAKU_STATES` (replaces 3 inline locked/close/dead literals)
+and `renderRunCandidateDetail` (shared sanshoku/ittsuu popover).
 
-### 3.4 `static/js/categorize-view.js` (813 → 3 files)
-- `categorize-explanations.js` (~480) — `generateExplanation()` and all
-  per-category blocks (4A/4B/4C, 5A/5B, 6A/6B, D1/D2/D3, P1-P4, legacy 1A-3B)
-  plus the nested defense/standing helpers.
-- `categorize-yaku.js` (~200) — `detectClosedHandYaku()`, riichi-calculator
-  tile/wind converters, situational yaku filter, yaku label map.
-- `categorize-metadata.js` (~130) — category labels/groups/descriptions,
-  group colors, outcome emoji, severity tier mapping (after Phase 2.2 this
-  becomes a thin wrapper).
+### 3.3 `static/js/trends.js` (784 → 3 files) — DONE
+- `trends-charts.js` (196) — SVG renderers, no state: `trendChartWidth`,
+  `renderLineChart`, `renderStackedBarChart`, `renderGroupStackedChart`.
+- `trends-analysis.js` (334) — worker pool (`trendsStash`,
+  `startWeaknessAnalysis`, `cancelWeaknessAnalysis`,
+  `_saveSnapshotFromAnalysis`), aggregation, recommendation,
+  per-skill-area breakdown.
+- `trends-view.js` (275) — fetch + page render orchestrator,
+  snapshots history, toggles.
 
-### 3.5 `static/js/game-list.js` (688 → 3 files)
-- `game-fetch.js` (~120) — fetch, addGameWithProgress, saveAnnotation.
-- `game-render.js` (~350) — sidebar list with date separators + ratings,
-  game detail render (rounds view + summary view), mistake/category-group
-  rendering.
-- `game-prep.js` (~120) — prep progress tracking, in-place
-  recategorize/summary recompute, severity auto-set + checkbox sync.
+### 3.4 `static/js/categorize-view.js` (770 → 3 files) — DONE
+- `categorize-metadata.js` (52) — `CATEGORIES`, `CATEGORY_INFO`,
+  `GROUP_COLORS`, `OUTCOME_EMOJI`, `catLabel` / `catGroup` / `catDesc`.
+- `categorize-yaku.js` (159) — `_mjaiToRiichiTile`, `_windToKazeInt`,
+  `_formatRiichiHandStr`, `_SITUATIONAL_YAKU`, `_YAKU_LABEL`,
+  `detectClosedHandYaku`.
+- `categorize-explanations.js` (588) — `generateExplanation` and all
+  nested defense/standing helpers.
 
-### 3.6 `static/js/prep/board.js` (638 → 2 files)
-- `prep-board-state.js` (~250) — context reconstruction, main
-  `extract_board_state()`, wall manipulation.
-- `prep-board-yaku.js` (~380) — shape yaku (tanyao/toitoi/chanta/honitsu
-  with chinitsu/junchan upgrades), sanshoku candidates, shared tile/suit
-  helpers.
+(After Phase 2.2 there was no severity logic left to wrap; metadata is
+pure data — no need for the planned thin-wrapper file.)
 
-### 3.7 `tests/test_core.py` (774 → 3 files)
-- `test_parse.py` already exists at 216 LOC; **merge** the parsing tests
-  here, do not create a second file. Confirm names don't collide.
-- `test_db_core.py` (~180) — init, user CRUD, game CRUD, list.
-- `test_db_advanced.py` (~200) — trends, summary, annotation, reports,
+### 3.5 `static/js/game-list.js` (679 → 3 files) — DONE
+- `game-fetch.js` (104) — `fetchGames`, `fetchGame`, `saveAnnotation`,
+  `addGameWithProgress`, `deleteGame`, `showOnboarding`.
+- `game-render.js` (434) — `gameRating`, `renderGameList`,
+  `setSeverityFiltersVisible`, `renderGame`, `switchGameView`,
+  `toggleGameMistakes`, `toggleTrendMistakes`, `navigateHome`.
+- `game-prep.js` (148) — prep progress tracking, in-place
+  recategorize / summary recompute, severity auto-set + checkbox sync.
+
+### 3.6 `static/js/prep/board.js` (632 → 2 files) — DONE
+- `prep-board-state.js` (206) — `decrement_wall`,
+  `reconstruct_context`, `extract_board_state`,
+  `subtract_hand_from_wall`. Exposed as `haipaiPrepBoardState`.
+- `prep-board-yaku.js` (450) — `compute_yaku_panel`. Exposed as
+  `haipaiPrepBoardYaku`. The two modules don't import from each other;
+  both only need `haipaiPrepTiles` (yaku also needs nothing else,
+  state additionally needs `haipaiPrepParse`).
+
+### 3.7 `tests/test_core.py` (691 → merged + 2 files) — DONE
+- `TestParsing` merged into `test_parse.py` alongside the existing
+  parse-error and decision-counts tests. No name collisions.
+- `test_db_core.py` (94) — init, user CRUD, game CRUD, list.
+- `test_db_advanced.py` (~330) — trends, summary, annotate, reports,
   snapshots, OAuth.
+- `TestAPI` + `TestAddGamePipeline` from `test_core.py` absorbed into
+  the 3.8 split files (duplicate `/login` + `/api/games` tests dropped;
+  unique `/api/categories`, annotate-validation, snapshots, and
+  upload-pipeline tests landed in `test_api_game.py`).
 
-### 3.8 `tests/test_api.py` (687 → 3 files)
-- `test_api_auth.py` (~140) — login/logout/register/edge cases.
-- `test_api_game.py` (~220) — `/api/me`, game CRUD, get/delete.
-- `test_api_reports.py` (~150) — category reports + admin GDPR wipe.
+### 3.8 `tests/test_api.py` (669 → 3 files) — DONE
+- `test_api_auth.py` (175) — `TestAuth`, `TestRegistration`,
+  `TestAuthEdgeCases`.
+- `test_api_game.py` (~290) — `/api/me`, `/api/games` CRUD,
+  `/api/trends`, `/api/trends/snapshot[s]`, `/api/categories`,
+  `/api/games/<id>/annotate`, upload-pipeline round-trip.
+- `test_api_reports.py` (~310) — `/api/mistakes/<id>/report` and
+  `/api/admin/users/<id>` GDPR wipe.
+- `_insert_game` helper promoted to `tests/conftest.py` as
+  `insert_game` so both consumers share one fixture shape.
+
+135 → 131 tests; the 4-test delta is duplicate names dropped during
+the merge (no coverage loss).
 
 ---
 
@@ -215,9 +252,7 @@ Only the leftover oddities; most names are already concept-matched.
 1. Phase 1 (deletes) — single PR per item, can land in a day.
 2. Phase 2 (de-duplicate) — order: 2.1 → 2.2 → 2.3 → 2.4 → 2.5. Each lands
    independently; the splits in Phase 3 depend on these constants existing.
-3. Phase 3 (splits) — order by risk: tests first (3.7, 3.8), then CSS (3.1),
-   then JS by leaf-first dependency (3.6 prep/board → 3.4 categorize-view →
-   3.2 board → 3.3 trends → 3.5 game-list).
+3. Phase 3 (splits) — DONE 2026-05-29.
 4. Phase 4 (renames) — only after callers have stabilized post-Phase 3.
 
 Add the prep skill `verify` after every PR that touches rendering code:
