@@ -5,7 +5,7 @@
 // static/js/prep/ on fetch; this file decides the category from those inputs.
 //
 // Output: { category, categorize_data, labels } in the shape consumers
-// (mistake-card, categorize-view, EV table) read from each mistake.
+// (mistake-card, categorize-explanations, EV table) read from each mistake.
 //
 // !! Bump CATEGORIZER_VERSION whenever the decision tree, RULES, or the
 // skill-area grouping in static/js/prep/parse.js::skill_area_for_entry

@@ -1,7 +1,7 @@
 // EV-loss based severity tiers + game-rating thresholds.
 //
-// Display-only: drives the per-mistake severity badge (categorize-view,
-// mistake-card, game-list) and the per-game star rating (game-list sidebar).
+// Display-only: drives the per-mistake severity badge (mistake-card,
+// game-list) and the per-game star rating (game-list sidebar).
 // The backend `sev` string ("?"/"??"/"???"/"!") is independent and surfaces
 // via the server-side `by_severity` aggregates in db/games.py; nothing in
 // this module reads it.

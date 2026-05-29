@@ -95,7 +95,7 @@ function _isTerminalMjai(tile) {
 
 // Value tile: honors and terminals (yakuhai / terminal-pair candidates).
 // Narrower than the Python `_is_value_tile_mjai` which only flags yakuhai —
-// the JS-side use site (categorize-view explanation builder) wants the
+// the JS-side use site (categorize-explanations builder) wants the
 // broader "edge tile" notion.
 function _isValueTileMjai(tile) {
   if (!tile) return false;

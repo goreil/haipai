@@ -3,8 +3,9 @@
 // riichi premium, and an ippatsu/ura EV tail per wait. Built off the bundled
 // Riichi calculator already loaded for detectClosedHandYaku.
 //
-// Relies on globals from categorize-view.js (_mjaiToRiichiTile,
-// _windToKazeInt, _SITUATIONAL_YAKU, _YAKU_LABEL) and tiles.js (renderTile).
+// Relies on globals from categorize-yaku.js (_mjaiToRiichiTile,
+// _windToKazeInt, _formatRiichiHandStr, _SITUATIONAL_YAKU, _YAKU_LABEL)
+// and tiles.js (renderTile).
 
 // Approximation for the ippatsu + uradora tail. Derived to match the
 // hand-tuned reference values in the design at typical 1-3 han hands; it

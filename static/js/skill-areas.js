@@ -7,7 +7,7 @@
 // here so every chunk of trends.js (currently one file, splits in Phase 3.3)
 // reads from a single canonical place.
 //
-// Load order: depends on `CATEGORY_INFO` (categorize-view.js → main.js
+// Load order: depends on `CATEGORY_INFO` (categorize-metadata.js → main.js
 // async-loads /api/categories on boot) — but only at call time, since
 // trendSkillAreaFor reads it inside the function body.
 
