@@ -6,8 +6,9 @@
 // in sync by hand. If you add a predicate on the Python side, mirror it here.
 
 // Suit letter ('m'|'p'|'s') -> display name + representative tile.
-// Read by board.js's yaku-panel renderers (sanshoku / ittsuu / honitsu
-// chips). Kept here so the Phase 3.2 board.js split shares one definition.
+// Read by board-yaku-panel.js's pill renderers (sanshoku / ittsuu / honitsu
+// chips). Kept here so both that file and any future board-* sibling share
+// one definition.
 var SUIT_NAME = { m: "man", p: "pin", s: "sou" };
 var SUIT_TILE = { m: "1m", p: "1p", s: "1s" };
 

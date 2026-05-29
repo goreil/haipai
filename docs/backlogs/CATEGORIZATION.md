@@ -67,7 +67,7 @@ Minimal-assumption, mahjong-rules-safe genbutsu:
 | `lib/categories.py` | Add OD1/OD2/OD3 under a new `"Open Defense"` group. |
 | `static/js/categorize-view.js` | Factor the D1/D2/D3 message bodies into a helper parameterised by trigger phrase ("an opponent declared riichi" vs "an opponent has N open calls by turn T"). OD1/OD2/OD3 call the same helper. |
 | `static/js/defense-labels.js` | Tag each `per_threat` entry with `kind: "riichi"` / `"open"` so consumers can disambiguate. Drop the `// When open-defense detection lands…` TODO. |
-| `static/js/board.js:340-353` | Extend the `⚠ N melds` danger-tag to fire on the row-thresholded rule (2 melds @ T7+, 1 meld @ T13+), not only 3 melds. Switch the counter from `melds.filter(mm => mm.type !== "ankan")` to the same `OPEN_MELD_TYPES = {chi, pon, daiminkan}` set the categoriser uses — so a pon-then-kakan stays at 1 meld and chip/categoriser can't disagree. |
+| `static/js/board-discards.js:280-295` | Extend the `⚠ N melds` danger-tag to fire on the row-thresholded rule (2 melds @ T7+, 1 meld @ T13+), not only 3 melds. Switch the counter from `melds.filter(mm => mm.type !== "ankan")` to the same `OPEN_MELD_TYPES = {chi, pon, daiminkan}` set the categoriser uses — so a pon-then-kakan stays at 1 meld and chip/categoriser can't disagree. |
 | `static/js/mistake-card.js` `REPORT_CATEGORIES` | Add OD1/OD2/OD3 rows. |
 | `static/style.css` | New `--c-open-defense` colour + `.cat-od` styling (visually between Defense red and Attack blue). |
 | `tests/fixtures/prep_parity.json` + comparator | JS-only path for now: exclude `last_own_dahai_pos`, per-call event idxs, and OD `per_threat` entries from the JS↔Python parity diff (lib/parse.py + lib/defense_kd.py stay riichi-only). Python lockstep deferred. |
@@ -111,7 +111,7 @@ Minimal-assumption, mahjong-rules-safe genbutsu:
 - [ ] Add OD-aware branch to `skill_area_for_entry` so OD dahai mistakes denominate against the `defense` trends bar, not `attack`.
 - [ ] Add OD1/OD2/OD3 to `lib/categories.py` under `"Open Defense"` group.
 - [ ] Factor D-tier message bodies into a shared helper; call from OD1/OD2/OD3.
-- [ ] Extend `board.js` `⚠ N melds` chip for the row-thresholded rule.
+- [ ] Extend `board-discards.js` `⚠ N melds` chip for the row-thresholded rule.
 - [ ] Add OD codes to `REPORT_CATEGORIES`.
 - [ ] Add `--c-open-defense` + `.cat-od` to `static/style.css`.
 - [ ] Tag `per_threat` entries with `kind`; drop the TODO in `defense-labels.js`.
