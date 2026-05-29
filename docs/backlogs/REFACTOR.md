@@ -78,10 +78,13 @@ Each item is one canonical place per concept.
 - Trends.js was not a consumer (it reads server-side `by_severity`), so it
   was left untouched.
 
-### 2.3 Skill-area metadata
-- `TREND_SKILL_AREAS` and the lookup helpers in `static/js/trends.js:18-60`
-  are also queried from `game-list.js`.
-- **Target:** new `static/js/skill-areas.js`. trends.js and game-list.js import.
+### 2.3 Skill-area metadata — DONE
+- New `static/js/skill-areas.js` owns `TREND_SKILL_AREAS`,
+  `TREND_MIN_DECISIONS`, `trendSkillAreaFor`, `trendSkillAreaInfo`. trends.js
+  removed its local copy.
+- The plan note that game-list.js queried these was outdated — game-list.js
+  uses `catGroup`/`GROUP_COLORS` instead, which is a different concept and
+  stays where it is until 2.4.
 
 ### 2.4 Suit/tile helpers (cross-language and cross-file)
 - `_SUIT_NAME` / `_SUIT_TILE` maps exist in both `static/js/board.js` and
