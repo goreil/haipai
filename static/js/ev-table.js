@@ -283,12 +283,6 @@ function getFieldForTile(dict, tile) {
   return null;
 }
 
-function dealinClass(label) {
-  if (label === "genbutsu") return "dealin-genbutsu";
-  if (label === "suji") return "dealin-suji";
-  return "dealin-no-suji";
-}
-
 // Map a deal-in rate (0-100%) to an HSL colour. Green is reserved for
 // 0% (genuine Safe) and handled by the caller via the .dealin-genbutsu
 // class — so any nonzero rate starts at yellow and walks down to red.

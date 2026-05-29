@@ -44,6 +44,18 @@ re-run lightweight checks before each delete:
 - For routes: also check JS `fetch(` and `<form action=` references
 - For CSS: check both templates and any JS that injects classes via `className`
 
+**Sweep done (2026-05-29):** Applied this methodology repo-wide as Phase 1's
+last delete pass.
+- **Found and removed:** `dealinClass()` in `static/js/ev-table.js` (4 LOC).
+  The CSS class strings it returned were hardcoded inline at the only would-be
+  call site; `dealinColor()` / `dealinLabelText()` next to it are live.
+- **Clean:** all Flask routes (reachable via JS `fetch` or templates), all
+  `db/` exports, remaining `lib/parse.py` helpers, every `<script>`-loaded JS
+  module, every `static/style.css` class (415+ checked), all
+  `render_template`'d HTML files, and the three `scripts/` tools.
+- Don't re-run this pass before Phase 2/3 unless those phases add new
+  candidates; the corpus is at the bottom of useful-grep territory.
+
 ---
 
 ## Phase 2 — Collapse duplicate concepts
