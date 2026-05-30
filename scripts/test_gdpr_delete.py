@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Smoke test for db.delete_user_cascade against the local games.db.
 
+NOT a pytest target — despite the `test_` prefix, this is a standalone manual
+runner. pytest.ini scopes discovery to `tests/`, so it won't be picked up by
+`.venv/bin/pytest`. Invoke directly.
+
 Creates a throwaway user "gdpr_throwaway", seeds rows in every table that
 references users(id) (directly or indirectly), runs the cascade, and asserts
 every trace is gone — without touching real users' data.

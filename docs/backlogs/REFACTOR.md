@@ -222,17 +222,22 @@ the merge (no coverage loss).
 
 ---
 
-## Phase 4 — Findability tweaks (rename / move)
+## Phase 4 — Findability tweaks (rename / move) — DONE
 
 Only the leftover oddities; most names are already concept-matched.
 
-- After Phase 1.1, `static/js/prep/tiles.js` is the canonical tile module;
-  consider whether `static/js/tiles.js` (rendering helpers) and the prep
-  module want suffixes (`tiles-render.js` vs `tiles-mjai.js`) so a grep for
-  "tiles" doesn't ambiguously land. Decide during Phase 2.4.
-- `scripts/show_reports.py` and `scripts/leave_message.py` are tools, fine
-  where they are. `scripts/test_gdpr_delete.py` despite the name is a manual
-  smoke runner — leave a one-line comment noting it is *not* a pytest target.
+- **`tiles.js` rename — declined.** `static/js/tiles.js` (browser rendering
+  + JS-side predicate mirrors) and `static/js/prep/tiles.js` (mjai/RT/tenhou
+  integer schemes for the prep pipeline) keep their bare names. They are
+  already disambiguated by (a) directory — root vs `prep/`, (b) module
+  pattern — globals vs UMD exposing `haipaiPrepTiles`, and (c) caller
+  pattern — bare symbols vs `haipaiPrepTiles.xxx`. Adding `-render`/`-mjai`
+  suffixes would churn `index.html`, five `require("./tiles.js")` callers,
+  and doc comments for marginal benefit; symbol-level `rg` already lands
+  precisely.
+- **`scripts/test_gdpr_delete.py`** — added a "NOT a pytest target" line at
+  the top of the docstring. `pytest.ini` scopes discovery to `tests/` so it
+  was never auto-collected; the comment is for the human reader.
 
 ---
 
