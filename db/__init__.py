@@ -2,7 +2,7 @@
 
 `db.py` was split into per-concept submodules; `import db` still
 exposes the same flat public surface so callsites do not move.
-Submodule layout (see `docs/backlogs/REFACTOR-TARGET.md`):
+Submodule layout:
 
 - `db.schema`    — SCHEMA string + `migrate(conn)`
 - `db.mistakes`  — `MISTAKE_COLUMNS`, `mistake_to_row`, `row_to_mistake`,

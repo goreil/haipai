@@ -9,8 +9,7 @@ class MistakeRecord(TypedDict):
     """A single mistake within a kyoku, as emitted by ``parse_game``.
 
     Categorize/DB layers later add fields (category, board_state, etc.) —
-    those live in ``mistakes.data_json`` and are documented in
-    ``REFACTOR-TARGET.md`` under canonical data shapes.
+    those live in ``mistakes.data_json``.
     """
     turn: int
     ev_loss: float
@@ -42,8 +41,6 @@ class GameRecord(TypedDict):
     The DB layer later attaches ``mortal_file`` (set by the caller after
     saving the upload) and ``categorization_status``; the categorizer
     fills in per-mistake ``board_state`` / ``discard_stats`` / etc.
-    See ``docs/backlogs/REFACTOR-TARGET.md`` for the full canonical
-    ``Mistake`` and ``BoardState`` shapes.
     """
     date: str
     log_url: str | None

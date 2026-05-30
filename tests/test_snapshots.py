@@ -1,9 +1,8 @@
 """Golden-replay snapshot tests pinning behavior at the user-visible layer.
 
-These exist so the REFACTOR initiative (docs/backlogs/REFACTOR.md) can move
-and rename internals without silently changing what the pipeline outputs.
 The deep unit tests in test_categorize/test_parse/etc. pin internal names;
-these pin user-visible shape.
+these pin user-visible shape so internals can move/rename without silently
+changing what the pipeline outputs.
 
 Regenerate snapshots after an intentional behavior change:
 

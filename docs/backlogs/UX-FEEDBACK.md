@@ -43,7 +43,7 @@ Currently `lib/defense_kd.py::_extract_threats` skips any opponent without `reac
 3. Scale the combined deal-in probability by `P(tenpai | N open melds)` — a riichi opponent is definitionally tenpai, an open-meld one isn't. Without this scaling the model will systematically overstate danger.
 4. Revisit `C_RYANMEN` (3.5×) and the tanki/shanpon balance — open hands skew toward shanpon-on-yakuhai and tanki-on-pair rather than the ryanmen-heavy riichi distribution.
 
-**Threat extraction.** `lib/parse.py::walk_kyoku` is the canonical single-pass walker; `lib/defense.py::_walk_opponents` and `lib/defense_kd.py::_extract_threats` are projections over its raw state. Materialize the open-meld branch as a fourth adapter emitting the `ThreatInfo` shape from `REFACTOR-TARGET.md` (with `kind: riichi | open-melds`) rather than a fourth walker.
+**Threat extraction.** `lib/parse.py::walk_kyoku` is the canonical single-pass walker; `lib/defense.py::_walk_opponents` and `lib/defense_kd.py::_extract_threats` are projections over its raw state. Materialize the open-meld branch as a fourth adapter emitting a shared `ThreatInfo` shape (with `kind: riichi | open-melds`) rather than a fourth walker.
 
 **Files**: `lib/defense_kd.py` (`_extract_threats`, new furiten-based genbutsu), `lib/parse.py` (shared ThreatInfo), `lib/categorize.py` (wire-through)
 
