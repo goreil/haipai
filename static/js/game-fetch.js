@@ -22,9 +22,11 @@ function showOnboarding() {
         <div class="tutorial-tabs">
           <button type="button" class="tutorial-tab active" onclick="switchTutorial(this,'tenhou')">Tenhou</button>
           <button type="button" class="tutorial-tab" onclick="switchTutorial(this,'mahjong-soul')">Mahjong Soul</button>
+          <button type="button" class="tutorial-tab" onclick="switchTutorial(this,'riichi-city')">Riichi City</button>
         </div>
         <video class="onboarding-video tutorial-video active" data-tutorial="tenhou" src="/static/haipai-bookmarklet-upload.mp4" controls muted playsinline preload="metadata"></video>
         <video class="onboarding-video tutorial-video" data-tutorial="mahjong-soul" src="/static/haipai_mahjong_soul_guide.mp4" controls muted playsinline preload="metadata"></video>
+        <video class="onboarding-video tutorial-video" data-tutorial="riichi-city" src="/static/haipai_riichi_city.mp4" controls muted playsinline preload="metadata"></video>
       </div>
       <button class="btn btn-primary" onclick="showAddModal()">+ Add Game</button>
     </div>
