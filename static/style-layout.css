@@ -277,6 +277,34 @@
   background: #000;
 }
 
+/* Tutorial tabs (Tenhou / Mahjong Soul video switcher in the onboarding
+   empty state and the Add-Game modal bookmarklet section). */
+.tutorial-tabs-wrap { margin: 12px 0 16px; }
+.tutorial-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+}
+.tutorial-tab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tutorial-tab:hover { color: var(--text); }
+.tutorial-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tutorial-video { display: none; margin-top: 12px; }
+.tutorial-video.active { display: block; }
+
 /* Account page */
 .account-section {
   max-width: 400px; padding: 16px;

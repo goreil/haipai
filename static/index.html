@@ -93,7 +93,6 @@
       <h3>Add Game</h3>
       <div class="form-group">
         <label>Mortal analysis JSON file</label>
-        <p class="form-hint">Run your replay through <a href="https://mjai.ekyu.moe" target="_blank">mjai.ekyu.moe</a>. From the results page, find <code>/report/...json</code> in the address bar, open that URL directly, and save with Ctrl+S.</p>
         <input type="file" id="add-file" accept=".json">
       </div>
       <div class="form-group">
@@ -110,7 +109,14 @@
         <label>One-click upload bookmarklet</label>
         <p class="form-hint">Drag this link to your bookmark bar. On a mjai.ekyu.moe report page, click it to upload the analysis directly to Haipai.</p>
         <p><a id="upload-bookmarklet" class="btn" href="javascript:void(0)" onclick="event.preventDefault()" draggable="true">Send to Haipai</a></p>
-        <video class="onboarding-video" src="/static/haipai-bookmarklet-upload.mp4" controls muted playsinline preload="metadata"></video>
+        <div class="tutorial-tabs-wrap">
+          <div class="tutorial-tabs">
+            <button type="button" class="tutorial-tab active" onclick="switchTutorial(this,'tenhou')">Tenhou</button>
+            <button type="button" class="tutorial-tab" onclick="switchTutorial(this,'mahjong-soul')">Mahjong Soul</button>
+          </div>
+          <video class="onboarding-video tutorial-video active" data-tutorial="tenhou" src="/static/haipai-bookmarklet-upload.mp4" controls muted playsinline preload="metadata"></video>
+          <video class="onboarding-video tutorial-video" data-tutorial="mahjong-soul" src="/static/haipai_mahjong_soul_guide.mp4" controls muted playsinline preload="metadata"></video>
+        </div>
         <p class="form-hint" style="margin-top:6px"><a href="javascript:void(0)" onclick="regenerateUploadToken()">Regenerate token</a> (invalidates the bookmarklet on every browser).</p>
       </div>
     </div>

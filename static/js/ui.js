@@ -13,6 +13,20 @@ function toggleSidebar() {
   document.querySelector(".sidebar").classList.toggle("collapsed");
 }
 
+// Tab switcher for Tenhou / Mahjong Soul tutorial videos. Scoped to the
+// nearest .tutorial-tabs-wrap so the same markup can appear in both the
+// onboarding empty state and the Add-Game modal without cross-talk.
+function switchTutorial(btn, key) {
+  const wrap = btn.closest('.tutorial-tabs-wrap');
+  if (!wrap) return;
+  wrap.querySelectorAll('.tutorial-tab').forEach(b => b.classList.toggle('active', b === btn));
+  wrap.querySelectorAll('.tutorial-video').forEach(v => {
+    const show = v.dataset.tutorial === key;
+    v.classList.toggle('active', show);
+    if (!show && typeof v.pause === 'function') v.pause();
+  });
+}
+
 // --- Add game modal ---
 
 function showAddModal() {

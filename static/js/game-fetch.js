@@ -18,20 +18,14 @@ function showOnboarding() {
       <h2>Welcome to Haipai</h2>
       <p>Haipai analyzes your Riichi Mahjong games using Mortal AI to help you study your mistakes and track improvement over time.</p>
       <h3>How to add your first game</h3>
-      <video class="onboarding-video" src="/static/haipai-bookmarklet-upload.mp4" controls muted playsinline preload="metadata"></video>
-      <ol>
-        <li>Play a game on <a href="https://tenhou.net" target="_blank">Tenhou</a> or <a href="https://mahjongsoul.game.yo-star.com" target="_blank">Mahjong Soul</a></li>
-        <li>Go to <a href="https://mjai.ekyu.moe" target="_blank">mjai.ekyu.moe</a> and paste your replay link</li>
-        <li>Wait for Mortal AI to finish analysis</li>
-        <li>Download the analysis JSON:
-          <ul class="onboarding-sub">
-            <li>In the address bar, find the part that says <code>/report/...json</code></li>
-            <li>Open that path directly: <code>https://mjai.ekyu.moe/report/abc123.json</code></li>
-            <li>You'll see a page of raw data &mdash; press <b>Ctrl+S</b> (Cmd+S on Mac) to save it</li>
-          </ul>
-        </li>
-        <li>Click <strong>+ Add Game</strong> below and upload the saved file</li>
-      </ol>
+      <div class="tutorial-tabs-wrap">
+        <div class="tutorial-tabs">
+          <button type="button" class="tutorial-tab active" onclick="switchTutorial(this,'tenhou')">Tenhou</button>
+          <button type="button" class="tutorial-tab" onclick="switchTutorial(this,'mahjong-soul')">Mahjong Soul</button>
+        </div>
+        <video class="onboarding-video tutorial-video active" data-tutorial="tenhou" src="/static/haipai-bookmarklet-upload.mp4" controls muted playsinline preload="metadata"></video>
+        <video class="onboarding-video tutorial-video" data-tutorial="mahjong-soul" src="/static/haipai_mahjong_soul_guide.mp4" controls muted playsinline preload="metadata"></video>
+      </div>
       <button class="btn btn-primary" onclick="showAddModal()">+ Add Game</button>
     </div>
   `;
