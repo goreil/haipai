@@ -108,12 +108,36 @@ function renderEvComparison(m, options) {
   const ukeireDefaultShown = cat.startsWith("P") || cat === "1A" || cat === "2A" || cat === "3A";
   const ukeireHiddenClass = ukeireDefaultShown ? "" : " ukeire-hidden";
 
+  // Pre-compute diff across the important picks (You / AI / Speed) that have
+  // ukeire data. With 2+ rows we render the design-2 diff view (common bar
+  // + per-row gains); a single-row case falls back to the legacy full row.
+  const diffSource = [];
+  for (const t of tiles) {
+    const ca = statMap[t] || statMap[tileBase(t)];
+    const isImportant = t === actualTile || t === expectedTile || t === m.best_discard;
+    if (isImportant && ca && ca.necessary_tiles && ca.necessary_tiles.length) {
+      diffSource.push({ tile: t, ca });
+    }
+  }
+  const diffEnabled = diffSource.length >= 2;
+  const diff = diffEnabled ? computeUkeireDiff(diffSource.map(d => d.ca)) : null;
+  const diffByTile = {};
+  if (diff) diff.perRow.forEach((r, i) => { diffByTile[diffSource[i].tile] = r; });
+
   // Always give a container ID so switchThreatView can re-render in place.
   const containerId = options.containerId || _registerEvContainer(m, options);
-  let html = `<div class="ev-comparison${ukeireHiddenClass}" id="${containerId}" data-threat-view="${activeView}">`;
+  const modeClass = diffEnabled ? " ukeire-mode-diff" : "";
+  let html = `<div class="ev-comparison${ukeireHiddenClass}${modeClass}" id="${containerId}" data-threat-view="${activeView}">`;
+  html += `<div class="ukeire-toolbar">`;
   html += `<button type="button" class="ukeire-toggle" onclick="toggleUkeire(this)">`;
   html += ukeireDefaultShown ? "Hide tile acceptance" : "Show tile acceptance";
   html += `</button>`;
+  if (diffEnabled) {
+    html += `<span class="ukeire-mode-switch" onclick="toggleUkeireMode(this)" role="switch" aria-checked="false" tabindex="0">`;
+    html += `<span class="sw"></span><span class="sw-label">Show all ukeire</span>`;
+    html += `</span>`;
+  }
+  html += `</div>`;
 
   // Multi-riichi pill toggle — only shown when 2+ opponents are in riichi.
   // Each pill re-renders this ev-comparison with a different threat view.
@@ -156,6 +180,35 @@ function renderEvComparison(m, options) {
     ${useKd ? '<th class="dealin-col" title="Probability this tile deals in — aggregated across all riichi threats">Deal-in</th><th class="dealin-col" title="Finer safety category (last honor, no-suji 4-6, etc.). Shows &quot;Safe&quot; when the deal-in rate is 0% — the tile can\'t possibly be the winning wait.">Type</th>' : ''}
   </tr></thead><tbody>`;
 
+  // Column count drives the colspan for the ukeire / wait-breakdown / common rows.
+  // 3 base columns: Tile, Mortal EV, Shanten (Exp Score removed 2026-04-20).
+  const colspan = 3 + (useKd ? 2 : 0);
+
+  // Diff view: "shared by every discard" bar at the top of the table body,
+  // collapsible to reveal the actual common tiles. Hidden when the user
+  // flips the "Show all ukeire" switch. When the accept sets are fully
+  // disjoint (commonTotal === 0) the bar would just say "0 tiles" — render
+  // a different one-line note instead so users see that explicitly.
+  if (diffEnabled) {
+    html += `<tr class="ukeire-common-row diff-only">`;
+    html += `<td colspan="${colspan}" class="ukeire-common-cell">`;
+    if (diff.commonTotal > 0) {
+      const kindWord = diff.common.length === 1 ? "kind" : "kinds";
+      html += `<div class="ukeire-common-bar" onclick="toggleUkeireCommon(this)">`;
+      html += `<span class="dot"></span>`;
+      html += `<span class="txt"><b>${diff.common.length} ${kindWord} · ${diff.commonTotal} tiles</b> accepted by every discard</span>`;
+      html += `<span class="chev">▶</span>`;
+      html += `</div>`;
+      html += `<div class="ukeire-common-tiles" hidden>${renderUkeireTiles(diff.common)}</div>`;
+    } else {
+      html += `<div class="ukeire-common-bar ukeire-common-empty">`;
+      html += `<span class="dot"></span>`;
+      html += `<span class="txt">No tiles accepted by every discard — each row's gains are its full acceptance.</span>`;
+      html += `</div>`;
+    }
+    html += `</td></tr>`;
+  }
+
   for (const tile of tiles) {
     const ma = mortalMap[tile];
     const ca = statMap[tile] || statMap[tileBase(tile)];
@@ -175,8 +228,33 @@ function renderEvComparison(m, options) {
       || (isExpected && speedAbsorbedByExpected);
     if (showSpeedMarker) markers.push('<span class="marker speed" title="The tile that reaches tenpai fastest (most tile acceptance, ignoring hand value and defense)">Speed</span>');
 
+    // Diff-mode gain block is inlined into the tile-cell so the +N count
+    // and unique tiles share the row with the discard. The full-only row
+    // below still carries the legacy "Tile acceptance (N): …" listing for
+    // the "Show all ukeire" mode.
+    const inlineShowUkeire = (isActual || isExpected || isBestDiscard)
+      && ca && ca.necessary_tiles && ca.necessary_tiles.length;
+    let inlineGain = "";
+    if (diffEnabled && inlineShowUkeire) {
+      const g = diffByTile[tile];
+      const hasGain = g && g.gains.length > 0;
+      inlineGain = `<span class="ukeire-inline-gain">`;
+      inlineGain += `<span class="ukeire-gainpill${hasGain ? "" : " zero"}">`;
+      inlineGain += `<b>${hasGain ? "+" + g.gainTotal : "+0"}</b> tile acceptance`;
+      inlineGain += `</span>`;
+      if (hasGain) {
+        inlineGain += `<span class="ukeire-inline-tiles">${renderUkeireTiles(g.gains)}</span>`;
+      } else {
+        const msg = isExpected
+          ? "All accepted tiles are also accepted by the other picks"
+          : "Subset of the AI discard — adds nothing";
+        inlineGain += `<span class="ukeire-row-zero">${msg}</span>`;
+      }
+      inlineGain += `</span>`;
+    }
+
     html += `<tr class="${rowClass}">`;
-    html += `<td class="tile-cell">${renderTile(tile, "ev-tile")} ${markers.join("")}</td>`;
+    html += `<td class="tile-cell">${renderTile(tile, "ev-tile")} ${markers.join("")}${inlineGain}</td>`;
 
     if (ma) {
       const delta = ma.q_value - bestMortalQ;
@@ -225,17 +303,19 @@ function renderEvComparison(m, options) {
 
     html += `</tr>`;
 
-    // Column count drives the colspan for the ukeire / wait-breakdown rows.
-    // 3 base columns: Tile, Mortal EV, Shanten (Exp Score removed 2026-04-20).
-    const colspan = 3 + (useKd ? 2 : 0);
-
     // Under each "important" pick (AI / player / calc best), show its ukeire
     // tiles if we have per-tile data. Saves space vs a separate block and
     // puts the tile list right next to the choice it describes.
     const showUkeire = (isActual || isExpected || isBestDiscard)
                        && ca && ca.necessary_tiles && ca.necessary_tiles.length;
     if (showUkeire) {
-      html += `<tr class="ukeire-row ${rowClass}">`;
+      // Diff mode inlines the gain block into the tile-cell above; the
+      // ukeire-row here just carries the legacy "Tile acceptance (N): …"
+      // listing for the "Show all ukeire" mode (full-only class hides it
+      // unless the user flips the switch). When diff isn't enabled (single
+      // pick has data), the same row is the only listing and stays visible.
+      const fullClass = diffEnabled ? " full-only" : "";
+      html += `<tr class="ukeire-row${fullClass} ${rowClass}">`;
       html += `<td colspan="${colspan}" class="ukeire-row-cell">`;
       html += `<span class="ukeire-row-label" title="Tiles that would improve your hand">Tile acceptance (${ca.necessary_count}):</span>`;
       html += `<span class="ukeire-row-tiles">${renderUkeireTiles(ca.necessary_tiles)}</span>`;
@@ -382,4 +462,49 @@ function toggleUkeire(btn) {
   if (!wrap) return;
   const hidden = wrap.classList.toggle("ukeire-hidden");
   btn.textContent = hidden ? "Show tile acceptance" : "Hide tile acceptance";
+}
+
+// "Show all ukeire" switch: flip between the diff view (common bar + per-row
+// gains) and the legacy full per-row acceptance. Both versions of each row
+// are in the DOM; CSS shows whichever matches the current mode.
+function toggleUkeireMode(el) {
+  const wrap = el.closest(".ev-comparison");
+  if (!wrap) return;
+  const inDiffMode = wrap.classList.toggle("ukeire-mode-diff");
+  el.setAttribute("aria-checked", String(!inDiffMode));
+  el.classList.toggle("on", !inDiffMode);
+}
+
+function toggleUkeireCommon(el) {
+  const open = el.classList.toggle("open");
+  const tiles = el.parentElement.querySelector(".ukeire-common-tiles");
+  if (tiles) tiles.hidden = !open;
+}
+
+// Diff helper: given the per-tile-acceptance objects for the important picks,
+// compute the tiles every row shares (the "common" set, counts from row 0)
+// and each row's gains (its accepted tiles not in the common set).
+// Caller passes ca objects: { tile, necessary_count, necessary_tiles[{tile,count}] }
+function computeUkeireDiff(rows) {
+  const sets = rows.map(r => new Set(r.necessary_tiles.map(t => tileBase(t.tile))));
+  const commonBases = [...sets[0]].filter(c => sets.every(s => s.has(c)));
+  const commonBaseSet = new Set(commonBases);
+  // Common counts taken from the first row's entries (red fives collapse to
+  // their base when forming the set, but we keep the original entry for
+  // rendering so the chip shows the right SVG).
+  const baseMap = {};
+  for (const t of rows[0].necessary_tiles) {
+    const base = tileBase(t.tile);
+    if (commonBaseSet.has(base) && baseMap[base] == null) baseMap[base] = t;
+  }
+  const common = commonBases
+    .map(b => baseMap[b])
+    .filter(Boolean);
+  const commonTotal = common.reduce((s, t) => s + t.count, 0);
+  const perRow = rows.map(r => {
+    const gains = r.necessary_tiles.filter(t => !commonBaseSet.has(tileBase(t.tile)));
+    const gainTotal = gains.reduce((s, t) => s + t.count, 0);
+    return { gains, gainTotal };
+  });
+  return { common, commonTotal, perRow };
 }
