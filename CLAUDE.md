@@ -48,7 +48,7 @@ grepping. If you change a concept that isn't listed, add it.
 - Yaku panel (opponent open-hand pill strip): `static/js/board-yaku-panel.js` (render), `static/js/prep/prep-board-yaku.js` (compute), `static/style-game-detail.css` (style)
 - Discard rows (you / danger / riichi) + safe-tile hover: `static/js/board-discards.js`, `static/style-board-display.css`
 - Meld rendering: `static/js/board-melds.js`
-- Categorization (the live, client-side engine — there is no `lib/categorize.py`): `static/js/categorize.js` (entry), `static/js/categorize-metadata.js` (category labels/groups/colors), `static/js/categorize-yaku.js` (closed-hand yaku detection), `static/js/categorize-explanations.js` (per-category explanation blocks)
+- Categorization (the live, client-side engine — there is no `lib/categorize.py`): `static/js/categorize.js` (entry), `static/js/categorize-metadata.js` (category labels/groups/colors), `static/js/categorize-yaku.js` (closed-hand yaku detection), `static/js/categorize-explanations.js` (per-category explanation blocks). Before/after changing any of these, benchmark with `scripts/category_bench.mjs` → `.claude/skills/categorize-bench/SKILL.md`
 - Mistake card (per-round entry on game detail): `static/js/mistake-card.js`
 - EV / severity tier coloring: `static/js/severity.js` (shared helpers), `static/js/ev-table.js`; importers: `static/js/trends-charts.js`, `static/js/game-render.js`, `static/js/categorize-explanations.js`
 - Skill-area metadata (push/defense/riichi labels): `static/js/skill-areas.js`; importers: `static/js/trends-*.js`, `static/js/game-render.js`
