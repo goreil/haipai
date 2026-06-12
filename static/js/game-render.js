@@ -82,9 +82,9 @@ function renderGame() {
 
     <div class="summary-bar">
       <div class="stat"><span class="value">${s.total_mistakes || 0}</span><span class="label">Mistakes</span></div>
-      <div class="stat"><span class="value">${(s.total_ev_loss || 0).toFixed(2)}</span><span class="label">EV Loss</span></div>
-      ${s.total_decisions ? `<div class="stat"><span class="value">${s.total_decisions}</span><span class="label">Decisions</span></div>
-      <div class="stat"><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
+      <div class="stat" title="Total expected value lost to mistakes this game, compared to Mortal's (the AI) preferred plays."><span class="value">${(s.total_ev_loss || 0).toFixed(2)}</span><span class="label">EV Loss</span></div>
+      ${s.total_decisions ? `<div class="stat" title="How many of your decisions Mortal reviewed this game."><span class="value">${s.total_decisions}</span><span class="label">Decisions</span></div>
+      <div class="stat" title="Average expected value lost per decision — lower is better."><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
       <div class="stat" title="EV loss > 1.0"><span class="value" style="color:var(--sev-major)">${tierCounts.severe}</span><span class="label">Severe</span></div>
       <div class="stat" title="EV loss 0.5–1.0"><span class="value" style="color:var(--sev-medium)">${tierCounts.mistake}</span><span class="label">Mistake</span></div>
       <div class="stat" title="EV loss 0.2–0.5"><span class="value" style="color:var(--sev-light)">${tierCounts.light}</span><span class="label">Light</span></div>
@@ -148,12 +148,17 @@ function renderGame() {
     });
 
     const outcomeStr = rnd.outcome ? (OUTCOME_EMOJI[rnd.outcome] || rnd.outcome) : "";
-    const turnStr = rnd.turn_count ? `T${rnd.turn_count}` : "";
+    // Prefer the decision count; old games stored before it existed only
+    // have turn_count, so fall back to that.
+    const nDec = rnd.decision_count || 0;
+    const countStr = nDec
+      ? `${nDec} decision${nDec === 1 ? "" : "s"}`
+      : (rnd.turn_count ? `${rnd.turn_count} turn${rnd.turn_count === 1 ? "" : "s"}` : "");
 
     const isClean = rnd.mistakes.length === 0;
     html += `<div class="round${isClean ? " round-clean" : ""}">`;
     html += `<div class="round-header">
-      <span>${rnd.round}${turnStr}</span>
+      <span>${formatRoundLabel(rnd.round)}${countStr ? ` <span class="round-count" title="How many of your decisions Mortal reviewed in this round.">&middot; ${countStr}</span>` : ""}</span>
       ${outcomeStr ? `<span class="outcome">${outcomeStr}</span>` : ""}
       ${isClean ? '<span class="clean-badge">Clean</span>' : ""}
       ${!isClean && visible.length !== rnd.mistakes.length ?
@@ -189,10 +194,10 @@ function renderGame() {
       if (m.is_all_last) {
         html += `<span class="all-last-badge" title="Final round of the hand — placement matters more than raw EV here.">All last</span>`;
       }
-      html += `<span class="turn-num">T${m.turn}</span>`;
+      html += formatTurnBadge(m.turn);
       if (m.id) html += `<span class="dev-id" title="mistake id">#${m.id}</span>`;
       html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;
-      html += `<span class="ev-loss">${m.ev_loss.toFixed(2)} EV</span>`;
+      html += `<span class="ev-loss" title="${EV_LOSS_TOOLTIP}">${m.ev_loss.toFixed(2)} EV</span>`;
       if (m.category) {
         const grp = catGroup(m.category);
         const color = GROUP_COLORS[grp] || "#888";

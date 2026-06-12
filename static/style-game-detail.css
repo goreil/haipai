@@ -119,6 +119,12 @@
   font-size: 16px;
 }
 
+.round-header .round-count {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
 /* Game rating */
 .game-rating-icon {
   font-size: 13px;
@@ -203,6 +209,7 @@
   font-weight: 700;
   font-size: 14px;
   min-width: 28px;
+  white-space: nowrap;
 }
 
 .severity {

@@ -221,7 +221,7 @@ function renderReportCard(r) {
 
   html += `<div class="report-footer">
     <span>game <b>#${r.game_id}</b></span>
-    <span>${escapeHtml(r.round_name || "")} &middot; turn ${r.turn}</span>
+    <span>${formatRoundLabel(escapeHtml(r.round_name || ""))} &middot; Turn ${r.turn + 1}</span>
   </div></div>`;
   return html;
 }

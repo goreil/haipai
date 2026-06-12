@@ -2,6 +2,29 @@
 // category-report row. Used by game-list (rounds & summary views), trends
 // (top-mistakes panel), and the "open as user" admin flow.
 
+// Expand a stored round name ("E1", "S3-2") into beginner-friendly text
+// ("East 1", "South 3 (repeat 2)"). Display only — round names stay in
+// their compact form everywhere they act as keys (data-round, annotation
+// saves, deep links).
+const ROUND_WIND_NAMES = { E: "East", S: "South", W: "West", N: "North" };
+
+function formatRoundLabel(name) {
+  if (!name) return "";
+  const mt = /^([ESWN])(\d+)(?:-(\d+))?$/.exec(name);
+  if (!mt) return name;
+  let label = `${ROUND_WIND_NAMES[mt[1]]} ${mt[2]}`;
+  if (mt[3] && mt[3] !== "0") label += ` (repeat ${mt[3]})`;
+  return label;
+}
+
+// Mistake turns are junme, 0-indexed (first discard cycle = 0) — show them
+// 1-based so "Turn 1" means the first go-around like players expect.
+function formatTurnBadge(turn) {
+  return `<span class="turn-num" title="The discard cycle this happened on — turn 1 is the round's first go-around.">Turn ${turn + 1}</span>`;
+}
+
+const EV_LOSS_TOOLTIP = "Expected value lost: how far this play falls below Mortal's (the AI) best option, in points of expected score. Bigger = more costly.";
+
 // True when Mortal's recommended discard leaves the hand at a worse
 // (higher) shanten than the user's actual discard. Comparing ukeire across
 // different shanten levels is meaningless, so the categorizer skips P2
@@ -62,14 +85,14 @@ function renderMistakeCard(m, opts = {}) {
     const d = new Date(showDate + "T00:00:00").toLocaleDateString("en-US", {month: "short", day: "numeric"});
     html += `<span class="mistake-date">${d}</span>`;
   }
-  if (m.round_name) html += `<span class="round-label">${m.round_name}</span>`;
+  if (m.round_name) html += `<span class="round-label">${formatRoundLabel(m.round_name)}</span>`;
   if (m.is_all_last) {
     html += `<span class="all-last-badge" title="Final round of the hand — placement matters more than raw EV here.">All last</span>`;
   }
-  html += `<span class="turn-num">T${m.turn}</span>`;
+  html += formatTurnBadge(m.turn);
   if (m.id) html += `<span class="dev-id" title="mistake id">#${m.id}</span>`;
   html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;
-  html += `<span class="ev-loss">${m.ev_loss.toFixed(2)} EV</span>`;
+  html += `<span class="ev-loss" title="${EV_LOSS_TOOLTIP}">${m.ev_loss.toFixed(2)} EV</span>`;
   if (m.category) {
     const grp = catGroup(m.category);
     const color = GROUP_COLORS[grp] || "#888";
