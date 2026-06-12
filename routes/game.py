@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Game CRUD routes: list, get, delete, add, annotate, backfill."""
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, make_response, request
 from flask_login import current_user, login_required
 from pathlib import Path
 import json
@@ -35,10 +35,44 @@ def api_game(game_id):
     game = db.get_game(conn, game_id, user_id=uid)
     if not game:
         return jsonify({"error": "Game not found"}), 404
-    md = load_slim_mortal_data(game.get("mortal_file"))
-    if md is not None:
-        game["mortal_data"] = md
     return jsonify(game)
+
+
+@games_bp.route("/api/games/<int:game_id>/mortal")
+@login_required
+def api_game_mortal(game_id):
+    """Slim mortal_data, split out of /api/games/<id> so the browser can
+    cache it. A game's mortal_file is set once at ingest and the file is
+    content-hashed, so this URL's payload is immutable — long max-age +
+    ETag make repeat fetches (game revisits, trends re-analysis) free.
+    """
+    from app import get_conn
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT mortal_file FROM games WHERE id = ? AND user_id = ?",
+        (game_id, current_user.id),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Game not found"}), 404
+
+    # The filename is the content hash — use it as the ETag so
+    # revalidations are answered without reading the file.
+    etag = Path(row["mortal_file"]).stem if row["mortal_file"] else None
+    if etag and etag in request.if_none_match:
+        resp = make_response("", 304)
+        resp.set_etag(etag)
+        return resp
+
+    md = load_slim_mortal_data(row["mortal_file"])
+    if md is None:
+        return jsonify({"error": "No mortal data for this game"}), 404
+    resp = jsonify(md)
+    resp.set_etag(etag)
+    resp.headers["Cache-Control"] = "private, max-age=31536000, immutable"
+    # The cache entry is keyed by URL; vary on Cookie so a different
+    # account in the same browser can't read a cached copy of this game.
+    resp.headers["Vary"] = "Cookie"
+    return resp
 
 
 def load_slim_mortal_data(mortal_file):

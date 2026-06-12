@@ -34,7 +34,12 @@ function showOnboarding() {
 }
 
 async function fetchGame(id) {
-  const res = await fetch(`/api/games/${id}`);
+  // mortal_data ships from its own endpoint with immutable cache headers,
+  // so revisits only re-download the (small) game payload.
+  const [res, mres] = await Promise.all([
+    fetch(`/api/games/${id}`),
+    fetch(`/api/games/${id}/mortal`),
+  ]);
   if (!res.ok) {
     // Bad deep-link or game not owned: drop the hash so the listener doesn't
     // re-fire, and leave the user on the game list.
@@ -45,6 +50,7 @@ async function fetchGame(id) {
     return;
   }
   state.currentGameData = await res.json();
+  if (mres.ok) state.currentGameData.mortal_data = await mres.json();
   state.currentGame = id;
   const want = `#game=${id}`;
   if (window.location.hash !== want) history.replaceState(null, "", want);

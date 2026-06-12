@@ -167,6 +167,65 @@ class TestGetGame:
         assert res.status_code == 401
 
 
+# --- GET /api/games/<id>/mortal ---
+
+class TestGameMortal:
+    def test_mortal_unauthenticated(self, client):
+        res = client.get("/api/games/1/mortal")
+        assert res.status_code == 401
+
+    def test_mortal_nonexistent_game(self, client):
+        _login(client)
+        res = client.get("/api/games/99999/mortal")
+        assert res.status_code == 404
+
+    def test_mortal_no_file(self, client):
+        """Games without a mortal_file (legacy/fixture inserts) 404."""
+        _login(client)
+        me = client.get("/api/me").get_json()
+        game_id, _ = insert_game(me["id"])
+        res = client.get(f"/api/games/{game_id}/mortal")
+        assert res.status_code == 404
+
+    def test_mortal_wrong_user(self, client):
+        _login(client)
+        conn = db.get_db()
+        from werkzeug.security import generate_password_hash
+        uid2 = db.create_user(conn, "otheruser", generate_password_hash("otherpass1"))
+        conn.close()
+        game_id, _ = insert_game(uid2)
+        res = client.get(f"/api/games/{game_id}/mortal")
+        assert res.status_code == 404
+
+    def test_mortal_roundtrip_cacheable(self, client):
+        """Upload a real game, then: /api/games/<id> no longer inlines
+        mortal_data, the /mortal endpoint serves the slim copy with
+        immutable cache headers, and revalidation answers 304."""
+        _login(client)
+        with open(SMALL_MORTAL_FILE) as f:
+            mortal_json = json.load(f)
+        add = client.post("/api/games/add", json={"mortal_data": mortal_json})
+        assert add.status_code == 200
+        game_id = add.get_json()["game_id"]
+
+        game = client.get(f"/api/games/{game_id}").get_json()
+        assert "mortal_data" not in game
+
+        res = client.get(f"/api/games/{game_id}/mortal")
+        assert res.status_code == 200
+        md = res.get_json()
+        assert "mjai_log" in md
+        assert "player_id" in md
+        assert "immutable" in res.headers["Cache-Control"]
+        assert res.headers["Vary"] == "Cookie"
+        etag = res.headers["ETag"]
+        assert etag
+
+        res304 = client.get(f"/api/games/{game_id}/mortal",
+                            headers={"If-None-Match": etag})
+        assert res304.status_code == 304
+
+
 # --- DELETE /api/games/<id> ---
 
 class TestDeleteGame:

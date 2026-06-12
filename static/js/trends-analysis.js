@@ -62,9 +62,16 @@ async function startWeaknessAnalysis() {
       const trendsEntry = queue.shift();
       if (!trendsEntry) return;
       try {
-        const res = await fetch(`/api/games/${trendsEntry.id}`);
+        // mortal_data comes from its own immutable-cached endpoint — on a
+        // re-run only the game payloads transfer; the heavy mjai logs are
+        // served from the browser cache.
+        const [res, mres] = await Promise.all([
+          fetch(`/api/games/${trendsEntry.id}`),
+          fetch(`/api/games/${trendsEntry.id}/mortal`),
+        ]);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const full = await res.json();
+        if (mres.ok) full.mortal_data = await mres.json();
         if (full && full.mortal_data && typeof haipaiPrep !== "undefined") {
           await haipaiPrep.prepGameAsync(full, full.mortal_data);
           recategorizeGameInPlace(full);
