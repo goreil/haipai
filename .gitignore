@@ -67,6 +67,7 @@ instance/
 
 # App data (user-specific, not shared)
 games.db
+games.db-*
 games.json
 cpp_cache.db*
 mortal_analysis/
