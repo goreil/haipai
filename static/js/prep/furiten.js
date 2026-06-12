@@ -115,9 +115,11 @@
     };
   }
 
-  // Player's discard pool up to (but not including) their dahai on
-  // `target_junme`. junme is 0-indexed (first tsumo = junme 0). Mirrors
-  // lib/furiten.py::find_discard_history_for_turn.
+  // Player's discard pool for the decision at `target_junme`. junme is the
+  // player's draw count at decision time (first discard cycle = junme 1;
+  // junme 0 is a call decision before the first draw). The pool includes the
+  // dahai made at target_junme itself — discarding into your own wait is
+  // furiten, so the just-discarded tile must count.
   function find_discard_history_for_turn(mjai_events, start_pos, end_pos,
                                          player_id, target_junme) {
     const own_discards = [];

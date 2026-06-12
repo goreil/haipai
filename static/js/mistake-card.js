@@ -17,10 +17,16 @@ function formatRoundLabel(name) {
   return label;
 }
 
-// Mistake turns are junme, 0-indexed (first discard cycle = 0) — show them
-// 1-based so "Turn 1" means the first go-around like players expect.
+// Mistake turns are junme = the player's draw count at decision time, so the
+// first discard cycle is already 1. A junme of 0 is a call decision on an
+// opponent's discard before the player's first draw — still the round's
+// first go-around, so clamp it up to 1 for display.
+function formatTurnNumber(turn) {
+  return Math.max(turn, 1);
+}
+
 function formatTurnBadge(turn) {
-  return `<span class="turn-num" title="The discard cycle this happened on — turn 1 is the round's first go-around.">Turn ${turn + 1}</span>`;
+  return `<span class="turn-num" title="The discard cycle this happened on — turn 1 is the round's first go-around.">Turn ${formatTurnNumber(turn)}</span>`;
 }
 
 const EV_LOSS_TOOLTIP = "Expected value lost: how far this play falls below Mortal's (the AI) best option, in points of expected score. Bigger = more costly.";
