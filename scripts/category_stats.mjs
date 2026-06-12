@@ -51,6 +51,27 @@ if (args.length) {
   process.exit(2);
 }
 
+// Redraws in place on a TTY; falls back to ~10%-step lines when piped.
+// `done` may advance by more than 1 per call (the game loop ticks by each
+// game's mistake count), so the fallback thresholds on distance covered,
+// not on round numbers.
+let _lastProgress = 0;
+function progress(done, total, label) {
+  if (!total) return;
+  if (!process.stderr.isTTY) {
+    if (done === total || done - _lastProgress >= total / 10) {
+      process.stderr.write(`  …${done}/${total} ${label}\n`);
+      _lastProgress = done === total ? 0 : done;  // reset for the next phase
+    }
+    return;
+  }
+  const width = 30;
+  const filled = Math.round(width * done / total);
+  const bar = "█".repeat(filled) + "░".repeat(width - filled);
+  process.stderr.write(`\r[${bar}] ${done}/${total} ${label}`);
+  if (done === total) process.stderr.write("\n");
+}
+
 // --- prod sync: pull games.db + missing mortal files out of the container ---
 if (prod) {
   const cache = join(repoRoot, ".cache", "category-stats");
@@ -68,8 +89,10 @@ if (prod) {
   if (missing.length) {
     process.stderr.write(`Syncing ${missing.length}/${listing.length} mortal files…\n`);
     for (let i = 0; i < missing.length; i += 50) {
-      const files = missing.slice(i, i + 50).map(f => `mortal_analysis/${f}`).join(" ");
+      const chunk = missing.slice(i, i + 50);
+      const files = chunk.map(f => `mortal_analysis/${f}`).join(" ");
       sh(`docker compose exec -T app tar -cf - -C /app ${files} | tar -xf - -C ${cache}`);
+      progress(Math.min(i + 50, missing.length), missing.length, "files synced");
     }
   } else {
     process.stderr.write(`Mortal files cached (${listing.length}).\n`);
@@ -135,43 +158,57 @@ function reconstructGame(g) {
   return { id: g.id, date: g.date, rounds };
 }
 
+// Per-game mistake counts up front so progress can tick by mistake — a
+// closer proxy for remaining time than game count, since prep cost scales
+// with game size.
+const mistakeCounts = new Map(
+  db.prepare("SELECT game_id, COUNT(*) AS c FROM mistakes GROUP BY game_id")
+    .all().map(r => [r.game_id, r.c])
+);
+const mistakesTotal = games.reduce((s, g) => s + (mistakeCounts.get(g.id) || 0), 0);
+
 const byCat = new Map(); // cat -> { count, ev, games:Set }
 let totalMistakes = 0, totalEv = 0;
-let analyzed = 0;
+let analyzed = 0, mistakesSeen = 0;
 const skipped = [];
 
 for (const g of games) {
-  const mortalPath = g.mortal_file ? join(mortalDir, g.mortal_file) : null;
-  if (!mortalPath || !existsSync(mortalPath)) {
-    skipped.push(g.id);
-    continue;
-  }
-  const game = reconstructGame(g);
-  // Full mortal JSON is a superset of the slim copy the API ships; prep
-  // reads the same fields either way.
-  const md = JSON.parse(readFileSync(mortalPath, "utf8"));
   try {
-    prepGame(game, md);
-  } catch (e) {
-    skipped.push(g.id);
-    if (verbose) realWarn(`prep failed for game ${g.id}:`, e.message);
-    continue;
-  }
-  for (const rnd of game.rounds) {
-    for (const m of rnd.mistakes || []) {
-      const out = categorize(m);
-      const cat = out.category || "??";
-      if (!byCat.has(cat)) byCat.set(cat, { count: 0, ev: 0, games: new Set() });
-      const e = byCat.get(cat);
-      e.count++;
-      e.ev += m.ev_loss || 0;
-      e.games.add(g.id);
-      totalMistakes++;
-      totalEv += m.ev_loss || 0;
+    const mortalPath = g.mortal_file ? join(mortalDir, g.mortal_file) : null;
+    if (!mortalPath || !existsSync(mortalPath)) {
+      skipped.push(g.id);
+      continue;
     }
+    const game = reconstructGame(g);
+    // Full mortal JSON is a superset of the slim copy the API ships; prep
+    // reads the same fields either way.
+    const md = JSON.parse(readFileSync(mortalPath, "utf8"));
+    try {
+      prepGame(game, md);
+    } catch (e) {
+      skipped.push(g.id);
+      if (verbose) realWarn(`prep failed for game ${g.id}:`, e.message);
+      continue;
+    }
+    for (const rnd of game.rounds) {
+      for (const m of rnd.mistakes || []) {
+        const out = categorize(m);
+        const cat = out.category || "??";
+        if (!byCat.has(cat)) byCat.set(cat, { count: 0, ev: 0, games: new Set() });
+        const e = byCat.get(cat);
+        e.count++;
+        e.ev += m.ev_loss || 0;
+        e.games.add(g.id);
+        totalMistakes++;
+        totalEv += m.ev_loss || 0;
+      }
+    }
+    analyzed++;
+  } finally {
+    // Skipped games advance the bar too, so it always reaches 100%.
+    mistakesSeen += mistakeCounts.get(g.id) || 0;
+    progress(mistakesSeen, mistakesTotal, "mistakes");
   }
-  analyzed++;
-  if (analyzed % 50 === 0) process.stderr.write(`  …${analyzed}/${games.length} games\n`);
 }
 db.close();
 
