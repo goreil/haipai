@@ -107,8 +107,9 @@ gate, OD1/OD2/OD3) and the UI layer followed on `open-defense-ui`: `"Open
 Defense"` group + amber-gold `--c-open-defense` (`lib/categories.py`,
 `GROUP_COLORS`, `--c-open-defense` token), Meld moved off orange to magenta
 `#ee5fa7`, OD1/OD2/OD3 explanation prose (shared D-tier bodies), the
-turn-banded open-threat board chip (`board-discards.js`, Strong/Moderate/
-Speculative), an Open Defense trends axis with its own `skill_area_for_entry`
+open-threat board chip (`board-discards.js`, Strong when meld dora is exposed,
+Moderate otherwise — trigger is now 2+ open calls any turn, see V7 in
+`defense.js`), an Open Defense trends axis with its own `skill_area_for_entry`
 denominator, and OD `REPORT_CATEGORIES` rows. Benchmark via
 `scripts/category_bench.mjs` (eval folded into it); `verify_categorize_js.mjs`
 parity 100%.

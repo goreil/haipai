@@ -12,15 +12,14 @@ var SEAT_NAMES = ["East", "South", "West", "North"];
 // already counted, and counting both would disagree with the gate.
 var OPEN_MELD_TYPES = new Set(["chi", "pon", "daiminkan"]);
 
-// Confidence band for a non-riichi open threat at the player's current turn,
-// mirroring the shipped V2 trigger (3 calls any turn / 2 from turn 7 / 1 from
-// turn 11). Returns "strong" | "moderate" | "speculative" | null. The chip's
-// visual weight follows this so a single late pon never reads as "fold hard".
-function openThreatBand(openMeldCount, turn) {
-  if (openMeldCount >= 3) return "strong";
-  if (turn >= 7 && openMeldCount >= 2) return "moderate";
-  if (turn >= 11 && openMeldCount >= 1) return "speculative";
-  return null;
+// Confidence band for a non-riichi open threat, mirroring the shipped trigger
+// (2+ open calls, any turn — static/js/prep/defense.js::_is_open_threat V7).
+// Returns "strong" | "moderate" | null. Visible meld dora drives the band:
+// any exposed dora ("strong") reads as a fat, push-back hand; without it the
+// open hand is still a threat but cheaper ("moderate"). Below 2 calls → null.
+function openThreatBand(openMeldCount, meldDora) {
+  if (openMeldCount < 2) return null;
+  return meldDora >= 1 ? "strong" : "moderate";
 }
 
 // The player's own seat for a mistake. Most carry it on the action the player
@@ -289,38 +288,35 @@ function renderBoardContext(m) {
         if (!d.discards.length && !seatMelds) continue;
         const seatName = seatWindLabel(d.seat);
         const isYou = playerSeat != null && d.seat === playerSeat;
-        // Open-threat signal for an opponent (not you): the same turn-banded
-        // trigger the categorizer's Open Defense axis uses. A riichi opp takes
-        // precedence (its own red row), so the amber open-threat chip only
-        // fires on non-riichi seats. A separate "3 dora exposed" chip flags a
-        // big hand even when the call count alone hasn't tripped the band.
+        // Open-threat signal for an opponent (not you): the same trigger the
+        // categorizer's Open Defense axis uses (2+ open calls, any turn). A
+        // riichi opp takes precedence (its own red row), so the amber
+        // open-threat chip only fires on non-riichi seats. Visible meld dora
+        // upgrades the chip to the solid "strong" fill. A separate "3 dora
+        // exposed" chip flags a big hand even when the call count alone hasn't
+        // tripped the band (e.g. a single dora-laden pon).
         const isRiichiOpp = !isYou && d.riichi_idx != null;
         const openMeldCount = (seatMelds && !isYou)
           ? seatMelds.filter(mm => OPEN_MELD_TYPES.has(mm.type)).length : 0;
-        const threatBand = (!isYou && !isRiichiOpp)
-          ? openThreatBand(openMeldCount, m.turn || 0) : null;
-        const isMeldDanger = threatBand != null;
         const meldDora = (!isYou && !isRiichiOpp) ? meldDoraCount(seatMelds, doraTiles) : 0;
+        const threatBand = (!isYou && !isRiichiOpp)
+          ? openThreatBand(openMeldCount, meldDora) : null;
+        const isMeldDanger = threatBand != null;
         const isDoraDanger = meldDora >= 3;
         const isDanger = isMeldDanger || isDoraDanger;
         let rowCls = "discard-row";
         if (isYou) rowCls += " you-row";
         if (isDanger) rowCls += " danger-row";
-        if (threatBand === "speculative") rowCls += " speculative";
         if (isRiichiOpp) rowCls += " riichi-row";
         html += `<div class="${rowCls}">`;
         html += `<span class="discard-label">${seatName}`;
         if (isYou) html += `<span class="you-tag">(you)</span>`;
         if (isRiichiOpp) html += `<span class="riichi-tag">RIICHI</span>`;
         if (isMeldDanger) {
-          const q = threatBand === "speculative" ? "?" : "";
-          const callWord = openMeldCount === 1 ? "call" : "calls";
-          const detail = [`${openMeldCount} ${callWord}`];
-          if (threatBand === "speculative") detail.push("late");
-          else if (threatBand === "moderate") detail.push(`t${m.turn || 0}+`);
+          const detail = [`${openMeldCount} calls`];
           if (meldDora > 0) detail.push(`${meldDora} dora`);
-          const title = `Open threat — ${openMeldCount} open ${callWord} by turn ${m.turn || 0}`;
-          html += `<span class="danger-tag ${threatBand}" title="${title}">⚠ Open threat${q}</span>`;
+          const title = `Open threat — ${openMeldCount} open calls by turn ${m.turn || 0}`;
+          html += `<span class="danger-tag ${threatBand}" title="${title}">⚠ Open threat</span>`;
           html += `<span class="danger-detail">${detail.join(" · ")}</span>`;
         } else if (isDoraDanger) {
           html += `<span class="danger-tag" title="${meldDora} dora exposed in melds">⚠ ${meldDora} dora</span>`;

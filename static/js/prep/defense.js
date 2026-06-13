@@ -67,7 +67,7 @@
   // variant's rule fires. Edit OPEN_TRIGGER_VARIANT, then run
   // scripts/category_bench.mjs (prep cache re-keys automatically).
   // turn = player's junme (1-based draw count at decision time).
-  const OPEN_TRIGGER_VARIANT = "V2";
+  const OPEN_TRIGGER_VARIANT = "V7";
 
   function _meld_dora_count(opp, dora_mjai) {
     let n = 0;
@@ -119,6 +119,9 @@
             || (turn >= 11 && melds >= 1)
             || (melds >= 2 && _has_yakuhai_meld(opp, ctx.bakaze, ctx.seat_wind))
             || _meld_dora_count(opp, ctx.dora_mjai) >= 2;
+      case "V7":   // SHIPPED: 2+ calls, any turn. Benchmark: melds≥2 lifts
+                   // OD1-Defend share to 65% / 74% EV vs melds≥1's 57% / 66%.
+        return melds >= 2;
       default:
         return false;
     }

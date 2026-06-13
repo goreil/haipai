@@ -28,15 +28,16 @@
     return flat;
   }
 
-  // True when any opponent's open-call count meets the shipped V2 open-threat
-  // band at `turn` (1-based junme): 3 calls any turn, 2 from turn 7, 1 from
-  // turn 11. Mirrors static/js/prep/defense.js::_is_open_threat (V2) — keep
-  // the two in sync. A riichi opp can't have open melds, so it never trips
-  // this; riichi precedence is handled in skill_area_for_entry regardless.
+  // True when any opponent has made the shipped open-threat call count: 2+
+  // open calls, any turn. Mirrors static/js/prep/defense.js::_is_open_threat
+  // (V7) — keep the two in sync. `turn` is unused now but kept in the signature
+  // so callers don't churn if a turn band returns. A riichi opp can't have open
+  // melds, so it never trips this; riichi precedence is handled in
+  // skill_area_for_entry regardless.
   function _open_threat_at(opponents, turn) {
     for (const seat in opponents) {
       const om = opponents[seat].open_melds || 0;
-      if (om >= 3 || (turn >= 7 && om >= 2) || (turn >= 11 && om >= 1)) return true;
+      if (om >= 2) return true;
     }
     return false;
   }

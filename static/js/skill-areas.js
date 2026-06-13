@@ -22,7 +22,7 @@ var TREND_SKILL_AREAS = [
     study: "Riichi Book Ch 8" },
   { label: "Open Defense", key: "open_defense", catGroup: "Open Defense", color: "#f5b342",
     situation: "a non-riichi opponent's open hand is threatening",
-    intro: "Turns where no one has declared riichi but an opponent's open hand has tripped the open-threat trigger (enough calls for the turn). The metric mirrors Defense — deal-in rate against that silent-tenpai pressure.",
+    intro: "Turns where no one has declared riichi but an opponent's open hand has tripped the open-threat trigger (2+ open calls). The metric mirrors Defense — deal-in rate against that silent-tenpai pressure.",
     study: "Riichi Book Ch 8.2-8.4" },
   { label: "Meld",    key: "meld",    catGroup: "Meld",    color: "#ee5fa7",
     situation: "a chi or pon was available",

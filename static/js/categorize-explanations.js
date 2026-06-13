@@ -289,8 +289,8 @@ function generateExplanation(m) {
       if (defenseTrigger === "riichi") return "an opponent declared riichi";
       if (hasRiichi) return "an opponent declared riichi";
       // Open Defense scene: a non-riichi opponent's open hand tripped the
-      // open-threat trigger (enough calls for the turn). The OD tiers reuse
-      // the D-tier bodies below, swapping in this phrase.
+      // open-threat trigger (2+ open calls). The OD tiers reuse the D-tier
+      // bodies below, swapping in this phrase.
       if (defenseTrigger === "open") return "a non-riichi opponent's open hand is threatening";
       if (catData.threatening_opponent) return "an opponent has 3+ open calls (threatening hand)";
       return "an opponent is threatening";
