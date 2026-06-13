@@ -21,13 +21,14 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 5;
+  const CATEGORIZER_VERSION = 6;
   const CATEGORIZER_CHANGELOG = {
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
     2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
     3: "P3 now requires Mortal's ukeire to be at least equal to the player's (strict, no similarity threshold). Rule is now: more ukeire or better shanten → push; otherwise complex. Affects #12151.",
     4: "P3 reverted to a pure dora/yakuhai check — no ukeire comparison. The v3 gate misclassified #12611 (E discard is round-wind + dora, but had more ukeire than Mortal's 6p) as P4 Complex. Also drops the `similar_acceptance` flag and its '*0.9' similarity threshold from value_preserve.",
     5: "Kan-vs-call mismatches (chi/pon vs a kan, either direction) now route to 6A/6B instead of falling through to P4. Fixes #14173 (R-179): pon East when daiminkan East was the play is now 6B Missed Kan, not Complex Decision.",
+    6: "Open Defense axis (OD1/OD2/OD3, backlog C-02): non-riichi opponents whose open melds pass the prep-side trigger emit kind='open' threats; dahai mistakes in open-threat-only scenes route to OD tiers via the same defend/push/complex logic as D1-D3.",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
@@ -298,8 +299,19 @@
       catData.best_shanten = expectedShanten;
     }
 
-    if (dealinRates && Object.keys(dealinRates).length > 0) {
+    // Threat kinds come from prep's per_threat (single source of truth).
+    // Missing kind tags (older prepped data) are treated as riichi.
+    const threatKinds = new Set(
+      (m.per_threat || []).map(t => (t && t.kind) || "riichi"));
+    const hasDealin = !!(dealinRates && Object.keys(dealinRates).length > 0);
+    const riichiThreat = hasDealin
+      && (threatKinds.has("riichi") || threatKinds.size === 0);
+    const openOnlyThreat = hasDealin && !riichiThreat && threatKinds.has("open");
+
+    if (riichiThreat) {
       catData.defense_trigger = "riichi";
+    } else if (openOnlyThreat) {
+      catData.defense_trigger = "open";
     }
 
     // Scene flag: any non-player seat with 3+ open calls (chi/pon/daiminkan)
@@ -332,7 +344,7 @@
     }
 
     let category;
-    if (dealinRates && Object.keys(dealinRates).length > 0) {
+    if (riichiThreat || openOnlyThreat) {
       const def = classifyDefense(actual.pai, expected.pai, dealinRates,
                                   discardStats, catData, labels, valueCtx);
       category = def.category;
@@ -342,6 +354,11 @@
       const mortalR = dealinFor(expected.pai, dealinRates);
       if (userR === 0 && mortalR === 0 && (category === "D2" || category === "D3")) {
         catData.both_safe = true;
+      }
+      // Open-only threats use the same defend/push/complex logic but land in
+      // their own OD tier so trends can split riichi defense from open defense.
+      if (openOnlyThreat) {
+        category = { D1: "OD1", D2: "OD2", D3: "OD3" }[category] || category;
       }
     } else {
       category = classifyPush(actual.pai, expected.pai, discardStats, catData,

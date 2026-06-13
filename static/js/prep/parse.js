@@ -39,6 +39,12 @@
     const genbutsu_post_reach_by_seat = {};
     let tiles_left = 70;
     let first_dora_indicator = null;
+    let bakaze = null;
+    let oya = null;
+    // Every tile that hit the table (dahai or kakan), in order. Together with
+    // each opp's flow_pos_at_last_dahai this yields the open-threat genbutsu:
+    // own discards ∪ flow since their last own dahai (temp-furiten window).
+    const tile_flow = [];
 
     if (start_pos >= 0 && start_pos < events.length) {
       const sk = events[start_pos];
@@ -46,6 +52,8 @@
         let dm = sk.dora_marker;
         if (Array.isArray(dm) && dm.length) dm = dm[0];
         if (typeof dm === "string") first_dora_indicator = dm;
+        if (typeof sk.bakaze === "string") bakaze = sk.bakaze;
+        if (typeof sk.oya === "number") oya = sk.oya;
       }
     }
 
@@ -57,6 +65,8 @@
           reach_event_idx: null,
           reach_accepted: false,
           open_melds: 0,
+          melds: [],
+          flow_pos_at_last_dahai: 0,
           ippatsu_alive: false,
         };
         opponents[actor] = o;
@@ -85,7 +95,14 @@
         }
       } else if (etype === "dahai" && actor !== undefined && actor !== null) {
         const pai = e.pai;
-        if (actor !== player_id) ensureOpp(actor).discards.push(pai);
+        if (pai !== undefined && pai !== null) tile_flow.push(pai);
+        if (actor !== player_id) {
+          const opp = ensureOpp(actor);
+          opp.discards.push(pai);
+          // Own dahai resets the temp-furiten window: only tiles after this
+          // point count as "passed" for the open-threat genbutsu.
+          opp.flow_pos_at_last_dahai = tile_flow.length;
+        }
         if (pai !== undefined && pai !== null) {
           for (const seat of reach_accepted_seats) {
             if (!genbutsu_post_reach_by_seat[seat]) genbutsu_post_reach_by_seat[seat] = [];
@@ -94,6 +111,7 @@
         }
       } else if (etype === "kakan" && actor !== undefined && actor !== null) {
         const pai = e.pai;
+        if (pai !== undefined && pai !== null) tile_flow.push(pai);
         if (actor !== player_id) ensureOpp(actor);
         if (pai !== undefined && pai !== null) {
           for (const seat of reach_accepted_seats) {
@@ -116,7 +134,11 @@
         reach_accepted_seats.add(actor);
       } else if ((etype === "pon" || etype === "chi" || etype === "daiminkan")
                  && actor !== undefined && actor !== null && actor !== player_id) {
-        ensureOpp(actor).open_melds += 1;
+        const opp = ensureOpp(actor);
+        opp.open_melds += 1;
+        const meld_tiles = (e.consumed || []).slice();
+        if (e.pai !== undefined && e.pai !== null) meld_tiles.push(e.pai);
+        opp.melds.push({ type: etype, tiles: meld_tiles });
         // Any open call by anyone breaks ippatsu for every riichi opponent.
         for (const seat of reach_accepted_seats) {
           const opp = opponents[seat];
@@ -143,6 +165,9 @@
       player_tsumo_riichi_state,
       genbutsu_post_reach_by_seat,
       first_dora_indicator,
+      bakaze,
+      oya,
+      tile_flow,
       tiles_left_at_end: tiles_left,
     };
   }

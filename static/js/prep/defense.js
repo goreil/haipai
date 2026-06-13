@@ -62,6 +62,70 @@
     return unseen;
   }
 
+  // ── Open-threat trigger (EXPERIMENT — benchmark each variant) ──────
+  // A non-riichi opponent becomes an "open" defense threat when the active
+  // variant's rule fires. Edit OPEN_TRIGGER_VARIANT, then run
+  // scripts/category_bench.mjs (prep cache re-keys automatically).
+  // turn = player's junme (1-based draw count at decision time).
+  const OPEN_TRIGGER_VARIANT = "V2";
+
+  function _meld_dora_count(opp, dora_mjai) {
+    let n = 0;
+    for (const meld of opp.melds || []) {
+      for (const t of meld.tiles || []) {
+        if (typeof t !== "string") continue;
+        if (t.endsWith("r")) { n++; continue; }   // aka five
+        if (dora_mjai != null && t === dora_mjai) n++;
+      }
+    }
+    return n;
+  }
+
+  function _has_yakuhai_meld(opp, bakaze, seat_wind) {
+    for (const meld of opp.melds || []) {
+      if (meld.type === "chi") continue;
+      const t = (meld.tiles || [])[0];
+      if (!t) continue;
+      if (t === "P" || t === "F" || t === "C") return true;
+      if (t === bakaze || t === seat_wind) return true;
+    }
+    return false;
+  }
+
+  function _is_open_threat(opp, turn, ctx) {
+    const melds = opp.open_melds || 0;
+    if (melds < 1) return false;
+    switch (OPEN_TRIGGER_VARIANT) {
+      case "V1":   // backlog 3-2-1: 3 melds always, 2 from turn 7, 1 from turn 13
+        return melds >= 3
+            || (turn >= 7 && melds >= 2)
+            || (turn >= 13 && melds >= 1);
+      case "V2":   // 3-2-1 with the last band starting at turn 11
+        return melds >= 3
+            || (turn >= 7 && melds >= 2)
+            || (turn >= 11 && melds >= 1);
+      case "V3":   // visible dora: opp's melds show 2+ dora (incl. aka)
+        return _meld_dora_count(opp, ctx.dora_mjai) >= 2;
+      case "V4":   // yakuhai pon/kan + at least one more call
+        return melds >= 2 && _has_yakuhai_meld(opp, ctx.bakaze, ctx.seat_wind);
+      case "V5":   // 3-2-1 (last band turn 11) OR yakuhai+2
+        return melds >= 3
+            || (turn >= 7 && melds >= 2)
+            || (turn >= 11 && melds >= 1)
+            || (melds >= 2 && _has_yakuhai_meld(opp, ctx.bakaze, ctx.seat_wind));
+      case "V6":   // V5 OR 2+ visible meld dora
+        return melds >= 3
+            || (turn >= 7 && melds >= 2)
+            || (turn >= 11 && melds >= 1)
+            || (melds >= 2 && _has_yakuhai_meld(opp, ctx.bakaze, ctx.seat_wind))
+            || _meld_dora_count(opp, ctx.dora_mjai) >= 2;
+      default:
+        return false;
+    }
+  }
+
+  const _WINDS = ["E", "S", "W", "N"];
+
   function _extract_threats(events, start_pos, end_pos, player_id, target_tiles_left) {
     const state = walk_kyoku(events, start_pos, end_pos, player_id, target_tiles_left);
     let first_dora_indicator = null;
@@ -69,12 +133,17 @@
       first_dora_indicator = MJAI_TO_TENHOU[state.first_dora_indicator];
       if (first_dora_indicator === undefined) first_dora_indicator = null;
     }
+    let dora_mjai = null;
+    if (first_dora_indicator != null) {
+      dora_mjai = TENHOU_TO_MJAI[dora_indicator_to_dora_tenhou(first_dora_indicator)] || null;
+    }
+    const turn = (state.player_tsumo_riichi_state || []).length;
 
     const threats = [];
     const order = state.opponent_order || Object.keys(state.opponents).map(Number);
     for (const seat of order) {
       const opp = state.opponents[seat];
-      if (!opp || opp.reach_event_idx == null) continue;
+      if (!opp) continue;
 
       const discards_tenhou = [];
       for (const p of opp.discards) {
@@ -82,26 +151,55 @@
         if (t != null) discards_tenhou.push(t);
       }
 
-      const riichi_idx = opp.reach_event_idx;
-      const cutoff = (riichi_idx >= opp.discards.length)
-        ? discards_tenhou.length
-        : riichi_idx + 1;
-      const discards_to_riichi = discards_tenhou.slice(0, cutoff);
+      if (opp.reach_event_idx != null) {
+        const riichi_idx = opp.reach_event_idx;
+        const cutoff = (riichi_idx >= opp.discards.length)
+          ? discards_tenhou.length
+          : riichi_idx + 1;
+        const discards_to_riichi = discards_tenhou.slice(0, cutoff);
 
+        const genbutsu = new Set();
+        for (const t of discards_tenhou) genbutsu.add(normRedFive(t));
+        const postReach = state.genbutsu_post_reach_by_seat[seat] || [];
+        for (const pai of postReach) {
+          const t = MJAI_TO_TENHOU[pai];
+          if (t != null) genbutsu.add(normRedFive(t));
+        }
+
+        threats.push({
+          kind: "riichi",
+          seat,
+          discards_to_riichi,
+          genbutsu,
+          dora_indicator: first_dora_indicator,
+          ippatsu_alive: !!opp.ippatsu_alive,
+        });
+        continue;
+      }
+
+      // Open (non-riichi) threat — only when the active trigger fires.
+      const seat_wind = (state.oya != null)
+        ? _WINDS[((seat - state.oya) % 4 + 4) % 4] : null;
+      const ctx = { dora_mjai, bakaze: state.bakaze, seat_wind };
+      if (!_is_open_threat(opp, turn, ctx)) continue;
+
+      // Genbutsu: own discards ∪ every tile that hit the table after the
+      // opp's last own dahai (they passed on it — temp-furiten window).
       const genbutsu = new Set();
       for (const t of discards_tenhou) genbutsu.add(normRedFive(t));
-      const postReach = state.genbutsu_post_reach_by_seat[seat] || [];
-      for (const pai of postReach) {
-        const t = MJAI_TO_TENHOU[pai];
+      const flow = state.tile_flow || [];
+      for (let i = opp.flow_pos_at_last_dahai || 0; i < flow.length; i++) {
+        const t = MJAI_TO_TENHOU[flow[i]];
         if (t != null) genbutsu.add(normRedFive(t));
       }
 
       threats.push({
+        kind: "open",
         seat,
-        discards_to_riichi,
+        discards_to_riichi: [],   // KD riichi knobs all key off this; empty drops them
         genbutsu,
         dora_indicator: first_dora_indicator,
-        ippatsu_alive: !!opp.ippatsu_alive,
+        ippatsu_alive: false,
       });
     }
     return threats;
@@ -222,6 +320,7 @@
         }
       }
       per_threat.push({
+        kind: td.threat.kind || "riichi",
         seat,
         riichi_tile,
         ippatsu_alive: td.threat.ippatsu_alive,
