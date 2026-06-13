@@ -187,11 +187,16 @@
 }
 
 /* Riichi is the bigger threat (guaranteed tenpai + stick + yaku floor), so
-   paint it red. 3+ open melds or 3+ dora exposed in melds get the softer
-   orange since they're only a possibility of tenpai / a big hand. */
+   paint it red. A non-riichi open threat (Open Defense axis) gets amber-gold
+   — softer, since it's only a possibility of tenpai. The speculative band (a
+   single late call) is softened further so it never reads as "fold hard". */
 .discard-row.danger-row {
-  background: rgba(255, 169, 77, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 169, 77, 0.35);
+  background: rgba(245, 179, 66, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(245, 179, 66, 0.38);
+}
+.discard-row.danger-row.speculative {
+  background: rgba(245, 179, 66, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(245, 179, 66, 0.22);
 }
 
 .discard-row.riichi-row {
@@ -219,15 +224,39 @@
 }
 
 .danger-tag {
-  color: #ffa94d;
-  font-weight: 600;
+  color: var(--c-open-defense);
+  font-weight: 700;
   text-transform: none;
   letter-spacing: 0;
   font-size: 9.5px;
-  padding: 0 4px;
-  border: 1px solid rgba(255, 169, 77, 0.5);
+  padding: 0 5px;
+  border: 1px solid rgba(245, 179, 66, 0.55);
   border-radius: 8px;
-  background: rgba(255, 169, 77, 0.1);
+  background: rgba(245, 179, 66, 0.12);
+}
+/* Strong band (3+ calls): solid amber fill — the most developed threat. */
+.danger-tag.strong {
+  color: #1a1a2e;
+  background: var(--c-open-defense);
+  border-color: transparent;
+}
+/* Speculative band (1 late call): dashed outline, muted — a weak read. */
+.danger-tag.speculative {
+  color: #c79a55;
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(245, 179, 66, 0.55);
+}
+/* Trailing detail after the chip: "2 calls · t7+ · 3 dora". */
+.danger-detail {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--c-open-defense);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.discard-row.danger-row.speculative .danger-detail {
+  color: var(--text-dim);
 }
 
 .riichi-tag {

@@ -159,7 +159,7 @@ function cancelWeaknessAnalysis() {
 // matching denominator and inflate EV/D ~10x.
 function trendAggregateAll(games) {
   const byCat = {};                 // {P1: {count, ev}, ...}
-  const decCounts = { attack: 0, defense: 0, riichi: 0, meld: 0, kan: 0 };
+  const decCounts = { attack: 0, defense: 0, open_defense: 0, riichi: 0, meld: 0, kan: 0 };
   let gamesIncluded = 0;
   for (const g of games) {
     if (!g.decision_counts) continue;

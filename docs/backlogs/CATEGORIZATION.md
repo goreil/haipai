@@ -101,20 +101,25 @@ Minimal-assumption, mahjong-rules-safe genbutsu:
 - D1/D2/D3 threshold tuning. Their *behaviour* will shift in mixed riichi+open scenes (combined `dealin_rates` feeds D-classification) — that is expected and tracked in the eval script. Re-tuning the thresholds themselves is deferred.
 - Categorising non-dahai mistakes (5A/5B/4\*/6\*) on the OD axis — they stay action-type-categorised, but open-defense threats still flow into their `per_threat` so the hand-tile colouring & defense-situation wording work uniformly.
 
-**Tasks:**
+**Status: SHIPPED.** The categorization logic landed on `open-defense-trigger`
+(f32ba9a, CATEGORIZER_VERSION 6: prep open-threat trigger, `per_threat[].kind`
+gate, OD1/OD2/OD3) and the UI layer followed on `open-defense-ui`: `"Open
+Defense"` group + amber-gold `--c-open-defense` (`lib/categories.py`,
+`GROUP_COLORS`, `--c-open-defense` token), Meld moved off orange to magenta
+`#ee5fa7`, OD1/OD2/OD3 explanation prose (shared D-tier bodies), the
+turn-banded open-threat board chip (`board-discards.js`, Strong/Moderate/
+Speculative), an Open Defense trends axis with its own `skill_area_for_entry`
+denominator, and OD `REPORT_CATEGORIES` rows. Benchmark via
+`scripts/category_bench.mjs` (eval folded into it); `verify_categorize_js.mjs`
+parity 100%.
 
-- [ ] Extend `walk_kyoku` to record per-opp `last_own_dahai_pos` and per-call event indices.
-- [ ] Carve `last_own_dahai_pos` / per-call event idxs / OD per_threat entries out of the `prep_parity` JS↔Python comparator; confirm riichi-path parity still holds.
-- [ ] Emit open-defense threats in `_extract_threats` with the post-last-dahai genbutsu rule (every tile that flowed past opp_X, including called tiles).
-- [ ] Wire `discards_to_riichi=[]` + `ippatsu_alive=false` for `kind=="open"` in `compute_kd_defense_data`.
-- [ ] Replace `threatening_opponent` flag + `dealinRates`-presence gate in `categorize.js` with a `per_threat[].kind`-driven gate; add OD1/OD2/OD3; bump `CATEGORIZER_VERSION` to 5 + changelog entry.
-- [ ] Add OD-aware branch to `skill_area_for_entry` so OD dahai mistakes denominate against the `defense` trends bar, not `attack`.
-- [ ] Add OD1/OD2/OD3 to `lib/categories.py` under `"Open Defense"` group.
-- [ ] Factor D-tier message bodies into a shared helper; call from OD1/OD2/OD3.
-- [ ] Extend `board-discards.js` `⚠ N melds` chip for the row-thresholded rule.
-- [ ] Add OD codes to `REPORT_CATEGORIES`.
-- [ ] Add `--c-open-defense` + `.cat-od` to `static/style.css`.
-- [ ] Tag `per_threat` entries with `kind`; drop the TODO in `defense-labels.js`.
-- [ ] Write `scripts/eval_open_defense.mjs`; record before/after numbers in the commit / PR description.
-- [ ] Re-snap `tests/fixtures/categorize_parity.json`; run `verify_categorize_js.mjs`.
+**Still deferred (growth-gated, do not pick up without sign-off):**
+
+- [ ] Python lockstep — `lib/parse.py` / `lib/defense_kd.py` stay riichi-only,
+      so the server-side `decision_counts` has no `open_defense` bucket. The JS
+      recompute path (`decision_counts_for_game`) supplies it for prepped games;
+      old snapshots show "—" EV/D for the OD bar until a backfill.
+- [ ] Per-threat-kind KD weight recalibration (matagi/ura-suji/etc.) — see
+      `defense_open_meld_deferred` memory.
+- [ ] D1/D2/D3 threshold re-tuning for mixed riichi+open scenes.
 

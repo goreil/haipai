@@ -28,6 +28,19 @@
     return flat;
   }
 
+  // True when any opponent's open-call count meets the shipped V2 open-threat
+  // band at `turn` (1-based junme): 3 calls any turn, 2 from turn 7, 1 from
+  // turn 11. Mirrors static/js/prep/defense.js::_is_open_threat (V2) — keep
+  // the two in sync. A riichi opp can't have open melds, so it never trips
+  // this; riichi precedence is handled in skill_area_for_entry regardless.
+  function _open_threat_at(opponents, turn) {
+    for (const seat in opponents) {
+      const om = opponents[seat].open_melds || 0;
+      if (om >= 3 || (turn >= 7 && om >= 2) || (turn >= 11 && om >= 1)) return true;
+    }
+    return false;
+  }
+
   function walk_kyoku(events, start_pos, end_pos, player_id, target_tiles_left = 0) {
     const opponents = {};
     // First-seen seat order — Python's dict preserves insertion order; JS
@@ -35,6 +48,11 @@
     // downstream defense consumers emit a stable seat ordering across runs.
     const opponent_order = [];
     const player_tsumo_riichi_state = [];
+    // Parallel to player_tsumo_riichi_state, indexed by the player's junme:
+    // true when a non-riichi opponent's open hand has tripped the open-threat
+    // trigger at that turn. Feeds the Open Defense trends denominator the same
+    // way player_tsumo_riichi_state feeds the riichi-Defense one.
+    const open_threat_state = [];
     const reach_accepted_seats = new Set();
     const genbutsu_post_reach_by_seat = {};
     let tiles_left = 70;
@@ -85,6 +103,9 @@
         tiles_left -= 1;
         if (actor === player_id) {
           player_tsumo_riichi_state.push(reach_accepted_seats.size > 0);
+          // Same 1-based turn count defense.js uses for the open-threat band.
+          const turn = player_tsumo_riichi_state.length;
+          open_threat_state.push(_open_threat_at(opponents, turn));
         }
         // The riichi declarer's next draw ends their ippatsu window — one
         // full go-around has completed. The window survives the player's
@@ -163,6 +184,7 @@
       opponents,
       opponent_order,
       player_tsumo_riichi_state,
+      open_threat_state,
       genbutsu_post_reach_by_seat,
       first_dora_indicator,
       bakaze,
@@ -179,14 +201,24 @@
   // entry into the same denominator bucket the Python parser uses, so the
   // client-computed decision_counts agree with what the backfill would have
   // produced.
-  function skill_area_for_entry(actual_type, expected_type, detail_types, in_riichi) {
+  // `open_threat` (optional) is true when a non-riichi opponent's open hand
+  // tripped the open-threat trigger at this entry's turn. A plain dahai then
+  // denominates against the Open Defense axis, mirroring how the categorizer
+  // routes that scene to OD1/OD2/OD3. Riichi takes precedence over open, so
+  // in_riichi is checked first. Python stays riichi-only (no open_defense);
+  // the JS recompute path supplies the bucket for prepped games.
+  function skill_area_for_entry(actual_type, expected_type, detail_types, in_riichi, open_threat) {
     const types = new Set();
     if (actual_type) types.add(actual_type);
     if (expected_type) types.add(expected_type);
     if (types.has("chi") || types.has("pon")) return "meld";
     if (types.has("reach")) return "riichi";
     if (types.has("ankan") || types.has("kakan") || types.has("daiminkan")) return "kan";
-    if (types.has("dahai")) return in_riichi ? "defense" : "attack";
+    if (types.has("dahai")) {
+      if (in_riichi) return "defense";
+      if (open_threat) return "open_defense";
+      return "attack";
+    }
     const d = new Set(detail_types || []);
     if (d.has("chi") || d.has("pon")) return "meld";
     if (d.has("reach")) return "riichi";
@@ -199,19 +231,19 @@
   // entries hit attack/defense by player tsumo-state when the action is
   // plain dahai, otherwise by action-type priority.
   function decision_counts_for_kyoku(entries, start_pos, end_pos, events, player_id) {
-    const counts = { attack: 0, defense: 0, riichi: 0, meld: 0, kan: 0 };
+    const counts = { attack: 0, defense: 0, open_defense: 0, riichi: 0, meld: 0, kan: 0 };
     const state = walk_kyoku(events, start_pos, end_pos, player_id);
     const junme_state = state.player_tsumo_riichi_state;
+    const open_state = state.open_threat_state || [];
     for (const entry of (entries || [])) {
       const junme = entry.junme;
       const actual_type = (entry.actual || {}).type || null;
       const expected_type = (entry.expected || {}).type || null;
       const detail_types = (entry.details || []).map(d => (d.action || {}).type || null);
-      const in_riichi = (typeof junme === "number"
-        && junme >= 0
-        && junme < junme_state.length
-        && junme_state[junme]);
-      const area = skill_area_for_entry(actual_type, expected_type, detail_types, in_riichi);
+      const validJunme = typeof junme === "number" && junme >= 0;
+      const in_riichi = validJunme && junme < junme_state.length && junme_state[junme];
+      const open_threat = validJunme && junme < open_state.length && open_state[junme];
+      const area = skill_area_for_entry(actual_type, expected_type, detail_types, in_riichi, open_threat);
       if (area) counts[area] += 1;
     }
     return counts;
@@ -230,7 +262,7 @@
     for (let i = 0; i < events.length; i++) {
       if (events[i] && events[i].type === "start_kyoku") start_positions.push(i);
     }
-    const totals = { attack: 0, defense: 0, riichi: 0, meld: 0, kan: 0 };
+    const totals = { attack: 0, defense: 0, open_defense: 0, riichi: 0, meld: 0, kan: 0 };
     for (let ki = 0; ki < kyokus.length; ki++) {
       const start = start_positions[ki];
       if (start === undefined) continue;

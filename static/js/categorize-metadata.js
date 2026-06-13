@@ -13,6 +13,7 @@ var CATEGORIES = [
   "4A", "4B", "4C",
   "5A", "5B",
   "6A", "6B",
+  "OD1", "OD2", "OD3",
 ];
 
 // Loaded from /api/categories on init (see main.js).
@@ -21,7 +22,10 @@ var CATEGORY_INFO = {};
 var GROUP_COLORS = {
   "Attack": "#4a9eff",
   "Defense": "#ff6b6b",
-  "Meld": "#ffa94d",
+  // Open Defense (OD1/OD2/OD3) owns amber-gold; Meld vacated orange (below) so
+  // the two warm zones can't be confused. See style-theme.css --c-open-defense.
+  "Open Defense": "#f5b342",
+  "Meld": "#ee5fa7",
   "Riichi": "#a855f7",
   "Kan": "#22c55e",
   // Legacy group names (map to new colors)

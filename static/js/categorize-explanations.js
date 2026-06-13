@@ -288,9 +288,14 @@ function generateExplanation(m) {
     function defenseTriggerStr() {
       if (defenseTrigger === "riichi") return "an opponent declared riichi";
       if (hasRiichi) return "an opponent declared riichi";
+      // Open Defense scene: a non-riichi opponent's open hand tripped the
+      // open-threat trigger (enough calls for the turn). The OD tiers reuse
+      // the D-tier bodies below, swapping in this phrase.
+      if (defenseTrigger === "open") return "a non-riichi opponent's open hand is threatening";
       if (catData.threatening_opponent) return "an opponent has 3+ open calls (threatening hand)";
       return "an opponent is threatening";
     }
+    const isOpenDefense = defenseTrigger === "open";
 
     // Deal-in rate lookup with red-five fallback.
     const dealinFor = (t) => {
@@ -307,20 +312,22 @@ function generateExplanation(m) {
     const actualLabel = labelFor(actual.pai);
     const pctStr = (r) => (r == null ? "" : `${r.toFixed(1)}%`);
 
-    // --- D1: Defend (Mortal's discard has strictly lower deal-in rate) ---
-    if (cat === "D1") {
+    // --- D1 / OD1: Defend (Mortal's discard has strictly lower deal-in rate) ---
+    if (cat === "D1" || cat === "OD1") {
       let text = `<span class="trigger-line">${defenseTriggerStr().charAt(0).toUpperCase() + defenseTriggerStr().slice(1)}. Mortal chose a safer tile than you did.</span>`;
       if (shantenStr) text += `Your hand is at ${shantenStr}. `;
       text += `Mortal recommends ${expected.pai}`;
       if (expectedDealin != null) text += ` (deal-in ${pctStr(expectedDealin)}${expectedLabel ? ", " + expectedLabel : ""})`;
       text += ` — you chose ${actual.pai}`;
       if (actualDealin != null) text += ` (deal-in ${pctStr(actualDealin)}${actualLabel ? ", " + actualLabel : ""})`;
-      text += `. When an opponent is threatening, lowering your deal-in probability takes priority over hand progress.`;
+      text += isOpenDefense
+        ? `. When an open hand is this developed, lowering your deal-in probability takes priority over the extra tile of acceptance.`
+        : `. When an opponent is threatening, lowering your deal-in probability takes priority over hand progress.`;
       return text;
     }
 
-    // --- D2: Push (Mortal took the riskier tile, basic strategy justifies it) ---
-    if (cat === "D2") {
+    // --- D2 / OD2: Push (Mortal took the riskier tile, basic strategy justifies it) ---
+    if (cat === "D2" || cat === "OD2") {
       const reason = catData.push_reason;  // "P1" | "P2" | "P3"
       const bothSafe = catData.both_safe === true;
 
@@ -328,7 +335,10 @@ function generateExplanation(m) {
       // efficiency lesson AND reinforces the "both safe — efficiency only"
       // read as a defense skill in its own right.
       if (bothSafe) {
-        let text = `<span class="trigger-line">An opponent is in riichi, but both your pick and Mortal's are 100% safe.</span>`;
+        const safeLead = isOpenDefense
+          ? `${defenseTriggerStr().charAt(0).toUpperCase() + defenseTriggerStr().slice(1)}, but both your pick and Mortal's are 100% safe against it.`
+          : `An opponent is in riichi, but both your pick and Mortal's are 100% safe.`;
+        let text = `<span class="trigger-line">${safeLead}</span>`;
         if (shantenStr) text += `Your hand is at ${shantenStr}. `;
         if (reason === "P1" && expectedStat && actualStat) {
           text += `Your ${actual.pai} raises shanten from ${catData.best_shanten ?? expectedStat.shanten} to ${catData.actual_shanten ?? actualStat.shanten} — a fundamental setback. `;
@@ -385,12 +395,15 @@ function generateExplanation(m) {
       return text;
     }
 
-    // --- D3: Complex (Mortal took the riskier tile, not explained by basic strategy) ---
-    if (cat === "D3") {
+    // --- D3 / OD3: Complex (Mortal took the riskier tile, not explained by basic strategy) ---
+    if (cat === "D3" || cat === "OD3") {
       const bothSafe = catData.both_safe === true;
 
       if (bothSafe) {
-        let text = `<span class="trigger-line">An opponent is in riichi, but both your pick and Mortal's are 100% safe.</span>`;
+        const safeLead = isOpenDefense
+          ? `${defenseTriggerStr().charAt(0).toUpperCase() + defenseTriggerStr().slice(1)}, but both your pick and Mortal's are 100% safe against it.`
+          : `An opponent is in riichi, but both your pick and Mortal's are 100% safe.`;
+        let text = `<span class="trigger-line">${safeLead}</span>`;
         if (shantenStr) text += `Your hand is at ${shantenStr}. `;
         text += `Mortal preferred ${expected.pai} over your ${actual.pai}, and basic tile efficiency doesn't explain why — likely a hand-shape, yaku-potential, or wait-quality read. `;
         text += `Noticing that both tiles are safe, so the choice is about hand building rather than survival, is itself a defense skill.`;

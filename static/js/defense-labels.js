@@ -139,14 +139,17 @@ function defenseSituation(m) {
   const per = Array.isArray(m.per_threat) ? m.per_threat : [];
   for (const t of per) {
     if (!t || t.seat == null) continue;
+    // Honor the threat kind from prep ("riichi" | "open"). Missing tags on
+    // older prepped data read as riichi, matching categorize.js's gate.
+    const kind = t.kind || "riichi";
     out.threats.push({
       seat: t.seat,
       wind: _seatWindLabel(m, t.seat),
       riichi_tile: t.riichi_tile || null,
       ippatsu_alive: !!t.ippatsu_alive,
-      kind: "riichi",
+      kind,
     });
-    out.riichi_threat = true;
+    if (kind === "riichi") out.riichi_threat = true;
   }
   out.in_defense = out.threats.length > 0;
   return out;

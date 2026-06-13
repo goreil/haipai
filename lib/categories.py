@@ -15,6 +15,11 @@ CATEGORY_INFO = {
     "D1": {"group": "Defense", "label": "Defend",              "desc": "Mortal's discard has a lower deal-in rate than yours — a defensive read.",                                                "study": "Riichi Book Ch 8.2-8.4"},
     "D2": {"group": "Defense", "label": "Push",                "desc": "Mortal chose a more dangerous tile, but basic strategy (shanten or tile acceptance) justifies the push.",                 "study": "Riichi Book Ch 8.1"},
     "D3": {"group": "Defense", "label": "Complex",             "desc": "Mortal chose a more dangerous tile and basic strategy can't explain it — a genuine risk/reward judgment call.",           "study": "Riichi Book Ch 8.1"},
+    # --- Open Defense categories (no riichi, but a non-riichi opponent's open
+    #     hand is threatening; compared by deal-in rate, mirror D1/D2/D3) ---
+    "OD1": {"group": "Open Defense", "label": "Defend",  "desc": "A non-riichi opponent's open hand is threatening, and Mortal's discard has a lower deal-in rate than yours — a defensive read.",                  "study": "Riichi Book Ch 8.2-8.4"},
+    "OD2": {"group": "Open Defense", "label": "Push",    "desc": "An open hand is threatening, but basic strategy (shanten or tile acceptance) justifies pushing Mortal's more dangerous tile.",                       "study": "Riichi Book Ch 8.1"},
+    "OD3": {"group": "Open Defense", "label": "Complex", "desc": "An open hand is threatening, Mortal chose a more dangerous tile, and basic strategy can't explain it — a risk/reward judgment call.",                "study": "Riichi Book Ch 8.1"},
     # --- Meld decisions ---
     "4A": {"group": "Meld",    "label": "Bad Call",            "desc": "Called chi/pon when shouldn't have",                                                        "study": "Riichi Book Ch 9"},
     "4B": {"group": "Meld",    "label": "Missed Call",         "desc": "Didn't call chi/pon when should have",                                                     "study": "Riichi Book Ch 9"},

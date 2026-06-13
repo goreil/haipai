@@ -22,6 +22,13 @@
   --border: #2a3a5a;
   --success: #66bb6a;
 
+  /* Category-group accents not sourced from JS GROUP_COLORS. Open Defense
+     (OD1/OD2/OD3) owns amber-gold; the open-threat board chip reads
+     --c-open-defense. Meld moved off orange to magenta so the warm zone
+     belongs to Defense-red + OD-amber and can't be confused with the chip. */
+  --c-open-defense: #f5b342;
+  --c-meld: #ee5fa7;
+
   /* Translucent severity tints used as backgrounds — paired with the solid
      --sev-* colours above. Severity-aware components (e.g. .severity,
      .mistake, .tier-count) read these via per-modifier --sev-color /
