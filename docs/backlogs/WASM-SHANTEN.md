@@ -1,7 +1,7 @@
 # WASM shanten/ukeire kernel (riichi-tools-rs) — status & findings
 
-Status as of 2026-06-15. **Investigation + node-verified integration complete;
-nothing wired into the browser app yet** (paused here by request).
+Status as of 2026-06-16. **Wired into the browser app and enabled by default for
+all users** (was opt-in; flipped to default-on, JS remains the fallback).
 
 ## TL;DR
 
@@ -80,10 +80,13 @@ The `.wasm` is ~4.4 MB (lookup tables) — a real load cost for the browser.
 Ground-truth runs need the `.cache/category-stats/` snapshot and `.venv/bin/python`
 (the `mahjong` package).
 
-## Browser wiring — DONE (2026-06-16, opt-in, default JS)
+## Browser wiring — DONE (2026-06-16, enabled by default for everyone)
 
-Wired the WASM kernel into the browser app behind an opt-in flag; production is
-untouched unless a user opts in.
+Wired the WASM kernel into the browser app. Originally shipped opt-in; on
+2026-06-16 the `wasm-bootstrap.js` default was flipped so the kernel loads for
+every user unless they explicitly opt out (`?wasm_shanten=0`, persisted to
+`localStorage.haipai_wasm_shanten`). The JS kernel remains the fallback for
+concealed quads, open hands, and any WASM init failure.
 
 - **Served assets:** `static/wasm/haipai_shanten.js` (ESM glue) +
   `haipai_shanten_bg.wasm` (~4.5 MB). `static/` is the only Docker bind-mounted
@@ -93,10 +96,10 @@ untouched unless a user opts in.
   `static/wasm/`). NOTE: `pkg-web` had been stale (built before
   `full_discard_table` was added); the script rebuilds it.
 - **Bootstrap:** `static/js/prep/wasm-bootstrap.js` (loaded as
-  `<script type="module">` right after `prep.js`). Gated on the opt-in flag
-  (`?wasm_shanten=1`, persisted to `localStorage.haipai_wasm_shanten`; `=0` to
-  opt out). While disabled it fetches nothing — the 4.5 MB load cost is never
-  paid by default. When enabled it dynamic-imports the glue, awaits
+  `<script type="module">` right after `prep.js`). Enabled by default; reads the
+  opt-out flag (`?wasm_shanten=0`, persisted to `localStorage.haipai_wasm_shanten`;
+  `=1` to opt back in). While disabled it fetches nothing — opted-out users never
+  pay the 4.5 MB load cost. When enabled it dynamic-imports the glue, awaits
   `init()`, sets `window.haipaiShantenWasm`, injects the UMD adapter
   (`shanten_calc_wasm.js`), then flips `window.haipaiPrepUseWasm`. Any failure
   falls back to JS without breaking prep.

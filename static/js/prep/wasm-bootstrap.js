@@ -1,4 +1,4 @@
-// Opt-in browser bootstrap for the WASM shanten/ukeire kernel.
+// Browser bootstrap for the WASM shanten/ukeire kernel (on by default).
 //
 // The prep pipeline (static/js/prep/*) loads as classic UMD <script>s and runs
 // on the main thread, but the riichi-tools-rs kernel ships as an ES module
@@ -7,14 +7,15 @@
 // exports the adapter expects on `window.haipaiShantenWasm`, builds the adapter
 // (static/js/prep/shanten_calc_wasm.js, which reads that global at load time),
 // and finally flips `window.haipaiPrepUseWasm`. prep.js checks that flag at
-// call time (see _resolveCalc there), so the JS kernel stays the default and
-// production is untouched unless a user explicitly opts in.
+// call time (see _resolveCalc there), so even while the async load is in flight
+// the JS kernel serves every call, and any init failure leaves JS as the path.
 //
-// Opt in by either:
-//   - visiting any page with ?wasm_shanten=1  (persisted to localStorage), or
-//   - setting localStorage.haipai_wasm_shanten = "1" in devtools.
-// Opt back out with ?wasm_shanten=0 or by clearing that key. While disabled
-// nothing is fetched, so the 4.5 MB load cost is never paid by default.
+// The kernel is enabled for everyone: by default we fetch + instantiate it.
+// Opt OUT by either:
+//   - visiting any page with ?wasm_shanten=0  (persisted to localStorage), or
+//   - setting localStorage.haipai_wasm_shanten = "0" in devtools.
+// Opt back in with ?wasm_shanten=1 or by clearing that key. While disabled
+// nothing is fetched, so opted-out users never pay the 4.5 MB load cost.
 
 (function () {
   const LS_KEY = "haipai_wasm_shanten";
@@ -27,9 +28,11 @@
         try { window.localStorage.setItem(LS_KEY, on ? "1" : "0"); } catch (_) {}
         return on;
       }
-      return window.localStorage.getItem(LS_KEY) === "1";
+      // On by default: only an explicit "0" opt-out disables the kernel.
+      return window.localStorage.getItem(LS_KEY) !== "0";
     } catch (_) {
-      return false;
+      // Storage unavailable (e.g. privacy mode) — still default to enabled.
+      return true;
     }
   }
 

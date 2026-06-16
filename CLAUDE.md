@@ -58,7 +58,7 @@ grepping. If you change a concept that isn't listed, add it.
 - Bad-riichi visualization: `static/js/bad-riichi-bars.js`
 - Tile rendering vs. mjai-base helpers: `static/js/tiles.js` (SVG render + `tileBase()`), `static/js/prep/tiles.js` (mjai pid/suit helpers used by the prep pipeline)
 - Prep pipeline (shanten/ukeire/board reconstruction; runs client-side as a worker): `static/js/prep/prep.js` (orchestrator), `static/js/prep/prep-board-state.js` (context reconstruction), `static/js/prep/prep-board-yaku.js` (shape yaku), `static/js/prep/shanten.js` + `shanten_calc.js`, `static/js/prep/furiten.js`, `static/js/prep/parse.js`
-- WASM shanten/ukeire kernel (opt-in, default JS): adapter `static/js/prep/shanten_calc_wasm.js`, async bootstrap `static/js/prep/wasm-bootstrap.js`, served assets `static/wasm/` (rebuild via `scripts/wasm_build_web.sh`), Rust in `wasm/haipai-shanten/`. Enable in-browser with `?wasm_shanten=1`. Full status + remaining work: `docs/backlogs/WASM-SHANTEN.md`
+- WASM shanten/ukeire kernel (on by default for everyone; JS is the fallback): adapter `static/js/prep/shanten_calc_wasm.js`, async bootstrap `static/js/prep/wasm-bootstrap.js`, served assets `static/wasm/` (rebuild via `scripts/wasm_build_web.sh`), Rust in `wasm/haipai-shanten/`. Opt out in-browser with `?wasm_shanten=0`. Full status + remaining work: `docs/backlogs/WASM-SHANTEN.md`
 - Auth / account / admin UI: `static/js/account.js`, `static/js/admin.js`, `templates/login.html`
 - Mailbox messages: `static/js/mailbox.js`
 - API client + shell: `static/js/api.js`, `static/js/main.js`, `static/js/ui.js`, `static/index.html`
