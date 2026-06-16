@@ -102,10 +102,13 @@ function renderEvComparison(m, options) {
   const bestMortalQ = Math.max(...m.top_actions.map(a => a.q_value));
 
   // Tile-acceptance rows default to shown for Basic Strategy categories
-  // (P1-P4, legacy 1A/2A/3A), hidden for Defense (D1-D3) and other
-  // categories to keep those cards focused on their primary concern.
+  // (P1-P4, legacy 1A/2A/3A) and Defense categories (D1-D3, OD1-OD3). The
+  // delta view keeps the row compact enough that it no longer clutters the
+  // defense cards (the original reason it was hidden), so it earns its place
+  // back as a quick read on what acceptance the safe discard gives up.
   const cat = m.category || "";
-  const ukeireDefaultShown = cat.startsWith("P") || cat === "1A" || cat === "2A" || cat === "3A";
+  const ukeireDefaultShown = cat.startsWith("P") || cat.startsWith("D") || cat.startsWith("OD")
+    || cat === "1A" || cat === "2A" || cat === "3A";
   const ukeireHiddenClass = ukeireDefaultShown ? "" : " ukeire-hidden";
 
   // Pre-compute diff across the important picks (You / AI / Speed) that have
@@ -129,11 +132,11 @@ function renderEvComparison(m, options) {
   const modeClass = diffEnabled ? " ukeire-mode-diff" : "";
   let html = `<div class="ev-comparison${ukeireHiddenClass}${modeClass}" id="${containerId}" data-threat-view="${activeView}">`;
   html += `<div class="ukeire-toolbar">`;
-  html += `<button type="button" class="ukeire-toggle" onclick="toggleUkeire(this)">`;
+  html += `<button type="button" class="ukeire-toggle" data-action="toggleUkeire">`;
   html += ukeireDefaultShown ? "Hide tile acceptance" : "Show tile acceptance";
   html += `</button>`;
   if (diffEnabled) {
-    html += `<span class="ukeire-mode-switch" onclick="toggleUkeireMode(this)" role="switch" aria-checked="false" tabindex="0">`;
+    html += `<span class="ukeire-mode-switch" data-action="toggleUkeireMode" role="switch" aria-checked="false" tabindex="0">`;
     html += `<span class="sw"></span><span class="sw-label">Show all ukeire</span>`;
     html += `</span>`;
   }
@@ -161,11 +164,11 @@ function renderEvComparison(m, options) {
     html += `<span class="threat-toggle-label">View:</span>`;
     const combinedActive = activeView === "combined" ? " active" : "";
     html += `<button type="button" class="threat-pill${combinedActive}"`
-      + ` onclick="switchThreatView('${containerId}', 'combined')">Combined</button>`;
+      + ` data-action="switchThreatView" data-container-id="${containerId}" data-view="combined">Combined</button>`;
     m.per_threat.forEach((pt, i) => {
       const active = activeView === i ? " active" : "";
       html += `<button type="button" class="threat-pill${active}"`
-        + ` onclick="switchThreatView('${containerId}', ${i})"`
+        + ` data-action="switchThreatView" data-container-id="${containerId}" data-view="${i}"`
         + ` title="Riichi tile: ${pt.riichi_tile || '?'}">`
         + `vs ${seatWindFor(pt.seat)}</button>`;
     });

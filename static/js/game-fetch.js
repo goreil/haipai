@@ -20,15 +20,15 @@ function showOnboarding() {
       <h3>How to add your first game</h3>
       <div class="tutorial-tabs-wrap">
         <div class="tutorial-tabs">
-          <button type="button" class="tutorial-tab active" onclick="switchTutorial(this,'tenhou')">Tenhou</button>
-          <button type="button" class="tutorial-tab" onclick="switchTutorial(this,'mahjong-soul')">Mahjong Soul</button>
-          <button type="button" class="tutorial-tab" onclick="switchTutorial(this,'riichi-city')">Riichi City</button>
+          <button type="button" class="tutorial-tab active" data-action="switchTutorial" data-tutorial-key="tenhou">Tenhou</button>
+          <button type="button" class="tutorial-tab" data-action="switchTutorial" data-tutorial-key="mahjong-soul">Mahjong Soul</button>
+          <button type="button" class="tutorial-tab" data-action="switchTutorial" data-tutorial-key="riichi-city">Riichi City</button>
         </div>
         <video class="onboarding-video tutorial-video active" data-tutorial="tenhou" src="/static/haipai-bookmarklet-upload.mp4" controls muted playsinline preload="metadata"></video>
         <video class="onboarding-video tutorial-video" data-tutorial="mahjong-soul" src="/static/haipai_mahjong_soul_guide.mp4" controls muted playsinline preload="metadata"></video>
         <video class="onboarding-video tutorial-video" data-tutorial="riichi-city" src="/static/haipai_riichi_city.mp4" controls muted playsinline preload="metadata"></video>
       </div>
-      <button class="btn btn-primary" onclick="showAddModal()">+ Add Game</button>
+      <button class="btn btn-primary" data-action="showAddModal">+ Add Game</button>
     </div>
   `;
 }

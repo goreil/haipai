@@ -43,7 +43,7 @@ async function startWeaknessAnalysis() {
       <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Analyzing your games to find your weakest skill area…</p>
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
         <span id="weakness-progress-text">Analyzing 0/${trendsGames.length}…</span>
-        <button class="btn" onclick="cancelWeaknessAnalysis()">Cancel</button>
+        <button class="btn" data-action="cancelWeaknessAnalysis">Cancel</button>
       </div>
     `;
   }
@@ -270,7 +270,7 @@ function renderCategoryTrend(games) {
     const pct = r.evPerD != null ? (r.evPerD / maxEvPerD * 100).toFixed(0) : 0;
     const rowId = "trend-" + sa.key;
     const primary = r.evPerD != null ? `${r.evPerD.toFixed(4)} EV/D` : "—";
-    html += `<div class="trend-bar-row" onclick="toggleTrendMistakes('${sa.label}', '${rowId}')" style="cursor:pointer">
+    html += `<div class="trend-bar-row" data-action="toggleTrendMistakes" data-sa-label="${sa.label}" data-row-id="${rowId}" style="cursor:pointer">
       <span class="trend-bar-label" style="color:${sa.color}">${sa.label}</span>
       <div class="trend-bar-track">
         <div class="trend-bar-fill" style="width:${pct}%;background:${sa.color}"></div>

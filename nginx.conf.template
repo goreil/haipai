@@ -65,6 +65,15 @@ server {
 #     # 'wasm-unsafe-eval' lets the browser compile the WASM shanten kernel
 #     # (static/wasm/) without permitting eval(). Drop it if WASM is removed.
 #     add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'" always;
+#     # CSP hardening canary (docs/backlogs/CSP-HARDENING.md): the same policy
+#     # but WITHOUT script-src 'unsafe-inline'. Report-Only does NOT block —
+#     # the browser only logs a console violation if some inline JS still
+#     # tries to run. All inline on*= handlers were removed (now data-action
+#     # delegation via static/js/actions.js), so this should stay silent.
+#     # Once it's confirmed clean in real use, fold the strict script-src into
+#     # the enforced header above and delete this line (see Step 4 / root
+#     # script scripts/csp_drop_unsafe_inline.sh).
+#     add_header Content-Security-Policy-Report-Only "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; script-src 'self' 'wasm-unsafe-eval'" always;
 #
 #     # Static asset caching
 #     location /static/ {

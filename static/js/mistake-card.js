@@ -127,7 +127,7 @@ function renderMistakeCard(m, opts = {}) {
     if (m.id) {
       html += `<a class="mistake-link" href="#mistake=${m.id}">View mistake</a>`;
     } else {
-      html += `<span class="mistake-link" onclick="fetchGame(${showLink})">View game</span>`;
+      html += `<span class="mistake-link" data-action="fetchGame" data-game-id="${showLink}">View game</span>`;
     }
   }
   if (m.actual && m.expected) {
@@ -176,7 +176,7 @@ function renderMistakeCard(m, opts = {}) {
     html += `<div class="note-row">
       <input type="text" class="note-input" placeholder="Add a note..."
              value="${(m.note || "").replace(/"/g, "&quot;")}"
-             onchange="onAnnotate(this)" ${attrs}>
+             data-change-action="onAnnotate" ${attrs}>
       <span class="save-indicator">Saved</span>
     </div>`;
     if (m.id) html += renderReportRow(m);
@@ -255,15 +255,15 @@ function renderReportRow(m) {
     return `<button type="button" class="report-btn report-btn-${k}${active}"
                     data-mid="${m.id}" data-kind="${k}"
                     title="${tip}"
-                    onclick="onReportClick(this, ${m.id}, '${k}')">${label}</button>`;
+                    data-action="onReportClick">${label}</button>`;
   }
 
   // "Undo" only shows once a report exists — gives misclickers an explicit
   // out without cluttering the row before they've reported anything.
   const undoBtn = rep
-    ? `<button type="button" class="report-undo"
+    ? `<button type="button" class="report-undo" data-mid="${m.id}"
                title="Remove this report"
-               onclick="onReportClear(${m.id})">Undo</button>`
+               data-action="onReportClear">Undo</button>`
     : "";
   let html = `<div class="report-row" data-mid="${m.id}">
     <span class="report-ask">Was this right?</span>
@@ -275,7 +275,7 @@ function renderReportRow(m) {
 
   html += `<div class="report-details-cat" style="display:${kind === "wrong_category" ? "" : "none"}">
     <label class="report-details-label">What should it be?</label>
-    <select class="report-category" onchange="onReportDetails(this, ${m.id})">
+    <select class="report-category" data-mid="${m.id}" data-change-action="onReportDetails">
       <option value="">Select correct category…</option>`;
   for (const [code, label] of REPORT_CATEGORIES) {
     html += `<option value="${code}"${suggested === code ? " selected" : ""}>${label}</option>`;
@@ -285,7 +285,7 @@ function renderReportRow(m) {
   html += `<input type="text" class="report-reason"
                   placeholder="Why? (optional)" maxlength="500"
                   value="${reason.replace(/"/g, "&quot;")}"
-                  onchange="onReportDetails(this, ${m.id})">`;
+                  data-mid="${m.id}" data-change-action="onReportDetails">`;
   html += `</div></div>`;
   return html;
 }

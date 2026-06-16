@@ -16,14 +16,14 @@
   <div class="app">
     <div class="sidebar collapsed">
       <div class="sidebar-header">
-        <div class="sidebar-brand" onclick="navigateHome()" style="cursor:pointer" title="Back to games">
+        <div class="sidebar-brand" data-action="navigateHome" style="cursor:pointer" title="Back to games">
           <img src="/static/mascot.svg" alt="Haipai" class="brand-mascot">
           <div>
             <h2>Haipai</h2>
             <div id="user-info" class="user-info"></div>
           </div>
         </div>
-        <button class="btn btn-primary" style="width:100%" onclick="showAddModal()">+ Add Game</button>
+        <button class="btn btn-primary" style="width:100%" data-action="showAddModal">+ Add Game</button>
       </div>
       <div class="game-list" id="game-list"></div>
     </div>
@@ -31,14 +31,14 @@
     <div class="main">
       <div id="impersonate-banner" class="impersonate-banner" style="display:none"></div>
       <div class="toolbar">
-        <button class="btn sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">&#9776; Games</button>
+        <button class="btn sidebar-toggle" data-action="toggleSidebar" title="Toggle sidebar">&#9776; Games</button>
         <span class="severity-filters" id="severity-filters" style="display:none">
-          <label title="Mortal EV gap 0.5–1.0"><input type="checkbox" onchange="onToggleMistake(this)"> Mistake</label>
-          <label title="Mortal EV gap 0.2–0.5"><input type="checkbox" onchange="onToggleLight(this)"> Light</label>
-          <label title="Mortal EV gap &lt;0.2 — AI not confident"><input type="checkbox" onchange="onToggleUnsure(this)"> Unsure</label>
+          <label title="Mortal EV gap 0.5–1.0"><input type="checkbox" data-change-action="onToggleMistake"> Mistake</label>
+          <label title="Mortal EV gap 0.2–0.5"><input type="checkbox" data-change-action="onToggleLight"> Light</label>
+          <label title="Mortal EV gap &lt;0.2 — AI not confident"><input type="checkbox" data-change-action="onToggleUnsure"> Unsure</label>
         </span>
         <div class="spacer"></div>
-        <button class="btn" id="trends-btn" onclick="showTrends()">Trends</button>
+        <button class="btn" id="trends-btn" data-action="showTrends">Trends</button>
 
         <div class="mailbox" id="mailbox" style="display:none">
           <button class="btn mailbox-btn" id="mailbox-trigger" title="Mailbox" aria-label="Mailbox">
@@ -69,15 +69,15 @@
         </div>
 
         <div class="toolbar-menu">
-          <button class="btn toolbar-menu-btn" onclick="this.parentElement.classList.toggle('open')">&#8943;</button>
+          <button class="btn toolbar-menu-btn" data-action="toggleMenu">&#8943;</button>
           <div class="toolbar-dropdown">
-            <button onclick="showAccount()">Account</button>
-            <button onclick="showHelp()">Help</button>
-            <button id="admin-btn" style="display:none" onclick="showAdmin()">Admin</button>
-            <button id="stop-impersonating-btn" style="display:none" onclick="adminStopImpersonate()">Stop impersonating</button>
+            <button data-action="showAccount">Account</button>
+            <button data-action="showHelp">Help</button>
+            <button id="admin-btn" style="display:none" data-action="showAdmin">Admin</button>
+            <button id="stop-impersonating-btn" style="display:none" data-action="adminStopImpersonate">Stop impersonating</button>
             <hr style="border:none;border-top:1px solid var(--border);margin:4px 0">
-            <button onclick="window.open('/impressum','_blank')">Impressum</button>
-            <button onclick="window.open('/datenschutz','_blank')">Datenschutz</button>
+            <button data-action="openExternal" data-href="/impressum">Impressum</button>
+            <button data-action="openExternal" data-href="/datenschutz">Datenschutz</button>
           </div>
         </div>
       </div>
@@ -88,7 +88,7 @@
   </div>
 
   <!-- Add Game Modal -->
-  <div class="modal-overlay" id="add-modal" onclick="if(event.target===this)hideAddModal()">
+  <div class="modal-overlay" id="add-modal" data-action="closeAddModalBackdrop">
     <div class="modal">
       <h3>Add Game</h3>
       <div class="form-group">
@@ -101,25 +101,25 @@
       </div>
       <div class="error" id="add-error"></div>
       <div class="btn-row">
-        <button class="btn" onclick="hideAddModal()">Cancel</button>
-        <button class="btn btn-primary" id="add-submit-btn" onclick="submitAddGame()">Add Game</button>
+        <button class="btn" data-action="hideAddModal">Cancel</button>
+        <button class="btn btn-primary" id="add-submit-btn" data-action="submitAddGame">Add Game</button>
       </div>
       <hr style="border:none;border-top:1px solid var(--border);margin:18px 0">
       <div class="form-group">
         <label>One-click upload bookmarklet</label>
         <p class="form-hint">Drag this link to your bookmark bar. On a mjai.ekyu.moe report page, click it to upload the analysis directly to Haipai.</p>
-        <p><a id="upload-bookmarklet" class="btn" href="javascript:void(0)" onclick="event.preventDefault()" draggable="true">Send to Haipai</a></p>
+        <p><a id="upload-bookmarklet" class="btn" href="javascript:void(0)" data-action="preventDefault" draggable="true">Send to Haipai</a></p>
         <div class="tutorial-tabs-wrap">
           <div class="tutorial-tabs">
-            <button type="button" class="tutorial-tab active" onclick="switchTutorial(this,'tenhou')">Tenhou</button>
-            <button type="button" class="tutorial-tab" onclick="switchTutorial(this,'mahjong-soul')">Mahjong Soul</button>
-            <button type="button" class="tutorial-tab" onclick="switchTutorial(this,'riichi-city')">Riichi City</button>
+            <button type="button" class="tutorial-tab active" data-action="switchTutorial" data-tutorial-key="tenhou">Tenhou</button>
+            <button type="button" class="tutorial-tab" data-action="switchTutorial" data-tutorial-key="mahjong-soul">Mahjong Soul</button>
+            <button type="button" class="tutorial-tab" data-action="switchTutorial" data-tutorial-key="riichi-city">Riichi City</button>
           </div>
           <video class="onboarding-video tutorial-video active" data-tutorial="tenhou" src="/static/haipai-bookmarklet-upload.mp4" controls muted playsinline preload="metadata"></video>
           <video class="onboarding-video tutorial-video" data-tutorial="mahjong-soul" src="/static/haipai_mahjong_soul_guide.mp4" controls muted playsinline preload="metadata"></video>
           <video class="onboarding-video tutorial-video" data-tutorial="riichi-city" src="/static/haipai_riichi_city.mp4" controls muted playsinline preload="metadata"></video>
         </div>
-        <p class="form-hint" style="margin-top:6px"><a href="javascript:void(0)" onclick="regenerateUploadToken()">Regenerate token</a> (invalidates the bookmarklet on every browser).</p>
+        <p class="form-hint" style="margin-top:6px"><a href="#" data-action="regenerateUploadToken">Regenerate token</a> (invalidates the bookmarklet on every browser).</p>
       </div>
     </div>
   </div>
@@ -132,6 +132,10 @@
     + presentation primitives load first; main.js (init) runs DOMContentLoaded
     after every other file has parsed.
   -->
+  <!-- Event-delegation registry (data-action / data-change-action). Loaded
+       first so its document-level listeners are attached before any markup
+       is interacted with. See docs/backlogs/CSP-HARDENING.md. -->
+  <script src="/static/js/actions.js"></script>
   <script src="/static/js/tiles.js"></script>
   <script src="/static/js/severity.js"></script>
   <script src="/static/js/skill-areas.js"></script>

@@ -143,14 +143,14 @@ function renderWeaknessSection(games) {
     const newCount = ids.filter(id => !stashedSet.has(id)).length;
     const staleBanner = `<div class="trend-chart-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
       <span style="font-size:13px;color:var(--sev-medium)">Showing your last analysis. ${newCount} new game${newCount === 1 ? "" : "s"} since then — re-run to refresh.</span>
-      <button class="btn btn-primary" onclick="startWeaknessAnalysis()">Re-analyze</button>
+      <button class="btn btn-primary" data-action="startWeaknessAnalysis">Re-analyze</button>
     </div>`;
     return `<div id="weakness-section">${staleBanner}${_renderAnalyzedPanels(trendsStash.games, null)}</div>`;
   }
   return `<div id="weakness-section" class="trend-chart-card">
     <h3>Weakest Skill Area</h3>
     <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Computes your weakest skill area across all games. Takes a few seconds.</p>
-    <button class="btn btn-primary" onclick="startWeaknessAnalysis()">Analyze my weak categories</button>
+    <button class="btn btn-primary" data-action="startWeaknessAnalysis">Analyze my weak categories</button>
   </div>`;
 }
 
@@ -214,7 +214,7 @@ function renderSnapshotsHistory(snapshots) {
       : `<span style="color:var(--text-dim)">not enough decisions</span>`;
     const date = _formatSnapshotDate(s.created_at);
     const panelId = `snap-${s.id}`;
-    html += `<div class="trend-bar-row" onclick="toggleSnapshotPanel('${panelId}')" style="cursor:pointer">
+    html += `<div class="trend-bar-row" data-action="toggleSnapshotPanel" data-panel-id="${panelId}" style="cursor:pointer">
       <span class="trend-bar-label" style="min-width:140px">${date}</span>
       <span class="trend-bar-value" style="flex:1">v${s.categorizer_version} · ${weakLabel}</span>
       <span class="trend-bar-count">${s.game_count} game${s.game_count === 1 ? "" : "s"}</span>

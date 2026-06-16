@@ -39,7 +39,7 @@ function renderGameList() {
       sep = `<div class="date-separator">${shortDate}</div>`;
     }
     return `${sep}
-      <div class="game-item ${active}" onclick="fetchGame(${g.id})">
+      <div class="game-item ${active}" data-action="fetchGame" data-game-id="${g.id}">
         <div class="date"><span class="dev-id" title="game id">#${g.id}</span>${rating.icon ? ` <span class="game-rating-icon" title="${rating.label}">${rating.icon}</span>` : ""} ${
           s.total_mistakes || 0} mistakes &middot; ${(s.total_ev_loss || 0).toFixed(2)} EV${
           s.total_decisions ? ` &middot; ${s.ev_per_decision.toFixed(4)}/D` : ""}</div>
@@ -74,7 +74,7 @@ function renderGame() {
   let html = `
     <div class="game-header">
       <h2>${displayDate}<span class="dev-id" title="game id">#${state.currentGame}</span>
-        <button class="btn btn-delete" onclick="deleteGame(${state.currentGame})" title="Delete game">Delete</button>
+        <button class="btn btn-delete" data-action="deleteGame" title="Delete game">Delete</button>
       </h2>
       ${game.log_url ? `<div class="log-link"><a href="${game.log_url}" target="_blank">${game.log_url}</a></div>` : ""}
     </div>
@@ -132,8 +132,8 @@ function renderGame() {
 
   // View tabs
   html += `<div class="game-tabs">
-    <button class="game-tab ${state.gameView === "rounds" ? "active" : ""}" onclick="switchGameView('rounds')">Rounds</button>
-    <button class="game-tab ${state.gameView === "summary" ? "active" : ""}" onclick="switchGameView('summary')">Summary</button>
+    <button class="game-tab ${state.gameView === "rounds" ? "active" : ""}" data-action="switchGameView" data-view="rounds">Rounds</button>
+    <button class="game-tab ${state.gameView === "summary" ? "active" : ""}" data-action="switchGameView" data-view="summary">Summary</button>
   </div>`;
 
   if (state.gameView === "rounds") {
@@ -277,7 +277,7 @@ function renderGame() {
       {
         html += `<div class="note-row">
           <input type="text" class="note-input" placeholder="Add a note..." value="${(m.note || "").replace(/"/g, "&quot;")}"
-                 onchange="onAnnotate(this)" ${dataAttrs}>
+                 data-change-action="onAnnotate" ${dataAttrs}>
           <span class="save-indicator">Saved</span>
         </div>`;
       }
@@ -343,7 +343,7 @@ function renderGame() {
         const color = GROUP_COLORS[grp] || "#888";
         const grpId = grp.replace(/\s/g, "-").toLowerCase();
         html += `<div class="cat-group" style="border-left: 3px solid ${color}">
-          <div class="cat-group-header" onclick="toggleGameMistakes('${grpId}')" style="cursor:pointer">
+          <div class="cat-group-header" data-action="toggleGameMistakes" data-group-id="${grpId}" style="cursor:pointer">
             <span class="cat-group-name" style="color:${color}">${grp}</span>
             <span class="cat-group-stat">${data.count} mistakes &middot; ${data.ev.toFixed(2)} EV <span class="cat-expand">&#9660;</span></span>
           </div>`;

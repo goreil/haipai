@@ -23,10 +23,10 @@ function showAccount() {
   if (discordLinked) {
     html += `<span class="account-linked">Linked</span>`;
     if (hasPassword || googleLinked) {
-      html += ` <button class="account-btn" onclick="unlinkOAuth('discord')">Unlink</button>`;
+      html += ` <button class="account-btn" data-action="unlinkOAuth" data-provider="discord">Unlink</button>`;
     }
   } else {
-    html += `<button class="account-btn" onclick="linkOAuth('discord')">Link Discord</button>`;
+    html += `<button class="account-btn" data-action="linkOAuth" data-provider="discord">Link Discord</button>`;
   }
   html += `</div>`;
 
@@ -35,10 +35,10 @@ function showAccount() {
   if (googleLinked) {
     html += `<span class="account-linked">Linked</span>`;
     if (hasPassword || discordLinked) {
-      html += ` <button class="account-btn" onclick="unlinkOAuth('google')">Unlink</button>`;
+      html += ` <button class="account-btn" data-action="unlinkOAuth" data-provider="google">Unlink</button>`;
     }
   } else {
-    html += `<button class="account-btn" onclick="linkOAuth('google')">Link Google</button>`;
+    html += `<button class="account-btn" data-action="linkOAuth" data-provider="google">Link Google</button>`;
   }
   html += `</div>`;
 

@@ -81,10 +81,10 @@ function renderAdmin() {
         const joined = new Date(u.created_at + "Z").toLocaleDateString();
         const canActOn = !impersonating && u.id !== selfId;
         const viewBtn = canActOn
-          ? `<button class="btn btn-sm" onclick="adminImpersonate(${u.id})">View as</button>`
+          ? `<button class="btn btn-sm" data-action="adminImpersonate" data-user-id="${u.id}">View as</button>`
           : "";
         const deleteBtn = canActOn
-          ? `<button class="btn btn-sm btn-delete" onclick="adminDeleteUser(${u.id})">Delete</button>`
+          ? `<button class="btn btn-sm btn-delete" data-action="adminDeleteUser" data-user-id="${u.id}">Delete</button>`
           : "";
         return `<tr><td>${escapeHtml(u.username)}</td><td>${u.game_count}</td><td>${joined}</td><td>${viewBtn} ${deleteBtn}</td></tr>`;
       }).join("")}
@@ -101,11 +101,11 @@ function renderAdmin() {
   const counts = reports.reduce((a, r) => { a[r.kind] = (a[r.kind] || 0) + 1; return a; }, {});
   html += `<div class="game-header" style="margin-top:8px"><h2>Category reports (${reports.length})</h2></div>`;
   html += `<div class="admin-filters">
-    <select onchange="reloadAdminReports(this.value)">
+    <select data-change-action="reloadAdminReports">
       <option value="others" ${reportScope==="others"?"selected":""}>Other player reports</option>
       <option value="all" ${reportScope==="all"?"selected":""}>All reports</option>
     </select>
-    <select onchange="adminState.reportKind=this.value;renderAdmin()">
+    <select data-change-action="adminReportKind">
       <option value="">All kinds (${reports.length})</option>
       <option value="wrong_category" ${reportKind==="wrong_category"?"selected":""}>wrong_category (${counts.wrong_category||0})</option>
       <option value="wrong_text" ${reportKind==="wrong_text"?"selected":""}>wrong_text (${counts.wrong_text||0})</option>
@@ -187,7 +187,7 @@ function renderReportCard(r) {
       ${catBadge}
       <span class="report-by"><span class="user">@${escapeHtml(r.username)}</span><span class="date">${date}</span></span>
       <span class="report-actions">
-        <button class="btn btn-sm btn-delete" onclick="adminDeleteReport(${r.id})">Delete</button>
+        <button class="btn btn-sm btn-delete" data-action="adminDeleteReport" data-report-id="${r.id}">Delete</button>
       </span>
     </div>`;
 
@@ -258,7 +258,7 @@ function renderImpersonateBanner(me) {
       banner.innerHTML = `
         <span>Viewing as <b>${escapeHtml(me.impersonating.viewing_as)}</b>
         (admin: ${escapeHtml(me.impersonating.admin_username)})</span>
-        <button class="btn btn-sm" onclick="adminStopImpersonate()">Stop</button>
+        <button class="btn btn-sm" data-action="adminStopImpersonate">Stop</button>
       `;
     } else {
       banner.style.display = "none";
