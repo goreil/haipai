@@ -363,8 +363,14 @@ function renderBoardContext(m) {
         }
         // Yaku panel (right-aside) for any OPPONENT that has opened. Never the
         // player's own row — prep omits the player from board_state.yaku, and
-        // this guard keeps that intent explicit at the render site.
-        if (b.yaku && b.yaku[d.seat] && d.seat !== playerSeat) {
+        // this guard keeps that intent explicit at the render site. Held back
+        // until a seat shows 2+ open calls: a single call leaves every yaku
+        // open, so the strip is noise; the second call is where the read starts
+        // to bite (reusing openMeldCount — the same 2-call threshold the
+        // open-defense threat trigger above fires on, so ankan-only hands stay
+        // quiet).
+        if (b.yaku && b.yaku[d.seat] && d.seat !== playerSeat
+            && openMeldCount >= 2) {
           html += renderYakuStrip(b.yaku[d.seat]);
         }
         html += `</div>`;

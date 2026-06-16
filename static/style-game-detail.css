@@ -251,6 +251,15 @@
   align-items: center;
   gap: 4px;
 }
+/* Column label introducing the pill strip ("Possible yakus  [pill] [pill]"). */
+.yaku-strip .yp-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  margin-right: 2px;
+}
 
 .yp {
   position: relative;

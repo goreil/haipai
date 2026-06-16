@@ -381,10 +381,14 @@ function collectDeadPills(entries) {
   return { pills, count };
 }
 
+// Column label that introduces the pill strip, so the row reads
+// "Possible yakus  [pill] [pill]". Prefixed to every strip variant below.
+const YAKU_STRIP_LABEL = `<span class="yp-label">Possible yakus</span>`;
+
 function renderYakuStrip(entries) {
   if (!entries) return "";
   if (!entries.length) {
-    return `<span class="yaku-strip">`
+    return `<span class="yaku-strip">${YAKU_STRIP_LABEL}`
       + `<span class="yp yp-empty"><span class="yp-name">No yaku reachable</span></span></span>`;
   }
   // Entries routed behind the dead-toggle are skipped from the live row:
@@ -397,7 +401,7 @@ function renderYakuStrip(entries) {
     .map(renderYakuPill).join("");
   const { pills: deadPills, count: deadCount } = collectDeadPills(entries);
   if (!deadPills.length) {
-    return `<span class="yaku-strip">${liveHtml}</span>`;
+    return `<span class="yaku-strip">${YAKU_STRIP_LABEL}${liveHtml}</span>`;
   }
   // If every live yaku was filtered out (only dead yakuhai for this seat),
   // anchor the strip with the muted placeholder so the row isn't a bare toggle.
@@ -411,7 +415,7 @@ function renderYakuStrip(entries) {
     + `</button>`
     + `<span class="yp-dead-sep"></span>`;
   return `<span class="yaku-strip" data-expanded="false">`
-    + `${emptyHtml}${liveHtml}${toggle}${deadPills.join("")}</span>`;
+    + `${YAKU_STRIP_LABEL}${emptyHtml}${liveHtml}${toggle}${deadPills.join("")}</span>`;
 }
 
 // Delegated click handler for the dead-yaku toggle. Strips are re-rendered on
