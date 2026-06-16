@@ -4,3 +4,6 @@
 [submodule "killer_mortal_gui"]
 	path = killer_mortal_gui
 	url = git@github.com:goreil/killer_mortal_gui.git
+[submodule "riichi-tools-rs"]
+	path = riichi-tools-rs
+	url = git@github.com:goreil/riichi-tools-rs.git

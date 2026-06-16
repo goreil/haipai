@@ -148,6 +148,9 @@
   <script src="/static/js/prep/prep-board-yaku.js"></script>
   <script src="/static/js/prep/defense.js"></script>
   <script src="/static/js/prep/prep.js"></script>
+  <!-- Opt-in WASM shanten kernel (default off). Async ESM bootstrap; loads
+       after prep.js because its adapter depends on haipaiPrepShantenCalc. -->
+  <script type="module" src="/static/js/prep/wasm-bootstrap.js"></script>
   <script src="/static/js/vendor/riichi/riichi-bundle.js"></script>
   <script src="/static/js/categorize.js"></script>
   <script src="/static/js/categorize-metadata.js"></script>

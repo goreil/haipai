@@ -1,0 +1,21 @@
+[package]
+name = "haipai-shanten"
+version = "0.1.0"
+edition = "2021"
+description = "Thin wasm-bindgen wrapper over riichi-tools-rs shanten/ukeire for Haipai prep"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde_json = "1"
+# Path dep on the submodule, fast_shanten = lookup-table kernel (the fast one).
+riichi-tools-rs = { path = "../../riichi-tools-rs", features = ["fast_shanten"] }
+# riichi-tools-rs pulls rand 0.7 -> getrandom 0.1, which won't compile for
+# wasm32-unknown-unknown unless the wasm-bindgen backend feature is enabled.
+getrandom = { version = "0.1", features = ["wasm-bindgen"] }
+
+[profile.release]
+opt-level = 3
+lto = true

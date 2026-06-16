@@ -40,7 +40,21 @@
     tenpai_wait_tiles, is_furiten,
     find_riichi_context, find_discard_history_for_turn,
   } = furitenMod;
-  const { calculate: calcShanten } = shantenCalcMod;
+  const { calculate: jsCalcShanten } = shantenCalcMod;
+
+  // Resolve the shanten/ukeire kernel at call time. The WASM kernel is opt-in
+  // and loads asynchronously (see static/js/prep/wasm-bootstrap.js): the global
+  // flag flips only once the adapter is fully ready, so early calls and the
+  // default (no opt-in) both stay on the JS kernel. Same {shanten, stats}
+  // contract either way.
+  function calcShanten(hand, melds, wall) {
+    const g = (typeof self !== "undefined") ? self
+            : (typeof window !== "undefined") ? window : null;
+    if (g && g.haipaiPrepUseWasm && g.haipaiPrepShantenCalcWasm) {
+      return g.haipaiPrepShantenCalcWasm.calculate(hand, melds, wall);
+    }
+    return jsCalcShanten(hand, melds, wall);
+  }
   const {
     compute_kd_defense_data,
   } = defenseMod;
