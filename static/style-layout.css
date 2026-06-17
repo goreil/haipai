@@ -970,6 +970,20 @@
   padding: 4px 12px 4px 0;
 }
 
+.admin-users-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.admin-users-table th.sortable:hover {
+  color: var(--text);
+}
+
+.admin-users-table th.sorted {
+  color: var(--text);
+}
+
 .impersonate-banner {
   background: #5e3b00;
   color: #ffd59a;

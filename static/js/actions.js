@@ -58,6 +58,7 @@ var HAIPAI_CLICK_ACTIONS = {
   unlinkOAuth: (el) => unlinkOAuth(el.dataset.provider),
 
   // --- admin ---
+  adminSortUsers: (el) => adminSortUsers(el.dataset.col),
   adminImpersonate: (el) => adminImpersonate(+el.dataset.userId),
   adminDeleteUser: (el) => adminDeleteUser(+el.dataset.userId),
   adminDeleteReport: (el) => adminDeleteReport(+el.dataset.reportId),

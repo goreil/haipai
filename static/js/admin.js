@@ -1,7 +1,8 @@
 // Admin dashboard: category-reports list + user list with View-as
 // impersonation. Impersonate banner rendering also lives here.
 
-var adminState = { users: [], reports: [], reportKind: "", reportScope: "others", reportsLoading: false };
+var adminState = { users: [], reports: [], reportKind: "", reportScope: "others", reportsLoading: false,
+                   userSort: { col: "game_count", dir: "desc" } };
 
 async function showAdmin() {
   state.currentGame = null;
@@ -62,6 +63,42 @@ function prepAndCategorizeReports(reports, mortalByGame) {
   }
 }
 
+// Return a sorted copy of the user list. Numeric columns (game_count) sort
+// numerically; username sorts case-insensitively; date columns sort by their
+// raw ISO string (lexicographic == chronological). Null latest_game sorts last
+// regardless of direction (users with no games stay at the bottom).
+function sortAdminUsers(users, sort) {
+  const { col, dir } = sort;
+  const mul = dir === "asc" ? 1 : -1;
+  return users.slice().sort((a, b) => {
+    let av = a[col], bv = b[col];
+    if (col === "latest_game") {
+      // Keep never-submitted users pinned to the bottom either way.
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+    }
+    if (col === "username") { av = (av || "").toLowerCase(); bv = (bv || "").toLowerCase(); }
+    if (av < bv) return -1 * mul;
+    if (av > bv) return 1 * mul;
+    return 0;
+  });
+}
+
+// Toggle sort on header click: same column flips direction, new column starts
+// descending for counts/dates (most-recent / most-games first) and ascending
+// for the username.
+function adminSortUsers(col) {
+  const s = adminState.userSort;
+  if (s.col === col) {
+    s.dir = s.dir === "asc" ? "desc" : "asc";
+  } else {
+    s.col = col;
+    s.dir = col === "username" ? "asc" : "desc";
+  }
+  renderAdmin();
+}
+
 function renderAdmin() {
   const content = document.getElementById("content");
 
@@ -70,15 +107,31 @@ function renderAdmin() {
 
   let html = `<div class="game-header"><h2>Admin Dashboard</h2></div>`;
 
-  // User stats (with View-as button for impersonation)
+  // User stats (with View-as button for impersonation). Sortable by any
+  // column — click a header to toggle; default is game_count desc.
   const selfId = (window._meData && window._meData.id) || null;
   const impersonating = !!(window._meData && window._meData.impersonating);
+  const sortedUsers = sortAdminUsers(users, adminState.userSort);
+  const sortCols = [
+    { key: "username", label: "User" },
+    { key: "game_count", label: "Games" },
+    { key: "latest_game", label: "Latest game" },
+    { key: "created_at", label: "Joined" },
+  ];
+  const headerCells = sortCols.map(c => {
+    const active = adminState.userSort.col === c.key;
+    const arrow = active ? (adminState.userSort.dir === "asc" ? " ▲" : " ▼") : "";
+    return `<th class="sortable${active ? " sorted" : ""}" data-action="adminSortUsers" data-col="${c.key}">${c.label}${arrow}</th>`;
+  }).join("");
   html += `<div class="admin-card" style="margin-bottom:16px">
     <div class="admin-card-header"><b>${users.length} users</b> <span class="admin-meta">&middot; ${totalGames} games total</span></div>
     <table class="admin-users-table">
-      <tr><th>User</th><th>Games</th><th>Joined</th><th></th></tr>
-      ${users.map(u => {
+      <tr>${headerCells}<th></th></tr>
+      ${sortedUsers.map(u => {
         const joined = new Date(u.created_at + "Z").toLocaleDateString();
+        const latest = u.latest_game
+          ? new Date(u.latest_game + "Z").toLocaleDateString()
+          : `<span class="admin-meta">—</span>`;
         const canActOn = !impersonating && u.id !== selfId;
         const viewBtn = canActOn
           ? `<button class="btn btn-sm" data-action="adminImpersonate" data-user-id="${u.id}">View as</button>`
@@ -86,7 +139,7 @@ function renderAdmin() {
         const deleteBtn = canActOn
           ? `<button class="btn btn-sm btn-delete" data-action="adminDeleteUser" data-user-id="${u.id}">Delete</button>`
           : "";
-        return `<tr><td>${escapeHtml(u.username)}</td><td>${u.game_count}</td><td>${joined}</td><td>${viewBtn} ${deleteBtn}</td></tr>`;
+        return `<tr><td>${escapeHtml(u.username)}</td><td>${u.game_count}</td><td>${latest}</td><td>${joined}</td><td>${viewBtn} ${deleteBtn}</td></tr>`;
       }).join("")}
     </table>
   </div>`;
