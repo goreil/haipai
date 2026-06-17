@@ -7,3 +7,6 @@
 [submodule "riichi-tools-rs"]
 	path = riichi-tools-rs
 	url = git@github.com:goreil/riichi-tools-rs.git
+[submodule "MahjongKit"]
+	path = MahjongKit
+	url = git@github.com:goreil/MahjongKit.git
