@@ -69,6 +69,9 @@
     return BASE_TO_MJAI[base_id];
   }
   const _wall_count = (wall, b) => (!wall || b >= wall.length) ? 0 : (wall[b] || 0);
+  // Aka slots in the wall: 34=5mr, 35=5pr, 36=5sr (>0 means the red copy is
+  // still live). Mirrors prep/furiten.js + the JS shanten_calc kernel.
+  const _AKA_SLOT_FOR_BASE = { 4: 34, 13: 35, 22: 36 };
 
   // Verified against the Python `mahjong` library as ground truth over 8000
   // hands (scripts/gt_compare_gen.mjs + gt_compare.py): riichi's fast_shanten
@@ -101,10 +104,13 @@
     const stats = [];
     for (const row of table.stats) {
       const base = row.discard - 1;                 // get_id is 1-based
-      const necessary = row.tiles.map(([id]) => ({
-        tile: BASE_TO_MJAI[id - 1],
-        count: _wall_count(wall, id - 1),
-      }));
+      const necessary = row.tiles.map(([id]) => {
+        const base = id - 1;
+        const nec = { tile: BASE_TO_MJAI[base], count: _wall_count(wall, base) };
+        const akaSlot = _AKA_SLOT_FOR_BASE[base];
+        if (akaSlot != null && wall && wall[akaSlot]) nec.aka_count = wall[akaSlot];
+        return nec;
+      });
       stats.push({
         tile: _display_name(base, red),
         shanten: row.shanten,

@@ -8,6 +8,7 @@ function renderEvComparison(m, options) {
   // toggle between "combined" (default, aggregated deal-in %) and a specific
   // opponent's seat. The toggle swaps dealin_rates + wait_breakdowns locally
   // for the duration of the render.
+  const ukeireDora = getDoraTiles(m.board_state);
   const threatCount = Array.isArray(m.per_threat) ? m.per_threat.length : 0;
   const rawView = options.threatView;  // "combined" | integer index | undefined
   const threatIdx = (typeof rawView === "number" && rawView >= 0 && rawView < threatCount)
@@ -226,14 +227,14 @@ function renderEvComparison(m, options) {
     if (hasUkeire) {
       accCell += `<span class="ukeire-acc full-only">`;
       accCell += `<span class="ukeire-acc-total" title="Tiles that would improve your hand">${ca.necessary_count} tiles</span>`;
-      accCell += `<span class="ukeire-inline-tiles">${renderUkeireTiles(ca.necessary_tiles)}</span>`;
+      accCell += `<span class="ukeire-inline-tiles">${renderUkeireTiles(ca.necessary_tiles, ukeireDora)}</span>`;
       accCell += `</span>`;
       if (diffEnabled) {
         const g = diffByTile[tile];
         if (g && g.gains.length > 0) {
           accCell += `<span class="ukeire-acc diff-only">`;
           accCell += `<span class="ukeire-gain" title="Tiles this discard accepts that the other picks don't">+${g.gainTotal}</span>`;
-          accCell += `<span class="ukeire-inline-tiles">${renderUkeireTiles(g.gains)}</span>`;
+          accCell += `<span class="ukeire-inline-tiles">${renderUkeireTiles(g.gains, ukeireDora)}</span>`;
           accCell += `</span>`;
         }
       }

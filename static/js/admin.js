@@ -2,7 +2,7 @@
 // impersonation. Impersonate banner rendering also lives here.
 
 var adminState = { users: [], reports: [], reportKind: "", reportScope: "others", reportsLoading: false,
-                   userSort: { col: "game_count", dir: "desc" } };
+                   userSort: { col: "latest_game", dir: "desc" } };
 
 async function showAdmin() {
   state.currentGame = null;
@@ -108,7 +108,7 @@ function renderAdmin() {
   let html = `<div class="game-header"><h2>Admin Dashboard</h2></div>`;
 
   // User stats (with View-as button for impersonation). Sortable by any
-  // column — click a header to toggle; default is game_count desc.
+  // column — click a header to toggle; default is latest_game desc.
   const selfId = (window._meData && window._meData.id) || null;
   const impersonating = !!(window._meData && window._meData.impersonating);
   const sortedUsers = sortAdminUsers(users, adminState.userSort);

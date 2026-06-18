@@ -59,7 +59,9 @@ function renderBackTile(cls = "action-tile-sm") {
 
 // Render ukeire tiles compactly: one SVG per tile kind with a ×N count badge.
 // Used inline in the EV table, directly below the relevant pick row.
-function renderUkeireTiles(tiles) {
+// doraTiles (optional Set of base mjai tiles) highlights acceptance tiles that
+// would land you a dora, mirroring the board's dora-highlight treatment.
+function renderUkeireTiles(tiles, doraTiles) {
   if (!tiles || !tiles.length) return "";
   const TILE_ORDER = {};
   ["1m","2m","3m","4m","5m","6m","7m","8m","9m",
@@ -69,11 +71,28 @@ function renderUkeireTiles(tiles) {
   const sorted = [...tiles].sort((a, b) =>
     (TILE_ORDER[tileBase(a.tile)] ?? 99) - (TILE_ORDER[tileBase(b.tile)] ?? 99)
   );
-  let html = "";
+  // Split a five acceptance into regular + red chips when a red copy is still
+  // live (aka_count, emitted by the shanten kernels). The red chip uses the
+  // "5xr" SVG and is always dora-highlighted; the regular chip shows the
+  // remaining non-red copies (suppressed when all live copies are red).
+  const units = [];
   for (const t of sorted) {
-    html += `<span class="ukeire-chip" title="${t.tile}: ${t.count} left">`;
-    html += renderTile(t.tile, "tile-sm ukeire-tile-img");
-    html += `<span class="ukeire-chip-count">×${t.count}</span>`;
+    const aka = t.aka_count || 0;
+    if (aka > 0) {
+      const plain = t.count - aka;
+      if (plain > 0) units.push({ tile: t.tile, count: plain });
+      units.push({ tile: t.tile + "r", count: aka, isRed: true });
+    } else {
+      units.push({ tile: t.tile, count: t.count });
+    }
+  }
+  let html = "";
+  for (const u of units) {
+    const isDora = u.isRed
+      || (doraTiles && doraTiles.has(tileBase(u.tile)));
+    html += `<span class="ukeire-chip" title="${u.tile}: ${u.count} left">`;
+    html += renderTile(u.tile, "tile-sm ukeire-tile-img" + (isDora ? " dora-highlight" : ""));
+    html += `<span class="ukeire-chip-count">×${u.count}</span>`;
     html += `</span>`;
   }
   return html;

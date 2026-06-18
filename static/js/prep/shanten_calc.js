@@ -90,6 +90,12 @@
     return wall[base_id] || 0;
   }
 
+  // Aka slots in the wall: 34=5mr, 35=5pr, 36=5sr. A >0 value means the red
+  // copy is still live. Surfaced per acceptance tile (aka_count) so the EV
+  // table can split a five acceptance into regular + red rows — same
+  // convention as prep/furiten.js:tenpai_wait_tiles.
+  const _AKA_SLOT_FOR_BASE = { 4: 34, 13: 35, 22: 36 };
+
   // hand_mjai: 14-tile list (post-draw). melds_mjai: list of called melds.
   // wall: 37-entry array (slots 0..33 base inclusive of red, 34..36 red).
   // Raises if the hand is already in winning form (caller catches and
@@ -129,7 +135,10 @@
         if (_shanten_of(trial, closed, meld_count) < sh) {
           // Keep tiles with 0 wall count — the UI renders them as
           // dimmed "dead wait" chips to show shape even when fully dealt.
-          necessary.push({ tile: BASE_TO_MJAI[t], count: _wall_count(wall, t) });
+          const nec = { tile: BASE_TO_MJAI[t], count: _wall_count(wall, t) };
+          const akaSlot = _AKA_SLOT_FOR_BASE[t];
+          if (akaSlot != null && wall && wall[akaSlot]) nec.aka_count = wall[akaSlot];
+          necessary.push(nec);
         }
       }
 
