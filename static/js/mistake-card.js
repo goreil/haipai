@@ -156,6 +156,7 @@ function renderMistakeCard(m, opts = {}) {
     }
     html += `</div>`;
   }
+  html += renderHandPartition(m, doraTiles);
   html += renderBoardContext(m);
   html += renderTenpaiWaitsRow(m);
   if (m.top_actions && m.top_actions.length && m.discard_stats && m.discard_stats.length) {

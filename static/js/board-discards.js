@@ -126,6 +126,27 @@ function renderHand(tiles, draw, mistake, doraTiles) {
   }).join("");
 }
 
+// PoC block view: the hand re-rendered as MahjongKit partition blocks
+// (static/js/prep/partition.js → mistake.hand_partition). Only present for
+// fully concealed hands with a single minimal split, so we just group the
+// tiles into bordered boxes — same tiles, same order, with the seams between
+// melds/partials/singles made visible.
+function renderHandPartition(m, doraTiles) {
+  if (!m.hand_partition || !m.hand_partition.length) return "";
+  const blocks = m.hand_partition.map((block) => {
+    const tiles = block.map((t) => {
+      const extra = (t === "5mr" || t === "5pr" || t === "5sr"
+        || (doraTiles && doraTiles.has(tileBase(t)))) ? "dora-highlight" : "";
+      return renderTile(t, extra);
+    }).join("");
+    return `<span class="partition-block">${tiles}</span>`;
+  }).join("");
+  return `<div class="hand-row partition-row">
+    <span class="label">Blocks</span>
+    <span class="tiles partition-tiles">${blocks}</span>
+  </div>`;
+}
+
 function renderTenpaiWaitsRow(m) {
   // Shown only when we've stored waits on the mistake — currently 5A (after
   // removing the chosen riichi tile) and 5B (after the silently-discarded

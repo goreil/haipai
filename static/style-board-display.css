@@ -20,6 +20,22 @@
   flex-wrap: wrap;
 }
 
+/* Partition block view (PoC): the hand split into MahjongKit blocks. Bigger
+   gaps between blocks; each block boxed so the meld/partial/single seams read
+   at a glance. */
+.partition-tiles {
+  gap: 10px;
+}
+
+.partition-block {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border, #3a3a3a);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
 /* Tile sizing is driven by --tile-size so the size modifier classes
    (.tile-sm, .action-tile, .action-tile-sm) only override the custom
    property — everything else (border, background, vertical-align) stays

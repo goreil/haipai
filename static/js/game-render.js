@@ -249,6 +249,11 @@ function renderGame() {
         html += `</div>`;
       }
 
+      // PoC hand-block view (MahjongKit partition); no-op unless prep attached
+      // m.hand_partition. The summary view renders this via renderMistakeCard;
+      // the rounds view builds its card inline, so call the shared helper here.
+      html += renderHandPartition(m, getDoraTiles(m.board_state));
+
       // Board context (dora, winds, all discards, scores, opponent melds)
       html += renderBoardContext(m);
       html += renderTenpaiWaitsRow(m);

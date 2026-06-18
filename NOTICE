@@ -22,6 +22,15 @@ submodule directory) as required.
     Uses the `mahjong` PyPI package
     (https://github.com/MahjongRepository/mahjong), licensed under MIT.
 
+- static/js/prep/partition.js
+    Hand-partition algorithm ported from MahjongKit.py
+    (Partition.partition / Partition._partition_single_type), part of
+    JapaneseRiichiMahjongKit by Jianyang Tang (Thomas)
+    <jian4yang2.tang1@gmail.com>. The upstream ships no LICENSE file; the
+    port is included here for attributed credit to the original author.
+    Source vendored as the MahjongKit/ submodule; fork tracked at
+    https://github.com/goreil/MahjongKit.
+
 - riichi-mahjong-tiles/ (git submodule)
     SVG tile graphics by FluffyStuff
     (https://github.com/FluffyStuff/riichi-mahjong-tiles), released into

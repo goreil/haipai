@@ -15,7 +15,8 @@
     const furiten = require("./furiten.js");
     const shantenCalc = require("./shanten_calc.js");
     const defense = require("./defense.js");
-    module.exports = factory(tiles, parse, boardState, boardYaku, furiten, shantenCalc, defense);
+    const partition = require("./partition.js");
+    module.exports = factory(tiles, parse, boardState, boardYaku, furiten, shantenCalc, defense, partition);
   } else {
     root.haipaiPrep = factory(
       root.haipaiPrepTiles,
@@ -24,11 +25,12 @@
       root.haipaiPrepBoardYaku,
       root.haipaiPrepFuriten,
       root.haipaiPrepShantenCalc,
-      root.haipaiPrepDefense
+      root.haipaiPrepDefense,
+      root.haipaiPrepPartition
     );
   }
 }(typeof self !== "undefined" ? self : this, function (
-  tilesMod, parseMod, boardStateMod, boardYakuMod, furitenMod, shantenCalcMod, defenseMod
+  tilesMod, parseMod, boardStateMod, boardYakuMod, furitenMod, shantenCalcMod, defenseMod, partitionMod
 ) {
 
   const { ID_TO_MJAI } = tilesMod;
@@ -249,6 +251,25 @@
     }
   }
 
+  // PoC hand-block visualization (port of MahjongKit's partition). Gated to
+  // the simplest case for now: a fully concealed hand (no melds on our end)
+  // that admits exactly one minimal block split. Returns mjai blocks ready for
+  // rendering, or null when the gate isn't met. See static/js/prep/partition.js.
+  function _compute_hand_partition(mistake) {
+    const hand = mistake.hand || [];
+    const melds = mistake.melds || [];
+    if (!hand.length || melds.length) return null;
+    let result;
+    try {
+      result = partitionMod.partition_mjai_hand(hand);
+    } catch (e) {
+      _warn("hand partition failed:", e);
+      return null;
+    }
+    if (!result || result.count !== 1) return null;
+    return partitionMod.blocks_to_mjai(result.partitions[0], hand);
+  }
+
   function prepMistake(mistake, mortalData, kyokuIdx, entry, defenseCtx) {
     const actual = mistake.actual || {};
     const expected = mistake.expected || {};
@@ -257,6 +278,7 @@
 
     const board_state = _compute_board_state(mortalData, kyokuIdx, entry);
     _attach_yaku_panel(board_state, mistake, mortalData, kyokuIdx, entry);
+    const hand_partition = _compute_hand_partition(mistake);
 
     // Non-dahai branch (meld/riichi/kan decisions). No discard tradeoff;
     // still want a per-tile shanten table for the EV-table view + 5A/5B
@@ -266,6 +288,7 @@
     if (!(at === "dahai" && et === "dahai")) {
       const patch = {};
       if (board_state) patch.board_state = board_state;
+      if (hand_partition) patch.hand_partition = hand_partition;
       const stats = _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry);
       if (stats && stats.length) patch.discard_stats = stats;
 
@@ -294,6 +317,7 @@
 
     const patch = {};
     if (board_state) patch.board_state = board_state;
+    if (hand_partition) patch.hand_partition = hand_partition;
 
     if (defenseCtx) {
       Object.assign(patch, _compute_kd_defense_patch(hand, defenseCtx, tiles_left, wall));
