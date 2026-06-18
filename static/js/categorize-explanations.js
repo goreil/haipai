@@ -352,6 +352,8 @@ function generateExplanation(m) {
             text += `Your ${actual.pai} is a yakuhai — Mortal's ${expected.pai} preserves it (and the option to meld for a yaku). `;
           } else if (vp.dora) {
             text += `Your ${actual.pai} is dora — Mortal's ${expected.pai} preserves the hand value. `;
+          } else if (vp.dora_acceptance) {
+            text += `Mortal's ${expected.pai} keeps a wait that accepts the dora, which your ${actual.pai} gives up — same speed, more value. `;
           } else {
             text += `Mortal's ${expected.pai} preserves hand value (yakuhai or dora) that you discarded. `;
           }
@@ -385,6 +387,8 @@ function generateExplanation(m) {
           text += `but your ${actual.pai} is a yakuhai — ${expected.pai} preserves the yaku and the option to meld for speed. `;
         } else if (vp.dora) {
           text += `but your ${actual.pai} is dora — ${expected.pai} preserves the hand value. `;
+        } else if (vp.dora_acceptance) {
+          text += `but ${expected.pai} keeps a wait that accepts the dora, which your ${actual.pai} gives up — same speed, more value. `;
         } else {
           text += `but ${expected.pai} preserves a yakuhai or dora that your ${actual.pai} gave up. `;
         }
@@ -462,6 +466,23 @@ function generateExplanation(m) {
         text += ` It's also possible to meld the hand for that yakuhai, giving the option of greatly speeding up the hand.`;
       } else if (vp.dora) {
         text += `Your discard ${actual.pai} is dora — holding it preserves hand value.`;
+      } else if (vp.dora_acceptance) {
+        const dt = vp.dora_accept_tiles || [];
+        const doraStr = dt.length
+          ? dt.map(t => renderTile(t, "tile-sm")).join("") + ` (dora)`
+          : `the dora`;
+        text += `Neither tile you discarded is dora, but Mortal's ${expected.pai} keeps a wait that still accepts ${doraStr} — `;
+        text += `your ${actual.pai} breaks that shape and gives the dora acceptance up.`;
+        // Whether it's a free swap or a speed-for-value trade depends on the
+        // ukeire/shanten the two picks leave behind — say which, don't overclaim.
+        const sameSh = expectedStat && actualStat && expectedStat.shanten === actualStat.shanten;
+        const mortalWider = expectedStat && actualStat
+          && (expectedStat.necessary_count || 0) >= (actualStat.necessary_count || 0);
+        if (sameSh && mortalWider) {
+          text += ` Same speed, more value: the wait that draws into dora is worth more when it completes.`;
+        } else {
+          text += ` Mortal gives up a little speed for it — the dora the wait draws into is worth more than the extra tiles of acceptance.`;
+        }
       } else {
         // Legacy data without value_preserve: fall back to the label hint.
         if (labels.includes("yakuhai")) {

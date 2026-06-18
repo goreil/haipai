@@ -21,7 +21,7 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 6;
+  const CATEGORIZER_VERSION = 7;
   const CATEGORIZER_CHANGELOG = {
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
     2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
@@ -29,6 +29,7 @@
     4: "P3 reverted to a pure dora/yakuhai check — no ukeire comparison. The v3 gate misclassified #12611 (E discard is round-wind + dora, but had more ukeire than Mortal's 6p) as P4 Complex. Also drops the `similar_acceptance` flag and its '*0.9' similarity threshold from value_preserve.",
     5: "Kan-vs-call mismatches (chi/pon vs a kan, either direction) now route to 6A/6B instead of falling through to P4. Fixes #14173 (R-179): pon East when daiminkan East was the play is now 6B Missed Kan, not Complex Decision.",
     6: "Open Defense axis (OD1/OD2/OD3, backlog C-02): non-riichi opponents whose open melds pass the prep-side trigger emit kind='open' threats; dahai mistakes in open-threat-only scenes route to OD tiers via the same defend/push/complex logic as D1-D3.",
+    7: "P3 also fires on dora-acceptance: when Mortal's pick keeps a wait that accepts strictly more live dora than yours (its ukeire intersects the active dora set more), the mistake is hand value, not Complex. Net rule — suppressed when Mortal's own discard is a dora (throwing a dora to re-accept it is a wash). Fixes #4932 (breaking the 5m6m ryanmen drops the 4m-dora acceptance).",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
@@ -158,6 +159,25 @@
     return doraSet.has(tile);
   }
 
+  // Live-dora acceptance of a candidate discard: how many wall-live tiles in
+  // its ukeire (necessary_tiles) are part of the active dora set. necessary_tiles
+  // carries base mjai names (no "r" suffix) with their live wall count, so we
+  // intersect against doraTiles directly — red-five dora never appears here as a
+  // distinct acceptance (a held red five is in hand, not in the wait), and bare-5
+  // acceptance is deliberately NOT treated as red dora: we can't confirm the red
+  // copy is live without a prep-side flag, and counting every 5 wait as dora
+  // floods false positives (see scripts/dora_accept_eval.mjs, V3).
+  function doraUkeireForTile(tileMjai, discardStats, doraTiles) {
+    const stat = findInStats(tileMjai, discardStats);
+    if (!stat || !stat.necessary_tiles) return 0;
+    const doraSet = doraTiles instanceof Set ? doraTiles : new Set(doraTiles || []);
+    let n = 0;
+    for (const nt of stat.necessary_tiles) {
+      if (doraSet.has(nt.tile)) n += nt.count || 0;
+    }
+    return n;
+  }
+
   function tileIsYakuhai(tile, roundWind, seatWind) {
     if (!tile) return false;
     if (tile === "P" || tile === "F" || tile === "C") return true;
@@ -228,8 +248,11 @@
     // dora/yakuhai that Mortal's pick doesn't — pure value check, no
     // ukeire comparison. (#12611: discarding E gives more ukeire than
     // Mortal's 6p, but E is round wind + dora so the mistake is still
-    // hand value, not "complex".)
-    if (valueCtx && (valueCtx.doraApplies || valueCtx.yakuhaiApplies)) {
+    // hand value, not "complex".) doraAcceptApplies extends this to the
+    // case where the dora is in the WAIT, not the discarded tile: Mortal's
+    // pick keeps a wait that accepts more live dora than yours (#4932).
+    if (valueCtx && (valueCtx.doraApplies || valueCtx.yakuhaiApplies
+                     || valueCtx.doraAcceptApplies)) {
       return "P3";
     }
 
@@ -334,13 +357,35 @@
                      && !tileIsDora(expected.pai, doraTiles);
     const yakuhaiApplies = tileIsYakuhai(actual.pai, roundWind, seatWind)
                         && !tileIsYakuhai(expected.pai, roundWind, seatWind);
-    const valueCtx = { doraApplies, yakuhaiApplies };
 
-    if (doraApplies || yakuhaiApplies) {
+    // Dora-acceptance (#4932): Mortal's wait accepts strictly more live dora
+    // than yours. Net rule — if Mortal's own discard is a dora it's throwing
+    // value to re-accept it, so the gain is a wash and we don't fire. (When
+    // YOUR discard is the dora, doraApplies already routes to P3 upstream.)
+    const doraAcceptExpected = doraUkeireForTile(expected.pai, discardStats, doraTiles);
+    const doraAcceptActual = doraUkeireForTile(actual.pai, discardStats, doraTiles);
+    const doraAcceptApplies = doraAcceptExpected > doraAcceptActual
+                           && !tileIsDora(expected.pai, doraTiles);
+    const valueCtx = { doraApplies, yakuhaiApplies, doraAcceptApplies };
+
+    if (doraApplies || yakuhaiApplies || doraAcceptApplies) {
       catData.value_preserve = {
         dora: doraApplies,
         yakuhai: yakuhaiApplies,
+        dora_acceptance: doraAcceptApplies,
       };
+      // Name the dora tiles Mortal's wait keeps but yours drops, for the
+      // explanation text ("Mortal's wait still accepts 4m (dora)").
+      if (doraAcceptApplies) {
+        const expStat = findInStats(expected.pai, discardStats);
+        const actStat = findInStats(actual.pai, discardStats);
+        const yourDora = new Set(((actStat && actStat.necessary_tiles) || [])
+          .filter(nt => doraTiles.has(nt.tile)).map(nt => nt.tile));
+        catData.value_preserve.dora_accept_tiles =
+          ((expStat && expStat.necessary_tiles) || [])
+            .filter(nt => doraTiles.has(nt.tile) && !yourDora.has(nt.tile))
+            .map(nt => nt.tile);
+      }
     }
 
     let category;
