@@ -67,7 +67,9 @@
   // variant's rule fires. Edit OPEN_TRIGGER_VARIANT, then run
   // scripts/category_bench.mjs (prep cache re-keys automatically).
   // turn = player's junme (1-based draw count at decision time).
-  const OPEN_TRIGGER_VARIANT = "V7";
+  // NOTE: flip to "SWEEP1" + re-prep (category_bench.mjs) to regenerate the
+  // han-gate sweep cache (scripts/od_han_gate_sweep.mjs); "V8" is shipped.
+  const OPEN_TRIGGER_VARIANT = "V8";
 
   function _meld_dora_count(opp, dora_mjai) {
     let n = 0;
@@ -90,6 +92,42 @@
       if (t === bakaze || t === seat_wind) return true;
     }
     return false;
+  }
+
+  // Guaranteed yakuhai han locked into a seat's visible triplets. Mirrors
+  // board-melds.js::meldYakuhai: dragon = 1, round/seat wind = 1, double wind
+  // (round AND seat) = 2; deduped by base tile so a kakan-upgraded pon isn't
+  // double-counted. Sums to the han every win this hand makes is guaranteed.
+  function _yakuhai_han(opp, bakaze, seat_wind) {
+    let han = 0;
+    const seen = {};
+    for (const meld of opp.melds || []) {
+      if (meld.type === "chi") continue;
+      const t = (meld.tiles || [])[0];
+      if (!t || seen[t]) continue;
+      if (t === "P" || t === "F" || t === "C") { han += 1; seen[t] = 1; }
+      else if (t === bakaze && t === seat_wind) { han += 2; seen[t] = 1; }
+      else if (t === bakaze || t === seat_wind) { han += 1; seen[t] = 1; }
+    }
+    return han;
+  }
+
+  // Han an open hand is locked into (board-discards.js::threatGuaranteedHan):
+  // yakuhai stand alone; dora only count alongside a yaku, so a dora-only hand
+  // adds 1 for the yaku it still needs.
+  function _guaranteed_han(yakuhai_han, meld_dora) {
+    if (yakuhai_han > 0) return yakuhai_han + meld_dora;
+    return meld_dora > 0 ? meld_dora + 1 : 0;
+  }
+
+  // Value-based han for the open-defense gate (the V8 model). Every open hand
+  // needs a yaku, so the floor is 1: a single yakuhai IS that yaku (1 han, not
+  // 2), a round+seat double wind counts twice (2), and each exposed dora (incl.
+  // aka) adds 1. So 1=bare/single-yakuhai, 2=double-wind or 1-dora, 3=2-dora,
+  // 4=3-dora or double-wind+2, 5=4-dora or double-wind+3.
+  function _open_value_han(opp, ctx) {
+    return Math.max(1, _yakuhai_han(opp, ctx.bakaze, ctx.seat_wind))
+         + _meld_dora_count(opp, ctx.dora_mjai);
   }
 
   function _is_open_threat(opp, turn, ctx) {
@@ -119,9 +157,19 @@
             || (turn >= 11 && melds >= 1)
             || (melds >= 2 && _has_yakuhai_meld(opp, ctx.bakaze, ctx.seat_wind))
             || _meld_dora_count(opp, ctx.dora_mjai) >= 2;
-      case "V7":   // SHIPPED: 2+ calls, any turn. Benchmark: melds≥2 lifts
-                   // OD1-Defend share to 65% / 74% EV vs melds≥1's 57% / 66%.
+      case "V7":   // 2+ calls, any turn. Benchmark: melds≥2 lifts OD1-Defend
+                   // share to 65% / 74% EV vs melds≥1's 57% / 66%.
         return melds >= 2;
+      case "V8":   // SHIPPED: V7 OR a high-value single call (han>=3 by the
+                   // value model: 2+ dora, dora-pon, double-wind+dora). At scale
+                   // (366 games) this adds +77 fold spots / 40 games at 66%
+                   // OD1 / 76% EV — above the riichi-defense bar. See
+                   // [[od-han-gate-sweep]]; han = _open_value_han.
+        return melds >= 2 || _open_value_han(opp, ctx) >= 3;
+      case "SWEEP1": // ANALYSIS ONLY: emit every 1+ call open threat so the han-
+                     // gate sweep (scripts/od_han_gate_sweep.mjs) can filter on
+                     // guaranteed_han without re-prepping. NOT for shipping.
+        return melds >= 1;
       default:
         return false;
     }
@@ -196,6 +244,9 @@
         if (t != null) genbutsu.add(normRedFive(t));
       }
 
+      // Value metadata for the han-gate sweep — carried through to per_threat.
+      const meld_dora = _meld_dora_count(opp, dora_mjai);
+      const yakuhai_han = _yakuhai_han(opp, state.bakaze, seat_wind);
       threats.push({
         kind: "open",
         seat,
@@ -203,6 +254,10 @@
         genbutsu,
         dora_indicator: first_dora_indicator,
         ippatsu_alive: false,
+        open_melds: opp.open_melds || 0,
+        meld_dora,
+        yakuhai_han,
+        guaranteed_han: _guaranteed_han(yakuhai_han, meld_dora),
       });
     }
     return threats;
@@ -322,7 +377,7 @@
             .filter(x => x !== undefined);
         }
       }
-      per_threat.push({
+      const entry = {
         kind: td.threat.kind || "riichi",
         seat,
         riichi_tile,
@@ -331,7 +386,14 @@
         dealin_rates: rates,
         wait_breakdowns: breakdowns,
         suji_partners: partners_by_tile,
-      });
+      };
+      if (td.threat.kind === "open") {
+        entry.open_melds = td.threat.open_melds;
+        entry.meld_dora = td.threat.meld_dora;
+        entry.yakuhai_han = td.threat.yakuhai_han;
+        entry.guaranteed_han = td.threat.guaranteed_han;
+      }
+      per_threat.push(entry);
     }
 
     return {
