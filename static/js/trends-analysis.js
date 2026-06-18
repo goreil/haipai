@@ -271,7 +271,7 @@ function renderCategoryTrend(games) {
     const rowId = "trend-" + sa.key;
     const primary = r.evPerD != null ? `${r.evPerD.toFixed(4)} EV/D` : "—";
     html += `<div class="trend-bar-row" data-action="toggleTrendMistakes" data-sa-label="${sa.label}" data-row-id="${rowId}" style="cursor:pointer">
-      <span class="trend-bar-label" style="color:${sa.color}">${sa.label}</span>
+      <span class="trend-bar-label" style="color:${sa.color}">${sa.short || sa.label}</span>
       <div class="trend-bar-track">
         <div class="trend-bar-fill" style="width:${pct}%;background:${sa.color}"></div>
       </div>

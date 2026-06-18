@@ -262,7 +262,7 @@ function renderSnapshotDetail(snapshot) {
     const pct = r.evPerD != null ? (r.evPerD / maxEvPerD * 100).toFixed(0) : 0;
     const primary = r.evPerD != null ? `${r.evPerD.toFixed(4)} EV/D` : "—";
     html += `<div class="trend-bar-row">
-      <span class="trend-bar-label" style="color:${sa.color}">${sa.label}</span>
+      <span class="trend-bar-label" style="color:${sa.color}">${sa.short || sa.label}</span>
       <div class="trend-bar-track">
         <div class="trend-bar-fill" style="width:${pct}%;background:${sa.color}"></div>
       </div>

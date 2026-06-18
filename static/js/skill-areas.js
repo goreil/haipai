@@ -20,7 +20,7 @@ var TREND_SKILL_AREAS = [
     situation: "an opponent is in riichi",
     intro: "Turns where an opponent is in riichi. The metric is how much value you give up by pushing a dangerous tile or misreading the danger pool.",
     study: "Riichi Book Ch 8" },
-  { label: "Open Defense", key: "open_defense", catGroup: "Open Defense", color: "#f5b342",
+  { label: "Open Defense", short: "Open D", key: "open_defense", catGroup: "Open Defense", color: "#f5b342",
     situation: "a non-riichi opponent's open hand is threatening",
     intro: "Turns where no one has declared riichi but an opponent's open hand has tripped the open-threat trigger (2+ open calls). The metric mirrors Defense — deal-in rate against that silent-tenpai pressure.",
     study: "Riichi Book Ch 8.2-8.4" },
