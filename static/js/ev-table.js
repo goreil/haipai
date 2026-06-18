@@ -4,10 +4,10 @@
 
 function renderEvComparison(m, options) {
   options = options || {};
-  // Multi-riichi view: when per_threat has multiple entries, the user can
-  // toggle between "combined" (default, aggregated deal-in %) and a specific
-  // opponent's seat. The toggle swaps dealin_rates + wait_breakdowns locally
-  // for the duration of the render.
+  // Multi-threat view: when per_threat has multiple entries (riichi and/or
+  // open-defense threats), the user can toggle between "combined" (default,
+  // aggregated deal-in %) and a specific opponent's seat. The toggle swaps
+  // dealin_rates + wait_breakdowns locally for the duration of the render.
   const ukeireDora = getDoraTiles(m.board_state);
   const threatCount = Array.isArray(m.per_threat) ? m.per_threat.length : 0;
   const rawView = options.threatView;  // "combined" | integer index | undefined
@@ -143,8 +143,9 @@ function renderEvComparison(m, options) {
   }
   html += `</div>`;
 
-  // Multi-riichi pill toggle — only shown when 2+ opponents are in riichi.
-  // Each pill re-renders this ev-comparison with a different threat view.
+  // Multi-threat pill toggle — only shown with 2+ simultaneous threats (any
+  // mix of riichi and open-defense opponents). Each pill re-renders this
+  // ev-comparison with a different threat view.
   if (threatCount >= 2) {
     // Labels follow the kyoku's actual winds, not absolute seat order.
     // Derive oya from (hero_actor, hero_seat_wind) so "vs West" matches the
@@ -168,9 +169,12 @@ function renderEvComparison(m, options) {
       + ` data-action="switchThreatView" data-container-id="${containerId}" data-view="combined">Combined</button>`;
     m.per_threat.forEach((pt, i) => {
       const active = activeView === i ? " active" : "";
+      const title = pt.kind === "open"
+        ? `Open hand — ${pt.open_melds || 0} call${pt.open_melds === 1 ? "" : "s"}`
+        : `Riichi tile: ${pt.riichi_tile || '?'}`;
       html += `<button type="button" class="threat-pill${active}"`
         + ` data-action="switchThreatView" data-container-id="${containerId}" data-view="${i}"`
-        + ` title="Riichi tile: ${pt.riichi_tile || '?'}">`
+        + ` title="${title}">`
         + `vs ${seatWindFor(pt.seat)}</button>`;
     });
     html += `</div>`;

@@ -91,8 +91,16 @@
     return waits;
   }
 
+  // `dora` is the live dora set (normalised tenhou tiles): an array or Set of
+  // every dora the opponent could be greedy for, incl. kan-dora. A single tile
+  // or null are accepted for back-compat. The doraGreed bump is applied once
+  // per wait when it involves ANY live dora — widening which waits qualify
+  // (kan-dora now count) without changing the per-wait magnitude.
   function calcCombos(waits, genbutsu, discardsToRiichi, unseenTiles, dora, weights) {
     weights = weights || WEIGHTS;
+    const doraSet = dora == null ? null
+      : (dora instanceof Set ? dora
+        : new Set(Array.isArray(dora) ? dora : [dora]));
     const genbutsuNorm = new Set();
     for (const t of genbutsu) genbutsuNorm.add(normRedFive(t));
     const dtrNorm = discardsToRiichi.map(normRedFive);
@@ -161,8 +169,10 @@
       // penchan anchors at 1.0
 
       const involved = new Set([...wait.tiles, ...wait.waitsOn]);
-      if (dora != null && involved.has(dora)) {
-        w *= weights.doraGreed;
+      if (doraSet) {
+        for (const t of involved) {
+          if (doraSet.has(t)) { w *= weights.doraGreed; break; }
+        }
       }
 
       for (const d of discardsToRiichi) {

@@ -71,13 +71,17 @@
   // han-gate sweep cache (scripts/od_han_gate_sweep.mjs); "V8" is shipped.
   const OPEN_TRIGGER_VARIANT = "V8";
 
-  function _meld_dora_count(opp, dora_mjai) {
+  // `dora_set` is the Set of every live dora tile (mjai), one per indicator —
+  // including kan-dora. Aka fives always count. A kan of a dora tile therefore
+  // scores all four copies, so a daiminkan'd dragon that a new kan-dora marker
+  // turns into dora is worth 4, not 0 (report R-151 / #8790, the "dora4" hand).
+  function _meld_dora_count(opp, dora_set) {
     let n = 0;
     for (const meld of opp.melds || []) {
       for (const t of meld.tiles || []) {
         if (typeof t !== "string") continue;
         if (t.endsWith("r")) { n++; continue; }   // aka five
-        if (dora_mjai != null && t === dora_mjai) n++;
+        if (dora_set && dora_set.has(t)) n++;
       }
     }
     return n;
@@ -127,7 +131,7 @@
   // 4=3-dora or double-wind+2, 5=4-dora or double-wind+3.
   function _open_value_han(opp, ctx) {
     return Math.max(1, _yakuhai_han(opp, ctx.bakaze, ctx.seat_wind))
-         + _meld_dora_count(opp, ctx.dora_mjai);
+         + _meld_dora_count(opp, ctx.dora_set);
   }
 
   function _is_open_threat(opp, turn, ctx) {
@@ -143,7 +147,7 @@
             || (turn >= 7 && melds >= 2)
             || (turn >= 11 && melds >= 1);
       case "V3":   // visible dora: opp's melds show 2+ dora (incl. aka)
-        return _meld_dora_count(opp, ctx.dora_mjai) >= 2;
+        return _meld_dora_count(opp, ctx.dora_set) >= 2;
       case "V4":   // yakuhai pon/kan + at least one more call
         return melds >= 2 && _has_yakuhai_meld(opp, ctx.bakaze, ctx.seat_wind);
       case "V5":   // 3-2-1 (last band turn 11) OR yakuhai+2
@@ -156,7 +160,7 @@
             || (turn >= 7 && melds >= 2)
             || (turn >= 11 && melds >= 1)
             || (melds >= 2 && _has_yakuhai_meld(opp, ctx.bakaze, ctx.seat_wind))
-            || _meld_dora_count(opp, ctx.dora_mjai) >= 2;
+            || _meld_dora_count(opp, ctx.dora_set) >= 2;
       case "V7":   // 2+ calls, any turn. Benchmark: melds≥2 lifts OD1-Defend
                    // share to 65% / 74% EV vs melds≥1's 57% / 66%.
         return melds >= 2;
@@ -179,14 +183,21 @@
 
   function _extract_threats(events, start_pos, end_pos, player_id, target_tiles_left) {
     const state = walk_kyoku(events, start_pos, end_pos, player_id, target_tiles_left);
-    let first_dora_indicator = null;
-    if (state.first_dora_indicator != null) {
-      first_dora_indicator = MJAI_TO_TENHOU[state.first_dora_indicator];
-      if (first_dora_indicator === undefined) first_dora_indicator = null;
-    }
-    let dora_mjai = null;
-    if (first_dora_indicator != null) {
-      dora_mjai = TENHOU_TO_MJAI[dora_indicator_to_dora_tenhou(first_dora_indicator)] || null;
+    // Full live dora set — every indicator, incl. kan-dora — in both notations:
+    //   dora_set     (mjai)   → the open-threat gate's meld-dora value model
+    //   dora_tenhou  (tenhou) → the KD wait-value weighting (doraGreed)
+    // so a kan of a kan-dora tile counts at full han (R-151 / #8790) and waits
+    // that complete on any live dora are weighted up, not just the first dora's.
+    const dora_set = new Set();
+    const dora_tenhou = [];
+    for (const ind_mjai of state.dora_indicators || []) {
+      const ind_tenhou = MJAI_TO_TENHOU[ind_mjai];
+      if (ind_tenhou == null) continue;
+      const d_tenhou = dora_indicator_to_dora_tenhou(ind_tenhou);
+      if (d_tenhou == null) continue;
+      dora_tenhou.push(normRedFive(d_tenhou));
+      const d_mjai = TENHOU_TO_MJAI[d_tenhou];
+      if (d_mjai != null) dora_set.add(d_mjai);
     }
     const turn = (state.player_tsumo_riichi_state || []).length;
 
@@ -222,7 +233,7 @@
           seat,
           discards_to_riichi,
           genbutsu,
-          dora_indicator: first_dora_indicator,
+          dora_tiles: dora_tenhou,
           ippatsu_alive: !!opp.ippatsu_alive,
         });
         continue;
@@ -231,7 +242,7 @@
       // Open (non-riichi) threat — only when the active trigger fires.
       const seat_wind = (state.oya != null)
         ? _WINDS[((seat - state.oya) % 4 + 4) % 4] : null;
-      const ctx = { dora_mjai, bakaze: state.bakaze, seat_wind };
+      const ctx = { dora_set, bakaze: state.bakaze, seat_wind };
       if (!_is_open_threat(opp, turn, ctx)) continue;
 
       // Genbutsu: own discards ∪ every tile that hit the table after the
@@ -245,14 +256,14 @@
       }
 
       // Value metadata for the han-gate sweep — carried through to per_threat.
-      const meld_dora = _meld_dora_count(opp, dora_mjai);
+      const meld_dora = _meld_dora_count(opp, dora_set);
       const yakuhai_han = _yakuhai_han(opp, state.bakaze, seat_wind);
       threats.push({
         kind: "open",
         seat,
         discards_to_riichi: [],   // KD riichi knobs all key off this; empty drops them
         genbutsu,
-        dora_indicator: first_dora_indicator,
+        dora_tiles: dora_tenhou,
         ippatsu_alive: false,
         open_melds: opp.open_melds || 0,
         meld_dora,
@@ -313,11 +324,9 @@
 
     const threat_data = [];
     for (const threat of threats) {
-      const dora = (threat.dora_indicator != null)
-        ? dora_indicator_to_dora_tenhou(threat.dora_indicator)
-        : null;
       const combos = calcCombos(
-        generateWaits(), threat.genbutsu, threat.discards_to_riichi, unseen, dora
+        generateWaits(), threat.genbutsu, threat.discards_to_riichi, unseen,
+        threat.dora_tiles
       );
       threat_data.push({ threat, combos });
     }

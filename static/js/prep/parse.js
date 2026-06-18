@@ -58,6 +58,13 @@
     const genbutsu_post_reach_by_seat = {};
     let tiles_left = 70;
     let first_dora_indicator = null;
+    // Every live dora indicator at the decision point: the start-kyoku marker
+    // plus each kan-dora revealed by a `dora` event before the cutoff. The
+    // open-threat gate counts melded dora against ALL of these — a kan of a
+    // kan-dora tile (e.g. a daiminkan'd dragon that the new indicator turns
+    // into dora) is worth its full han, not zero. Mirrors prep-board-state.js,
+    // which already feeds the board's full dora set.
+    const dora_indicators = [];
     let bakaze = null;
     let oya = null;
     // Every tile that hit the table (dahai or kakan), in order. Together with
@@ -70,7 +77,10 @@
       if (sk && sk.type === "start_kyoku") {
         let dm = sk.dora_marker;
         if (Array.isArray(dm) && dm.length) dm = dm[0];
-        if (typeof dm === "string") first_dora_indicator = dm;
+        if (typeof dm === "string") {
+          first_dora_indicator = dm;
+          dora_indicators.push(dm);
+        }
         if (typeof sk.bakaze === "string") bakaze = sk.bakaze;
         if (typeof sk.oya === "number") oya = sk.oya;
       }
@@ -146,6 +156,12 @@
           const opp = opponents[seat];
           if (opp) opp.ippatsu_alive = false;
         }
+      } else if (etype === "dora") {
+        // Kan-dora reveal: a new indicator goes live for everyone. Accumulate
+        // so the open-threat gate values melded dora against the full set.
+        let dm = e.dora_marker;
+        if (Array.isArray(dm) && dm.length) dm = dm[dm.length - 1];
+        if (typeof dm === "string") dora_indicators.push(dm);
       } else if (etype === "reach" && actor !== undefined && actor !== null && actor !== player_id) {
         const opp = ensureOpp(actor);
         opp.reach_event_idx = opp.discards.length;
@@ -188,6 +204,7 @@
       open_threat_state,
       genbutsu_post_reach_by_seat,
       first_dora_indicator,
+      dora_indicators,
       bakaze,
       oya,
       tile_flow,
