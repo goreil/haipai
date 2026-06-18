@@ -76,13 +76,15 @@ function renderMeld(meld, tileClass = "action-tile-sm", actorSeat, doraTiles, oy
   return `<span class="meld-group">${all.map(t => meldTile(t)).join("")}</span>`;
 }
 
-// Count the dora across a seat's melds for the "N dora" badge. Uses the same
-// per-tile rule as renderMeld's dora-highlight (red fives + active dora), over
-// every tile in each group: a kan counts all four (the tile is known even for
-// an ankan, where renderMeld only draws two face-up). Binary per tile — a tile
-// that is both a red five and the active dora counts once, not twice.
-function meldDoraCount(melds, doraTiles) {
-  if (!melds || !doraTiles) return 0;
+// The individual dora-bearing tiles across a seat's melds, in meld order — the
+// itemised twin of meldDoraCount, used both for the "N dora" badge (via .length)
+// and the open-threat popover (which shows each dora tile). Same per-tile rule
+// as renderMeld's dora-highlight (red fives + active dora) over every tile in a
+// group: a kan counts all four (the tile is known even for an ankan, where
+// renderMeld only draws two face-up). A tile that is both a red five and the
+// active dora is listed once, not twice.
+function meldDoraTiles(melds, doraTiles) {
+  if (!melds || !doraTiles) return [];
   const isDora = t => t === "5mr" || t === "5pr" || t === "5sr" || doraTiles.has(tileBase(t));
   // A kakan upgrades an earlier pon of the same tile to a kan; mjai (and so
   // the stored melds) keeps both events, so skip the superseded pon to avoid
@@ -91,7 +93,7 @@ function meldDoraCount(melds, doraTiles) {
   for (const meld of melds) {
     if (meld.type === "kakan") kakanBases.add(tileBase((meld.consumed || [])[0] || meld.pai));
   }
-  let count = 0;
+  const out = [];
   for (const meld of melds) {
     const consumed = meld.consumed || [];
     let tiles;
@@ -111,9 +113,47 @@ function meldDoraCount(melds, doraTiles) {
       // chi / pon / daiminkan: called tile + tiles from hand.
       tiles = meld.pai ? consumed.concat([meld.pai]) : consumed.slice();
     }
-    for (const t of tiles) if (isDora(t)) count++;
+    for (const t of tiles) if (isDora(t)) out.push(t);
   }
-  return count;
+  return out;
+}
+
+function meldDoraCount(melds, doraTiles) {
+  return meldDoraTiles(melds, doraTiles).length;
+}
+
+// Guaranteed yakuhai locked into a seat's *visible* triplets, as a breakdown for
+// the open-threat popover: one entry { tile, name, han } per honor triplet — a
+// dragon (1 han), a round/seat wind (1 han), or the double wind that's both
+// (2 han). `seatWind` / `roundWind` are mjai letters (E/S/W/N); pass null
+// seatWind when the dealer is unknown. Dedupes by honor tile so a kakan-upgraded
+// pon isn't counted twice. The open-threat band sums these han to flag a hand
+// locked into value even with no exposed dora — two yakuhai guarantee han the
+// same way a dora does, since the hand still needs its own yaku to win.
+function meldYakuhai(melds, seatWind, roundWind) {
+  if (!melds) return [];
+  const TRIPLET_TYPES = new Set(["pon", "daiminkan", "kakan", "ankan"]);
+  const DRAGON_NAME = { P: "Haku", F: "Hatsu", C: "Chun" };
+  const seen = new Set();
+  const out = [];
+  for (const meld of melds) {
+    if (!TRIPLET_TYPES.has(meld.type)) continue;
+    const base = tileBase((meld.consumed || [])[0] || meld.pai || "");
+    if (seen.has(base)) continue;
+    if (DRAGON_NAME[base]) {
+      out.push({ tile: base, name: DRAGON_NAME[base], han: 1 });
+    } else if (base === seatWind && base === roundWind) {
+      out.push({ tile: base, name: "Double wind", han: 2 });
+    } else if (base === roundWind) {
+      out.push({ tile: base, name: "Round wind", han: 1 });
+    } else if (base === seatWind) {
+      out.push({ tile: base, name: "Seat wind", han: 1 });
+    } else {
+      continue;
+    }
+    seen.add(base);
+  }
+  return out;
 }
 
 // --- Action formatting ---

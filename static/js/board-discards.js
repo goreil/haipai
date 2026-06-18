@@ -14,12 +14,56 @@ var OPEN_MELD_TYPES = new Set(["chi", "pon", "daiminkan"]);
 
 // Confidence band for a non-riichi open threat, mirroring the shipped trigger
 // (2+ open calls, any turn — static/js/prep/defense.js::_is_open_threat V7).
-// Returns "strong" | "moderate" | null. Visible meld dora drives the band:
-// any exposed dora ("strong") reads as a fat, push-back hand; without it the
-// open hand is still a threat but cheaper ("moderate"). Below 2 calls → null.
-function openThreatBand(openMeldCount, meldDora) {
+// Returns "strong" | "moderate" | null. The guaranteed-han floor drives the
+// band: a hand is "strong" once it's locked into 2+ han (see threatGuaranteedHan
+// — exposed dora plus the yaku every win needs, and/or melded yakuhai). Below
+// that floor the open hand is still a threat but cheaper ("moderate"). Below
+// 2 calls → null.
+function openThreatBand(openMeldCount, guaranteedHan) {
   if (openMeldCount < 2) return null;
-  return meldDora >= 1 ? "strong" : "moderate";
+  return guaranteedHan >= 2 ? "strong" : "moderate";
+}
+
+// The han an open hand is *locked into*, given its melded yakuhai and exposed
+// dora. Yakuhai are the hand's yaku, so their han stands alone; dora only counts
+// toward a win alongside a yaku, so a dora-only hand adds 1 for the yaku it still
+// has to find. (A hand with both takes the yakuhai as that yaku — no extra +1.)
+function threatGuaranteedHan(yakuhaiHan, doraCount) {
+  if (yakuhaiHan > 0) return yakuhaiHan + doraCount;
+  return doraCount > 0 ? doraCount + 1 : 0;
+}
+
+// Popover breaking down an open threat's guaranteed han — a sibling of the yaku
+// strip's hover detail (board-yaku-panel.js). One row per melded yakuhai (tile +
+// name + "+han"), one row for exposed dora (the tiles + "+N"), and, for a
+// dora-only hand, the "+1" yaku it still needs. Header carries the ≥N-han total.
+function renderThreatDetail(openMeldCount, turn, yakuhaiList, doraTilesList, guaranteedHan) {
+  let rows = "";
+  for (const y of yakuhaiList) {
+    rows += `<div class="td-row">`
+      + `<span class="td-tile">${renderTile(y.tile, "")}</span>`
+      + `<span class="td-name">${y.name}</span>`
+      + `<span class="td-han">+${y.han}</span></div>`;
+  }
+  if (doraTilesList.length) {
+    const chips = doraTilesList.map(t => renderTile(t, "")).join("");
+    rows += `<div class="td-row">`
+      + `<span class="td-tile">${chips}</span>`
+      + `<span class="td-name">Dora</span>`
+      + `<span class="td-han">+${doraTilesList.length}</span></div>`;
+  }
+  if (!yakuhaiList.length && doraTilesList.length) {
+    rows += `<div class="td-row td-needed">`
+      + `<span class="td-tile"></span>`
+      + `<span class="td-name">Yaku to win</span>`
+      + `<span class="td-han">+1</span></div>`;
+  }
+  return `<span class="threat-detail">`
+    + `<div class="td-head"><span class="td-title">⚠ Open threat</span>`
+    + `<span class="td-total">≥${guaranteedHan} han</span></div>`
+    + `<div class="td-rows">${rows}</div>`
+    + `<div class="td-foot">${openMeldCount} open calls by turn ${turn || 0}</div>`
+    + `</span>`;
 }
 
 // The player's own seat for a mistake. Most carry it on the action the player
@@ -291,16 +335,24 @@ function renderBoardContext(m) {
         // Open-threat signal for an opponent (not you): the same trigger the
         // categorizer's Open Defense axis uses (2+ open calls, any turn). A
         // riichi opp takes precedence (its own red row), so the amber
-        // open-threat chip only fires on non-riichi seats. Visible meld dora
-        // upgrades the chip to the solid "strong" fill. A separate "3 dora
-        // exposed" chip flags a big hand even when the call count alone hasn't
-        // tripped the band (e.g. a single dora-laden pon).
+        // open-threat chip only fires on non-riichi seats. A guaranteed ≥2-han
+        // floor (one exposed dora, or two yakuhai) upgrades the chip to the
+        // solid "strong" fill. A separate "3 dora exposed" chip flags a big
+        // hand even when the call count alone hasn't tripped the band (e.g. a
+        // single dora-laden pon).
         const isRiichiOpp = !isYou && d.riichi_idx != null;
         const openMeldCount = (seatMelds && !isYou)
           ? seatMelds.filter(mm => OPEN_MELD_TYPES.has(mm.type)).length : 0;
-        const meldDora = (!isYou && !isRiichiOpp) ? meldDoraCount(seatMelds, doraTiles) : 0;
-        const threatBand = (!isYou && !isRiichiOpp)
-          ? openThreatBand(openMeldCount, meldDora) : null;
+        const isOppThreat = !isYou && !isRiichiOpp;
+        const doraTilesList = isOppThreat ? meldDoraTiles(seatMelds, doraTiles) : [];
+        const meldDora = doraTilesList.length;
+        const seatWindLetter = (oya != null) ? WINDS[(d.seat - oya + 4) % 4] : null;
+        const yakuhaiList = isOppThreat
+          ? meldYakuhai(seatMelds, seatWindLetter, b.round_wind) : [];
+        const yakuhaiHan = yakuhaiList.reduce((sum, y) => sum + y.han, 0);
+        const guaranteedHan = threatGuaranteedHan(yakuhaiHan, meldDora);
+        const threatBand = isOppThreat
+          ? openThreatBand(openMeldCount, guaranteedHan) : null;
         const isMeldDanger = threatBand != null;
         const isDoraDanger = meldDora >= 3;
         const isDanger = isMeldDanger || isDoraDanger;
@@ -313,10 +365,21 @@ function renderBoardContext(m) {
         if (isYou) html += `<span class="you-tag">(you)</span>`;
         if (isRiichiOpp) html += `<span class="riichi-tag">RIICHI</span>`;
         if (isMeldDanger) {
+          // Strip stays terse — "N calls" plus the guaranteed-han total once the
+          // strong floor (≥2 han) is reached. The breakdown (each yakuhai, the
+          // dora tiles, the yaku a dora-only hand still needs) lifts on hover via
+          // the threat-detail popover, the open-threat sibling of the yaku pills.
           const detail = [`${openMeldCount} calls`];
-          if (meldDora > 0) detail.push(`${meldDora} dora`);
-          const title = `Open threat — ${openMeldCount} open calls by turn ${m.turn || 0}`;
-          html += `<span class="danger-tag ${threatBand}" title="${title}">⚠ Open threat</span>`;
+          if (threatBand === "strong") detail.push(`≥${guaranteedHan} han`);
+          const hasBreakdown = yakuhaiList.length || doraTilesList.length;
+          if (hasBreakdown) {
+            html += `<span class="danger-tag ${threatBand} has-detail">⚠ Open threat`
+              + renderThreatDetail(openMeldCount, m.turn, yakuhaiList, doraTilesList, guaranteedHan)
+              + `</span>`;
+          } else {
+            const title = `Open threat — ${openMeldCount} open calls by turn ${m.turn || 0}`;
+            html += `<span class="danger-tag ${threatBand}" title="${title}">⚠ Open threat</span>`;
+          }
           html += `<span class="danger-detail">${detail.join(" · ")}</span>`;
         } else if (isDoraDanger) {
           html += `<span class="danger-tag" title="${meldDora} dora exposed in melds">⚠ ${meldDora} dora</span>`;

@@ -229,13 +229,14 @@
   border-radius: 8px;
   background: rgba(245, 179, 66, 0.12);
 }
-/* Strong band (visible meld dora): solid amber fill — a fat, push-back hand. */
+/* Strong band (guaranteed ≥2 han — dora or two yakuhai): solid amber fill, a
+   fat push-back hand. */
 .danger-tag.strong {
   color: #1a1a2e;
   background: var(--c-open-defense);
   border-color: transparent;
 }
-/* Trailing detail after the chip: "2 calls · 3 dora". */
+/* Trailing detail after the chip: "2 calls · ≥3 han" (han = the guaranteed floor). */
 .danger-detail {
   font-size: 9px;
   font-weight: 600;
@@ -244,6 +245,97 @@
   letter-spacing: 0;
 }
 .discard-row.danger-row.speculative .danger-detail {
+  color: var(--text-dim);
+}
+
+/* Open-threat han breakdown popover — the discard row's sibling of the yaku
+   strip's hover detail (.yp-detail in style-game-detail.css). Lifts above the
+   row on hover over a danger-tag that carries a breakdown. */
+.danger-tag.has-detail {
+  position: relative;
+  cursor: help;
+}
+.threat-detail {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  width: 200px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 50;
+  text-align: left;
+  white-space: normal;
+  font-weight: 400;
+  color: var(--text);
+}
+.danger-tag.has-detail:hover .threat-detail {
+  opacity: 1;
+  pointer-events: auto;
+}
+.threat-detail .td-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+.threat-detail .td-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-open-defense);
+}
+.threat-detail .td-total {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.threat-detail .td-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.threat-detail .td-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+.threat-detail .td-tile {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+.threat-detail .td-tile img.tile {
+  height: 17px;
+  width: auto;
+  border: 0;
+}
+.threat-detail .td-name {
+  color: var(--text);
+}
+.threat-detail .td-row.td-needed .td-name {
+  color: var(--text-dim);
+  font-style: italic;
+}
+.threat-detail .td-han {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.threat-detail .td-foot {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
   color: var(--text-dim);
 }
 
