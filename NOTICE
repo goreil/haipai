@@ -30,6 +30,16 @@ submodule directory) as required.
 - killer_mortal_gui/ (git submodule)
     Full source of killer_mortal_gui, MIT. See killer_mortal_gui/LICENSE.
 
+- riichi-tools-rs/ (git submodule) + wasm/haipai-shanten/
+    The WASM shanten/ukeire kernel (static/wasm/haipai_shanten_bg.wasm) is
+    compiled from riichi-tools-rs,
+    Copyright (c) 2020 Matej Labaš (https://github.com/harphield/riichi-tools-rs),
+    licensed under the MIT License. The kernel source is unmodified; Haipai's
+    wasm-bindgen wrapper lives in wasm/haipai-shanten/. The MIT notice is
+    preserved alongside the shipped binary at
+    static/wasm/LICENSE-riichi-tools-rs.txt. Submodule fork tracked at
+    https://github.com/goreil/riichi-tools-rs.
+
 ================================================================
 Mahjong AI
 ================================================================
