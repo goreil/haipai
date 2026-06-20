@@ -2,6 +2,13 @@
 // rendering. Read by mistake-card.js as the core "discard pick analysis"
 // widget.
 
+// Speed ("fastest to tenpai") pick: standalone calc row + "Speed" marker are
+// hidden for now so the table collapses to just You / AI — two rows, ready for
+// the two-column AI-vs-You flip (docs/backlogs/UI-COMPARISON-REDESIGN.md). The
+// best_discard logic below still computes (speedStat/tiesSpeed) so flipping
+// this flag back on fully restores the marker and the third row.
+const SHOW_SPEED_ROW = false;
+
 function renderEvComparison(m, options) {
   options = options || {};
   // Multi-threat view: when per_threat has multiple entries (riichi and/or
@@ -81,7 +88,7 @@ function renderEvComparison(m, options) {
     && s.necessary_count === speedStat.necessary_count;
   const speedAbsorbedByActual = tiesSpeed(actualStat);
   const speedAbsorbedByExpected = tiesSpeed(expectedStat);
-  if (m.best_discard && !speedAbsorbedByActual && !speedAbsorbedByExpected) {
+  if (SHOW_SPEED_ROW && m.best_discard && !speedAbsorbedByActual && !speedAbsorbedByExpected) {
     shown.add(m.best_discard);
   }
 
@@ -214,9 +221,9 @@ function renderEvComparison(m, options) {
     const markers = [];
     if (isActual) markers.push('<span class="marker played">You</span>');
     if (isExpected) markers.push('<span class="marker ai">AI</span>');
-    const showSpeedMarker = isBestDiscard
+    const showSpeedMarker = SHOW_SPEED_ROW && (isBestDiscard
       || (isActual && speedAbsorbedByActual)
-      || (isExpected && speedAbsorbedByExpected);
+      || (isExpected && speedAbsorbedByExpected));
     if (showSpeedMarker) markers.push('<span class="marker speed" title="The tile that reaches tenpai fastest (most tile acceptance, ignoring hand value and defense)">Speed</span>');
 
     // Tile-acceptance column. Diff mode shows the bare "+N" this pick gains

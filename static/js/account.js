@@ -122,7 +122,7 @@ function showHelp() {
   html += `
     <div class="help-section">
       <h3>How Auto-Categorization Works</h3>
-      <p>Every discard mistake is categorized against <span style="color:#81c784"><b>Mortal AI</b></span> &mdash; a neural-network mahjong AI that considers the full game state: tile efficiency, defense, hand value, riichi timing, opponent behavior, and more. Mortal's pick is the reference for every category below; the in-app speed calculator (<b>Speed</b> marker in the EV table) is shown for context only and never drives a category.</p>
+      <p>Every discard mistake is categorized against <span style="color:#81c784"><b>Mortal AI</b></span> &mdash; a neural-network mahjong AI that considers the full game state: tile efficiency, defense, hand value, riichi timing, opponent behavior, and more. Mortal's pick is the reference for every category below.</p>
       <p style="margin-top:8px"><b>Step 1: Defense check</b></p>
       <p>If an opponent declared riichi, the mistake is categorized as <span style="color:#ff6b6b">Defense</span>, comparing your tile's deal-in rate to Mortal's:</p>
       <p style="padding-left:16px">&bull; <b>D1 Defend</b> &mdash; Mortal's discard has a lower deal-in rate than yours</p>
@@ -168,7 +168,6 @@ function showHelp() {
     <div class="help-section">
       <h3>EV Comparison Table</h3>
       <p><span style="color:#81c784">Mortal Q</span> &mdash; Mortal AI's evaluation. Higher = better strategic play considering defense, hand value, game state. The <b>AI</b> marker shows Mortal's top pick — this is the reference every category is graded against.</p>
-      <p>The <b>Speed</b> marker shows the tile with the highest tile acceptance (ukeire), ignoring hand value and defense. It's a cosmetic hint — it never drives a category or appears in the trainer text. When Speed and Mortal disagree, trust Mortal.</p>
       <p><span style="color:var(--sev-major)">You</span> &mdash; The tile you actually played.</p>
     </div>
 
