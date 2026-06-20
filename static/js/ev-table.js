@@ -325,13 +325,30 @@ function renderEvComparison(m, options) {
     // always evaluates every feature so the full picture is visible.
     const ukeireCount = ca && ca.necessary_count != null ? ca.necessary_count : null;
     const discardIsDora = isDoraTile(tile);
-    const doraWaitEntries = (ca && ca.necessary_tiles)
-      ? ca.necessary_tiles.filter(nt => ukeireDora.has(tileBase(nt.tile)))
-      : [];
-    const doraWaitCount = doraWaitEntries.reduce((s, nt) => s + (nt.count || 0), 0);
+    // A necessary tile yields a dora if its base sits in the indicator-dora set
+    // (every copy counts) OR it's a five with a live red copy still drawable
+    // (aka_count — only the red copies count). Without the aka_count branch a
+    // wait that accepts e.g. a red 5m/5s but no indicator-dora was dropped.
+    const indicatorDora = (nt) => ukeireDora.has(tileBase(nt.tile));
+    // Source from this pick's *gains* (tiles the other picks don't accept) when
+    // the diff is active — a dora both picks accept is shared, not a reason to
+    // prefer this pick, so it shouldn't surface as "+dora accept". Falls back to
+    // the full wait when there's no diff (single-pick view).
+    const doraSource = (diffEnabled && diffByTile[tile])
+      ? diffByTile[tile].gains
+      : (ca && ca.necessary_tiles) || [];
+    const doraWaitEntries = doraSource
+      .filter(nt => indicatorDora(nt) || (nt.aka_count || 0) > 0);
+    const doraWaitCount = doraWaitEntries.reduce((s, nt) =>
+      s + (indicatorDora(nt) ? (nt.count || 0) : (nt.aka_count || 0)), 0);
+    // For the pill display, a non-indicator-dora five contributes only its red
+    // copies — clamp count to aka_count so renderUkeireTiles drops the plain
+    // (non-dora) chip and shows just the red one. Indicator dora keeps every copy.
+    const doraWaitDisplay = doraWaitEntries.map(nt =>
+      indicatorDora(nt) ? nt : { ...nt, count: nt.aka_count || 0 });
 
     return { tile, colClass, markers, acc, mortal, shanten, shantenVal, dealin, typeCell, waits,
-             ukeireCount, discardIsDora, doraWaitEntries, doraWaitCount, dealinRate };
+             ukeireCount, discardIsDora, doraWaitEntries, doraWaitDisplay, doraWaitCount, dealinRate };
   });
 
   // Feature-summary pills. For each column, compare its feature values against
@@ -390,7 +407,7 @@ function renderEvComparison(m, options) {
       if (col.doraWaitCount > best) {
         pills.push(featPill("pos", "+dora accept",
           "Its wait accepts more live dora than the other pick",
-          renderUkeireTiles(col.doraWaitEntries, ukeireDora)));
+          renderUkeireTiles(col.doraWaitDisplay, ukeireDora)));
       }
     }
 
