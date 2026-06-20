@@ -372,7 +372,7 @@ function renderEvComparison(m, options) {
       if (os.length) {
         const best = Math.min(...os);
         if (col.shantenVal > best) {
-          pills.push(featPill("neg", `−${col.shantenVal - best} shanten`,
+          pills.push(featPill("neg", `+${col.shantenVal - best} shanten`,
             "Sits at a worse (higher) shanten than the other pick"));
         }
       }
@@ -432,10 +432,11 @@ function renderEvComparison(m, options) {
   const sharedNote = diffEnabled
     ? `<span class="ukeire-shared-count diff-only"> (${diff.commonTotal} shared)</span>`
     : "";
-  // The Shanten row only earns its place when the picks actually differ on
-  // shanten — when every pick is the same shanten the row says nothing.
+  // Shanten now rides as a pill to the left of each discard glyph in the
+  // header (always shown). It reads neutral when every pick sits at the same
+  // shanten and red on any pick that sits worse (higher) than the best pick.
   const shantenVals = cols.map(c => c.shantenVal).filter(v => v != null);
-  const shantenAllSame = new Set(shantenVals).size <= 1;
+  const shantenMin = shantenVals.length ? Math.min(...shantenVals) : null;
 
   // Each attribute is a row; cells read across the column descriptors. The
   // first cell is the axis label. Rows that carry no data for the current
@@ -452,7 +453,15 @@ function renderEvComparison(m, options) {
   // Header row: tile glyph + You/AI marker per column.
   html += `<thead><tr><th class="ev-axis"></th>`;
   for (const c of cols) {
-    html += `<th class="${c.colClass} ev-col-head"><span class="tile-cell">${renderTile(c.tile, "ev-tile")} ${c.markers.join("")}</span></th>`;
+    const raised = c.shantenVal != null && shantenMin != null && c.shantenVal > shantenMin;
+    const tenpai = c.shantenVal === 0;
+    const pillCls = tenpai ? " shanten-pill-tenpai" : (raised ? " shanten-pill-raised" : "");
+    const pillText = tenpai ? "tenpai" : `${c.shantenVal}-shanten`;
+    const pillTitle = tenpai ? "Tenpai" : `${c.shantenVal}-shanten${raised ? " — worse (higher) than the best pick" : ""}`;
+    const pill = c.shantenVal != null
+      ? `<span class="shanten-pill${pillCls}" title="${pillTitle}">${pillText}</span>`
+      : "";
+    html += `<th class="${c.colClass} ev-col-head"><span class="tile-cell">${pill}${renderTile(c.tile, "ev-tile")} ${c.markers.join("")}</span></th>`;
   }
   html += `</tr></thead><tbody>`;
 
@@ -465,9 +474,6 @@ function renderEvComparison(m, options) {
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row
   // already shows the EV loss, so a per-pick EV row just repeats it. (The
   // per-column `c.mortal` is still computed in case it's needed elsewhere.)
-  if (!shantenAllSame) {
-    html += rowFor("Shanten", "", "shanten-col", c => c.shanten);
-  }
   if (useKd) {
     // Single Deal-in row: the rate on top, the wait breakdown stacked beneath
     // it per column. The "Type" row is hidden for now (c.typeCell still

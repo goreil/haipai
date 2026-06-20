@@ -807,6 +807,36 @@
 
 .ev-tile { height: 26px; }
 
+/* Shanten pill sits to the left of each discard glyph in the column header.
+   Neutral when every pick shares a shanten; red on any pick that sits at a
+   worse (higher) shanten than the best pick. */
+.ev-table .shanten-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  padding: 1px 5px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  text-transform: lowercase;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.08);
+}
+/* Match the summary's "−N shanten" (feat-pill-neg) treatment: tinted red text
+   on a translucent red fill with a red border, rather than a solid block. */
+.ev-table .shanten-pill-raised {
+  color: var(--sev-major);
+  background: rgba(239, 83, 80, 0.14);
+  border: 1px solid rgba(239, 83, 80, 0.3);
+}
+.ev-table .shanten-pill-tenpai {
+  color: #1a1400;
+  background: #ffca28;
+}
+
 .ev-table .mortal-col { color: #81c784; }
 .ev-table .shanten-col { color: #64b5f6; }
 .ev-table .dealin-col { color: var(--text-dim); font-variant-numeric: tabular-nums; }
