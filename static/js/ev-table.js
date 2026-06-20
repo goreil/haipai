@@ -318,7 +318,8 @@ function renderEvComparison(m, options) {
       }
     }
 
-    return { tile, colClass, markers, acc, mortal, shanten, dealin, typeCell, waits };
+    const shantenVal = ca && ca.shanten != null ? ca.shanten : null;
+    return { tile, colClass, markers, acc, mortal, shanten, shantenVal, dealin, typeCell, waits };
   });
 
   // "(N shared)" rides along on the acceptance row's label — only meaningful,
@@ -326,7 +327,10 @@ function renderEvComparison(m, options) {
   const sharedNote = diffEnabled
     ? `<span class="ukeire-shared-count diff-only"> (${diff.commonTotal} shared)</span>`
     : "";
-  const hasWaits = cols.some(c => c.waits);
+  // The Shanten row only earns its place when the picks actually differ on
+  // shanten — when every pick is the same shanten the row says nothing.
+  const shantenVals = cols.map(c => c.shantenVal).filter(v => v != null);
+  const shantenAllSame = new Set(shantenVals).size <= 1;
 
   // Each attribute is a row; cells read across the column descriptors. The
   // first cell is the axis label. Rows that carry no data for the current
@@ -363,29 +367,28 @@ function renderEvComparison(m, options) {
       c => `<div class="ukeire-acc-cell">${c.acc}</div>`,
     );
   }
-  html += rowFor(
-    "Mortal EV Δ",
-    ` title="EV loss vs Mortal's best pick. 0.00 = Mortal's top choice. Negative values = how much EV this pick costs relative to the best. Gap: &gt;1 severe, 0.5–1 mistake, 0.2–0.5 light, &lt;0.2 AI not confident."`,
-    "mortal-col",
-    c => c.mortal,
-  );
-  html += rowFor("Shanten", "", "shanten-col", c => c.shanten);
+  // Mortal EV Δ is intentionally omitted here — the mistake card's top row
+  // already shows the EV loss, so a per-pick EV row just repeats it. (The
+  // per-column `c.mortal` is still computed in case it's needed elsewhere.)
+  if (!shantenAllSame) {
+    html += rowFor("Shanten", "", "shanten-col", c => c.shanten);
+  }
   if (useKd) {
+    // Single Deal-in row: the rate on top, the wait breakdown stacked beneath
+    // it per column. The "Type" row is hidden for now (c.typeCell still
+    // computed in case it's wanted back).
     html += rowFor(
       "Deal-in",
-      ` title="Probability this tile deals in — aggregated across all riichi threats"`,
+      ` title="Probability this tile deals in — aggregated across all riichi threats — with the contributing wait shapes beneath."`,
       "dealin-col",
-      c => c.dealin,
+      c => {
+        let s = `<div class="dealin-stack">`;
+        s += `<div class="dealin-rate-line">${c.dealin}</div>`;
+        if (c.waits) s += `<div class="dealin-waits-line">${c.waits}</div>`;
+        s += `</div>`;
+        return s;
+      },
     );
-    html += rowFor(
-      "Type",
-      ` title="Finer safety category (last honor, no-suji 4-6, etc.). Shows &quot;Safe&quot; when the deal-in rate is 0% — the tile can't possibly be the winning wait."`,
-      "dealin-col",
-      c => c.typeCell,
-    );
-    if (hasWaits) {
-      html += rowFor("Deal-in waits", "", "waits-row", c => c.waits);
-    }
   }
 
   html += `</tbody></table></div>`;

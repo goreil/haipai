@@ -1073,9 +1073,15 @@
   font-style: italic;
   font-size: 11px;
 }
-/* Wait breakdown now sits inside a normal data cell, not a full-width row. */
-.ev-table-cols .waits-row td { padding: 4px 8px 6px 8px; }
-.ev-table-cols .waits-row .waits-row-list { justify-content: center; }
+/* Deal-in cell stacks the rate over its contributing wait shapes (the old
+   separate "Deal-in waits" row is folded in here). */
+.ev-table-cols .dealin-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.ev-table-cols .dealin-stack .waits-row-list { justify-content: center; }
 
 .marker {
   font-size: 9px;
