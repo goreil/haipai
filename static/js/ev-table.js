@@ -135,20 +135,33 @@ function renderEvComparison(m, options) {
   const diffByTile = {};
   if (diff) diff.perRow.forEach((r, i) => { diffByTile[diffSource[i].tile] = r; });
 
+  // Retire the tile-acceptance row when You and AI sit at different shanten.
+  // Ukeire counts are only meaningful between picks at the same shanten — a
+  // tenpai pick "accepting" fewer tiles than a 1-shanten pick isn't worse,
+  // it's a different question. (Same reasoning as mortalRaisedShanten in
+  // mistake-card.js, applied symmetrically to either pick.)
+  const shantenDiverges = !!(actualStat && expectedStat
+    && actualStat.shanten != null && expectedStat.shanten != null
+    && actualStat.shanten !== expectedStat.shanten);
+
   // Always give a container ID so switchThreatView can re-render in place.
   const containerId = options.containerId || _registerEvContainer(m, options);
   const modeClass = diffEnabled ? " ukeire-mode-diff" : "";
   let html = `<div class="ev-comparison${ukeireHiddenClass}${modeClass}" id="${containerId}" data-threat-view="${activeView}">`;
-  html += `<div class="ukeire-toolbar">`;
-  html += `<button type="button" class="ukeire-toggle" data-action="toggleUkeire">`;
-  html += ukeireDefaultShown ? "Hide tile acceptance" : "Show tile acceptance";
-  html += `</button>`;
-  if (diffEnabled) {
-    html += `<span class="ukeire-mode-switch" data-action="toggleUkeireMode" role="switch" aria-checked="false" tabindex="0">`;
-    html += `<span class="sw"></span><span class="sw-label">Show all ukeire</span>`;
-    html += `</span>`;
+  // When shanten diverges there is no acceptance row to control, so the
+  // ukeire toolbar (toggle + "Show all ukeire" switch) is suppressed entirely.
+  if (!shantenDiverges) {
+    html += `<div class="ukeire-toolbar">`;
+    html += `<button type="button" class="ukeire-toggle" data-action="toggleUkeire">`;
+    html += ukeireDefaultShown ? "Hide tile acceptance" : "Show tile acceptance";
+    html += `</button>`;
+    if (diffEnabled) {
+      html += `<span class="ukeire-mode-switch" data-action="toggleUkeireMode" role="switch" aria-checked="false" tabindex="0">`;
+      html += `<span class="sw"></span><span class="sw-label">Show all ukeire</span>`;
+      html += `</span>`;
+    }
+    html += `</div>`;
   }
-  html += `</div>`;
 
   // Multi-threat pill toggle — only shown with 2+ simultaneous threats (any
   // mix of riichi and open-defense opponents). Each pill re-renders this
@@ -187,36 +200,31 @@ function renderEvComparison(m, options) {
     html += `</div>`;
   }
 
-  // The "Tile acceptance" column shows each pick's bare "+N" gain over the
-  // other discards (diff mode) or its full acceptance list ("Show all ukeire"
-  // mode). The shared-by-every-discard count rides along in the header as
-  // "(N shared)" — only meaningful, and only shown, in diff mode.
-  const sharedNote = diffEnabled
-    ? `<span class="ukeire-shared-count diff-only"> (${diff.commonTotal} shared)</span>`
-    : "";
-  html += `<table class="ev-table">`;
-  html += `<thead><tr>
-    <th>Tile</th>
-    <th class="ukeire-col ukeire-acc-h" title="Tiles that would improve your hand. Diff view shows only what this discard gains over the others; flip &quot;Show all ukeire&quot; for the full list.">Tile acceptance${sharedNote}</th>
-    <th class="mortal-col" title="EV loss vs Mortal's best pick. 0.00 = Mortal's top choice. Negative values = how much EV this row costs relative to the best. Gap: &gt;1 severe, 0.5–1 mistake, 0.2–0.5 light, &lt;0.2 AI not confident.">Mortal EV Δ</th>
-    <th class="shanten-col">Shanten</th>
-    ${useKd ? '<th class="dealin-col" title="Probability this tile deals in — aggregated across all riichi threats">Deal-in</th><th class="dealin-col" title="Finer safety category (last honor, no-suji 4-6, etc.). Shows &quot;Safe&quot; when the deal-in rate is 0% — the tile can\'t possibly be the winning wait.">Type</th>' : ''}
-  </tr></thead><tbody>`;
+  // Transposed layout: each shown pick (You / AI) becomes a COLUMN; the
+  // attributes (acceptance, EV, shanten, deal-in, type, waits) become rows.
+  // Order columns You-then-AI so the left→right read matches the
+  // "played → AI" arrow in the card header. Any extra picks (e.g. Speed,
+  // when SHOW_SPEED_ROW is on) trail after in their q-sorted order.
+  const colTiles = [...tiles].sort((a, b) => {
+    const rank = (t) => t === actualTile ? 0 : t === expectedTile ? 1 : 2;
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    return tiles.indexOf(a) - tiles.indexOf(b);
+  });
 
-  // Column count drives the colspan for the wait-breakdown rows.
-  // 4 base columns: Tile, Tile acceptance, Mortal EV, Shanten.
-  const colspan = 4 + (useKd ? 2 : 0);
-
-  for (const tile of tiles) {
+  // Build one descriptor per column up front, then emit the attribute rows
+  // by reading across the descriptors. Keeps the per-tile cell logic in one
+  // place and the row emission a simple map.
+  const cols = colTiles.map(tile => {
     const ma = mortalMap[tile];
     const ca = statMap[tile] || statMap[tileBase(tile)];
     const isActual = actualTile === tile;
     const isExpected = expectedTile === tile;
     const isBestDiscard = m.best_discard === tile;
 
-    let rowClass = "";
-    if (isActual) rowClass = "row-actual";
-    else if (isExpected) rowClass = "row-expected";
+    let colClass = "ev-col";
+    if (isActual) colClass += " col-actual";
+    else if (isExpected) colClass += " col-expected";
 
     const markers = [];
     if (isActual) markers.push('<span class="marker played">You</span>');
@@ -226,52 +234,51 @@ function renderEvComparison(m, options) {
       || (isExpected && speedAbsorbedByExpected));
     if (showSpeedMarker) markers.push('<span class="marker speed" title="The tile that reaches tenpai fastest (most tile acceptance, ignoring hand value and defense)">Speed</span>');
 
-    // Tile-acceptance column. Diff mode shows the bare "+N" this pick gains
-    // over the other discards plus the unique tiles (an empty cell when it
-    // gains nothing — no "+0", no explanatory sentence). "Show all ukeire"
-    // mode swaps to the full per-row acceptance list. Both versions live in
-    // the cell; CSS shows whichever matches the current mode. When diff is
-    // disabled (only one pick has data) the full list is the only listing.
+    // Tile-acceptance cell. Diff mode shows the bare "+N" this pick gains
+    // over the other discards plus the unique tiles (empty when it gains
+    // nothing — no "+0"). "Show all ukeire" mode swaps to the full per-row
+    // acceptance list. Both versions live in the cell; CSS shows whichever
+    // matches the current mode. When diff is disabled (only one pick has
+    // data) the full list is the only listing.
     const hasUkeire = (isActual || isExpected || isBestDiscard)
       && ca && ca.necessary_tiles && ca.necessary_tiles.length;
-    let accCell = `<td class="ukeire-col ukeire-acc-cell">`;
+    let acc = "";
     if (hasUkeire) {
-      accCell += `<span class="ukeire-acc full-only">`;
-      accCell += `<span class="ukeire-acc-total" title="Tiles that would improve your hand">${ca.necessary_count} tiles</span>`;
-      accCell += `<span class="ukeire-inline-tiles">${renderUkeireTiles(ca.necessary_tiles, ukeireDora)}</span>`;
-      accCell += `</span>`;
+      acc += `<span class="ukeire-acc full-only">`;
+      acc += `<span class="ukeire-acc-total" title="Tiles that would improve your hand">${ca.necessary_count} tiles</span>`;
+      acc += `<span class="ukeire-inline-tiles">${renderUkeireTiles(ca.necessary_tiles, ukeireDora)}</span>`;
+      acc += `</span>`;
       if (diffEnabled) {
         const g = diffByTile[tile];
         if (g && g.gains.length > 0) {
-          accCell += `<span class="ukeire-acc diff-only">`;
-          accCell += `<span class="ukeire-gain" title="Tiles this discard accepts that the other picks don't">+${g.gainTotal}</span>`;
-          accCell += `<span class="ukeire-inline-tiles">${renderUkeireTiles(g.gains, ukeireDora)}</span>`;
-          accCell += `</span>`;
+          acc += `<span class="ukeire-acc diff-only">`;
+          acc += `<span class="ukeire-gain" title="Tiles this discard accepts that the other picks don't">+${g.gainTotal}</span>`;
+          acc += `<span class="ukeire-inline-tiles">${renderUkeireTiles(g.gains, ukeireDora)}</span>`;
+          acc += `</span>`;
         }
       }
     }
-    accCell += `</td>`;
 
-    html += `<tr class="${rowClass}">`;
-    html += `<td class="tile-cell">${renderTile(tile, "ev-tile")} ${markers.join("")}</td>`;
-    html += accCell;
-
+    // Mortal EV Δ cell.
+    let mortal;
     if (ma) {
       const delta = ma.q_value - bestMortalQ;
       const isBest = delta >= -0.0001;
       const qClass = isBest ? "best-val" : "";
       const display = isBest ? "0.00" : delta.toFixed(2);
-      html += `<td class="mortal-col ${qClass}" title="Absolute Mortal Q: ${ma.q_value.toFixed(3)}">${display}</td>`;
+      mortal = `<span class="${qClass}" title="Absolute Mortal Q: ${ma.q_value.toFixed(3)}">${display}</span>`;
     } else {
-      html += `<td class="mortal-col dim">-</td>`;
+      mortal = `<span class="dim">-</span>`;
     }
 
-    if (ca) {
-      html += `<td class="shanten-col">${ca.shanten}</td>`;
-    } else {
-      html += `<td class="shanten-col dim">-</td>`;
-    }
+    const shanten = ca ? `${ca.shanten}` : `<span class="dim">-</span>`;
 
+    // Deal-in % + Type cells, plus the wait breakdown (only with KD data).
+    let dealin = `<span class="dim">-</span>`;
+    let typeCell = `<span class="dim">-</span>`;
+    let dealinStyle = "";
+    let dealinCls = "";
+    let waits = "";
     if (useKd) {
       const rate = getFieldForTile(displayDealin, tile);
       const coarseLabel = coarseSafetyLabelForTile(m, tile);
@@ -279,55 +286,105 @@ function renderEvComparison(m, options) {
       if (rate != null && coarseLabel) {
         // 0% deal-in = genuinely safe against every live wait. My fine
         // label classifier only tags strict genbutsu (tile physically in
-        // opponent's discards), so it can miss tiles that are safe for
-        // other reasons (dead wait, all copies visible). Trust the
-        // deal-in rate here — if it's 0, call it Safe no matter what
-        // the label says.
-        // Safe cells keep the bold-green class. Everything else gets a
-        // smooth HSL gradient driven by the deal-in rate itself —
-        // 0% → green, ~7.5% → yellow, 15%+ → red — anchored on the
-        // observed distribution across our DB's defense rows.
+        // opponent's discards), so it can miss tiles safe for other reasons
+        // (dead wait, all copies visible). Trust the deal-in rate here — if
+        // it's 0, call it Safe no matter what the label says.
+        // Safe cells keep the bold-green class; everything else gets a smooth
+        // HSL gradient driven by the deal-in rate itself — 0% → green,
+        // ~7.5% → yellow, 15%+ → red — anchored on the observed DB
+        // distribution across our defense rows.
         const isSafe = rate === 0 || coarseLabel === "genbutsu" || fineLabel === "genbutsu";
         const gradientColor = isSafe ? null : dealinColor(rate);
-        const cls = isSafe ? "dealin-genbutsu dealin-cell" : "dealin-cell";
-        const style = gradientColor ? ` style="color:${gradientColor}"` : "";
-        html += `<td class="dealin-col ${cls}"${style}>${rate.toFixed(1)}%</td>`;
-        const display = isSafe
-          ? "Safe"
-          : (fineLabel || dealinLabelText(coarseLabel));
-        html += `<td class="dealin-col ${cls}"${style}>${display}</td>`;
-      } else {
-        html += `<td class="dealin-col dim">-</td><td class="dealin-col dim">-</td>`;
+        dealinCls = isSafe ? "dealin-genbutsu dealin-cell" : "dealin-cell";
+        dealinStyle = gradientColor ? ` style="color:${gradientColor}"` : "";
+        dealin = `<span class="${dealinCls}"${dealinStyle}>${rate.toFixed(1)}%</span>`;
+        const display = isSafe ? "Safe" : (fineLabel || dealinLabelText(coarseLabel));
+        typeCell = `<span class="${dealinCls}"${dealinStyle}>${display}</span>`;
+      }
+      if (displayBreakdowns) {
+        // KD wait breakdown: which opponent wait shapes contribute to this
+        // tile's deal-in rate. Mirrors mjai's dealin-rate detail panel.
+        const w = getFieldForTile(displayBreakdowns, tile);
+        if (Array.isArray(w) && w.length) {
+          const suji = sujiStatusForTile(tile, displaySujiPartners);
+          const sujiBadge = suji
+            ? `<span class="waits-suji-badge waits-suji-${suji.kind === "half-suji" ? "half" : "full"}" title="${suji.kind === "half-suji" ? "Only one of the two suji partners has been discarded — partial protection." : "Suji partner is in the opponent's discard pool."}">`
+              + `<span class="waits-suji-label">${suji.kind === "half-suji" ? "Half-suji" : "Suji"}</span>`
+              + suji.tiles.map(t => renderTile(t, "tile-sm waits-tile-img")).join("")
+              + `</span>`
+            : "";
+          waits = `<span class="waits-row-list">${sujiBadge}${renderWaitBreakdown(w)}</span>`;
+        }
       }
     }
 
+    return { tile, colClass, markers, acc, mortal, shanten, dealin, typeCell, waits };
+  });
+
+  // "(N shared)" rides along on the acceptance row's label — only meaningful,
+  // and only shown, in diff mode.
+  const sharedNote = diffEnabled
+    ? `<span class="ukeire-shared-count diff-only"> (${diff.commonTotal} shared)</span>`
+    : "";
+  const hasWaits = cols.some(c => c.waits);
+
+  // Each attribute is a row; cells read across the column descriptors. The
+  // first cell is the axis label. Rows that carry no data for the current
+  // category are omitted (deal-in / type / waits only with KD threats).
+  const rowFor = (label, labelAttrs, cls, pick) => {
+    let r = `<tr class="${cls}">`;
+    r += `<th class="ev-axis"${labelAttrs || ""}>${label}</th>`;
+    for (const c of cols) r += `<td class="${c.colClass}">${pick(c)}</td>`;
+    r += `</tr>`;
+    return r;
+  };
+
+  html += `<table class="ev-table ev-table-cols">`;
+  // Header row: tile glyph + You/AI marker per column.
+  html += `<thead><tr><th class="ev-axis"></th>`;
+  for (const c of cols) {
+    html += `<th class="${c.colClass} ev-col-head"><span class="tile-cell">${renderTile(c.tile, "ev-tile")} ${c.markers.join("")}</span></th>`;
+  }
+  html += `</tr></thead><tbody>`;
+
+  if (shantenDiverges) {
+    // Picks are at different shanten — acceptance isn't comparable. Keep the
+    // axis label so the table reads consistently, but replace the chips with
+    // a one-line reason spanning the pick columns.
+    html += `<tr class="ukeire-col ukeire-acc-row shanten-diverges">`;
+    html += `<th class="ev-axis" title="Tile acceptance is only comparable between picks at the same shanten.">Tile acceptance</th>`;
+    html += `<td class="ev-acc-na" colspan="${cols.length}">Different shanten — not comparable</td>`;
     html += `</tr>`;
-
-    // (Tile acceptance now lives in its own column cell above — both the
-    // diff "+N" gain and the full "Show all ukeire" listing render there.)
-
-    // KD wait breakdown: which opponent wait shapes contribute to this
-    // tile's deal-in rate. Mirrors mjai's dealin-rate detail panel.
-    // Rendered for any tile in the table that has live waits — not just the
-    // you/mortal/calc picks — so Defense mistakes where all three are
-    // genbutsu still show the biggest threat's wait composition (paired with
-    // the worst-dealin tile added to `shown` above).
-    if (useKd && displayBreakdowns) {
-      const waits = getFieldForTile(displayBreakdowns, tile);
-      if (Array.isArray(waits) && waits.length) {
-        const suji = sujiStatusForTile(tile, displaySujiPartners);
-        const sujiBadge = suji
-          ? `<span class="waits-suji-badge waits-suji-${suji.kind === "half-suji" ? "half" : "full"}" title="${suji.kind === "half-suji" ? "Only one of the two suji partners has been discarded — partial protection." : "Suji partner is in the opponent's discard pool."}">`
-            + `<span class="waits-suji-label">${suji.kind === "half-suji" ? "Half-suji" : "Suji"}</span>`
-            + suji.tiles.map(t => renderTile(t, "tile-sm waits-tile-img")).join("")
-            + `</span>`
-          : "";
-        html += `<tr class="waits-row ${rowClass}">`;
-        html += `<td colspan="${colspan}" class="waits-row-cell">`;
-        html += `<span class="waits-row-label">Deal-in waits:</span>`;
-        html += `<span class="waits-row-list">${sujiBadge}${renderWaitBreakdown(waits)}</span>`;
-        html += `</td></tr>`;
-      }
+  } else {
+    html += rowFor(
+      `Tile acceptance${sharedNote}`,
+      ` title="Tiles that would improve your hand. Diff view shows only what this discard gains over the others; flip &quot;Show all ukeire&quot; for the full list."`,
+      "ukeire-col ukeire-acc-row",
+      c => `<div class="ukeire-acc-cell">${c.acc}</div>`,
+    );
+  }
+  html += rowFor(
+    "Mortal EV Δ",
+    ` title="EV loss vs Mortal's best pick. 0.00 = Mortal's top choice. Negative values = how much EV this pick costs relative to the best. Gap: &gt;1 severe, 0.5–1 mistake, 0.2–0.5 light, &lt;0.2 AI not confident."`,
+    "mortal-col",
+    c => c.mortal,
+  );
+  html += rowFor("Shanten", "", "shanten-col", c => c.shanten);
+  if (useKd) {
+    html += rowFor(
+      "Deal-in",
+      ` title="Probability this tile deals in — aggregated across all riichi threats"`,
+      "dealin-col",
+      c => c.dealin,
+    );
+    html += rowFor(
+      "Type",
+      ` title="Finer safety category (last honor, no-suji 4-6, etc.). Shows &quot;Safe&quot; when the deal-in rate is 0% — the tile can't possibly be the winning wait."`,
+      "dealin-col",
+      c => c.typeCell,
+    );
+    if (hasWaits) {
+      html += rowFor("Deal-in waits", "", "waits-row", c => c.waits);
     }
   }
 

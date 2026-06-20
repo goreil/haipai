@@ -1,8 +1,18 @@
 # UI redesign: two-column AI-vs-You comparison
 
-**Status:** design / not started
+**Status:** partially done — core transpose shipped 2026-06-20
 **Owner:** picked up by a future Claude Code session
 **Created:** 2026-06-20
+
+> **Shipped (2026-06-20):** the EV table in `static/js/ev-table.js`
+> (`renderEvComparison`) is now **transposed** — You / AI are side-by-side
+> **columns** (`.ev-table-cols`), attributes (tile acceptance, Mortal EV Δ,
+> shanten, deal-in, type, deal-in waits) are **rows**. Column tint + markers,
+> the ukeire diff/full toggle, hide-acceptance, multi-threat pills, and the
+> wait breakdown all carry over. Still **not** done from the plan below:
+> the dedicated +ukeire/+shanten/+safety/+value advantage callouts (§B
+> `value_preserve`), the asymmetric EV banner, and the riichi/meld/kan
+> category-specific panels. Those remain a reshaping job over existing data.
 
 ## Goal
 

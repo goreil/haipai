@@ -1029,6 +1029,54 @@
 .ev-table .row-actual { background: rgba(239,83,80,0.08); }
 .ev-table .row-expected { background: rgba(102,187,106,0.08); }
 
+/* ---- Transposed (column) EV layout ------------------------------------
+   Picks (You / AI) are columns; attributes (acceptance, EV, shanten,
+   deal-in, type, waits) are rows. The first column of every row is the
+   axis label (.ev-axis, a left-aligned <th>); data cells centre under
+   each pick's tile. You/AI columns get the same red/green tint the old
+   row layout used, applied per-cell via .col-actual / .col-expected. */
+/* Fixed layout so the axis-label column and the pick columns are the same
+   width on every mistake card — content (ukeire chips, wait shapes) wraps
+   within its cell instead of stretching the column. The two pick columns
+   share the remaining width equally; with table-layout:fixed any column
+   without an explicit width splits the leftover evenly. */
+.ev-table-cols { table-layout: fixed; }
+.ev-table-cols td { text-align: center; vertical-align: middle; }
+.ev-table-cols th.ev-axis {
+  width: 150px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-weight: 600;
+  white-space: normal;
+}
+.ev-table-cols thead th.ev-axis { border-bottom: 1px solid var(--border); }
+.ev-table-cols th.ev-col-head {
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.ev-table-cols th.ev-col-head .tile-cell {
+  display: inline-flex;
+  justify-content: center;
+}
+.ev-table-cols .col-actual { background: rgba(239,83,80,0.08); }
+.ev-table-cols .col-expected { background: rgba(102,187,106,0.08); }
+/* Acceptance cell holds the diff/full ukeire chips; let it wrap and centre. */
+.ev-table-cols .ukeire-acc-cell {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ev-table-cols .ukeire-acc { justify-content: center; }
+/* Shanten-diverges: acceptance row collapses to a muted "not comparable" note. */
+.ev-table-cols .ev-acc-na {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 11px;
+}
+/* Wait breakdown now sits inside a normal data cell, not a full-width row. */
+.ev-table-cols .waits-row td { padding: 4px 8px 6px 8px; }
+.ev-table-cols .waits-row .waits-row-list { justify-content: center; }
+
 .marker {
   font-size: 9px;
   font-weight: 700;
