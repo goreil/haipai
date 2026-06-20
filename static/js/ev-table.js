@@ -16,6 +16,8 @@ function renderEvComparison(m, options) {
   // aggregated deal-in %) and a specific opponent's seat. The toggle swaps
   // dealin_rates + wait_breakdowns locally for the duration of the render.
   const ukeireDora = getDoraTiles(m.board_state);
+  // A tile is dora if it's a red five or sits in the active indicator-dora set.
+  const isDoraTile = (t) => !!t && (/^5[mps]r$/.test(t) || ukeireDora.has(tileBase(t)));
   const threatCount = Array.isArray(m.per_threat) ? m.per_threat.length : 0;
   const rawView = options.threatView;  // "combined" | integer index | undefined
   const threatIdx = (typeof rawView === "number" && rawView >= 0 && rawView < threatCount)
@@ -130,38 +132,34 @@ function renderEvComparison(m, options) {
       diffSource.push({ tile: t, ca });
     }
   }
+  // Tile-acceptance diff view: shown whenever 2+ important picks have ukeire
+  // data, regardless of whether the picks sit at the same shanten. The diff's
+  // compact "+N gains / N shared" framing reads fine across shanten — and the
+  // Shanten row right below makes any shanten gap explicit, so there's no need
+  // to suppress the comparison. (We used to retire it on a shanten mismatch;
+  // the diff framing unclutters enough that it earns its place back.)
   const diffEnabled = diffSource.length >= 2;
   const diff = diffEnabled ? computeUkeireDiff(diffSource.map(d => d.ca)) : null;
   const diffByTile = {};
   if (diff) diff.perRow.forEach((r, i) => { diffByTile[diffSource[i].tile] = r; });
 
-  // Retire the tile-acceptance row when You and AI sit at different shanten.
-  // Ukeire counts are only meaningful between picks at the same shanten — a
-  // tenpai pick "accepting" fewer tiles than a 1-shanten pick isn't worse,
-  // it's a different question. (Same reasoning as mortalRaisedShanten in
-  // mistake-card.js, applied symmetrically to either pick.)
-  const shantenDiverges = !!(actualStat && expectedStat
-    && actualStat.shanten != null && expectedStat.shanten != null
-    && actualStat.shanten !== expectedStat.shanten);
-
   // Always give a container ID so switchThreatView can re-render in place.
   const containerId = options.containerId || _registerEvContainer(m, options);
   const modeClass = diffEnabled ? " ukeire-mode-diff" : "";
   let html = `<div class="ev-comparison${ukeireHiddenClass}${modeClass}" id="${containerId}" data-threat-view="${activeView}">`;
-  // When shanten diverges there is no acceptance row to control, so the
-  // ukeire toolbar (toggle + "Show all ukeire" switch) is suppressed entirely.
-  if (!shantenDiverges) {
-    html += `<div class="ukeire-toolbar">`;
-    html += `<button type="button" class="ukeire-toggle" data-action="toggleUkeire">`;
-    html += ukeireDefaultShown ? "Hide tile acceptance" : "Show tile acceptance";
-    html += `</button>`;
-    if (diffEnabled) {
-      html += `<span class="ukeire-mode-switch" data-action="toggleUkeireMode" role="switch" aria-checked="false" tabindex="0">`;
-      html += `<span class="sw"></span><span class="sw-label">Show all ukeire</span>`;
-      html += `</span>`;
-    }
-    html += `</div>`;
+  // Acceptance toolbar: the Hide/Show toggle always applies. The "Show all
+  // ukeire" diff switch only appears when the diff view is active — never when
+  // shanten diverges, since diffEnabled is false there.
+  html += `<div class="ukeire-toolbar">`;
+  html += `<button type="button" class="ukeire-toggle" data-action="toggleUkeire">`;
+  html += ukeireDefaultShown ? "Hide tile acceptance" : "Show tile acceptance";
+  html += `</button>`;
+  if (diffEnabled) {
+    html += `<span class="ukeire-mode-switch" data-action="toggleUkeireMode" role="switch" aria-checked="false" tabindex="0">`;
+    html += `<span class="sw"></span><span class="sw-label">Show all ukeire</span>`;
+    html += `</span>`;
   }
+  html += `</div>`;
 
   // Multi-threat pill toggle — only shown with 2+ simultaneous threats (any
   // mix of riichi and open-defense opponents). Each pill re-renders this
@@ -279,8 +277,9 @@ function renderEvComparison(m, options) {
     let dealinStyle = "";
     let dealinCls = "";
     let waits = "";
+    const dealinRate = useKd ? getFieldForTile(displayDealin, tile) : null;
     if (useKd) {
-      const rate = getFieldForTile(displayDealin, tile);
+      const rate = dealinRate;
       const coarseLabel = coarseSafetyLabelForTile(m, tile);
       const fineLabel = fineLabelForTile(m, tile);
       if (rate != null && coarseLabel) {
@@ -319,8 +318,97 @@ function renderEvComparison(m, options) {
     }
 
     const shantenVal = ca && ca.shanten != null ? ca.shanten : null;
-    return { tile, colClass, markers, acc, mortal, shanten, shantenVal, dealin, typeCell, waits };
+
+    // Feature-summary inputs (rendered into the bottom Summary row). Each is
+    // computed independently of the others — unlike the categorizer, which
+    // short-circuits on a shanten > ukeire > dora precedence, the summary
+    // always evaluates every feature so the full picture is visible.
+    const ukeireCount = ca && ca.necessary_count != null ? ca.necessary_count : null;
+    const discardIsDora = isDoraTile(tile);
+    const doraWaitEntries = (ca && ca.necessary_tiles)
+      ? ca.necessary_tiles.filter(nt => ukeireDora.has(tileBase(nt.tile)))
+      : [];
+    const doraWaitCount = doraWaitEntries.reduce((s, nt) => s + (nt.count || 0), 0);
+
+    return { tile, colClass, markers, acc, mortal, shanten, shantenVal, dealin, typeCell, waits,
+             ukeireCount, discardIsDora, doraWaitEntries, doraWaitCount, dealinRate };
   });
+
+  // Feature-summary pills. For each column, compare its feature values against
+  // the best value among the OTHER columns and emit a pill for every dimension
+  // where this pick wins (or, for shanten, loses). Positive dimensions:
+  // ukeire, dora kept, dora acceptance, safety. The lone negative: shanten.
+  const featPill = (kind, label, title, tilesHtml = "") =>
+    `<span class="feat-pill feat-pill-${kind}" title="${title}">`
+    + `<span class="feat-pill-label">${label}</span>`
+    + (tilesHtml ? `<span class="feat-pill-tiles">${tilesHtml}</span>` : "")
+    + `</span>`;
+
+  const featCells = cols.map((col, i) => {
+    const others = cols.filter((_, j) => j !== i);
+    const pills = [];
+
+    // -shanten (negative): this pick sits at a worse (higher) shanten than the
+    // best other pick.
+    if (col.shantenVal != null) {
+      const os = others.map(o => o.shantenVal).filter(v => v != null);
+      if (os.length) {
+        const best = Math.min(...os);
+        if (col.shantenVal > best) {
+          pills.push(featPill("neg", `−${col.shantenVal - best} shanten`,
+            "Sits at a worse (higher) shanten than the other pick"));
+        }
+      }
+    }
+
+    // +ukeire: accepts more tiles than the other pick.
+    if (col.ukeireCount != null) {
+      const os = others.map(o => o.ukeireCount).filter(v => v != null);
+      if (os.length) {
+        const best = Math.max(...os);
+        if (col.ukeireCount > best) {
+          pills.push(featPill("pos", `+${col.ukeireCount - best} ukeire`,
+            "Accepts more tiles than the other pick"));
+        }
+      }
+    }
+
+    // +dora: keeps a dora the other pick throws away. The kept dora is the
+    // other pick's discarded tile — show it in the pill.
+    if (!col.discardIsDora) {
+      const thrown = [...new Set(others.filter(o => o.discardIsDora).map(o => o.tile))];
+      if (thrown.length) {
+        const tilesHtml = thrown.map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join("");
+        pills.push(featPill("pos", "+dora", "Keeps a dora the other pick discards", tilesHtml));
+      }
+    }
+
+    // +dora acceptance: its wait accepts more live dora than the other pick —
+    // show the dora tiles its wait keeps.
+    if (col.doraWaitCount > 0) {
+      const best = Math.max(0, ...others.map(o => o.doraWaitCount || 0));
+      if (col.doraWaitCount > best) {
+        pills.push(featPill("pos", "+dora accept",
+          "Its wait accepts more live dora than the other pick",
+          renderUkeireTiles(col.doraWaitEntries, ukeireDora)));
+      }
+    }
+
+    // +safety: deals in less often than the other pick (KD threat data only).
+    if (useKd && col.dealinRate != null) {
+      const os = others.map(o => o.dealinRate).filter(v => v != null);
+      if (os.length) {
+        const worst = Math.max(...os);
+        if (col.dealinRate < worst) {
+          pills.push(featPill("pos", "+safety",
+            `Deals in ${(worst - col.dealinRate).toFixed(1)}% less often than the other pick`));
+        }
+      }
+    }
+
+    return pills.join("");
+  });
+  const anyFeat = featCells.some(s => s);
 
   // "(N shared)" rides along on the acceptance row's label — only meaningful,
   // and only shown, in diff mode.
@@ -351,22 +439,12 @@ function renderEvComparison(m, options) {
   }
   html += `</tr></thead><tbody>`;
 
-  if (shantenDiverges) {
-    // Picks are at different shanten — acceptance isn't comparable. Keep the
-    // axis label so the table reads consistently, but replace the chips with
-    // a one-line reason spanning the pick columns.
-    html += `<tr class="ukeire-col ukeire-acc-row shanten-diverges">`;
-    html += `<th class="ev-axis" title="Tile acceptance is only comparable between picks at the same shanten.">Tile acceptance</th>`;
-    html += `<td class="ev-acc-na" colspan="${cols.length}">Different shanten — not comparable</td>`;
-    html += `</tr>`;
-  } else {
-    html += rowFor(
-      `Tile acceptance${sharedNote}`,
-      ` title="Tiles that would improve your hand. Diff view shows only what this discard gains over the others; flip &quot;Show all ukeire&quot; for the full list."`,
-      "ukeire-col ukeire-acc-row",
-      c => `<div class="ukeire-acc-cell">${c.acc}</div>`,
-    );
-  }
+  html += rowFor(
+    `Tile acceptance${sharedNote}`,
+    ` title="Tiles that would improve your hand. Diff view shows only what this discard gains over the others; flip &quot;Show all ukeire&quot; for the full list."`,
+    "ukeire-col ukeire-acc-row",
+    c => `<div class="ukeire-acc-cell">${c.acc}</div>`,
+  );
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row
   // already shows the EV loss, so a per-pick EV row just repeats it. (The
   // per-column `c.mortal` is still computed in case it's needed elsewhere.)
@@ -389,6 +467,19 @@ function renderEvComparison(m, options) {
         return s;
       },
     );
+  }
+
+  // Feature summary: a final row of pills per pick summarising every dimension
+  // we gather — ukeire, dora kept, dora acceptance, safety (all positive) plus
+  // shanten (the lone negative). Shown only when at least one pick has a pill.
+  if (anyFeat) {
+    html += `<tr class="feat-summary-row">`;
+    html += `<th class="ev-axis" title="Every feature this pick wins (or, for shanten, loses) versus the other pick.">Summary</th>`;
+    for (let i = 0; i < cols.length; i++) {
+      const inner = featCells[i] || `<span class="dim">—</span>`;
+      html += `<td class="${cols[i].colClass}"><div class="feat-pills">${inner}</div></td>`;
+    }
+    html += `</tr>`;
   }
 
   html += `</tbody></table></div>`;

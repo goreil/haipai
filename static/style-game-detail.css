@@ -1067,12 +1067,6 @@
   flex-wrap: wrap;
 }
 .ev-table-cols .ukeire-acc { justify-content: center; }
-/* Shanten-diverges: acceptance row collapses to a muted "not comparable" note. */
-.ev-table-cols .ev-acc-na {
-  color: var(--text-dim);
-  font-style: italic;
-  font-size: 11px;
-}
 /* Deal-in cell stacks the rate over its contributing wait shapes (the old
    separate "Deal-in waits" row is folded in here). */
 .ev-table-cols .dealin-stack {
@@ -1705,6 +1699,47 @@
 
 .ukeire-tile-img {
   height: 22px !important;
+  width: auto;
+}
+
+/* Feature-summary row: per-pick pills summarising every dimension the
+   categorizer gathers (ukeire / dora / dora-acceptance / safety = positive,
+   shanten = negative). Pills wrap within the cell. */
+.feat-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+  justify-content: center;
+}
+.feat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.feat-pill-pos {
+  color: var(--sev-minor);
+  background: rgba(102, 187, 106, 0.14);
+  border: 1px solid rgba(102, 187, 106, 0.3);
+}
+.feat-pill-neg {
+  color: var(--sev-major);
+  background: rgba(239, 83, 80, 0.14);
+  border: 1px solid rgba(239, 83, 80, 0.3);
+}
+.feat-pill-tiles {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.feat-pill-tiles .tile-sm {
+  height: 18px !important;
   width: auto;
 }
 
