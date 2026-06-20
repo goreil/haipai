@@ -9,6 +9,26 @@
 // this flag back on fully restores the marker and the third row.
 const SHOW_SPEED_ROW = false;
 
+// Shanten pill colour: a continuous grey→gold gradient keyed on the shanten
+// value, rather than a 3-state gold/grey/red split. Tenpai (0) lands exactly on
+// the "Mortal raised shanten" badge's gold/orange; each higher shanten steps
+// further toward neutral grey. Raises get no special (red) treatment anymore —
+// the distance is conveyed purely by where the colour sits on the ramp.
+const SHANTEN_PILL_RAMP = 4; // shanten that reaches the fully-grey end
+function shantenPillStyle(shanten) {
+  const t = Math.max(0, Math.min(1, shanten / SHANTEN_PILL_RAMP));
+  const lerp = (a, b) => Math.round(a + (b - a) * t);
+  // Gold end (t=0): text #ffcb80, bg orange@0.12, border orange@0.5 — matches
+  // .raised-shanten-badge. Grey end (t=1): text --text-dim #8892a4, bg white@.08.
+  const tr = lerp(255, 136), tg = lerp(203, 146), tb = lerp(128, 164); // text
+  const br = lerp(255, 255), bg = lerp(165, 255), bb = lerp(0, 255);   // fill/border hue
+  const fillA = (0.12 + (0.08 - 0.12) * t).toFixed(3);
+  const lineA = (0.5 + (0.18 - 0.5) * t).toFixed(3);
+  return `color:rgb(${tr},${tg},${tb});`
+    + `background:rgba(${br},${bg},${bb},${fillA});`
+    + `border:1px solid rgba(${br},${bg},${bb},${lineA});`;
+}
+
 function renderEvComparison(m, options) {
   options = options || {};
   // Multi-threat view: when per_threat has multiple entries (riichi and/or
@@ -433,10 +453,8 @@ function renderEvComparison(m, options) {
     ? `<span class="ukeire-shared-count diff-only"> (${diff.commonTotal} shared)</span>`
     : "";
   // Shanten now rides as a pill to the left of each discard glyph in the
-  // header (always shown). It reads neutral when every pick sits at the same
-  // shanten and red on any pick that sits worse (higher) than the best pick.
-  const shantenVals = cols.map(c => c.shantenVal).filter(v => v != null);
-  const shantenMin = shantenVals.length ? Math.min(...shantenVals) : null;
+  // header (always shown). Its colour is a grey→gold gradient keyed on the
+  // shanten value (see shantenPillStyle) — closer to tenpai reads more gold.
 
   // Each attribute is a row; cells read across the column descriptors. The
   // first cell is the axis label. Rows that carry no data for the current
@@ -453,13 +471,11 @@ function renderEvComparison(m, options) {
   // Header row: tile glyph + You/AI marker per column.
   html += `<thead><tr><th class="ev-axis"></th>`;
   for (const c of cols) {
-    const raised = c.shantenVal != null && shantenMin != null && c.shantenVal > shantenMin;
     const tenpai = c.shantenVal === 0;
-    const pillCls = tenpai ? " shanten-pill-tenpai" : (raised ? " shanten-pill-raised" : "");
     const pillText = tenpai ? "tenpai" : `${c.shantenVal}-shanten`;
-    const pillTitle = tenpai ? "Tenpai" : `${c.shantenVal}-shanten${raised ? " — worse (higher) than the best pick" : ""}`;
+    const pillTitle = tenpai ? "Tenpai" : `${c.shantenVal}-shanten`;
     const pill = c.shantenVal != null
-      ? `<span class="shanten-pill${pillCls}" title="${pillTitle}">${pillText}</span>`
+      ? `<span class="shanten-pill" style="${shantenPillStyle(c.shantenVal)}" title="${pillTitle}">${pillText}</span>`
       : "";
     html += `<th class="${c.colClass} ev-col-head"><span class="tile-cell">${pill}${renderTile(c.tile, "ev-tile")} ${c.markers.join("")}</span></th>`;
   }

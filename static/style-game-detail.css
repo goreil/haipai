@@ -808,8 +808,10 @@
 .ev-tile { height: 26px; }
 
 /* Shanten pill sits to the left of each discard glyph in the column header.
-   Neutral when every pick shares a shanten; red on any pick that sits at a
-   worse (higher) shanten than the best pick. */
+   Colour is a grey→gold gradient keyed on the shanten value (tenpai = gold,
+   matching the "Mortal raised shanten" badge; higher shanten steps toward
+   grey). The colour/background/border are set inline per pill — see
+   shantenPillStyle() in ev-table.js. */
 .ev-table .shanten-pill {
   display: inline-flex;
   align-items: center;
@@ -822,19 +824,6 @@
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
   text-transform: lowercase;
-  color: var(--text-dim);
-  background: rgba(255,255,255,0.08);
-}
-/* Match the summary's "−N shanten" (feat-pill-neg) treatment: tinted red text
-   on a translucent red fill with a red border, rather than a solid block. */
-.ev-table .shanten-pill-raised {
-  color: var(--sev-major);
-  background: rgba(239, 83, 80, 0.14);
-  border: 1px solid rgba(239, 83, 80, 0.3);
-}
-.ev-table .shanten-pill-tenpai {
-  color: #1a1400;
-  background: #ffca28;
 }
 
 .ev-table .mortal-col { color: #81c784; }
