@@ -69,6 +69,29 @@ function parseMistakeHash() {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+// Top-level views that own a hash (game/mistake hashes are handled separately
+// above). Maps the hash slug to the function that renders the view.
+var TAB_ROUTES = {
+  trends: () => showTrends(),
+  admin: () => showAdmin(),
+  help: () => showHelp(),
+  account: () => showAccount(),
+};
+
+// Returns the tab slug from `#trends`/`#admin`/`#help`/`#account`, or null.
+function parseTabHash() {
+  const m = (window.location.hash || "").match(/^#(trends|admin|help|account)$/);
+  return m ? m[1] : null;
+}
+
+// Navigate to a top-level tab. Assigning location.hash pushes a history entry
+// and fires hashchange (→ applyHashRoute → render). Re-assigning the current
+// hash fires no event, so re-render directly in that case.
+function navTab(slug) {
+  if (parseTabHash() === slug) TAB_ROUTES[slug]();
+  else window.location.hash = slug;
+}
+
 // Route the current location.hash to a game load. #mistake=<id> resolves to a
 // game via /api/mistakes/<id>/locate, stashes the target mistake id so
 // renderGame can scroll to it, and (in summary view) bounces to rounds so the
@@ -93,6 +116,11 @@ async function applyHashRoute() {
       ensureMistakeVisible(state.currentGameData, mistakeId);
       renderGame();
     }
+    return;
+  }
+  const tab = parseTabHash();
+  if (tab) {
+    TAB_ROUTES[tab]();
     return;
   }
   const gameId = parseGameHash();

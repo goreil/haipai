@@ -21,11 +21,14 @@ var HAIPAI_CLICK_ACTIONS = {
   navigateHome: () => navigateHome(),
   showAddModal: () => showAddModal(),
   toggleSidebar: () => toggleSidebar(),
-  showTrends: () => showTrends(),
+  // Tab nav goes through the URL hash (not a direct show*() call) so the view
+  // survives reload and the back button steps between tabs. applyHashRoute()
+  // turns the resulting hashchange into the actual render. See main.js.
+  showTrends: () => navTab("trends"),
   toggleMenu: (el) => el.parentElement.classList.toggle("open"),
-  showAccount: () => showAccount(),
-  showHelp: () => showHelp(),
-  showAdmin: () => showAdmin(),
+  showAccount: () => navTab("account"),
+  showHelp: () => navTab("help"),
+  showAdmin: () => navTab("admin"),
   adminStopImpersonate: () => adminStopImpersonate(),
   openExternal: (el) => window.open(el.dataset.href, "_blank"),
   hideAddModal: () => hideAddModal(),
