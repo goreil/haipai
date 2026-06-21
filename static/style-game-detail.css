@@ -1102,6 +1102,26 @@
   border-radius: 3px;
   cursor: help;
 }
+/* Tint the wind box to match the discard-row danger pills for the threat it
+   represents — riichi reads red (.riichi-tag), an open threat reads amber
+   outlined (.danger-tag), and a ≥2-han open threat reads solid amber
+   (.danger-tag.strong). All three pull from the shared --threat-* vars in
+   style-theme.css, so recolouring a pill recolours the box automatically. */
+.dealin-threat-seat.threat-riichi {
+  color: color-mix(in srgb, var(--threat-riichi) 70%, #fff);
+  border-color: color-mix(in srgb, var(--threat-riichi) 50%, transparent);
+  background: color-mix(in srgb, var(--threat-riichi) 12%, transparent);
+}
+.dealin-threat-seat.threat-open {
+  color: var(--threat-open);
+  border-color: color-mix(in srgb, var(--threat-open) 55%, transparent);
+  background: color-mix(in srgb, var(--threat-open) 12%, transparent);
+}
+.dealin-threat-seat.threat-open-dora {
+  color: #1a1a2e;
+  border-color: transparent;
+  background: var(--threat-open);
+}
 .dealin-threat-waits {
   justify-content: flex-start !important;
   min-height: 18px;

@@ -300,6 +300,12 @@ function renderEvComparison(m, options) {
       threatLines = m.per_threat.map(pt => ({
         seat: pt.seat,
         wind: seatWindShort(pt.seat),
+        // Wind-box tint matches the discard-row danger pill for this threat:
+        // riichi → red, open → amber, open with a locked-in ≥2-han floor
+        // (the strong band, "open with dora") → solid amber.
+        kind: pt.kind === "open"
+          ? ((pt.guaranteed_han || 0) >= 2 ? "open-dora" : "open")
+          : "riichi",
         rate: getFieldForTile(pt.dealin_rates, tile),
         waits: renderWaitsCell(tile, pt.wait_breakdowns, pt.suji_partners),
       })).sort((a, b) => WINDS.indexOf(a.wind) - WINDS.indexOf(b.wind));
@@ -509,7 +515,7 @@ function renderEvComparison(m, options) {
             const rateCls = safe ? "dealin-threat-rate dealin-genbutsu" : "dealin-threat-rate";
             const rateText = tl.rate == null ? "&ndash;" : (tl.rate === 0 ? "Safe" : `${tl.rate.toFixed(1)}%`);
             s += `<div class="dealin-threat-line">`
-              +    `<span class="dealin-threat-seat" title="Deal-in against the ${seatWindFor(tl.seat)} opponent">${tl.wind}</span>`
+              +    `<span class="dealin-threat-seat threat-${tl.kind}" title="Deal-in against the ${seatWindFor(tl.seat)} opponent">${tl.wind}</span>`
               +    `<span class="waits-row-list dealin-threat-waits">${tl.waits || `<span class="dealin-threat-none">no live wait</span>`}</span>`
               +    `<span class="${rateCls}"${rateStyle}>${rateText}</span>`
               +  `</div>`;

@@ -29,6 +29,15 @@
   --c-open-defense: #f5b342;
   --c-meld: #ee5fa7;
 
+  /* Threat danger palette — the single source of truth shared by the
+     discard-row danger pills (.riichi-tag / .danger-tag) and the
+     multi-threat deal-in wind box (.dealin-threat-seat), so the two can
+     never drift. Change a colour here and both update. Riichi reads red;
+     open reads --c-open-defense (amber → "light yellow" outlined / "full
+     yellow" solid for the ≥2-han strong band). */
+  --threat-riichi: #ff6b6b;
+  --threat-open: var(--c-open-defense);
+
   /* Translucent severity tints used as backgrounds — paired with the solid
      --sev-* colours above. Severity-aware components (e.g. .severity,
      .mistake, .tier-count) read these via per-modifier --sev-color /

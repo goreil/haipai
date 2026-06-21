@@ -219,21 +219,21 @@
 }
 
 .danger-tag {
-  color: var(--c-open-defense);
+  color: var(--threat-open);
   font-weight: 700;
   text-transform: none;
   letter-spacing: 0;
   font-size: 9.5px;
   padding: 0 5px;
-  border: 1px solid rgba(245, 179, 66, 0.55);
+  border: 1px solid color-mix(in srgb, var(--threat-open) 55%, transparent);
   border-radius: 8px;
-  background: rgba(245, 179, 66, 0.12);
+  background: color-mix(in srgb, var(--threat-open) 12%, transparent);
 }
 /* Strong band (guaranteed ≥2 han — dora or two yakuhai): solid amber fill, a
    fat push-back hand. */
 .danger-tag.strong {
   color: #1a1a2e;
-  background: var(--c-open-defense);
+  background: var(--threat-open);
   border-color: transparent;
 }
 /* Trailing detail after the chip: "2 calls · ≥3 han" (han = the guaranteed floor). */
@@ -340,14 +340,14 @@
 }
 
 .riichi-tag {
-  color: #ff9999;
+  color: color-mix(in srgb, var(--threat-riichi) 70%, #fff);
   font-weight: 700;
   letter-spacing: 0.5px;
   font-size: 9.5px;
   padding: 0 5px;
-  border: 1px solid rgba(255, 107, 107, 0.5);
+  border: 1px solid color-mix(in srgb, var(--threat-riichi) 50%, transparent);
   border-radius: 8px;
-  background: rgba(255, 107, 107, 0.1);
+  background: color-mix(in srgb, var(--threat-riichi) 10%, transparent);
 }
 
 .scores-bar {
