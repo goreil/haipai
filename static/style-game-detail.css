@@ -931,45 +931,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.threat-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 4px 8px 6px;
-  font-size: 11px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-.threat-toggle-label {
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-right: 2px;
-}
-.threat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
-  font-size: 11px;
-  color: var(--text-dim);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
-.threat-pill:hover {
-  color: var(--text);
-  border-color: rgba(255, 107, 107, 0.4);
-}
-.threat-pill.active {
-  color: var(--text);
-  background: rgba(255, 107, 107, 0.14);
-  border-color: rgba(255, 107, 107, 0.6);
-  font-weight: 600;
-}
-
 /* Developer IDs — muted, barely-there tags so the owner can jump to a game or
    mistake by number without cluttering the UI for normal users. */
 .dev-id {
@@ -1110,6 +1071,69 @@
   gap: 5px;
 }
 .ev-table-cols .dealin-stack .waits-row-list { justify-content: center; }
+
+/* Multi-threat deal-in: one row per live opponent (seat wind · its wait shapes ·
+   its deal-in %), stacked, with the aggregated total on the final "=" line.
+   Each row is a 3-column grid so the seat chips and rates align across rows. */
+.ev-table-cols .dealin-multi { gap: 3px; align-items: stretch; }
+.dealin-threat-line {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.dealin-threat-line + .dealin-threat-line { border-top: 1px solid rgba(255,255,255,0.04); }
+.dealin-threat-seat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: help;
+}
+.dealin-threat-waits {
+  justify-content: flex-start !important;
+  min-height: 18px;
+}
+.dealin-threat-none {
+  font-size: 10px;
+  color: var(--text-dim);
+  opacity: 0.6;
+  font-style: italic;
+}
+.dealin-threat-rate {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 12px;
+  justify-self: end;
+}
+.dealin-threat-total {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 0;
+  margin-top: 1px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+}
+.dealin-threat-total-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+.dealin-threat-total .dealin-sum-eq { justify-self: end; }
+.dealin-threat-total .dealin-cell { font-size: 13px; font-weight: 700; justify-self: end; }
 
 .marker {
   font-size: 9px;

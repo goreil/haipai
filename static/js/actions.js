@@ -51,10 +51,6 @@ var HAIPAI_CLICK_ACTIONS = {
   // --- ev table ---
   toggleUkeire: (el) => toggleUkeire(el),
   toggleUkeireMode: (el) => toggleUkeireMode(el),
-  switchThreatView: (el) => {
-    const v = el.dataset.view;
-    switchThreatView(el.dataset.containerId, v === "combined" ? "combined" : Number(v));
-  },
 
   // --- account ---
   linkOAuth: (el) => linkOAuth(el.dataset.provider),

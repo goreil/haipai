@@ -31,29 +31,37 @@ function shantenPillStyle(shanten) {
 
 function renderEvComparison(m, options) {
   options = options || {};
-  // Multi-threat view: when per_threat has multiple entries (riichi and/or
-  // open-defense threats), the user can toggle between "combined" (default,
-  // aggregated deal-in %) and a specific opponent's seat. The toggle swaps
-  // dealin_rates + wait_breakdowns locally for the duration of the render.
+  // Deal-in defense always shows the combined picture: the aggregated deal-in %
+  // per discard, decomposed into one row per live opponent inside the Deal-in
+  // cell (see threatLines below). The old per-seat view toggle was retired once
+  // that per-opponent breakdown made it redundant.
   const ukeireDora = getDoraTiles(m.board_state);
   // A tile is dora if it's a red five or sits in the active indicator-dora set.
   const isDoraTile = (t) => !!t && (/^5[mps]r$/.test(t) || ukeireDora.has(tileBase(t)));
   const threatCount = Array.isArray(m.per_threat) ? m.per_threat.length : 0;
-  const rawView = options.threatView;  // "combined" | integer index | undefined
-  const threatIdx = (typeof rawView === "number" && rawView >= 0 && rawView < threatCount)
-    ? rawView
-    : null;
-  const activeView = threatIdx == null ? "combined" : threatIdx;
-  const displayDealin = threatIdx != null
-    ? m.per_threat[threatIdx].dealin_rates
-    : m.dealin_rates;
-  const displayBreakdowns = threatIdx != null
-    ? (m.per_threat[threatIdx].wait_breakdowns || m.wait_breakdowns)
-    : m.wait_breakdowns;
-  const displaySujiPartners = threatIdx != null
-    ? (m.per_threat[threatIdx].suji_partners || m.suji_partners)
-    : m.suji_partners;
+  const displayDealin = m.dealin_rates;
+  const displayBreakdowns = m.wait_breakdowns;
+  const displaySujiPartners = m.suji_partners;
   const useKd = displayDealin && Object.keys(displayDealin).length > 0;
+
+  // Seat → kyoku-wind helpers for the per-opponent deal-in breakdown. Derive
+  // oya from (hero_actor, hero_seat_wind) so a seat's wind matches what the
+  // student sees in the discards view; fall back to absolute seat order if
+  // unknown.
+  const WINDS = ["E", "S", "W", "N"];
+  const heroActor = m.actual && m.actual.actor;
+  const heroWind = m.board_state && m.board_state.seat_wind;
+  let oya = null;
+  if (heroActor != null && heroWind) {
+    const pw = WINDS.indexOf(heroWind);
+    if (pw >= 0) oya = ((heroActor - pw) % 4 + 4) % 4;
+  }
+  const seatWind = (seat) => oya == null ? null : WINDS[(seat - oya + 4) % 4];
+  const seatWindShort = (seat) => seatWind(seat)
+    || (SEAT_NAMES[seat] ? SEAT_NAMES[seat][0] : `${seat}`);
+  const seatWindFor = (seat) => oya == null
+    ? (SEAT_NAMES[seat] || `Seat ${seat}`)
+    : WIND_DISPLAY[seatWind(seat)];
 
   // A reach action has no pai of its own — the riichi tile is the next
   // dahai by the same player in the mjai log. For 5A the backend stores it
@@ -163,10 +171,8 @@ function renderEvComparison(m, options) {
   const diffByTile = {};
   if (diff) diff.perRow.forEach((r, i) => { diffByTile[diffSource[i].tile] = r; });
 
-  // Always give a container ID so switchThreatView can re-render in place.
-  const containerId = options.containerId || _registerEvContainer(m, options);
   const modeClass = diffEnabled ? " ukeire-mode-diff" : "";
-  let html = `<div class="ev-comparison${ukeireHiddenClass}${modeClass}" id="${containerId}" data-threat-view="${activeView}">`;
+  let html = `<div class="ev-comparison${ukeireHiddenClass}${modeClass}">`;
   // Acceptance toolbar: the Hide/Show toggle always applies. The "Show all
   // ukeire" diff switch only appears when the diff view is active — never when
   // shanten diverges, since diffEnabled is false there.
@@ -180,43 +186,6 @@ function renderEvComparison(m, options) {
     html += `</span>`;
   }
   html += `</div>`;
-
-  // Multi-threat pill toggle — only shown with 2+ simultaneous threats (any
-  // mix of riichi and open-defense opponents). Each pill re-renders this
-  // ev-comparison with a different threat view.
-  if (threatCount >= 2) {
-    // Labels follow the kyoku's actual winds, not absolute seat order.
-    // Derive oya from (hero_actor, hero_seat_wind) so "vs West" matches the
-    // opponent the student sees in the discards view.
-    const WINDS = ["E", "S", "W", "N"];
-    const heroActor = m.actual && m.actual.actor;
-    const heroWind = m.board_state && m.board_state.seat_wind;
-    let oya = null;
-    if (heroActor != null && heroWind) {
-      const pw = WINDS.indexOf(heroWind);
-      if (pw >= 0) oya = ((heroActor - pw) % 4 + 4) % 4;
-    }
-    const seatWindFor = (seat) => oya == null
-      ? (SEAT_NAMES[seat] || `Seat ${seat}`)
-      : WIND_DISPLAY[WINDS[(seat - oya + 4) % 4]];
-
-    html += `<div class="threat-toggle">`;
-    html += `<span class="threat-toggle-label">View:</span>`;
-    const combinedActive = activeView === "combined" ? " active" : "";
-    html += `<button type="button" class="threat-pill${combinedActive}"`
-      + ` data-action="switchThreatView" data-container-id="${containerId}" data-view="combined">Combined</button>`;
-    m.per_threat.forEach((pt, i) => {
-      const active = activeView === i ? " active" : "";
-      const title = pt.kind === "open"
-        ? `Open hand — ${pt.open_melds || 0} call${pt.open_melds === 1 ? "" : "s"}`
-        : `Riichi tile: ${pt.riichi_tile || '?'}`;
-      html += `<button type="button" class="threat-pill${active}"`
-        + ` data-action="switchThreatView" data-container-id="${containerId}" data-view="${i}"`
-        + ` title="${title}">`
-        + `vs ${seatWindFor(pt.seat)}</button>`;
-    });
-    html += `</div>`;
-  }
 
   // Transposed layout: each shown pick (You / AI) becomes a COLUMN; the
   // attributes (acceptance, EV, shanten, deal-in, type, waits) become rows.
@@ -323,18 +292,23 @@ function renderEvComparison(m, options) {
       if (displayBreakdowns) {
         // KD wait breakdown: which opponent wait shapes contribute to this
         // tile's deal-in rate. Mirrors mjai's dealin-rate detail panel.
-        const w = getFieldForTile(displayBreakdowns, tile);
-        if (Array.isArray(w) && w.length) {
-          const suji = sujiStatusForTile(tile, displaySujiPartners);
-          const sujiBadge = suji
-            ? `<span class="waits-suji-badge waits-suji-${suji.kind === "half-suji" ? "half" : "full"}" title="${suji.kind === "half-suji" ? "Only one of the two suji partners has been discarded — partial protection." : "Suji partner is in the opponent's discard pool."}">`
-              + `<span class="waits-suji-label">${suji.kind === "half-suji" ? "Half-suji" : "Suji"}</span>`
-              + suji.tiles.map(t => renderTile(t, "tile-sm waits-tile-img")).join("")
-              + `</span>`
-            : "";
-          waits = `${sujiBadge}${renderWaitBreakdown(w)}`;
-        }
+        waits = renderWaitsCell(tile, displayBreakdowns, displaySujiPartners);
       }
+    }
+
+    // Multi-threat decomposition: with 2+ live opponents, break the tile's
+    // deal-in into one line per opponent (seat wind + that opponent's wait
+    // shapes + its deal-in %), so "defense against all" is visible at once
+    // instead of only the most-dangerous threat. Single-opponent picks keep the
+    // plain wait equation below.
+    let threatLines = null;
+    if (useKd && threatCount >= 2) {
+      threatLines = m.per_threat.map(pt => ({
+        seat: pt.seat,
+        wind: seatWindShort(pt.seat),
+        rate: getFieldForTile(pt.dealin_rates, tile),
+        waits: renderWaitsCell(tile, pt.wait_breakdowns, pt.suji_partners),
+      })).sort((a, b) => WINDS.indexOf(a.wind) - WINDS.indexOf(b.wind));
     }
 
     const shantenVal = ca && ca.shanten != null ? ca.shanten : null;
@@ -368,7 +342,7 @@ function renderEvComparison(m, options) {
       indicatorDora(nt) ? nt : { ...nt, count: nt.aka_count || 0 });
 
     return { tile, colClass, markers, acc, mortal, shanten, shantenVal, dealin, typeCell, waits,
-             ukeireCount, discardIsDora, doraWaitEntries, doraWaitDisplay, doraWaitCount, dealinRate };
+             threatLines, ukeireCount, discardIsDora, doraWaitEntries, doraWaitDisplay, doraWaitCount, dealinRate };
   });
 
   // Feature-summary pills. For each column, compare its feature values against
@@ -504,6 +478,31 @@ function renderEvComparison(m, options) {
       ` title="Probability this tile deals in — aggregated across all riichi threats — with the contributing wait shapes beneath."`,
       "dealin-col",
       c => {
+        // Multi-threat combined view: one row per opponent — seat wind, that
+        // opponent's wait shapes, and its own deal-in % — stacked, with the
+        // aggregated total on the "=" line at the bottom. Lets the student read
+        // the defense against every live threat at once.
+        if (c.threatLines) {
+          let s = `<div class="dealin-stack dealin-multi">`;
+          for (const tl of c.threatLines) {
+            const safe = tl.rate == null || tl.rate === 0;
+            const rateColor = safe ? null : dealinColor(tl.rate);
+            const rateStyle = rateColor ? ` style="color:${rateColor}"` : "";
+            const rateCls = safe ? "dealin-threat-rate dealin-genbutsu" : "dealin-threat-rate";
+            const rateText = tl.rate == null ? "&ndash;" : (tl.rate === 0 ? "Safe" : `${tl.rate.toFixed(1)}%`);
+            s += `<div class="dealin-threat-line">`
+              +    `<span class="dealin-threat-seat" title="Deal-in against the ${seatWindFor(tl.seat)} opponent">${tl.wind}</span>`
+              +    `<span class="waits-row-list dealin-threat-waits">${tl.waits || `<span class="dealin-threat-none">no live wait</span>`}</span>`
+              +    `<span class="${rateCls}"${rateStyle}>${rateText}</span>`
+              +  `</div>`;
+          }
+          s += `<div class="dealin-threat-total">`
+            +    `<span class="dealin-threat-total-label">all threats</span>`
+            +    `<span class="dealin-sum-eq">=</span>`
+            +    c.dealin
+            +  `</div></div>`;
+          return s;
+        }
         // When wait shapes exist, render the deal-in cell as an equation:
         // the per-wait pills are addends (pill + pill + …) and the tile's total
         // deal-in rate is the sum after the "=". With no pills, fall back to the
@@ -600,6 +599,23 @@ function sujiStatusForTile(tile, partnersDict) {
   return { kind: isHalf ? "half-suji" : "suji", tiles: matched };
 }
 
+// Render the wait-shape breakdown for a tile against one threat's data: an
+// optional suji/half-suji badge followed by the per-wait pills. Returns "" when
+// the tile has no live wait against that threat.
+function renderWaitsCell(tile, breakdowns, sujiPartners) {
+  if (!breakdowns) return "";
+  const w = getFieldForTile(breakdowns, tile);
+  if (!Array.isArray(w) || !w.length) return "";
+  const suji = sujiStatusForTile(tile, sujiPartners);
+  const sujiBadge = suji
+    ? `<span class="waits-suji-badge waits-suji-${suji.kind === "half-suji" ? "half" : "full"}" title="${suji.kind === "half-suji" ? "Only one of the two suji partners has been discarded — partial protection." : "Suji partner is in the opponent's discard pool."}">`
+      + `<span class="waits-suji-label">${suji.kind === "half-suji" ? "Half-suji" : "Suji"}</span>`
+      + suji.tiles.map(t => renderTile(t, "tile-sm waits-tile-img")).join("")
+      + `</span>`
+    : "";
+  return `${sujiBadge}${renderWaitBreakdown(w)}`;
+}
+
 function renderWaitBreakdown(waits) {
   // Show every wait shape we computed — including zero-combo ones so a fully
   // dealt-away partner tile is visible as "0×3  0.0%". Cap at 15 for safety.
@@ -623,30 +639,6 @@ function renderWaitBreakdown(waits) {
       + `<span class="${rateCls}">${w.rate.toFixed(1)}%</span>`
       + `</span>`;
   }).join(`<span class="dealin-sum-op">+</span>`);
-}
-
-// --- Multi-riichi threat-view toggle ---
-// Each rendered ev-comparison registers its mistake object in this map so
-// the pill onclick can look it up and re-render with a different threat view
-// without re-fetching from the server.
-var _evRegistry = new Map();
-var _evCounter = 0;
-
-function _registerEvContainer(m, options) {
-  const id = `ev-cmp-${++_evCounter}`;
-  _evRegistry.set(id, { m, options: { ...(options || {}) } });
-  return id;
-}
-
-function switchThreatView(containerId, view) {
-  const entry = _evRegistry.get(containerId);
-  if (!entry) return;
-  const newOpts = { ...entry.options, containerId, threatView: view };
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  // Re-register with the updated options so the new pills point back here.
-  _evRegistry.set(containerId, { m: entry.m, options: newOpts });
-  container.outerHTML = renderEvComparison(entry.m, newOpts);
 }
 
 function toggleUkeire(btn) {
