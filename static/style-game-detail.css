@@ -1615,12 +1615,11 @@
 /* --- Ukeire inline in EV table --- */
 
 /* ---- Tile-acceptance column ------------------------------------------- */
-/* Header is left-aligned like the Tile column; the shared count rides along as
-   an expandable pill that reveals the shared tiles in the row beneath it. */
+/* Header is left-aligned like the Tile column. */
 .ev-table th.ukeire-acc-h { text-align: left; }
 
-/* "N shared" pill on the acceptance row label — click to expand the shared
-   ukeire tiles into the row below. */
+/* "N shared" pill living on the left of each acceptance cell — click to expand
+   that cell (and the whole row) in place to the pick's full ukeire list. */
 .ukeire-shared-pill {
   display: inline-flex;
   align-items: center;
@@ -1636,6 +1635,7 @@
   text-transform: none;
   letter-spacing: 0;
   vertical-align: middle;
+  white-space: nowrap;
 }
 .ukeire-shared-pill:hover {
   color: var(--text);
@@ -1643,27 +1643,16 @@
 }
 .ukeire-shared-caret {
   font-size: 9px;
-  transition: transform .15s;
 }
-.ev-comparison.shared-expanded .ukeire-shared-caret { transform: rotate(90deg); }
 
-/* Shared-tiles row: collapsed by default, revealed when the pill is active. */
-.ukeire-shared-row { display: none; }
-.ev-comparison.shared-expanded .ukeire-shared-row { display: table-row; }
-.ev-table td.ukeire-shared-cell {
-  text-align: left;
-  white-space: normal;
-  padding-top: 2px;
-}
-.ukeire-shared-label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
+/* Collapsed (shared + gains) vs expanded (full acceptance) views live in the
+   same cell; the whole row swaps when any pill is toggled. Qualified with
+   .ukeire-acc so these beat the plain .ukeire-acc { display: inline-flex }
+   declared below them (equal specificity would otherwise let source order win,
+   leaving both views — and both carets — visible at once). */
+.ukeire-acc.ukeire-expanded { display: none; }
+.ev-comparison.shared-expanded .ukeire-acc.ukeire-collapsed { display: none; }
+.ev-comparison.shared-expanded .ukeire-acc.ukeire-expanded { display: inline-flex; }
 
 .ev-table td.ukeire-acc-cell {
   text-align: left;

@@ -212,12 +212,26 @@ function renderEvComparison(m, options) {
     if (hasUkeire) {
       if (diffEnabled) {
         const g = diffByTile[tile];
+        // Each acceptance cell now carries its own shared pill on the left.
+        // Collapsed: "N shared ▸" + this pick's "+M" gains over the others.
+        // Expanded (whole row toggles together): "T ◂" + this pick's full
+        // acceptance list, where T is the pick's total ukeire count.
+        const pill = (n, caret, expanded, title) =>
+          `<button type="button" class="ukeire-shared-pill" data-action="toggleShared" aria-expanded="${expanded}" title="${title}">${n}<span class="ukeire-shared-caret">${caret}</span></button>`;
+        let collapsed = `<span class="ukeire-acc ukeire-collapsed">`;
+        collapsed += pill(`${diff.commonTotal} shared`, "▸", "false",
+          "Tiles every pick accepts — click to expand this pick's full acceptance");
         if (g && g.gains.length > 0) {
-          acc += `<span class="ukeire-acc">`;
-          acc += `<span class="ukeire-gain" title="Tiles this discard accepts that the other picks don't">+${g.gainTotal}</span>`;
-          acc += `<span class="ukeire-inline-tiles">${renderUkeireTiles(g.gains, ukeireDora)}</span>`;
-          acc += `</span>`;
+          collapsed += `<span class="ukeire-gain" title="Tiles this discard accepts that the other picks don't">+${g.gainTotal}</span>`;
+          collapsed += `<span class="ukeire-inline-tiles">${renderUkeireTiles(g.gains, ukeireDora)}</span>`;
         }
+        collapsed += `</span>`;
+        let expanded = `<span class="ukeire-acc ukeire-expanded">`;
+        expanded += pill(ca.necessary_count, "◂", "true",
+          "Collapse back to shared tiles + gains");
+        expanded += `<span class="ukeire-inline-tiles">${renderUkeireTiles(ca.necessary_tiles, ukeireDora)}</span>`;
+        expanded += `</span>`;
+        acc = collapsed + expanded;
       } else {
         acc += `<span class="ukeire-acc">`;
         acc += `<span class="ukeire-acc-total" title="Tiles that would improve your hand">${ca.necessary_count} tiles</span>`;
@@ -406,13 +420,10 @@ function renderEvComparison(m, options) {
   });
   const anyFeat = featCells.some(s => s);
 
-  // The tiles every pick accepts are common ground — rather than repeat them in
-  // each column, surface the count as an expandable pill on the acceptance row's
-  // label. Clicking it reveals the shared tiles in the row beneath (toggleShared);
-  // clicking again collapses them. Only meaningful in diff mode.
-  const sharedPill = diffEnabled
-    ? ` <button type="button" class="ukeire-shared-pill" data-action="toggleShared" aria-expanded="false" title="Tiles every pick accepts — click to show them">${diff.commonTotal} shared<span class="ukeire-shared-caret">▸</span></button>`
-    : "";
+  // The tiles every pick accepts are common ground — each acceptance cell shows
+  // the shared count as a pill on its left (built per-column above), expanding in
+  // place to that pick's full acceptance via toggleShared. Only meaningful in
+  // diff mode.
   // Shanten now rides as a pill to the left of each discard glyph in the
   // header (always shown). Its colour is a grey→gold gradient keyed on the
   // shanten value (see shantenPillStyle) — closer to tenpai reads more gold.
@@ -443,21 +454,11 @@ function renderEvComparison(m, options) {
   html += `</tr></thead><tbody>`;
 
   html += rowFor(
-    `Tile acceptance${sharedPill}`,
-    ` title="Tiles each discard accepts that the others don't. The tiles every pick shares are in the “N shared” pill."`,
+    `Tile acceptance`,
+    ` title="Each cell's “N shared” pill is the tiles every pick accepts; the “+N” beside it is the extra tiles that pick alone accepts. Click the pill to expand the full list."`,
     "ukeire-col ukeire-acc-row",
     c => `<div class="ukeire-acc-cell">${c.acc}</div>`,
   );
-  // Expandable shared-tiles row: hidden until the "N shared" pill is clicked.
-  // Spans the pick columns so the full shared ukeire gets the table's width.
-  if (diffEnabled && diff.common.length) {
-    html += `<tr class="ukeire-col ukeire-shared-row">`;
-    html += `<th class="ev-axis"></th>`;
-    html += `<td class="ukeire-shared-cell" colspan="${cols.length}">`;
-    html += `<span class="ukeire-shared-label">Shared by all picks</span>`;
-    html += `<span class="ukeire-inline-tiles">${renderUkeireTiles(diff.common, ukeireDora)}</span>`;
-    html += `</td></tr>`;
-  }
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row
   // already shows the EV loss, so a per-pick EV row just repeats it. (The
   // per-column `c.mortal` is still computed in case it's needed elsewhere.)
@@ -633,8 +634,9 @@ function renderWaitBreakdown(waits) {
   }).join(`<span class="dealin-sum-op">+</span>`);
 }
 
-// Expand/collapse the shared-tiles row beneath the Tile acceptance row, driven
-// by the "N shared" pill on the row label.
+// Expand/collapse the acceptance cells in place: collapsed shows each pick's
+// "N shared" pill + its "+M" gains; expanded swaps every cell to its full ukeire
+// list with a collapse caret. Toggling any cell's pill flips the whole row.
 function toggleShared(btn) {
   const wrap = btn.closest(".ev-comparison");
   if (!wrap) return;
