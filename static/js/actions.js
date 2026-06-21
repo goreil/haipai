@@ -49,8 +49,7 @@ var HAIPAI_CLICK_ACTIONS = {
   onReportClear: (el) => onReportClear(+el.dataset.mid),
 
   // --- ev table ---
-  toggleUkeire: (el) => toggleUkeire(el),
-  toggleUkeireMode: (el) => toggleUkeireMode(el),
+  toggleShared: (el) => toggleShared(el),
 
   // --- account ---
   linkOAuth: (el) => linkOAuth(el.dataset.provider),

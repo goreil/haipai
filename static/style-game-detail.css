@@ -1613,85 +1613,58 @@
 .report-card .report-footer b { color: var(--text); }
 
 /* --- Ukeire inline in EV table --- */
-.ukeire-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 4px;
-  flex-wrap: wrap;
-}
 
-.ukeire-toggle {
-  display: inline-block;
-  padding: 2px 10px;
+/* ---- Tile-acceptance column ------------------------------------------- */
+/* Header is left-aligned like the Tile column; the shared count rides along as
+   an expandable pill that reveals the shared tiles in the row beneath it. */
+.ev-table th.ukeire-acc-h { text-align: left; }
+
+/* "N shared" pill on the acceptance row label — click to expand the shared
+   ukeire tiles into the row below. */
+.ukeire-shared-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
   font-size: 11px;
+  font-weight: 600;
   color: var(--text-dim);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
   border-radius: 10px;
   cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  vertical-align: middle;
 }
-
-.ukeire-toggle:hover {
+.ukeire-shared-pill:hover {
   color: var(--text);
   border-color: var(--text-dim);
 }
+.ukeire-shared-caret {
+  font-size: 9px;
+  transition: transform .15s;
+}
+.ev-comparison.shared-expanded .ukeire-shared-caret { transform: rotate(90deg); }
 
-.ukeire-mode-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-  font-size: 11px;
+/* Shared-tiles row: collapsed by default, revealed when the pill is active. */
+.ukeire-shared-row { display: none; }
+.ev-comparison.shared-expanded .ukeire-shared-row { display: table-row; }
+.ev-table td.ukeire-shared-cell {
+  text-align: left;
+  white-space: normal;
+  padding-top: 2px;
+}
+.ukeire-shared-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-.ukeire-mode-switch .sw {
-  width: 30px; height: 17px;
-  border-radius: 9px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  position: relative;
-  transition: background .15s;
-  flex: none;
-}
-.ukeire-mode-switch .sw::after {
-  content: "";
-  position: absolute;
-  top: 1px; left: 1px;
-  width: 13px; height: 13px;
-  border-radius: 50%;
-  background: var(--text-dim);
-  transition: transform .16s, background .16s;
-}
-.ukeire-mode-switch.on .sw { background: rgba(79, 195, 247, 0.22); }
-.ukeire-mode-switch.on .sw::after { transform: translateX(13px); background: var(--accent); }
-.ukeire-mode-switch.on { color: var(--text); }
 
-/* When tile acceptance is hidden (Defense cards etc.) the whole column —
-   header + every cell — collapses, and the "Show all ukeire" switch goes
-   with it. Hiding all cells in the column zeroes its width, so the
-   wait-breakdown rows that span the table still line up. */
-.ev-comparison.ukeire-hidden .ukeire-col { display: none; }
-.ev-comparison.ukeire-hidden .ukeire-mode-switch { display: none; }
-
-/* Diff vs full visibility — both versions live in the cell; CSS swaps which
-   is shown. In diff mode the "(N shared)" header note shows and full lists
-   hide; "Show all ukeire" flips it. */
-.ev-comparison.ukeire-mode-diff .full-only { display: none; }
-.ev-comparison:not(.ukeire-mode-diff) .diff-only { display: none; }
-
-/* ---- Tile-acceptance column ------------------------------------------- */
-/* Header is left-aligned like the Tile column; the shared count rides along
-   as a quiet muted note rather than its own row. */
-.ev-table th.ukeire-acc-h { text-align: left; }
-.ukeire-shared-count {
-  color: var(--text-dim);
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0;
-}
 .ev-table td.ukeire-acc-cell {
   text-align: left;
   white-space: normal;
