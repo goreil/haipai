@@ -403,15 +403,41 @@ function renderEvComparison(m, options) {
     // The downside rides on the riskier side now — the percentage-point gap over
     // the safest other pick — coloured with the same deal-in gradient as the
     // Deal-in cell so a bigger gap reads redder.
-    if (useKd && col.dealinRate != null) {
-      const os = others.map(o => o.dealinRate).filter(v => v != null);
-      if (os.length) {
-        const best = Math.min(...os);
-        if (col.dealinRate > best) {
-          const diff = col.dealinRate - best;
-          pills.push(featPill("dealin", `+${diff.toFixed(1)}% deal-in`,
-            `Deals in ${diff.toFixed(1)}% more often than the other pick`,
-            "", `color:${dealinColor(diff)}`));
+    //
+    // With 2+ live opponents the disadvantage is broken out per direction: a
+    // pick can be safer against one threat yet riskier against another, and a
+    // single aggregate nets those out and hides the trade-off. So we compare
+    // each opponent's deal-in rate independently against the safest other pick
+    // for *that same opponent*, and emit one pill — tagged with the seat wind —
+    // per direction where this pick loses. Single-opponent picks keep the lone
+    // aggregate pill.
+    if (useKd) {
+      if (threatCount >= 2 && col.threatLines) {
+        for (const tl of col.threatLines) {
+          if (tl.rate == null) continue;
+          const os = others
+            .map(o => (o.threatLines || []).find(x => x.seat === tl.seat))
+            .filter(x => x && x.rate != null)
+            .map(x => x.rate);
+          if (!os.length) continue;
+          const best = Math.min(...os);
+          if (tl.rate > best) {
+            const diff = tl.rate - best;
+            pills.push(featPill("dealin", `+${diff.toFixed(1)}% deal-in ${tl.wind}`,
+              `Deals in ${diff.toFixed(1)}% more often than the other pick against ${seatWindFor(tl.seat)}`,
+              "", `color:${dealinColor(diff)}`));
+          }
+        }
+      } else if (col.dealinRate != null) {
+        const os = others.map(o => o.dealinRate).filter(v => v != null);
+        if (os.length) {
+          const best = Math.min(...os);
+          if (col.dealinRate > best) {
+            const diff = col.dealinRate - best;
+            pills.push(featPill("dealin", `+${diff.toFixed(1)}% deal-in`,
+              `Deals in ${diff.toFixed(1)}% more often than the other pick`,
+              "", `color:${dealinColor(diff)}`));
+          }
         }
       }
     }
