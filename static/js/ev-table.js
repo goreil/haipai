@@ -332,7 +332,7 @@ function renderEvComparison(m, options) {
               + suji.tiles.map(t => renderTile(t, "tile-sm waits-tile-img")).join("")
               + `</span>`
             : "";
-          waits = `<span class="waits-row-list">${sujiBadge}${renderWaitBreakdown(w)}</span>`;
+          waits = `${sujiBadge}${renderWaitBreakdown(w)}`;
         }
       }
     }
@@ -373,10 +373,10 @@ function renderEvComparison(m, options) {
 
   // Feature-summary pills. For each column, compare its feature values against
   // the best value among the OTHER columns and emit a pill for every dimension
-  // where this pick wins (or, for shanten, loses). Positive dimensions:
-  // ukeire, dora kept, dora acceptance, safety. The lone negative: shanten.
-  const featPill = (kind, label, title, tilesHtml = "") =>
-    `<span class="feat-pill feat-pill-${kind}" title="${title}">`
+  // where this pick wins (or, for shanten/deal-in, loses). Positive dimensions:
+  // ukeire, dora kept, dora acceptance. The negatives: shanten, deal-in.
+  const featPill = (kind, label, title, tilesHtml = "", style = "") =>
+    `<span class="feat-pill feat-pill-${kind}" title="${title}"${style ? ` style="${style}"` : ""}>`
     + `<span class="feat-pill-label">${label}</span>`
     + (tilesHtml ? `<span class="feat-pill-tiles">${tilesHtml}</span>` : "")
     + `</span>`;
@@ -431,14 +431,19 @@ function renderEvComparison(m, options) {
       }
     }
 
-    // +safety: deals in less often than the other pick (KD threat data only).
+    // +deal-in: deals in MORE often than the other pick (KD threat data only).
+    // The downside rides on the riskier side now — the percentage-point gap over
+    // the safest other pick — coloured with the same deal-in gradient as the
+    // Deal-in cell so a bigger gap reads redder.
     if (useKd && col.dealinRate != null) {
       const os = others.map(o => o.dealinRate).filter(v => v != null);
       if (os.length) {
-        const worst = Math.max(...os);
-        if (col.dealinRate < worst) {
-          pills.push(featPill("pos", "+safety",
-            `Deals in ${(worst - col.dealinRate).toFixed(1)}% less often than the other pick`));
+        const best = Math.min(...os);
+        if (col.dealinRate > best) {
+          const diff = col.dealinRate - best;
+          pills.push(featPill("dealin", `+${diff.toFixed(1)}% deal-in`,
+            `Deals in ${diff.toFixed(1)}% more often than the other pick`,
+            "", `color:${dealinColor(diff)}`));
         }
       }
     }
@@ -499,9 +504,22 @@ function renderEvComparison(m, options) {
       ` title="Probability this tile deals in — aggregated across all riichi threats — with the contributing wait shapes beneath."`,
       "dealin-col",
       c => {
+        // When wait shapes exist, render the deal-in cell as an equation:
+        // the per-wait pills are addends (pill + pill + …) and the tile's total
+        // deal-in rate is the sum after the "=". With no pills, fall back to the
+        // bare rate (e.g. "0%" / "Safe") as before.
         let s = `<div class="dealin-stack">`;
-        s += `<div class="dealin-rate-line">${c.dealin}</div>`;
-        if (c.waits) s += `<div class="dealin-waits-line">${c.waits}</div>`;
+        if (c.waits) {
+          s += `<div class="dealin-waits-line">`
+            +    `<span class="waits-row-list dealin-sum">`
+            +      c.waits
+            +      `<span class="dealin-sum-eq">=</span>`
+            +      c.dealin
+            +    `</span>`
+            +  `</div>`;
+        } else {
+          s += `<div class="dealin-rate-line">${c.dealin}</div>`;
+        }
         s += `</div>`;
         return s;
       },
@@ -509,8 +527,8 @@ function renderEvComparison(m, options) {
   }
 
   // Feature summary: a final row of pills per pick summarising every dimension
-  // we gather — ukeire, dora kept, dora acceptance, safety (all positive) plus
-  // shanten (the lone negative). Shown only when at least one pick has a pill.
+  // we gather — ukeire, dora kept, dora acceptance (positive) plus shanten and
+  // deal-in (negative). Shown only when at least one pick has a pill.
   if (anyFeat) {
     html += `<tr class="feat-summary-row">`;
     html += `<th class="ev-axis" title="Every feature this pick wins (or, for shanten, loses) versus the other pick.">Summary</th>`;
@@ -604,7 +622,7 @@ function renderWaitBreakdown(waits) {
       + `</span>`
       + `<span class="${rateCls}">${w.rate.toFixed(1)}%</span>`
       + `</span>`;
-  }).join("");
+  }).join(`<span class="dealin-sum-op">+</span>`);
 }
 
 // --- Multi-riichi threat-view toggle ---

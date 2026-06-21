@@ -916,6 +916,17 @@
 }
 .waits-dead { color: var(--text-dim); font-weight: 500; }
 
+/* Deal-in cell rendered as a sum: per-wait pills joined by "+", the tile's
+   total deal-in rate after "=". Center every term vertically so the operators
+   and the trailing sum line up with the tile-bearing wait pills. */
+.dealin-sum { align-items: center; }
+.dealin-sum-op,
+.dealin-sum-eq {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .threat-toggle {
   display: flex;
   align-items: center;
@@ -1751,6 +1762,12 @@
   color: var(--sev-major);
   background: rgba(239, 83, 80, 0.14);
   border: 1px solid rgba(239, 83, 80, 0.3);
+}
+/* Deal-in downside pill: neutral chrome so the inline deal-in gradient (set on
+   `color`) carries the meaning, exactly like the Deal-in cell. */
+.feat-pill-dealin {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 .feat-pill-tiles {
   display: inline-flex;
