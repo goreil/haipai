@@ -96,7 +96,7 @@ function renderMistakeCard(m, opts = {}) {
     html += `<span class="all-last-badge" title="Final round of the hand — placement matters more than raw EV here.">All last</span>`;
   }
   html += formatTurnBadge(m.turn);
-  if (m.id) html += `<span class="dev-id" title="mistake id">#${m.id}</span>`;
+  if (m.id) html += `<a class="dev-id" href="#m${m.id}" data-action="openHash" title="Deep-link to this mistake">#m${m.id}</a>`;
   html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;
   html += `<span class="ev-loss" title="${EV_LOSS_TOOLTIP}">${m.ev_loss.toFixed(2)} EV</span>`;
   if (m.category) {
@@ -125,7 +125,7 @@ function renderMistakeCard(m, opts = {}) {
     // plain game fetch for cards without an id (shouldn't happen for stored
     // mistakes, but keep the link from being a dead end).
     if (m.id) {
-      html += `<a class="mistake-link" href="#mistake=${m.id}">View mistake</a>`;
+      html += `<a class="mistake-link" href="#m${m.id}">View mistake</a>`;
     } else {
       html += `<span class="mistake-link" data-action="fetchGame" data-game-id="${showLink}">View game</span>`;
     }

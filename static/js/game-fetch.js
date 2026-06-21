@@ -33,6 +33,34 @@ function showOnboarding() {
   `;
 }
 
+// Admin deep-link auto-impersonation. When an admin opens a #game / #mistake
+// deep-link to something they don't own, transparently impersonate the owner
+// and reload — the hash survives the reload, so on the second pass they ARE the
+// owner and the link resolves. Also lets puppeteer reach other users' games by
+// URL alone. `kind` is "game" or "mistake"; returns true if a reload was kicked
+// off (caller must stop). The per-target sessionStorage guard stops a reload
+// loop if impersonation succeeds yet the target still won't load.
+async function tryAdminImpersonateForDeepLink(kind, id) {
+  const me = window._meData;
+  if (!me || !me.is_admin) return false;
+  const guardKey = `haipai-imp-tried-${kind}-${id}`;
+  if (sessionStorage.getItem(guardKey)) return false;
+  const res = await apiPost(`/api/admin/impersonate-for-${kind}/${id}`, {});
+  if (!res.ok) return false;
+  sessionStorage.setItem(guardKey, "1");
+  window.location.reload();
+  return true;
+}
+
+// Wipe the deep-link impersonation guards once a target has loaded cleanly, so
+// a later visit to the same game/mistake can auto-impersonate again.
+function clearAdminImpersonateGuards() {
+  for (let i = sessionStorage.length - 1; i >= 0; i--) {
+    const k = sessionStorage.key(i);
+    if (k && k.startsWith("haipai-imp-tried-")) sessionStorage.removeItem(k);
+  }
+}
+
 async function fetchGame(id) {
   // mortal_data ships from its own endpoint with immutable cache headers,
   // so revisits only re-download the (small) game payload.
@@ -41,6 +69,8 @@ async function fetchGame(id) {
     fetch(`/api/games/${id}/mortal`),
   ]);
   if (!res.ok) {
+    // Admin deep-link to another user's game: impersonate the owner and reload.
+    if (await tryAdminImpersonateForDeepLink("game", id)) return;
     // Bad deep-link or game not owned: drop the hash so the listener doesn't
     // re-fire, and leave the user on the game list.
     if (window.location.hash) history.replaceState(null, "", window.location.pathname + window.location.search);
@@ -49,10 +79,11 @@ async function fetchGame(id) {
     document.getElementById("content").innerHTML = '<div class="empty-state">Game not found</div>';
     return;
   }
+  clearAdminImpersonateGuards();
   state.currentGameData = await res.json();
   if (mres.ok) state.currentGameData.mortal_data = await mres.json();
   state.currentGame = id;
-  const want = `#game=${id}`;
+  const want = `#g${id}`;
   if (window.location.hash !== want) history.replaceState(null, "", want);
   // First render uses any stored prep fields (advisory) + JS categorize so
   // the user sees the game immediately. Then refreshPrepAndRecategorize

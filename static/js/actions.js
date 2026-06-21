@@ -42,6 +42,17 @@ var HAIPAI_CLICK_ACTIONS = {
 
   // --- game list / detail (game-render, game-fetch, mistake-card) ---
   fetchGame: (el) => fetchGame(+el.dataset.gameId),
+  // Deep-link badge (#g<id> / #m<id>): route through the hash router exactly
+  // once. Carrying its own data-action stops the click from also firing a
+  // parent's fetchGame (the delegate runs only the closest action), and
+  // preventDefault suppresses the raw jump so we drive applyHashRoute via the
+  // hash assignment — re-rendering in place when the hash is already current.
+  openHash: (el, e) => {
+    e.preventDefault();
+    const h = el.getAttribute("href");
+    if (window.location.hash === h) applyHashRoute();
+    else window.location.hash = h;
+  },
   deleteGame: () => deleteGame(state.currentGame),
   switchGameView: (el) => switchGameView(el.dataset.view),
   toggleGameMistakes: (el) => toggleGameMistakes(el.dataset.groupId),

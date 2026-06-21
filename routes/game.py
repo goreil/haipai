@@ -180,7 +180,7 @@ def api_annotate(game_id):
 @login_required
 def api_locate_mistake(mistake_id):
     """Resolve a mistake_id to the game it belongs to so deep-links like
-    `#mistake=<id>` can fetch the right game. Returns 404 if the mistake
+    `#m<id>` can fetch the right game. Returns 404 if the mistake
     doesn't exist or belongs to another user."""
     from app import get_conn
     conn = get_conn()

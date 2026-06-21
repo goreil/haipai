@@ -44,26 +44,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   CATEGORY_INFO = await catRes.json();
   await fetchGames();
 
-  // Deep-link to a specific game via #game=<id> or to a specific mistake via
-  // #mistake=<id>. After fetchGames so the sidebar is populated regardless
+  // Deep-link to a specific game via #g<id> or to a specific mistake via
+  // #m<id>. After fetchGames so the sidebar is populated regardless
   // of whether the deep-link target loads.
   await applyHashRoute();
 
   window.addEventListener("hashchange", () => { applyHashRoute(); });
 });
 
-// Returns the integer game id from `#game=<id>`, or null if the hash is
+// Returns the integer game id from `#g<id>`, or null if the hash is
 // missing/malformed/non-positive.
 function parseGameHash() {
-  const m = (window.location.hash || "").match(/^#game=(\d+)$/);
+  const m = (window.location.hash || "").match(/^#g(\d+)$/);
   if (!m) return null;
   const n = parseInt(m[1], 10);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-// Returns the integer mistake id from `#mistake=<id>`, or null otherwise.
+// Returns the integer mistake id from `#m<id>`, or null otherwise.
 function parseMistakeHash() {
-  const m = (window.location.hash || "").match(/^#mistake=(\d+)$/);
+  const m = (window.location.hash || "").match(/^#m(\d+)$/);
   if (!m) return null;
   const n = parseInt(m[1], 10);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -92,7 +92,7 @@ function navTab(slug) {
   else window.location.hash = slug;
 }
 
-// Route the current location.hash to a game load. #mistake=<id> resolves to a
+// Route the current location.hash to a game load. #m<id> resolves to a
 // game via /api/mistakes/<id>/locate, stashes the target mistake id so
 // renderGame can scroll to it, and (in summary view) bounces to rounds so the
 // target card is actually on screen.
@@ -101,6 +101,8 @@ async function applyHashRoute() {
   if (mistakeId != null) {
     const res = await fetch(`/api/mistakes/${mistakeId}/locate`);
     if (!res.ok) {
+      // Admin deep-link to another user's mistake: impersonate owner + reload.
+      if (await tryAdminImpersonateForDeepLink("mistake", mistakeId)) return;
       // Drop the hash so the listener doesn't refire on history changes.
       history.replaceState(null, "", window.location.pathname + window.location.search);
       return;

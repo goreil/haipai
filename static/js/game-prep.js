@@ -22,7 +22,7 @@ function autoSetSeverityFilters(game) {
   _syncSeverityCheckboxes();
 }
 
-// Force the filter for `mistakeId`'s tier on so a #mistake=<id> deep-link
+// Force the filter for `mistakeId`'s tier on so a #m<id> deep-link
 // can't land on a hidden card. Severe is always visible, so no-op there.
 function ensureMistakeVisible(game, mistakeId) {
   if (!game || mistakeId == null) return;

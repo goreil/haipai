@@ -188,7 +188,7 @@
   transition: border-color 0.15s;
 }
 
-/* Brief highlight when navigated to via #mistake=<id>, so the target card
+/* Brief highlight when navigated to via #m<id>, so the target card
    doesn't blend into the round it lives in once scrolled into view. */
 .mistake.mistake-flash {
   animation: mistake-flash-anim 1.8s ease-out;
@@ -941,8 +941,10 @@
   opacity: 0.35;
   margin-left: 4px;
   letter-spacing: 0;
+  text-decoration: none;
+  cursor: pointer;
 }
-.dev-id:hover { opacity: 0.75; }
+.dev-id:hover { opacity: 0.75; text-decoration: underline; }
 
 /* Furiten — loudest 5A signal, worth a dedicated tag. */
 .furiten-badge {

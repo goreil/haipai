@@ -126,6 +126,67 @@ def api_admin_impersonate(user_id):
     return jsonify({"ok": True, "impersonating": target["username"]})
 
 
+def _do_impersonate_owner(conn, owner_id):
+    """Switch the session to view as ``owner_id``, driven by the effective admin.
+
+    Unlike ``api_admin_impersonate`` this is idempotent and never errors on a
+    pre-existing impersonation: it swaps the target directly (admin → A → B),
+    no-ops when already viewing as ``owner_id``, and drops impersonation when
+    the owner is the admin themselves. Powers the admin deep-link auto-jump so
+    opening another user's game/mistake URL "just works".
+
+    Returns ``(body_dict, http_code)``.
+    """
+    from app import User
+    admin_id = _effective_admin_id(conn)  # the real admin, even mid-impersonation
+    if admin_id is None:
+        return {"error": "Admin access required"}, 403
+    owner = db.get_user_by_id(conn, owner_id)
+    if not owner:
+        return {"error": "User not found"}, 404
+    if owner_id == admin_id:
+        # Admin owns the target — clear any active impersonation, view as self.
+        if session.get(IMPERSONATOR_SESSION_KEY):
+            session.pop(IMPERSONATOR_SESSION_KEY, None)
+            admin_row = db.get_user_by_id(conn, admin_id)
+            login_user(User(admin_row["id"], admin_row["username"]))
+        return {"ok": True, "impersonating": None, "username": owner["username"]}, 200
+    session[IMPERSONATOR_SESSION_KEY] = admin_id
+    login_user(User(owner["id"], owner["username"]))
+    return {"ok": True, "impersonating": owner["username"]}, 200
+
+
+@admin_bp.route("/api/admin/impersonate-for-game/<int:game_id>", methods=["POST"])
+@require_admin
+def api_admin_impersonate_for_game(game_id):
+    """Impersonate the owner of ``game_id`` so an admin deep-link to another
+    user's game resolves on reload. Idempotent — swaps directly between owners."""
+    from app import get_conn
+    conn = get_conn()
+    row = conn.execute("SELECT user_id FROM games WHERE id = ?", (game_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Game not found"}), 404
+    body, code = _do_impersonate_owner(conn, row["user_id"])
+    return jsonify(body), code
+
+
+@admin_bp.route("/api/admin/impersonate-for-mistake/<int:mistake_id>", methods=["POST"])
+@require_admin
+def api_admin_impersonate_for_mistake(mistake_id):
+    """Impersonate the owner of the game that ``mistake_id`` belongs to, so an
+    admin ``#m<id>`` deep-link resolves on reload."""
+    from app import get_conn
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT g.user_id FROM mistakes m JOIN games g ON m.game_id = g.id WHERE m.id = ?",
+        (mistake_id,),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Mistake not found"}), 404
+    body, code = _do_impersonate_owner(conn, row["user_id"])
+    return jsonify(body), code
+
+
 # --- GDPR user deletion ---
 
 @admin_bp.route("/api/admin/users/<int:user_id>", methods=["DELETE"])

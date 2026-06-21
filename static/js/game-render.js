@@ -40,7 +40,7 @@ function renderGameList() {
     }
     return `${sep}
       <div class="game-item ${active}" data-action="fetchGame" data-game-id="${g.id}">
-        <div class="date"><span class="dev-id" title="game id">#${g.id}</span>${rating.icon ? ` <span class="game-rating-icon" title="${rating.label}">${rating.icon}</span>` : ""} ${
+        <div class="date"><a class="dev-id" href="#g${g.id}" data-action="openHash" title="Deep-link to this game">#g${g.id}</a>${rating.icon ? ` <span class="game-rating-icon" title="${rating.label}">${rating.icon}</span>` : ""} ${
           s.total_mistakes || 0} mistakes &middot; ${(s.total_ev_loss || 0).toFixed(2)} EV${
           s.total_decisions ? ` &middot; ${s.ev_per_decision.toFixed(4)}/D` : ""}</div>
       </div>
@@ -73,7 +73,7 @@ function renderGame() {
   const displayDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   let html = `
     <div class="game-header">
-      <h2>${displayDate}<span class="dev-id" title="game id">#${state.currentGame}</span>
+      <h2>${displayDate}<a class="dev-id" href="#g${state.currentGame}" data-action="openHash" title="Deep-link to this game">#g${state.currentGame}</a>
         <button class="btn btn-delete" data-action="deleteGame" title="Delete game">Delete</button>
       </h2>
       ${game.log_url ? `<div class="log-link"><a href="${game.log_url}" target="_blank">${game.log_url}</a></div>` : ""}
@@ -195,7 +195,7 @@ function renderGame() {
         html += `<span class="all-last-badge" title="Final round of the hand — placement matters more than raw EV here.">All last</span>`;
       }
       html += formatTurnBadge(m.turn);
-      if (m.id) html += `<span class="dev-id" title="mistake id">#${m.id}</span>`;
+      if (m.id) html += `<a class="dev-id" href="#m${m.id}" data-action="openHash" title="Deep-link to this mistake">#m${m.id}</a>`;
       html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;
       html += `<span class="ev-loss" title="${EV_LOSS_TOOLTIP}">${m.ev_loss.toFixed(2)} EV</span>`;
       if (m.category) {
@@ -392,7 +392,7 @@ function renderGame() {
   // Re-highlight active game in sidebar
   renderGameList();
 
-  // Honour a pending scroll-to-mistake request from the #mistake=<id>
+  // Honour a pending scroll-to-mistake request from the #m<id>
   // deep-link router. Only scrolls in the rounds view — the summary view
   // collapses cards into expandable groups, so there's nothing to scroll to.
   if (state.scrollToMistakeId && state.gameView === "rounds") {
