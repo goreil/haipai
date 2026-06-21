@@ -414,9 +414,13 @@
   font-weight: 700;
 }
 
+/* Both the eliminated (.dead) pills and the demoted-but-live (.yp-more) pills
+   stay hidden until the "more" toggle expands the strip. */
 .yaku-strip .yp.dead,
+.yaku-strip .yp.yp-more,
 .yaku-strip .yp-dead-sep { display: none; }
 .yaku-strip[data-expanded="true"] .yp.dead,
+.yaku-strip[data-expanded="true"] .yp.yp-more,
 .yaku-strip[data-expanded="true"] .yp-dead-sep { display: inline-flex; }
 
 .yp-dead-sep {

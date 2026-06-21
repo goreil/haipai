@@ -5,6 +5,11 @@
 // detail. Yakuhai shows tile chips (locked ✓ / reachable ×N), honitsu shows
 // the committable suit as a tile plus a +pip when chinitsu is still alive, and
 // chanta shows a +pip when junchan is still alive.
+// To keep the strip readable, only high-signal yakus stay on it — a guaranteed
+// (locked) yakuhai and yakus two melds are committed to (tanyao/toitoi/chanta/
+// honitsu with 2+ melds, sanshoku/ittsuu with 2+ suits/runs). Lesser live yakus
+// (possible yakuhai, one-meld shapes, one-suit sanshoku) fold into a "more"
+// toggle alongside the eliminated (dead) yakus. See stripKeep / renderYakuStrip.
 // An opened seat with no surviving yaku gets a muted placeholder.
 // Listed here in strip display order (open-hand frequency on amae-koromo);
 // the actual ordering is enforced by prep/prep-board-yaku.js's _YAKU_DISPLAY_ORDER sort.
@@ -323,8 +328,8 @@ function renderYakuPill(d) {
 // tile chip per dead honor (pon no longer possible: unseen<2 or live<3
 // and not melded). Mirrors the live yakuhai pill which packs multiple
 // honors into one "Yakuhai" pill with ✓ / ×N chips; the dead variant
-// shows the unseen count under each chip. Lives behind the strip's "N
-// dead" toggle. Dead sanshoku/ittsuu candidates are also routed behind
+// shows the unseen count under each chip. Lives behind the strip's
+// "more" toggle. Dead sanshoku/ittsuu candidates are also routed behind
 // the same toggle by collectDeadPills (via their normal pill renderer,
 // so the v1.5 `.ss.dead` strike-through styling carries over inside the
 // expanded row).
@@ -360,9 +365,9 @@ function renderDeadYakuhaiPill(d) {
 }
 
 // Returns { pills, count } — `pills` is the HTML chunks (one compressed
-// yakuhai pill + one pill per dead sanshoku/ittsuu), `count` is the
-// per-yaku tally shown in the toggle ("3 dead" = three impossible yakus,
-// not three pills).
+// yakuhai pill + one pill per dead sanshoku/ittsuu); `count` is the
+// per-yaku tally (kept for callers, though the "more" toggle now counts
+// pills, not eliminated yakus).
 function collectDeadPills(entries) {
   const pills = [];
   let count = 0;
@@ -382,8 +387,34 @@ function collectDeadPills(entries) {
 }
 
 // Column label that introduces the pill strip, so the row reads
-// "Possible yakus  [pill] [pill]". Prefixed to every strip variant below.
-const YAKU_STRIP_LABEL = `<span class="yp-label">Possible yakus</span>`;
+// "Likely yakus  [pill] [pill]". Prefixed to every strip variant below.
+const YAKU_STRIP_LABEL = `<span class="yp-label">Likely yakus</span>`;
+
+// An entry routed behind the dead-toggle (state='dead'). collectDeadPills picks
+// these up; the live partition skips them.
+function isDeadRouted(d) {
+  return (d.type === "yakuhai" && d.state === "dead")
+    || ((d.type === "sanshoku" || d.type === "ittsuu") && d.state === "dead");
+}
+
+// Whether a live entry stays in the main strip rather than folding into the
+// "more" toggle. Only the signal worth a glance survives: a guaranteed
+// (already-melded) yakuhai, and yakus that two melds are committed to —
+// sanshoku/ittsuu with 2+ suits/runs melded, and whole-hand yakus (tanyao,
+// toitoi, chanta, honitsu) backed by 2+ melds. Everything else — possible
+// yakuhai, one-meld sanshoku/ittsuu, single-meld whole-hand yakus — is demoted.
+function stripKeep(d) {
+  if (d.type === "yakuhai") return d.state === "locked";
+  if (d.type === "sanshoku" || d.type === "ittsuu") return d.progress >= 2;
+  return (d.support || 0) >= 2;
+}
+
+// Tag a rendered pill so the strip hides it until the "more" toggle expands
+// (the dead pills already carry `.dead`; demoted-live pills need `.yp-more`).
+// The pill's root span always opens with `class="yp ` — only the first match.
+function asMore(html) {
+  return html.replace('class="yp ', 'class="yp yp-more ');
+}
 
 function renderYakuStrip(entries) {
   if (!entries) return "";
@@ -391,31 +422,37 @@ function renderYakuStrip(entries) {
     return `<span class="yaku-strip">${YAKU_STRIP_LABEL}`
       + `<span class="yp yp-empty"><span class="yp-name">No yaku reachable</span></span></span>`;
   }
-  // Entries routed behind the dead-toggle are skipped from the live row:
-  //   - yakuhai with state='dead' (all candidates eliminated)
-  //   - sanshoku / ittsuu with state='dead' (suit/run impossible)
-  // collectDeadPills below picks them up.
-  const liveHtml = entries
-    .filter(d => !(d.type === "yakuhai" && d.state === "dead"))
-    .filter(d => !((d.type === "sanshoku" || d.type === "ittsuu") && d.state === "dead"))
-    .map(renderYakuPill).join("");
-  const { pills: deadPills, count: deadCount } = collectDeadPills(entries);
-  if (!deadPills.length) {
+  // Partition the live entries (dead ones are collected separately below):
+  //   keep    — guaranteed / 2-meld-committed yakus, always on the strip
+  //   demoted — lesser live yakus, folded into the "more" toggle
+  const keep = [];
+  const demoted = [];
+  for (const d of entries) {
+    if (isDeadRouted(d)) continue;
+    (stripKeep(d) ? keep : demoted).push(d);
+  }
+  const liveHtml = keep.map(renderYakuPill).join("");
+  const demotedHtml = demoted.map(d => asMore(renderYakuPill(d))).join("");
+  const { pills: deadPills } = collectDeadPills(entries);
+  // The "more" toggle bundles demoted-live pills + eliminated (dead) pills.
+  const moreHtml = demotedHtml + deadPills.join("");
+  const moreCount = demoted.length + deadPills.length;
+  if (!moreCount) {
     return `<span class="yaku-strip">${YAKU_STRIP_LABEL}${liveHtml}</span>`;
   }
-  // If every live yaku was filtered out (only dead yakuhai for this seat),
-  // anchor the strip with the muted placeholder so the row isn't a bare toggle.
+  // If nothing survived to the main strip (e.g. a single-meld seat), anchor it
+  // with the muted placeholder so the row isn't a bare toggle.
   const emptyHtml = liveHtml
     ? ""
     : `<span class="yp yp-empty"><span class="yp-name">No yaku reachable</span></span>`;
   const toggle = `<button type="button" class="yp-dead-toggle" aria-expanded="false"`
-    + ` title="Yakus eliminated by tile count">`
+    + ` title="Less-committed and eliminated yakus">`
     + `<span class="toggle-arrow">▸</span>`
-    + `<span class="toggle-label">${deadCount} dead</span>`
+    + `<span class="toggle-label">${moreCount} more</span>`
     + `</button>`
     + `<span class="yp-dead-sep"></span>`;
   return `<span class="yaku-strip" data-expanded="false">`
-    + `${YAKU_STRIP_LABEL}${emptyHtml}${liveHtml}${toggle}${deadPills.join("")}</span>`;
+    + `${YAKU_STRIP_LABEL}${emptyHtml}${liveHtml}${toggle}${moreHtml}</span>`;
 }
 
 // Delegated click handler for the dead-yaku toggle. Strips are re-rendered on

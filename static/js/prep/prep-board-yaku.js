@@ -102,6 +102,10 @@
     let termOrHonor = false;
     let honorMelded = false;
     let everyMeldTermOrHonor = melds.length > 0;
+    // Whole-hand yakus are backed by every meld (any contradicting meld kills
+    // them), so `support` — used by the strip to keep only 2-meld-committed
+    // yakus out of the "more" toggle — is just the seat's meld count.
+    const support = melds.length;
     const suits = new Set();
     for (const meld of melds) {
       if (meld.type === "chi") hasChi = true;
@@ -114,17 +118,17 @@
       if (!meldTermOrHonor) everyMeldTermOrHonor = false;
     }
     const out = [];
-    if (!termOrHonor) out.push({ type: "tanyao", state: "possible" });
-    if (!hasChi) out.push({ type: "toitoi", state: "possible" });
+    if (!termOrHonor) out.push({ type: "tanyao", state: "possible", support });
+    if (!hasChi) out.push({ type: "toitoi", state: "possible", support });
     if (everyMeldTermOrHonor) {
       out.push({
-        type: "chanta", state: "possible",
+        type: "chanta", state: "possible", support,
         junchanReachable: !honorMelded,
       });
     }
     if (suits.size <= 1) {
       out.push({
-        type: "honitsu", state: "possible",
+        type: "honitsu", state: "possible", support,
         suits: suits.size === 1 ? [...suits] : ["m", "p", "s"],
         chinitsuReachable: !honorMelded && suits.size === 1,
       });
@@ -361,9 +365,11 @@
   //     the strip (see board.js). The yakuhai entry may have state='dead'
   //     when all candidates are dead; it skips live rendering then but its
   //     `dead[]` is still picked up by the dead-row collector.
-  //   tanyao / toitoi: { type, state:'possible' }
-  //   chanta:  { type, state:'possible', junchanReachable }
-  //   honitsu: { type, state:'possible', suits:['m'|'p'|'s'], chinitsuReachable }
+  //   tanyao / toitoi: { type, state:'possible', support }
+  //   chanta:  { type, state:'possible', support, junchanReachable }
+  //   honitsu: { type, state:'possible', support, suits:['m'|'p'|'s'], chinitsuReachable }
+  //     `support` = backing meld count; the strip keeps only 2-meld-committed
+  //     whole-hand yakus out of the "more" toggle.
   //   sanshoku: { type, state, seq, progress, rows, bottleneck, dealInTiles } (see above)
   //   ittsuu:   { type, state, suit, progress, rows, bottleneck, dealInTiles } (see above)
   function compute_yaku_panel(meldsBySeat, wall, oya, round_wind, hand) {
