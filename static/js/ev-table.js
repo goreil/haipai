@@ -340,9 +340,9 @@ function renderEvComparison(m, options) {
   });
 
   // Feature-summary pills. For each column, compare its feature values against
-  // the best value among the OTHER columns and emit a pill for every dimension
-  // where this pick wins (or, for shanten/deal-in, loses). Positive dimensions:
-  // ukeire, dora kept, dora acceptance. The negatives: shanten, deal-in.
+  // the best value among the OTHER columns and emit a green pill for every
+  // dimension where this pick wins. We only surface positive attributes per
+  // column now: ukeire, dora kept, dora acceptance, lower shanten, lower deal-in.
   const featPill = (kind, label, title, tilesHtml = "", style = "") =>
     `<span class="feat-pill feat-pill-${kind}" title="${title}"${style ? ` style="${style}"` : ""}>`
     + `<span class="feat-pill-label">${label}</span>`
@@ -353,15 +353,16 @@ function renderEvComparison(m, options) {
     const others = cols.filter((_, j) => j !== i);
     const pills = [];
 
-    // -shanten (negative): this pick sits at a worse (higher) shanten than the
-    // best other pick.
+    // -shanten (positive): this pick reaches tenpai sooner (lower shanten) than
+    // the best other pick. The advantage rides on the *better* side as a green
+    // pill — we only surface positive attributes per column now.
     if (col.shantenVal != null) {
       const os = others.map(o => o.shantenVal).filter(v => v != null);
       if (os.length) {
-        const best = Math.min(...os);
-        if (col.shantenVal > best) {
-          pills.push(featPill("neg", `+${col.shantenVal - best} shanten`,
-            "Sits at a worse (higher) shanten than the other pick"));
+        const bestOther = Math.min(...os);
+        if (col.shantenVal < bestOther) {
+          pills.push(featPill("pos", `-${bestOther - col.shantenVal} shanten`,
+            "Reaches tenpai sooner (lower shanten) than the other pick"));
         }
       }
     }
@@ -399,17 +400,17 @@ function renderEvComparison(m, options) {
       }
     }
 
-    // +deal-in: deals in MORE often than the other pick (KD threat data only).
-    // The downside rides on the riskier side now — the percentage-point gap over
-    // the safest other pick — coloured with the same deal-in gradient as the
-    // Deal-in cell so a bigger gap reads redder.
+    // -deal-in: deals in LESS often than the other pick (KD threat data only).
+    // The advantage rides on the *safer* side now as a green pill — the
+    // percentage-point gap under the riskiest other pick. No gradient for now;
+    // plain green chrome like the other positive attributes.
     //
-    // With 2+ live opponents the disadvantage is broken out per direction: a
-    // pick can be safer against one threat yet riskier against another, and a
-    // single aggregate nets those out and hides the trade-off. So we compare
-    // each opponent's deal-in rate independently against the safest other pick
-    // for *that same opponent*, and emit one pill — tagged with the seat wind —
-    // per direction where this pick loses. Single-opponent picks keep the lone
+    // With 2+ live opponents the advantage is broken out per direction: a pick
+    // can be safer against one threat yet riskier against another, and a single
+    // aggregate nets those out and hides the trade-off. So we compare each
+    // opponent's deal-in rate independently against the safest other pick for
+    // *that same opponent*, and emit one pill — tagged with the seat wind — per
+    // direction where this pick wins. Single-opponent picks keep the lone
     // aggregate pill.
     if (useKd) {
       if (threatCount >= 2 && col.threatLines) {
@@ -420,23 +421,21 @@ function renderEvComparison(m, options) {
             .filter(x => x && x.rate != null)
             .map(x => x.rate);
           if (!os.length) continue;
-          const best = Math.min(...os);
-          if (tl.rate > best) {
-            const diff = tl.rate - best;
-            pills.push(featPill("dealin", `+${diff.toFixed(1)}% deal-in ${tl.wind}`,
-              `Deals in ${diff.toFixed(1)}% more often than the other pick against ${seatWindFor(tl.seat)}`,
-              "", `color:${dealinColor(diff)}`));
+          const bestOther = Math.min(...os);
+          if (tl.rate < bestOther) {
+            const diff = bestOther - tl.rate;
+            pills.push(featPill("pos", `-${diff.toFixed(1)}% deal-in ${tl.wind}`,
+              `Deals in ${diff.toFixed(1)}% less often than the other pick against ${seatWindFor(tl.seat)}`));
           }
         }
       } else if (col.dealinRate != null) {
         const os = others.map(o => o.dealinRate).filter(v => v != null);
         if (os.length) {
-          const best = Math.min(...os);
-          if (col.dealinRate > best) {
-            const diff = col.dealinRate - best;
-            pills.push(featPill("dealin", `+${diff.toFixed(1)}% deal-in`,
-              `Deals in ${diff.toFixed(1)}% more often than the other pick`,
-              "", `color:${dealinColor(diff)}`));
+          const bestOther = Math.min(...os);
+          if (col.dealinRate < bestOther) {
+            const diff = bestOther - col.dealinRate;
+            pills.push(featPill("pos", `-${diff.toFixed(1)}% deal-in`,
+              `Deals in ${diff.toFixed(1)}% less often than the other pick`));
           }
         }
       }
