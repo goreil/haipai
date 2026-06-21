@@ -21,7 +21,7 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 7;
+  const CATEGORIZER_VERSION = 8;
   const CATEGORIZER_CHANGELOG = {
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
     2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
@@ -30,6 +30,7 @@
     5: "Kan-vs-call mismatches (chi/pon vs a kan, either direction) now route to 6A/6B instead of falling through to P4. Fixes #14173 (R-179): pon East when daiminkan East was the play is now 6B Missed Kan, not Complex Decision.",
     6: "Open Defense axis (OD1/OD2/OD3, backlog C-02): non-riichi opponents whose open melds pass the prep-side trigger emit kind='open' threats; dahai mistakes in open-threat-only scenes route to OD tiers via the same defend/push/complex logic as D1-D3.",
     7: "P3 also fires on dora-acceptance: when Mortal's pick keeps a wait that accepts strictly more live dora than yours (its ukeire intersects the active dora set more), the mistake is hand value, not Complex. Net rule — suppressed when Mortal's own discard is a dora (throwing a dora to re-accept it is a wash). Fixes #4932 (breaking the 5m6m ryanmen drops the 4m-dora acceptance).",
+    8: "Multi-threat prioritized defense → Defend. With 2+ live threats, Mortal's pick can be strictly safer than yours against some and more dangerous against others; the combined deal-in rate nets this out and the spot fell through to D3/Complex. Now read per_threat directly: safer vs >=1 threat AND more dangerous vs >=1 other → D1/OD1 with a per-side `prioritized_defense` story (which sides it folds to, which it exposes). Kind-agnostic — Mortal may prioritize riichi or open either way (#m20071: folds to both riichi, exposes to the open hand).",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
@@ -278,6 +279,40 @@
     return { category: "D3", pushReason: null };
   }
 
+  // --- Multi-threat "prioritized defense" detection ---
+  // With 2+ live threats, Mortal's pick can be a deliberate trade: strictly
+  // safer than yours against some threats, strictly more dangerous against
+  // others. The combined deal-in rate (classifyDefense's input) nets this out
+  // and hides the defensive intent, so a clear fold otherwise lands in
+  // D3/Complex. Read per_threat directly instead: when Mortal is strictly
+  // safer than you against >=1 threat AND strictly more dangerous against >=1
+  // other, it is folding to the safer side -> Defend. Strict inequalities only
+  // (house rule: no "close enough"). Kind-agnostic — don't assume riichi is
+  // favoured over open; #m20071 folds to both riichi and exposes to the open
+  // hand, but Mortal can choose the other way.
+  function prioritizedDefense(actualTile, expectedTile, perThreat) {
+    if (!Array.isArray(perThreat) || perThreat.length < 2) return null;
+    const defended = [];
+    const exposed = [];
+    for (const th of perThreat) {
+      if (!th || !th.dealin_rates) continue;
+      const userR = dealinFor(actualTile, th.dealin_rates);
+      const mortalR = dealinFor(expectedTile, th.dealin_rates);
+      if (userR == null || mortalR == null) continue;
+      const desc = {
+        seat: th.seat,
+        kind: th.kind || "riichi",
+        guaranteed_han: th.guaranteed_han ?? null,
+        user_rate: userR,
+        mortal_rate: mortalR,
+      };
+      if (mortalR < userR) defended.push(desc);
+      else if (mortalR > userR) exposed.push(desc);
+    }
+    if (defended.length && exposed.length) return { defended, exposed };
+    return null;
+  }
+
   // --- Main: categorize_mistake decision-only ---
   // Mirrors the categorize_mistake orchestration in __init__.py, but skips
   // the steps that *produce* inputs (shanten/defense/board) — those run
@@ -390,15 +425,25 @@
 
     let category;
     if (riichiThreat || openOnlyThreat) {
-      const def = classifyDefense(actual.pai, expected.pai, dealinRates,
-                                  discardStats, catData, labels, valueCtx);
-      category = def.category;
-      if (def.pushReason) catData.push_reason = def.pushReason;
+      // Multi-threat trade-off first: when Mortal's pick folds to some threats
+      // at the cost of others, the combined-rate logic in classifyDefense
+      // can't see it and would call Complex. Surface it as Defend with the
+      // per-side story before falling through to the normal defend/push split.
+      const prio = prioritizedDefense(actual.pai, expected.pai, m.per_threat);
+      if (prio) {
+        category = "D1";
+        catData.prioritized_defense = prio;
+      } else {
+        const def = classifyDefense(actual.pai, expected.pai, dealinRates,
+                                    discardStats, catData, labels, valueCtx);
+        category = def.category;
+        if (def.pushReason) catData.push_reason = def.pushReason;
 
-      const userR = dealinFor(actual.pai, dealinRates);
-      const mortalR = dealinFor(expected.pai, dealinRates);
-      if (userR === 0 && mortalR === 0 && (category === "D2" || category === "D3")) {
-        catData.both_safe = true;
+        const userR = dealinFor(actual.pai, dealinRates);
+        const mortalR = dealinFor(expected.pai, dealinRates);
+        if (userR === 0 && mortalR === 0 && (category === "D2" || category === "D3")) {
+          catData.both_safe = true;
+        }
       }
       // Open-only threats use the same defend/push/complex logic but land in
       // their own OD tier so trends can split riichi defense from open defense.

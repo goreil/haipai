@@ -314,6 +314,44 @@ function generateExplanation(m) {
 
     // --- D1 / OD1: Defend (Mortal's discard has strictly lower deal-in rate) ---
     if (cat === "D1" || cat === "OD1") {
+      // Multi-threat prioritized defense: Mortal folds to some threats at the
+      // cost of others (see categorize.js prioritizedDefense). The combined
+      // rate can't show this, so spell out which sides it defends vs exposes.
+      const prio = catData.prioritized_defense;
+      if (prio) {
+        // seat -> wind label from the shared defense read (handles oya offset).
+        const threatBySeat = {};
+        for (const t of defenseCtx.threats) threatBySeat[t.seat] = t;
+        const describeThreat = (e) => {
+          const wind = (threatBySeat[e.seat] && threatBySeat[e.seat].wind) || "an opponent";
+          let kindLabel;
+          if (e.kind === "open") {
+            // Mirror the board's "⚠ Open threat ≥N han" pill — every open hand
+            // needs a yaku, so the floor is 1 even when nothing is locked in.
+            const han = Math.max(1, e.guaranteed_han || 0);
+            kindLabel = `open threat ≥${han} han`;
+          } else {
+            kindLabel = "riichi";
+          }
+          return `${wind} (${kindLabel})`;
+        };
+        const joinThreats = (list) => {
+          const parts = list.map(describeThreat);
+          if (parts.length <= 1) return parts[0] || "";
+          if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+          return `${parts.slice(0, -1).join(", ")}, and ${parts.slice(-1)[0]}`;
+        };
+        let text = `<span class="trigger-line">Multiple opponents are threatening. Mortal prioritises defending against ${joinThreats(prio.defended)}, accepting more risk against ${joinThreats(prio.exposed)}.</span>`;
+        if (shantenStr) text += `Your hand is at ${shantenStr}. `;
+        text += `Against the side it folds to, Mortal's ${expected.pai} is safer than your ${actual.pai}`;
+        const d0 = prio.defended[0];
+        if (d0 && d0.mortal_rate != null && d0.user_rate != null) {
+          const d0Wind = (threatBySeat[d0.seat] && threatBySeat[d0.seat].wind) || "that threat";
+          text += ` (${pctStr(d0.mortal_rate)} vs ${pctStr(d0.user_rate)} against ${d0Wind})`;
+        }
+        text += `.`;
+        return text;
+      }
       let text = `<span class="trigger-line">${defenseTriggerStr().charAt(0).toUpperCase() + defenseTriggerStr().slice(1)}. Mortal chose a safer tile than you did.</span>`;
       if (shantenStr) text += `Your hand is at ${shantenStr}. `;
       text += `Mortal recommends ${expected.pai}`;
