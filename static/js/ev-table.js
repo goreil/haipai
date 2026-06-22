@@ -38,6 +38,13 @@ function renderEvComparison(m, options) {
   const ukeireDora = getDoraTiles(m.board_state);
   // A tile is dora if it's a red five or sits in the active indicator-dora set.
   const isDoraTile = (t) => !!t && (/^5[mps]r$/.test(t) || ukeireDora.has(tileBase(t)));
+  // A tile is a yakuhai (value honor) for the hero if it's a dragon, the round
+  // wind, or the hero's seat wind. Reuse categorize.js's trigger so the pill and
+  // the hand-value category stay in lockstep (it owns the yakuhai definition).
+  const roundWind = (m.board_state && m.board_state.round_wind) || null;
+  const heroSeatWind = (m.board_state && m.board_state.seat_wind) || null;
+  const isYakuhaiTile = (t) => !!t && typeof haipaiCategorize !== "undefined"
+    && haipaiCategorize.tileIsYakuhai(t, roundWind, heroSeatWind);
   const threatCount = Array.isArray(m.per_threat) ? m.per_threat.length : 0;
   const displayDealin = m.dealin_rates;
   const displayBreakdowns = m.wait_breakdowns;
@@ -319,6 +326,7 @@ function renderEvComparison(m, options) {
     // always evaluates every feature so the full picture is visible.
     const ukeireCount = ca && ca.necessary_count != null ? ca.necessary_count : null;
     const discardIsDora = isDoraTile(tile);
+    const discardIsYakuhai = isYakuhaiTile(tile);
     // A necessary tile yields a dora if its base sits in the indicator-dora set
     // (every copy counts) OR it's a five with a live red copy still drawable
     // (aka_count — only the red copies count). Without the aka_count branch a
@@ -342,7 +350,7 @@ function renderEvComparison(m, options) {
       indicatorDora(nt) ? nt : { ...nt, count: nt.aka_count || 0 });
 
     return { tile, colClass, markers, acc, mortal, shanten, shantenVal, dealin, typeCell, waits,
-             threatLines, ukeireCount, discardIsDora, doraWaitEntries, doraWaitDisplay, doraWaitCount, dealinRate };
+             threatLines, ukeireCount, discardIsDora, discardIsYakuhai, doraWaitEntries, doraWaitDisplay, doraWaitCount, dealinRate };
   });
 
   // Feature-summary pills. For each column, compare its feature values against
@@ -392,6 +400,17 @@ function renderEvComparison(m, options) {
       if (thrown.length) {
         const tilesHtml = thrown.map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join("");
         pills.push(featPill("pos", "+dora", "Keeps a dora the other pick discards", tilesHtml));
+      }
+    }
+
+    // +yakuhai: keeps a yakuhai (value honor) the other pick throws away. Mirrors
+    // categorize.js's yakuhaiApplies trigger (one side keeps a yakuhai while the
+    // other doesn't). The kept yakuhai is the other pick's discard — show it.
+    if (!col.discardIsYakuhai) {
+      const thrown = [...new Set(others.filter(o => o.discardIsYakuhai).map(o => o.tile))];
+      if (thrown.length) {
+        const tilesHtml = thrown.map(t => renderTile(t, "tile-sm ukeire-tile-img")).join("");
+        pills.push(featPill("pos", "+yakuhai", "Keeps a yakuhai (value honor) the other pick discards", tilesHtml));
       }
     }
 
