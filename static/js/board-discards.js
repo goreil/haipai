@@ -122,12 +122,25 @@ function renderHand(tiles, draw, mistake, doraTiles) {
       const fine = fineLabelForTile(mistake, t);
       if (rate != null && coarse) {
         const isSafe = rate === 0 || coarse === "genbutsu" || fine === "genbutsu";
-        const labelText = isSafe ? "Safe" : (fine || dealinLabelText(coarse));
-        title = `${t} — ${labelText} · ${rate.toFixed(1)}%`;
-        if (isSafe) {
-          extra += " hand-tile-safe";
+        // Soft-safe: dealin-0 only because the tile passed while an open
+        // opponent's wait was frozen (tsumogiri-extended genbutsu). Behavioural,
+        // not rules-guaranteed — render `Safe*` and gate on genbutsu absence so
+        // a tile that's also hard-safe stays plain "Safe".
+        const isSoftSafe = isSafe && coarse !== "genbutsu" && fine !== "genbutsu"
+          && softSafeForTile(mistake, t);
+        if (isSoftSafe) {
+          title = `${t} — Safe* · passed while their wait was frozen `
+            + `(a competent opp would have ronned a winning tile) — `
+            + `behavioural, not a guaranteed safe tile`;
+          extra += " hand-tile-soft-safe";
         } else {
-          extraAttrs = `style="border-bottom:3px solid ${dealinColor(rate)}"`;
+          const labelText = isSafe ? "Safe" : (fine || dealinLabelText(coarse));
+          title = `${t} — ${labelText} · ${rate.toFixed(1)}%`;
+          if (isSafe) {
+            extra += " hand-tile-safe";
+          } else {
+            extraAttrs = `style="border-bottom:3px solid ${dealinColor(rate)}"`;
+          }
         }
       }
     }
@@ -406,6 +419,20 @@ function renderBoardContext(m) {
         html += `</span>`;
         html += `<span class="tiles">`;
         const seatSkipCallers = skipCallersBefore.get(d.seat) || [];
+        // Soft-safe anchor: for an open threat (non-riichi danger row), the
+        // opponent's *last tedashi* is the discard that froze their wait — every
+        // tile that passed since would have been ronned if it won. Outline it
+        // (sibling of the riichi anchor) so hovering reveals the soft-safe set.
+        // No anchor when the row isn't an open threat or has no tedashi at all
+        // (an all-tsumogiri pool was never a hand-changing decision to mark).
+        let softAnchorIdx = -1;
+        if (isDanger && !isRiichiOpp) {
+          for (let i = d.discards.length - 1; i >= 0; i--) {
+            const raw = d.discards[i];
+            const tsg = (typeof raw === "object" && raw !== null) ? raw.tsumogiri : false;
+            if (!tsg) { softAnchorIdx = i; break; }
+          }
+        }
         for (let i = 0; i < d.discards.length; i++) {
           // Insert invisible placeholder tiles only for real pon/kan skips
           // that precede this discard. Each carries a tooltip naming the
@@ -435,6 +462,13 @@ function renderBoardContext(m) {
             html += renderTile(tile, cls + " riichi-tile",
               "Riichi declared here — hover to see tiles safe against this riichi",
               riichiAttrs);
+          } else if (i === softAnchorIdx) {
+            const softAttrs = `${posAttrs} data-soft-turn="${absTurn}" data-soft-seat="${d.seat}"`;
+            html += renderTile(tile, cls + " soft-anchor-tile",
+              "Last hand-changing discard — their wait froze here; hover to see "
+              + "soft-safe tiles (a competent opp would have ronned a winning "
+              + "tile that has passed since)",
+              softAttrs);
           } else {
             html += renderTile(tile, cls, null, posAttrs);
           }

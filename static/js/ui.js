@@ -160,6 +160,24 @@ document.addEventListener("mouseover", (e) => {
       });
     }
   }
+  // Hovering an open threat's last-tedashi anchor: highlight the soft-safe set
+  // — the opp's own discards (hard genbutsu) plus every tile that passed after
+  // their wait froze (anchor turn). Behavioural safety, so a distinct amber
+  // tone vs the riichi anchor's green. Mirrors the riichi-anchor scoping.
+  const softEl = e.target.closest(".soft-anchor-tile");
+  if (softEl) {
+    const sTurn = parseInt(softEl.dataset.softTurn, 10);
+    const sSeat = parseInt(softEl.dataset.softSeat, 10);
+    const container = softEl.closest(".all-discards");
+    if (container && Number.isFinite(sTurn) && Number.isFinite(sSeat)) {
+      container.querySelectorAll("[data-turn][data-seat]").forEach(el => {
+        if (el.classList.contains("skip-placeholder")) return;
+        const t = parseInt(el.dataset.turn, 10);
+        const s = parseInt(el.dataset.seat, 10);
+        if (s === sSeat || t > sTurn) el.classList.add("safe-from-soft");
+      });
+    }
+  }
 });
 
 document.addEventListener("mouseout", (e) => {
@@ -173,6 +191,13 @@ document.addEventListener("mouseout", (e) => {
     const container = riichiEl.closest(".all-discards");
     if (container) {
       container.querySelectorAll(".safe-from-riichi").forEach(el => el.classList.remove("safe-from-riichi"));
+    }
+  }
+  const softEl = e.target.closest(".soft-anchor-tile");
+  if (softEl) {
+    const container = softEl.closest(".all-discards");
+    if (container) {
+      container.querySelectorAll(".safe-from-soft").forEach(el => el.classList.remove("safe-from-soft"));
     }
   }
 });

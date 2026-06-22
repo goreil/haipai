@@ -313,11 +313,18 @@ function renderEvComparison(m, options) {
         // ~7.5% → yellow, 15%+ → red — anchored on the observed DB
         // distribution across our defense rows.
         const isSafe = rate === 0 || coarseLabel === "genbutsu" || fineLabel === "genbutsu";
+        // Soft-safe: dealin-0 only by the behavioural tsumogiri-extended-genbutsu
+        // read (the tile passed an open opp while their wait was frozen), not a
+        // rules-guaranteed safe tile. Mark "Safe*" so it reads distinctly from
+        // hard genbutsu — but only when genbutsu isn't already covering it.
+        const isSoftSafe = isSafe && coarseLabel !== "genbutsu"
+          && fineLabel !== "genbutsu" && softSafeForTile(m, tile);
         const gradientColor = isSafe ? null : dealinColor(rate);
         dealinCls = isSafe ? "dealin-genbutsu dealin-cell" : "dealin-cell";
         dealinStyle = gradientColor ? ` style="color:${gradientColor}"` : "";
         dealin = `<span class="${dealinCls}"${dealinStyle}>${rate.toFixed(1)}%</span>`;
-        const display = isSafe ? "Safe" : (fineLabel || dealinLabelText(coarseLabel));
+        const display = isSoftSafe ? "Safe*"
+          : (isSafe ? "Safe" : (fineLabel || dealinLabelText(coarseLabel)));
         typeCell = `<span class="${dealinCls}"${dealinStyle}>${display}</span>`;
       }
       if (displayBreakdowns) {
@@ -344,6 +351,10 @@ function renderEvComparison(m, options) {
           ? ((pt.guaranteed_han || 0) >= 2 ? "open-dora" : "open")
           : "riichi",
         rate: getFieldForTile(pt.dealin_rates, tile),
+        // Soft-safe vs THIS threat: the 0% comes from the behavioural
+        // tsumogiri-extended-genbutsu read, not a guaranteed safe tile.
+        softSafe: Array.isArray(pt.soft_safe)
+          && pt.soft_safe.some(s => tileBase(s) === tileBase(tile)),
         waits: renderWaitsCell(tile, pt.wait_breakdowns, pt.suji_partners),
       })).sort((a, b) => WINDS.indexOf(a.wind) - WINDS.indexOf(b.wind));
     }
@@ -609,7 +620,8 @@ function renderEvComparison(m, options) {
             const rateColor = safe ? null : dealinColor(tl.rate);
             const rateStyle = rateColor ? ` style="color:${rateColor}"` : "";
             const rateCls = safe ? "dealin-threat-rate dealin-genbutsu" : "dealin-threat-rate";
-            const rateText = tl.rate == null ? "&ndash;" : (tl.rate === 0 ? "Safe" : `${tl.rate.toFixed(1)}%`);
+            const rateText = tl.rate == null ? "&ndash;"
+              : (tl.rate === 0 ? (tl.softSafe ? "Safe*" : "Safe") : `${tl.rate.toFixed(1)}%`);
             s += `<div class="dealin-threat-line">`
               +    `<span class="dealin-threat-seat threat-${tl.kind}" title="Deal-in against the ${seatWindFor(tl.seat)} opponent">${tl.wind}</span>`
               +    `<span class="waits-row-list dealin-threat-waits">${tl.waits || `<span class="dealin-threat-none">no live wait</span>`}</span>`

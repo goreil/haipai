@@ -155,6 +155,24 @@ function defenseSituation(m) {
   return out;
 }
 
+// Soft-safe (tsumogiri-extended genbutsu) reliance for one tile. True when the
+// tile sits in some open threat's `soft_safe` set — i.e. it passed while that
+// opponent's wait was frozen (post-tedashi, all-tsumogiri stretch), so a
+// competent opp would have ronned it but the rules don't *forbid* the ron.
+// `soft_safe` already excludes hard genbutsu, so membership means the
+// behavioural assumption is what's carrying that threat. Callers should still
+// gate on the tile being safe overall (dealin 0) before rendering `Safe*` — a
+// tile soft vs one threat but live vs another nets a nonzero combined rate.
+function softSafeForTile(mistake, tile) {
+  if (!mistake || !Array.isArray(mistake.per_threat)) return false;
+  const base = tileBase(tile);
+  for (const th of mistake.per_threat) {
+    const soft = th && th.soft_safe;
+    if (Array.isArray(soft) && soft.some(s => tileBase(s) === base)) return true;
+  }
+  return false;
+}
+
 // Deal-in % for one tile, with red-five fallback. Mirrors the dealinFor()
 // helpers scattered through the codebase — pulled out so the defense-context
 // messages and the hand-tile colouring share one lookup.

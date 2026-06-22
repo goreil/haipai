@@ -96,6 +96,13 @@
           open_melds: 0,
           melds: [],
           flow_pos_at_last_dahai: 0,
+          // Boundary for the soft-safe (tsumogiri-extended genbutsu) window:
+          // advanced only on a *tedashi* (hand-changing) dahai, so it lags
+          // behind flow_pos_at_last_dahai whenever the opp's recent discards
+          // were tsumogiri. The span [flow_pos_at_last_tedashi,
+          // flow_pos_at_last_dahai) is the wait-frozen stretch where any tile
+          // that passed would have been ronned — see defense.js soft_safe.
+          flow_pos_at_last_tedashi: 0,
           ippatsu_alive: false,
         };
         opponents[actor] = o;
@@ -134,6 +141,10 @@
           // Own dahai resets the temp-furiten window: only tiles after this
           // point count as "passed" for the open-threat genbutsu.
           opp.flow_pos_at_last_dahai = tile_flow.length;
+          // A tedashi (discard from hand) re-froze the wait; a tsumogiri did
+          // not change the hand, so leave the soft boundary where the last
+          // hand-changing discard set it.
+          if (!e.tsumogiri) opp.flow_pos_at_last_tedashi = tile_flow.length;
         }
         if (pai !== undefined && pai !== null) {
           for (const seat of reach_accepted_seats) {

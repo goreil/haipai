@@ -82,6 +82,28 @@
   z-index: 1;
 }
 
+/* Soft-safe anchor: an open threat's last tedashi (the discard that froze
+   their wait). Sibling of the rotated red riichi anchor, but not rotated and
+   in a distinct teal so the two reads don't blur together. Behavioural, not
+   rules-absolute, hence the dashed border. */
+.tile.soft-anchor-tile {
+  border: 2px dashed rgba(38, 198, 218, 0.9);
+  border-radius: 3px;
+  box-shadow: 0 0 4px rgba(38, 198, 218, 0.4);
+}
+
+/* Hovering the soft anchor scopes a teal "soft-safe against this open hand"
+   highlight — the opp's own discards plus every tile that passed after their
+   wait froze. Teal (vs the riichi green) flags the weaker, behavioural
+   guarantee. */
+.tile.safe-from-soft {
+  outline: 2px solid rgba(38, 198, 218, 0.75);
+  outline-offset: -1px;
+  box-shadow: 0 0 4px rgba(38, 198, 218, 0.45);
+  position: relative;
+  z-index: 1;
+}
+
 /* Board context */
 .board-context {
   margin-top: 6px;
@@ -401,3 +423,8 @@
 /* KD-driven hand highlight: "Safe" = green underline; unsafe tiles get
    an HSL gradient via inline style set by renderHand. */
 .tile.hand-tile-safe { border-bottom: 3px solid var(--sev-minor); }
+
+/* Soft-safe ("Safe*") hand tile: dealin-0 only by the behavioural
+   tsumogiri-extended-genbutsu read, not a rules-guaranteed safe tile. Dashed
+   teal underline distinguishes it from the solid-green hard "Safe". */
+.tile.hand-tile-soft-safe { border-bottom: 3px dashed rgba(38, 198, 218, 0.9); }

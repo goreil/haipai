@@ -255,6 +255,22 @@
         if (t != null) genbutsu.add(normRedFive(t));
       }
 
+      // Soft-safe (tsumogiri-extended genbutsu): tiles that passed during the
+      // wait-frozen stretch — between the opp's last tedashi and their last
+      // dahai (decision #3 in docs/backlogs/SOFT-SAFE-OPEN-DEFENSE.md). Every
+      // discard in that span was a tsumogiri, so the 13-tile hand (and its
+      // wait) never changed; a competent opp would have ronned any winning
+      // tile that passed. Behavioural, not rules-absolute — so it marks safe
+      // but NEVER seeds suji (kept out of `genbutsu` deliberately). Subtract
+      // hard genbutsu so this set is purely the behavioural extension.
+      const soft_safe = new Set();
+      for (let i = opp.flow_pos_at_last_tedashi || 0;
+           i < (opp.flow_pos_at_last_dahai || 0); i++) {
+        const t = MJAI_TO_TENHOU[flow[i]];
+        if (t != null) soft_safe.add(normRedFive(t));
+      }
+      for (const g of genbutsu) soft_safe.delete(g);
+
       // Value metadata for the han-gate sweep — carried through to per_threat.
       const meld_dora = _meld_dora_count(opp, dora_set);
       const yakuhai_han = _yakuhai_han(opp, state.bakaze, seat_wind);
@@ -263,6 +279,7 @@
         seat,
         discards_to_riichi: [],   // KD riichi knobs all key off this; empty drops them
         genbutsu,
+        soft_safe,
         dora_tiles: dora_tenhou,
         ippatsu_alive: false,
         open_melds: opp.open_melds || 0,
@@ -341,7 +358,12 @@
       let most_dangerous = null;
       let most_dangerous_p = -1.0;
       for (const td of threat_data) {
-        const p = dealinProbability(th, td.combos);
+        // Soft-safe tiles are forced to 0 deal-in vs THIS threat: the engine
+        // (calcCombos) never sees the soft set — it only seeds suji from hard
+        // genbutsu — so we override the rate here, post-engine. A tile soft vs
+        // one threat but live vs another still nets a nonzero combined rate.
+        const soft = td.threat.soft_safe && td.threat.soft_safe.has(th);
+        const p = soft ? 0 : dealinProbability(th, td.combos);
         prob_not *= (1.0 - p);
         if (p > most_dangerous_p) {
           most_dangerous_p = p;
@@ -372,12 +394,21 @@
         .map(t => TENHOU_TO_MJAI[t])
         .filter(x => x !== undefined)
         .sort();
+      // Soft-safe extension (open threats only; empty Set for riichi). Emitted
+      // distinctly from genbutsu so the UI can render `Safe*` and never treat
+      // these as suji seeds.
+      const soft_safe_mjai = [...(td.threat.soft_safe || [])]
+        .map(t => TENHOU_TO_MJAI[t])
+        .filter(x => x !== undefined)
+        .sort();
       const rates = {};
       const breakdowns = {};
       const partners_by_tile = {};
       for (const mjai_tile of Object.keys(hand_norm)) {
         const th = hand_norm[mjai_tile];
-        rates[mjai_tile] = Math.round(dealinProbability(th, td.combos) * 10000) / 100;
+        const soft = td.threat.soft_safe && td.threat.soft_safe.has(th);
+        rates[mjai_tile] = soft ? 0
+          : Math.round(dealinProbability(th, td.combos) * 10000) / 100;
         breakdowns[mjai_tile] = _build_wait_breakdown(th, td.combos);
         const partners = _suji_partners(th, td.threat.genbutsu);
         if (partners.length) {
@@ -401,6 +432,7 @@
         entry.meld_dora = td.threat.meld_dora;
         entry.yakuhai_han = td.threat.yakuhai_han;
         entry.guaranteed_han = td.threat.guaranteed_han;
+        entry.soft_safe = soft_safe_mjai;
       }
       per_threat.push(entry);
     }
