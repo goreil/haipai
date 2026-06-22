@@ -115,6 +115,7 @@ function renderHand(tiles, draw, mistake, doraTiles) {
     let title = null;
     let extraAttrs = "";
     if (draw && i === tiles.length - 1 && t === draw) extra = "draw";
+    // Dora highlight is applied automatically by renderTile (active-dora set).
     if (useKd) {
       const rate = getFieldForTile(mistake.dealin_rates, t);
       const coarse = coarseSafetyLabelForTile(mistake, t);
@@ -129,9 +130,6 @@ function renderHand(tiles, draw, mistake, doraTiles) {
           extraAttrs = `style="border-bottom:3px solid ${dealinColor(rate)}"`;
         }
       }
-    }
-    if (t === "5mr" || t === "5pr" || t === "5sr" || (doraTiles && doraTiles.has(tileBase(t)))) {
-      extra += " dora-highlight";
     }
     return renderTile(t, extra, title, extraAttrs);
   }).join("");
@@ -194,6 +192,10 @@ function tenpaiWaitTiles(m) {
 function renderBoardContext(m) {
   const b = m.board_state;
   if (!b) return "";
+  // Arm the ambient active-dora set so every renderTile() below (discards,
+  // inline melds, waits, yaku panels) auto-highlights dora. Also covers the
+  // standalone renderBoardContext() call in game-render.js.
+  setActiveDora(getDoraTiles(b));
 
   // BoardState owns the wall position — `b.tiles_left` is emitted by
   // static/js/prep/prep-board-state.js for every mistake. Read it from here
@@ -420,9 +422,8 @@ function renderBoardContext(m) {
           const isRiichi = i === d.riichi_idx;
           const absTurn = absTurnMap.get(`${d.seat}_${i}`);
           const posAttrs = `data-turn="${absTurn}" data-seat="${d.seat}"`;
-          const isDora = tile === "5mr" || tile === "5pr" || tile === "5sr"
-            || doraTiles.has(tileBase(tile));
-          let cls = `action-tile-sm${isDora ? " dora-highlight" : ""}`;
+          // dora-highlight is applied automatically by renderTile.
+          let cls = "action-tile-sm";
           if (calledBy != null) cls += " ghost-tile";
           if (isRiichi) {
             const riichiAttrs = `${posAttrs} data-riichi-turn="${absTurn}" data-riichi-seat="${d.seat}"`;

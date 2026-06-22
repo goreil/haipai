@@ -79,6 +79,9 @@ function renderMistakeCard(m, opts = {}) {
   const showLink = opts.gameId;
   const sc = sevClass(m);
   const doraTiles = getDoraTiles(m.board_state);
+  // Arm the ambient active-dora set for the whole card so every renderTile()
+  // here — action chips, hand, melds, board, EV table — auto-highlights dora.
+  setActiveDora(doraTiles);
 
   // Outline colour follows the category group (Attack/Defense/Riichi/Meld/Kan)
   // instead of severity — tells the student at a glance which skill area the

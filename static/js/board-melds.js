@@ -10,10 +10,11 @@ function renderMeld(meld, tileClass = "action-tile-sm", actorSeat, doraTiles, oy
   const pai = meld.pai;
   const target = meld.target;
 
+  // dora-highlight is applied automatically by renderTile (active-dora set), so
+  // meld tiles highlight even when renderMeld is reached via renderAction (the
+  // played/recommended action chips), which has no doraTiles to pass.
   function meldTile(t, extra = "") {
-    let cls = tileClass;
-    if (doraTiles && (t === "5mr" || t === "5pr" || t === "5sr" || doraTiles.has(tileBase(t)))) cls += " dora-highlight";
-    if (extra) cls += " " + extra;
+    const cls = extra ? tileClass + " " + extra : tileClass;
     return renderTile(t, cls);
   }
   function calledTile(t) { return `<span class="meld-called">${meldTile(t)}</span>`; }

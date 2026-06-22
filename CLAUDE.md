@@ -45,6 +45,7 @@ User-visible concepts that span more than one file. Start here before
 grepping. If you change a concept that isn't listed, add it.
 
 **Frontend — features**
+- Dora highlighting (the orange tile border): single source of truth in `static/js/tiles.js` — `renderTile()` auto-adds `.dora-highlight` from an ambient active-dora set (`setActiveDora()`). Card/board renderers arm the set (`renderMistakeCard`, `renderBoardContext`, the `game-render.js` card loop, `renderEvComparison`, `generateExplanation`); every tile then highlights automatically, including future features. Red fives always highlight. Opt out via `no-dora` / `dora-indicator` / `wind-tile` classes (reference glyphs + the opponent yaku panel). Style: `.tile.dora-highlight` in `static/style-board-display.css`.
 - Yaku panel (opponent open-hand pill strip): `static/js/board-yaku-panel.js` (render), `static/js/prep/prep-board-yaku.js` (compute), `static/style-game-detail.css` (style)
 - Discard rows (you / danger / riichi) + safe-tile hover: `static/js/board-discards.js`, `static/style-board-display.css`
 - Meld rendering: `static/js/board-melds.js`

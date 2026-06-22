@@ -39,7 +39,7 @@ function renderYakuhaiTiles(d) {
   for (const l of d.locked || []) {
     const note = l.note ? ` (${l.note})` : "";
     chips += `<span class="yp-tile-chip is-locked" title="Yakuhai · ${l.tile}${note}">`
-      + renderTile(l.tile, "")
+      + renderTile(l.tile, "no-dora")
       + `<span class="yp-tile-count">✓</span></span>`;
   }
   for (const p of d.possible || []) {
@@ -52,7 +52,7 @@ function renderYakuhaiTiles(d) {
       ? `${p.tile}${note}: ${p.count} live — ${p.inHand} in your hand (don't feed the pon)`
       : `${p.tile}${note}: ${p.count} left`;
     chips += `<span class="yp-tile-chip${inHand ? " yp-tile-chip-inhand" : ""}" title="${title}">`
-      + renderTile(p.tile, "")
+      + renderTile(p.tile, "no-dora")
       + `<span class="yp-tile-count">×${p.count}</span></span>`;
   }
   return chips ? `<span class="yp-tiles">${chips}</span>` : "";
@@ -62,7 +62,7 @@ function renderHonitsuTiles(d) {
   // One tile per still-committable suit; a +pip when the no-honor chinitsu
   // finish is also reachable.
   const tiles = (d.suits || [])
-    .map(s => renderTile(SUIT_TILE[s], "yp-suit-tile", SUIT_NAME[s]))
+    .map(s => renderTile(SUIT_TILE[s], "yp-suit-tile no-dora", SUIT_NAME[s]))
     .join("");
   const upgrade = d.chinitsuReachable
     ? `<span class="yp-upgrade" title="Chinitsu still reachable — no honor melded.">+</span>`
@@ -135,7 +135,7 @@ function renderSanshokuTiles(d) {
     const cls = row.melded ? "yp-ss-tile done"
               : row.dead ? "yp-ss-tile dead"
               : "yp-ss-tile";
-    return renderTile(row.tiles[0].tile, cls, SUIT_NAME[row.suit]);
+    return renderTile(row.tiles[0].tile, cls + " no-dora", SUIT_NAME[row.suit]);
   }).join("");
   return `<span class="yp-tiles">${chips}</span>`;
 }
@@ -202,7 +202,7 @@ function renderRunCandidateDetail(d, opts) {
       const count = row.melded ? "·"
                   : t.dealIn ? String(t.inHand)
                   : String(t.count);
-      tilesHtml += `<span class="${tileCls}">${renderTile(t.tile, "")}`
+      tilesHtml += `<span class="${tileCls}">${renderTile(t.tile, "no-dora")}`
         + `<span class="ssd-count">${count}</span></span>`;
     }
     // A suit killed by two last-copies in hand has no single exhausted tile.
@@ -251,7 +251,7 @@ function renderIttsuuTiles(d) {
     const cls = row.melded ? "yp-ss-tile done"
               : row.dead ? "yp-ss-tile dead"
               : "yp-ss-tile";
-    return renderTile(row.tiles[0].tile, cls, `${row.start}–${row.start + 2}`);
+    return renderTile(row.tiles[0].tile, cls + " no-dora", `${row.start}–${row.start + 2}`);
   }).join("");
   return `<span class="yp-tiles">${chips}</span>`;
 }
@@ -352,7 +352,7 @@ function renderDeadYakuhaiPill(d) {
         + ` — not enough for a pon.`;
     }
     chips += `<span class="yp-tile-chip" title="${h.tile}${noteSuffix}: ${reason}">`
-      + renderTile(h.tile, "")
+      + renderTile(h.tile, "no-dora")
       + `<span class="yp-tile-count">${h.unseen}</span></span>`;
     rows += `<b>${h.tile}${noteSuffix}</b> <span class="muted">${reason}</span><br>`;
   }

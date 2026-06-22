@@ -46,8 +46,40 @@ function tileBase(t) {
   return t.endsWith("r") ? t.slice(0, -1) : t;
 }
 
+// Ambient active-dora set. Set once per card/board render via setActiveDora();
+// renderTile() then auto-highlights every dora tile it draws, so all tile
+// visualizations — current and future — mark dora without threading a doraTiles
+// set through each call site. This is the single source of truth for the
+// dora-highlight class; no caller should add it by hand.
+//
+// Red fives are dora intrinsically and highlight regardless of this set.
+// Reference glyphs that aren't themselves a held dora tile opt out via their
+// class: the dora *indicator* (.dora-indicator — it points at the dora, it
+// isn't one), the round/seat wind badges (.wind-tile), and the opponent yaku
+// panel's representative tiles (.no-dora).
+var _activeDora = new Set();
+
+function setActiveDora(doraTiles) {
+  _activeDora = doraTiles instanceof Set ? doraTiles : new Set(doraTiles || []);
+}
+
+// True when a tile is an active dora: a red five (always) or a tile whose base
+// sits in the current active-dora set.
+function tileIsActiveDora(t) {
+  if (!t) return false;
+  if (t === "5mr" || t === "5pr" || t === "5sr") return true;
+  return _activeDora.has(tileBase(t));
+}
+
+// extraClass tokens that suppress the automatic dora-highlight (reference glyphs
+// + an already-present highlight, so we never double-add).
+var _DORA_OPT_OUT = /(^|\s)(no-dora|dora-indicator|wind-tile|dora-highlight)(\s|$)/;
+
 function renderTile(t, extraClass = "", titleOverride = null, extraAttrs = "") {
-  const cls = ["tile", extraClass].filter(Boolean).join(" ");
+  let cls = ["tile", extraClass].filter(Boolean).join(" ");
+  if (!_DORA_OPT_OUT.test(extraClass) && tileIsActiveDora(t)) {
+    cls += " dora-highlight";
+  }
   const title = titleOverride || t;
   const attrs = extraAttrs ? " " + extraAttrs : "";
   return `<img class="${cls}" src="${tileSrc(t)}" alt="${t}" title="${title}" data-tile="${tileBase(t)}"${attrs}>`;
@@ -58,10 +90,11 @@ function renderBackTile(cls = "action-tile-sm") {
 }
 
 // Render ukeire tiles compactly: one SVG per tile kind with a ×N count badge.
-// Used inline in the EV table, directly below the relevant pick row.
-// doraTiles (optional Set of base mjai tiles) highlights acceptance tiles that
-// would land you a dora, mirroring the board's dora-highlight treatment.
-function renderUkeireTiles(tiles, doraTiles) {
+// Used inline in the EV table, directly below the relevant pick row. Dora
+// acceptance tiles highlight automatically via renderTile's active-dora set
+// (set by the surrounding card render) — red copies use the "5xr" SVG, which is
+// dora intrinsically.
+function renderUkeireTiles(tiles) {
   if (!tiles || !tiles.length) return "";
   const TILE_ORDER = {};
   ["1m","2m","3m","4m","5m","6m","7m","8m","9m",
@@ -88,10 +121,8 @@ function renderUkeireTiles(tiles, doraTiles) {
   }
   let html = "";
   for (const u of units) {
-    const isDora = u.isRed
-      || (doraTiles && doraTiles.has(tileBase(u.tile)));
     html += `<span class="ukeire-chip" title="${u.tile}: ${u.count} left">`;
-    html += renderTile(u.tile, "tile-sm ukeire-tile-img" + (isDora ? " dora-highlight" : ""));
+    html += renderTile(u.tile, "tile-sm ukeire-tile-img");
     html += `<span class="ukeire-chip-count">×${u.count}</span>`;
     html += `</span>`;
   }

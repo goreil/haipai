@@ -36,6 +36,10 @@ function renderEvComparison(m, options) {
   // cell (see threatLines below). The old per-seat view toggle was retired once
   // that per-opponent breakdown made it redundant.
   const ukeireDora = getDoraTiles(m.board_state);
+  // Keep the ambient active-dora set armed for the EV table's own renderTile()
+  // and renderUkeireTiles() calls (the card renderer sets it too; this makes the
+  // table self-sufficient if reached standalone).
+  setActiveDora(ukeireDora);
   // A tile is dora if it's a red five or sits in the active indicator-dora set.
   const isDoraTile = (t) => !!t && (/^5[mps]r$/.test(t) || ukeireDora.has(tileBase(t)));
   // A tile is a yakuhai (value honor) for the hero if it's a dragon, the round
@@ -256,19 +260,19 @@ function renderEvComparison(m, options) {
           "Tiles every pick accepts — click to expand this pick's full acceptance");
         if (g && g.gains.length > 0) {
           collapsed += `<span class="ukeire-gain" title="Tiles this discard accepts that the other picks don't">+${g.gainTotal}</span>`;
-          collapsed += `<span class="ukeire-inline-tiles">${renderUkeireTiles(g.gains, ukeireDora)}</span>`;
+          collapsed += `<span class="ukeire-inline-tiles">${renderUkeireTiles(g.gains)}</span>`;
         }
         collapsed += `</span>`;
         let expanded = `<span class="ukeire-acc ukeire-expanded">`;
         expanded += pill(ca.necessary_count, "◂", "true",
           "Collapse back to shared tiles + gains");
-        expanded += `<span class="ukeire-inline-tiles">${renderUkeireTiles(ca.necessary_tiles, ukeireDora)}</span>`;
+        expanded += `<span class="ukeire-inline-tiles">${renderUkeireTiles(ca.necessary_tiles)}</span>`;
         expanded += `</span>`;
         acc = collapsed + expanded;
       } else {
         acc += `<span class="ukeire-acc">`;
         acc += `<span class="ukeire-acc-total" title="Tiles that would improve your hand">${ca.necessary_count} tiles</span>`;
-        acc += `<span class="ukeire-inline-tiles">${renderUkeireTiles(ca.necessary_tiles, ukeireDora)}</span>`;
+        acc += `<span class="ukeire-inline-tiles">${renderUkeireTiles(ca.necessary_tiles)}</span>`;
         acc += `</span>`;
       }
     }
@@ -468,7 +472,7 @@ function renderEvComparison(m, options) {
       if (col.doraWaitCount > best) {
         pills.push(featPill("pos", "+dora accept",
           "Its wait accepts more live dora than the other pick",
-          renderUkeireTiles(col.doraWaitDisplay, ukeireDora)));
+          renderUkeireTiles(col.doraWaitDisplay)));
       }
     }
 

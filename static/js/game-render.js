@@ -189,6 +189,10 @@ function renderGame() {
       const catGrpColor = GROUP_COLORS[catGroup(m.category)] || null;
       const cardStyle = catGrpColor ? ` style="border-left-color:${catGrpColor}"` : "";
 
+      // Arm the ambient active-dora set up front so the action chips below
+      // (renderAction) and every later renderTile() in this card auto-highlight
+      // dora.
+      setActiveDora(getDoraTiles(m.board_state));
       html += `<div class="mistake ${sc}" ${dataAttrs}${midAttr}${cardStyle}>`;
       html += `<div class="mistake-top">`;
       if (m.is_all_last) {

@@ -16,6 +16,10 @@ function generateExplanation(m) {
   const actual = m.actual;
   const expected = m.expected;
   if (!actual || !expected) return "";
+  // Arm the ambient active-dora set: this runs before the mistake card render,
+  // so renderTile() calls in the explanation (e.g. the dora-acceptance tiles)
+  // highlight against this mistake's dora rather than a stale neighbour's.
+  setActiveDora(getDoraTiles(m.board_state));
   const at = actual.type;
   const et = expected.type;
   const cat = m.category || "";
