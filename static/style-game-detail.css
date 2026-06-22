@@ -830,6 +830,33 @@
   text-transform: lowercase;
 }
 
+/* Riichi / dama pill in the column header for 5A/5B riichi decisions. Sits
+   next to the shanten pill and the discard glyph. Riichi reads as the bold
+   "committed" call (gold), dama as the quieter "stay closed" alternative
+   (grey/blue), mirroring how the rest of the UI tints those choices. */
+.ev-table .reach-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+.ev-table .reach-pill-riichi {
+  color: #ffcb80;
+  background: rgba(255, 165, 0, 0.14);
+  border: 1px solid rgba(255, 165, 0, 0.5);
+}
+.ev-table .reach-pill-dama {
+  color: #8fb8e6;
+  background: rgba(100, 150, 230, 0.12);
+  border: 1px solid rgba(100, 150, 230, 0.4);
+}
+
 .ev-table .mortal-col { color: #81c784; }
 .ev-table .shanten-col { color: #64b5f6; }
 .ev-table .dealin-col { color: var(--text-dim); font-variant-numeric: tabular-nums; }
@@ -1064,6 +1091,48 @@
   flex-wrap: wrap;
 }
 .ev-table-cols .ukeire-acc { justify-content: center; }
+
+/* ---- Riichi/dama "Value" row (5A/5B) ---------------------------------------
+   Replaces the tile-acceptance row on riichi decisions: each pick's column
+   shows the point value of its own call (riichi vs dama), scored per wait. */
+.ev-table-cols .rsc-cell { display: flex; justify-content: center; }
+.ev-table .rsc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  width: 100%;
+}
+.ev-table .rsc-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ev-table .rsc-tiles { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.ev-table .rsc-vals {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: flex-start;
+  font-variant-numeric: tabular-nums;
+}
+.ev-table .rsc-line { display: flex; gap: 6px; align-items: baseline; line-height: 1.35; }
+.ev-table .rsc-mode {
+  min-width: 38px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.ev-table .rsc-pts { font-weight: 700; font-size: 13px; }
+/* Riichi column reads gold/committed; dama quieter blue — matching the header
+   riichi/dama pills. */
+.ev-table .rsc-riichi .rsc-pts { color: #ffcb80; }
+.ev-table .rsc-dama .rsc-pts { color: #8fb8e6; }
+.ev-table .rsc-bonus .rsc-mode,
+.ev-table .rsc-bonus .rsc-pts { color: var(--text-dim); font-weight: 600; font-size: 11px; }
+.ev-table .rsc-noyaku .rsc-pts { color: var(--text-dim); font-weight: 600; font-style: italic; }
 /* Deal-in cell stacks the rate over its contributing wait shapes (the old
    separate "Deal-in waits" row is folded in here). */
 .ev-table-cols .dealin-stack {

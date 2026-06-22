@@ -80,6 +80,20 @@ function renderEvComparison(m, options) {
   const expectedTile = (m.expected && m.expected.pai)
     || (m.expected && m.expected.type === "reach" ? actualTile : null);
 
+  // Riichi-vs-dama decisions. 5A (Bad Riichi): you reached, AI says dahai.
+  // 5B (Missed Riichi): you dahai'd, AI says reach. The reach side is the
+  // "riichi" pick; the dahai side is "dama". `reachSide` names which column
+  // (You = actual / AI = expected) declared the riichi. When both land on the
+  // SAME tile (e.g. #m19830 — AI agrees on the tile but not the call) the tile
+  // dedup below collapses them to one column; reachSameTile forces two columns
+  // instead so the riichi-vs-dama contrast stays visible.
+  const reachSide = (m.actual && m.expected)
+    ? (m.actual.type === "reach" && m.expected.type === "dahai" ? "actual"
+      : m.actual.type === "dahai" && m.expected.type === "reach" ? "expected"
+      : null)
+    : null;
+  const reachSameTile = !!reachSide && !!actualTile && actualTile === expectedTile;
+
   // Build a unified list of tiles from mortal top_actions and discard_stats
   const mortalMap = {};
   for (const a of m.top_actions) {
@@ -186,14 +200,26 @@ function renderEvComparison(m, options) {
     return tiles.indexOf(a) - tiles.indexOf(b);
   });
 
+  // Column specs: normally one per shown tile, tagged as the You (actual) /
+  // AI (expected) / other pick. For a same-tile riichi decision we emit two
+  // specs sharing the tile so You and AI each get their own column.
+  const colSpecs = reachSameTile
+    ? [{ tile: actualTile, side: "actual" }, { tile: expectedTile, side: "expected" }]
+    : colTiles.map(tile => ({
+        tile,
+        side: tile === actualTile ? "actual"
+            : tile === expectedTile ? "expected" : "other",
+      }));
+
   // Build one descriptor per column up front, then emit the attribute rows
   // by reading across the descriptors. Keeps the per-tile cell logic in one
   // place and the row emission a simple map.
-  const cols = colTiles.map(tile => {
+  const cols = colSpecs.map(spec => {
+    const tile = spec.tile;
     const ma = mortalMap[tile];
     const ca = statMap[tile] || statMap[tileBase(tile)];
-    const isActual = actualTile === tile;
-    const isExpected = expectedTile === tile;
+    const isActual = spec.side === "actual";
+    const isExpected = spec.side === "expected";
     const isBestDiscard = m.best_discard === tile;
 
     let colClass = "ev-col";
@@ -320,6 +346,27 @@ function renderEvComparison(m, options) {
 
     const shantenVal = ca && ca.shanten != null ? ca.shanten : null;
 
+    // Riichi/dama pill role (5A/5B only). The reach side is "riichi"; the other
+    // side is "dama" — but only when it's genuinely tenpai, since a dahai that
+    // breaks tenpai isn't a dama option to weigh against riichi.
+    let reachRole = null;
+    if (reachSide) {
+      if (spec.side === reachSide) reachRole = "riichi";
+      else if ((spec.side === "actual" || spec.side === "expected") && shantenVal === 0) reachRole = "dama";
+    }
+
+    // Per-column riichi/dama point scoring (5A/5B). The reach side scores a
+    // declared riichi, the dama side a silent dama — each from its OWN discard
+    // tile and waits. Only tenpai columns score: a tenpai hand's ukeire IS its
+    // wait, so we feed ca.necessary_tiles straight in. A column that broke
+    // tenpai has no winning hand and stays empty (reachRole is null there).
+    let scoreGroups = null;
+    if (reachRole && shantenVal === 0
+        && ca && ca.necessary_tiles && ca.necessary_tiles.length
+        && typeof evalDiscardScores === "function") {
+      scoreGroups = evalDiscardScores(m, tile, ca.necessary_tiles, reachRole === "riichi");
+    }
+
     // Feature-summary inputs (rendered into the bottom Summary row). Each is
     // computed independently of the others — unlike the categorizer, which
     // short-circuits on a shanten > ukeire > dora precedence, the summary
@@ -349,7 +396,7 @@ function renderEvComparison(m, options) {
     const doraWaitDisplay = doraWaitEntries.map(nt =>
       indicatorDora(nt) ? nt : { ...nt, count: nt.aka_count || 0 });
 
-    return { tile, colClass, markers, acc, mortal, shanten, shantenVal, dealin, typeCell, waits,
+    return { tile, colClass, markers, reachRole, scoreGroups, acc, mortal, shanten, shantenVal, dealin, typeCell, waits,
              threatLines, ukeireCount, discardIsDora, discardIsYakuhai, doraWaitEntries, doraWaitDisplay, doraWaitCount, dealinRate };
   });
 
@@ -499,16 +546,37 @@ function renderEvComparison(m, options) {
     const pill = c.shantenVal != null
       ? `<span class="shanten-pill" style="${shantenPillStyle(c.shantenVal)}" title="${pillTitle}">${pillText}</span>`
       : "";
-    html += `<th class="${c.colClass} ev-col-head"><span class="tile-cell">${pill}${renderTile(c.tile, "ev-tile")} ${c.markers.join("")}</span></th>`;
+    const reachPill = c.reachRole === "riichi"
+      ? `<span class="reach-pill reach-pill-riichi" title="Riichi declared — hand locked, +1 han plus ippatsu/ura chances">riichi</span>`
+      : c.reachRole === "dama"
+      ? `<span class="reach-pill reach-pill-dama" title="Dama — stay closed at tenpai without declaring riichi">dama</span>`
+      : "";
+    html += `<th class="${c.colClass} ev-col-head"><span class="tile-cell">${pill}${reachPill}${renderTile(c.tile, "ev-tile")} ${c.markers.join("")}</span></th>`;
   }
   html += `</tr></thead><tbody>`;
 
-  html += rowFor(
-    `Tile acceptance`,
-    ` title="Each cell's “N shared” pill is the tiles every pick accepts; the “+N” beside it is the extra tiles that pick alone accepts. Click the pill to expand the full list."`,
-    "ukeire-col ukeire-acc-row",
-    c => `<div class="ukeire-acc-cell">${c.acc}</div>`,
-  );
+  // Riichi decisions (5A/5B) swap the tile-acceptance row for a per-column
+  // point-value row: the riichi column shows the value of declaring riichi, the
+  // dama column the value of staying closed — each scored from its own waits.
+  // Only tenpai columns carry a score; a column that broke tenpai stays blank.
+  const anyScore = !!reachSide && cols.some(c => c.scoreGroups && c.scoreGroups.length);
+  if (anyScore) {
+    html += rowFor(
+      `Value`,
+      ` title="Hand value for each call: the riichi column scores a declared riichi (with the ippatsu/ura EV tail), the dama column a silent tenpai. Only the tenpai side is scored."`,
+      "score-col",
+      c => c.scoreGroups
+        ? `<div class="rsc-cell">${renderRiichiScoreCell(c.scoreGroups, c.reachRole === "riichi")}</div>`
+        : `<span class="dim">&mdash;</span>`,
+    );
+  } else {
+    html += rowFor(
+      `Tile acceptance`,
+      ` title="Each cell's “N shared” pill is the tiles every pick accepts; the “+N” beside it is the extra tiles that pick alone accepts. Click the pill to expand the full list."`,
+      "ukeire-col ukeire-acc-row",
+      c => `<div class="ukeire-acc-cell">${c.acc}</div>`,
+    );
+  }
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row
   // already shows the EV loss, so a per-pick EV row just repeats it. (The
   // per-column `c.mortal` is still computed in case it's needed elsewhere.)

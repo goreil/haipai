@@ -453,3 +453,105 @@ function renderBadRiichiBars(m) {
     <div class="wait-bars with-tsumo">${rows}</div>
   </div>`;
 }
+
+// --- EV-table per-column scoring (5A/5B) -------------------------------------
+// The riichi/dama point scoring, relocated into the 2-column EV table. Each
+// pick's column shows the value of ITS OWN call — the riichi column scores a
+// declared riichi, the dama column scores a silent dama — computed from that
+// column's own discard tile and tenpai waits. A column that breaks tenpai
+// (shanten > 0) has no winning hand to score and is skipped, so only the
+// tenpai side(s) get a calc.
+
+// Score one discard's waits under a single mode. `discardTile` is dropped from
+// the 14-tile hand to form the tenpai hand; `waitEntries` are that hand's
+// winning tiles (the column's ukeire — for a tenpai hand, ukeire == the wait),
+// each `{ tile, count, aka_count }`. `riichi` toggles the declared-riichi han
+// (plus the ippatsu/ura EV tail) vs. a silent dama win. Returns grouped rows
+// `[{ tiles, ron, tsumo, bonus, yaku, dora, aka }]` or null when nothing scores.
+function evalDiscardScores(m, discardTile, waitEntries, riichi) {
+  if (typeof window === "undefined" || !window.Riichi) return null;
+  if (m.melds && m.melds.length) return null;        // riichi/dama need menzen
+  const hand = (m.hand || []).slice();
+  let hand13;
+  if (hand.length === 13) {
+    hand13 = hand;
+  } else if (hand.length === 14) {
+    const idx = hand.indexOf(discardTile);
+    if (idx < 0) return null;
+    hand13 = hand.slice();
+    hand13.splice(idx, 1);
+  } else {
+    return null;
+  }
+  if (!Array.isArray(waitEntries) || !waitEntries.length) return null;
+
+  const furitenSet = new Set(m.furiten_tiles || []);
+  const waits = _expandWaitsForAka(
+    waitEntries.map(w => ({ tile: w.tile, count: w.count, aka_count: w.aka_count })),
+    furitenSet,
+  );
+  const rows = [];
+  for (const w of waits) {
+    const ron = _evalWaitScore(hand13, w.tile, m, { riichi, tsumo: false });
+    const tsumo = _evalWaitScore(hand13, w.tile, m, { riichi, tsumo: true });
+    if (!ron && !tsumo) continue;                    // no legal win on this wait
+    const anyEval = ron || tsumo;
+    let yaku = (ron && ron.yaku) || (tsumo && tsumo.yaku) || [];
+    yaku = yaku.filter(y => y && y !== "立直" && y !== "ダブル立直");
+    const bonus = riichi ? _badRiichiBonusEv((ron && ron.ten) || (tsumo && tsumo.ten)) : 0;
+    rows.push({
+      tile: w.tile, count: w.count, furiten: w.furiten,
+      ron, tsumo, bonus,
+      yaku, dora: anyEval.dora || 0, aka: anyEval.aka || 0,
+    });
+  }
+  return rows.length ? _groupScoreRows(rows) : null;
+}
+
+// Group score rows whose value profile is identical (same ron/tsumo/bonus +
+// yaku/dora/aka + furiten) so a single entry covers every wait that shares it.
+function _scoreRowSig(r) {
+  return [
+    _scoreSig(r.ron), _scoreSig(r.tsumo), r.bonus || 0,
+    (r.yaku || []).slice().sort().join("|"), r.dora || 0, r.aka || 0,
+    r.furiten ? "f" : "",
+  ].join("/");
+}
+function _groupScoreRows(rows) {
+  const groups = new Map();
+  const order = [];
+  for (const r of rows) {
+    const sig = _scoreRowSig(r);
+    let g = groups.get(sig);
+    if (!g) { g = Object.assign({}, r, { tiles: [] }); groups.set(sig, g); order.push(sig); }
+    g.tiles.push({ tile: r.tile, count: r.count, furiten: r.furiten });
+  }
+  return order.map(s => groups.get(s));
+}
+
+// Render a column's score cell for the EV table. `riichi` controls the chrome
+// (riichi vs dama). Ron and Tsumo points are shown per score-group; the riichi
+// mode appends the ippatsu/ura EV tail. A dama group with no ron yaku notes
+// that only menzen-tsumo wins.
+function renderRiichiScoreCell(groups, riichi) {
+  if (!groups || !groups.length) return "";
+  const cls = riichi ? "rsc rsc-riichi" : "rsc rsc-dama";
+  const line = (label, s) => s
+    ? `<span class="rsc-line"><span class="rsc-mode">${label}</span>`
+      + `<span class="rsc-pts" title="${s.han} han · ${s.fu} fu">${s.ten.toLocaleString()}</span></span>`
+    : "";
+  const blocks = groups.map(g => {
+    const tiles = (g.tiles || []).map(t =>
+      renderTile(t.tile, "tile-sm ukeire-tile-img")).join("");
+    let body = "";
+    if (g.ron) body += line("Ron", g.ron);
+    else if (!riichi) body += `<span class="rsc-line rsc-noyaku" title="No yaku — a dama hand can't ron, only menzen-tsumo wins"><span class="rsc-mode">Ron</span><span class="rsc-pts">no yaku</span></span>`;
+    body += line("Tsumo", g.tsumo);
+    const bonus = (riichi && g.bonus > 0)
+      ? `<span class="rsc-line rsc-bonus" title="Average ippatsu + uradora value on top of the riichi win"><span class="rsc-mode">+ ura</span><span class="rsc-pts">~${g.bonus.toLocaleString()}</span></span>`
+      : "";
+    return `<div class="rsc-group"><span class="rsc-tiles">${tiles}</span>`
+      + `<span class="rsc-vals">${body}${bonus}</span></div>`;
+  }).join("");
+  return `<div class="${cls}">${blocks}</div>`;
+}

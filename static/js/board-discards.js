@@ -143,12 +143,17 @@ function renderTenpaiWaitsRow(m) {
   // would-be riichi tile). Placement directly below the discards block so
   // the student can see their hand's waits against what's been thrown away.
 
-  // For 5A/5B specifically, swap the chip strip for the rich EV-bars view
-  // (yaku, han·fu, dama vs riichi for both ron and tsumo, per wait). Falls
-  // through to the legacy chip strip if the bars renderer can't build —
-  // e.g. open hand, missing draw, or the Riichi calculator bailed.
+  // For 5A/5B the riichi/dama point scoring now lives inline in the EV table's
+  // per-column "Value" row (renderEvComparison), so we don't repeat it here.
+  // That table only renders when we have top_actions + discard_stats; when it
+  // doesn't (e.g. stats missing), fall back to the standalone EV-bars view so
+  // the scoring isn't lost. The bars also fall through to the legacy chip strip
+  // if they can't build (open hand, missing draw, Riichi calculator bailed).
   if ((m.category === "5A" || m.category === "5B")
       && typeof renderBadRiichiBars === "function") {
+    const tableWillScore = m.top_actions && m.top_actions.length
+      && m.discard_stats && m.discard_stats.length;
+    if (tableWillScore) return "";
     const bars = renderBadRiichiBars(m);
     if (bars) return bars;
   }
