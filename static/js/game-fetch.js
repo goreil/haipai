@@ -83,8 +83,13 @@ async function fetchGame(id) {
   state.currentGameData = await res.json();
   if (mres.ok) state.currentGameData.mortal_data = await mres.json();
   state.currentGame = id;
-  const want = `#g${id}`;
-  if (window.location.hash !== want) history.replaceState(null, "", want);
+  // Normalize the URL to the canonical game hash — unless we arrived via a
+  // #m<id> mistake deep-link, in which case keep that hash so the URL stays
+  // shareable and the back button rewinds to the mistake, not the game.
+  if (parseMistakeHash() == null) {
+    const want = `#g${id}`;
+    if (window.location.hash !== want) history.replaceState(null, "", want);
+  }
   // First render uses any stored prep fields (advisory) + JS categorize so
   // the user sees the game immediately. Then refreshPrepAndRecategorize
   // re-runs prep on the live mortal_data — JS prep is authoritative.
@@ -97,6 +102,13 @@ async function fetchGame(id) {
   }
   renderGame();
   await refreshPrepAndRecategorize(state.currentGameData, id);
+  // Prep reflows the page (cards grow as board context / EV tables fill in),
+  // so a scroll done before prep finished now points at the wrong offset.
+  // refreshPrepAndRecategorize re-renders when prep completes, and renderGame
+  // no longer self-clears the flag, so that final render re-scrolls to the
+  // target's settled position. Clear it now that the view is settled so later
+  // re-renders (e.g. filter toggles) don't yank the scroll back.
+  if (state.currentGame === id) state.scrollToMistakeId = null;
 }
 
 async function saveAnnotation(gameId, round, turn, index, note) {

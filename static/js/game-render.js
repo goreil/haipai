@@ -399,6 +399,11 @@ function renderGame() {
   // Honour a pending scroll-to-mistake request from the #m<id>
   // deep-link router. Only scrolls in the rounds view — the summary view
   // collapses cards into expandable groups, so there's nothing to scroll to.
+  // The flag is intentionally NOT cleared here: a deep-link load renders once
+  // immediately and again after prep reflows the page, and we want the second
+  // render to re-scroll to the settled position. The caller that set the flag
+  // clears it once the view is settled (fetchGame after prep, applyHashRoute
+  // for the already-loaded case).
   if (state.scrollToMistakeId && state.gameView === "rounds") {
     const target = state.scrollToMistakeId;
     requestAnimationFrame(() => {
@@ -408,7 +413,6 @@ function renderGame() {
       el.classList.add("mistake-flash");
       setTimeout(() => el.classList.remove("mistake-flash"), 2000);
     });
-    state.scrollToMistakeId = null;
   }
 }
 

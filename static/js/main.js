@@ -53,17 +53,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // Returns the integer game id from `#g<id>`, or null if the hash is
-// missing/malformed/non-positive.
+// missing/malformed/non-positive. The legacy `#game=<id>` form is still
+// accepted so old upload bookmarklets (which redirect to `#game=<id>`)
+// keep deep-linking correctly.
 function parseGameHash() {
-  const m = (window.location.hash || "").match(/^#g(\d+)$/);
+  const m = (window.location.hash || "").match(/^#g(?:ame=)?(\d+)$/);
   if (!m) return null;
   const n = parseInt(m[1], 10);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-// Returns the integer mistake id from `#m<id>`, or null otherwise.
+// Returns the integer mistake id from `#m<id>`, or null otherwise. The legacy
+// `#mistake=<id>` form is still accepted for backwards compatibility.
 function parseMistakeHash() {
-  const m = (window.location.hash || "").match(/^#m(\d+)$/);
+  const m = (window.location.hash || "").match(/^#m(?:istake=)?(\d+)$/);
   if (!m) return null;
   const n = parseInt(m[1], 10);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -114,9 +117,12 @@ async function applyHashRoute() {
       await fetchGame(loc.game_id);
     } else {
       // Same game already loaded — just scroll. Still force the target
-      // mistake's tier on in case the user had it filtered out.
+      // mistake's tier on in case the user had it filtered out. Prep already
+      // ran (no reflow), so one render scrolls correctly; clear the flag
+      // afterwards since renderGame no longer self-clears it.
       ensureMistakeVisible(state.currentGameData, mistakeId);
       renderGame();
+      state.scrollToMistakeId = null;
     }
     return;
   }
