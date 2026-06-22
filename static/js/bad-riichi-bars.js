@@ -605,7 +605,8 @@ function renderRiichiScoreCell(groups, riichi) {
   const cls = riichi ? "rsc rsc-riichi" : "rsc rsc-dama";
   const line = (label, s) => s
     ? `<span class="rsc-line"><span class="rsc-mode">${label}</span>`
-      + `<span class="rsc-pts" title="${s.han} han · ${s.fu} fu">${s.ten.toLocaleString()}</span></span>`
+      + `<span class="rsc-pts">${s.ten.toLocaleString()}</span>`
+      + `<span class="rsc-hanfu">(${s.han} han · ${s.fu} fu)</span></span>`
     : "";
   const blocks = groups.map(g => {
     // Wait tiles with their live count (×N) — how many of each winning tile is
@@ -619,14 +620,17 @@ function renderRiichiScoreCell(groups, riichi) {
     }).join("");
 
     // Yaku / dora pills present on this wait (riichi token already stripped
-    // upstream). Mirrors the old EV-bars strip: a hand with no real yaku of its
-    // own rides on riichi alone.
+    // upstream). On a riichi column the declared riichi is always shown as its
+    // own pill — even alongside natural yaku — so the +1 han is explicit; that
+    // pill also replaces the old "no yaku — riichi only" note. A dama column
+    // keeps that note when the hand has no yaku of its own (it can only tsumo).
     const tagParts = [];
+    if (riichi) tagParts.push(`<span class="yaku-tag riichi-yaku">riichi</span>`);
     const hasYaku = g.yaku && g.yaku.length;
     if (hasYaku) for (const y of g.yaku) tagParts.push(`<span class="yaku-tag">${y}</span>`);
     if (g.dora) tagParts.push(`<span class="yaku-tag dora-tag">dora ${g.dora}</span>`);
     if (g.aka) tagParts.push(`<span class="yaku-tag dora-tag">aka ${g.aka}</span>`);
-    if (!hasYaku) tagParts.push(`<span class="yaku-none">no yaku — riichi only</span>`);
+    if (!hasYaku && !riichi) tagParts.push(`<span class="yaku-none">no yaku — riichi only</span>`);
     const yakuTags = `<span class="rsc-yaku">${tagParts.join(" ")}</span>`;
 
     let body = "";

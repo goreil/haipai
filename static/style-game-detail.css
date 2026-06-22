@@ -1156,6 +1156,14 @@
   color: var(--text-dim);
 }
 .ev-table .rsc-pts { font-weight: 700; font-size: 13px; }
+/* Han/fu trailing the points, e.g. "1,300 (1 han · 40 fu)" — dimmed so the
+   point total stays the headline. */
+.ev-table .rsc-hanfu {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
 /* Riichi column reads gold/committed; dama quieter blue — matching the header
    riichi/dama pills. */
 .ev-table .rsc-riichi .rsc-pts { color: #ffcb80; }
@@ -1910,6 +1918,15 @@
   background: rgba(245, 158, 11, 0.18);
   color: #fbbf24;
   border-color: rgba(245, 158, 11, 0.4);
+}
+/* Riichi declaration as a yaku pill in the Value cell — gold/committed, matching
+   the header riichi pill (.reach-pill-riichi). Distinct class name from the
+   discard-row threat pill (.riichi-tag) so its font-size/padding don't leak in
+   and shift the text baseline against the other yaku tags. */
+.yaku-tag.riichi-yaku {
+  background: rgba(255, 165, 0, 0.14);
+  color: #ffcb80;
+  border-color: rgba(255, 165, 0, 0.5);
 }
 
 /* ============ Bad-Riichi EV bars (5A / 5B mistake cards) ============ */
