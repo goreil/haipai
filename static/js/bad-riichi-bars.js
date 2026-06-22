@@ -71,6 +71,63 @@ function _formatRiichiTsumoHandStr(handTiles14, winTile) {
   return out;
 }
 
+// Collect a meld's physical tiles (mjai notation) for scoring an OPEN hand.
+// chi/pon/daiminkan are `consumed` + the called `pai`; ankan is its 4
+// `consumed` tiles; kakan upgrades a pon to a kan, so it's the pon base ×3
+// plus the added `pai` (the renderer trusts only consumed[0] for kakan, so we
+// don't rely on consumed.length there). Returns null on a shape we can't read.
+function _meldTiles(meld) {
+  if (!meld) return null;
+  const consumed = meld.consumed || [];
+  if (meld.type === "ankan") {
+    return consumed.length === 4 ? consumed.slice() : null;
+  }
+  if (meld.type === "kakan") {
+    const base = consumed[0] || meld.pai;
+    if (!base) return null;
+    const tiles = consumed.length >= 3 ? consumed.slice(0, 3) : [base, base, base];
+    if (meld.pai) tiles.push(meld.pai);
+    return tiles;
+  }
+  const tiles = consumed.slice();
+  if (meld.pai) tiles.push(meld.pai);
+  return tiles.length >= 3 ? tiles : null;
+}
+
+// One meld → a Riichi-lib furo group string (e.g. "123m", "0p", "1111z").
+// Tiles are sorted by rank (red five ranks as 5) so a chi like 3-4-5r parses
+// as a run — the lib's isFuro check runs on the UNSORTED group, so order matters.
+function _meldFuroStr(meld) {
+  const tiles = _meldTiles(meld);
+  if (!tiles || !tiles.length) return null;
+  const conv = [];
+  for (const t of tiles) {
+    const r = _mjaiToRiichiTile(t);
+    if (!r || r.length !== 2) return null;
+    conv.push(r);
+  }
+  const suit = conv[0][1];
+  const rank = (r) => (r[0] === "0" ? 5 : parseInt(r[0], 10));
+  conv.sort((a, b) => rank(a) - rank(b));
+  return conv.map(r => r[0]).join("") + suit;
+}
+
+// `+`-separated furo suffix for the Riichi-lib `data` string, covering every
+// called meld in the hero's hand. "" for a closed hand. Note: the bundled lib
+// has no concealed-kan concept, so an ankan is treated as an open furo here —
+// it (mildly) suppresses menzen-only yaku, but open hands are the case that
+// matters and reach decisions never reach this with melds present.
+function _formatRiichiFuroSuffix(m) {
+  const melds = (m && m.melds) || [];
+  if (!melds.length) return "";
+  let out = "";
+  for (const meld of melds) {
+    const f = _meldFuroStr(meld);
+    if (f) out += `+${f}`;
+  }
+  return out;
+}
+
 // Double riichi (daburu rīchi) requires the player's first uninterrupted
 // discard with no calls anywhere in the round. mistake.turn is junme; an
 // opp meld at this point would mean a call broke the first go-around.
@@ -102,6 +159,9 @@ function _evalWaitScore(hand13, winTile, m, opts) {
   const extras = riichiFlag + `${bakaze}${jikaze}`;
   const doraStr = _formatRiichiDoraStr(bs.dora_tiles);
   const doraSuffix = doraStr ? `+d${doraStr}` : "";
+  // Called melds feed the calc as extra furo groups so an OPEN hand scores its
+  // full shape (and its meld dora/aka). Closed hands contribute "".
+  const furoSuffix = _formatRiichiFuroSuffix(m);
 
   let data;
   if (opts.tsumo) {
@@ -109,11 +169,11 @@ function _evalWaitScore(hand13, winTile, m, opts) {
     hand14.push(winTile);
     const handStr = _formatRiichiTsumoHandStr(hand14, winTile);
     if (!handStr) return null;
-    data = `${handStr}+${extras}${doraSuffix}`;
+    data = `${handStr}+${extras}${doraSuffix}${furoSuffix}`;
   } else {
     const handStr = _formatRiichiHandStr(hand13);
     const winR = _mjaiToRiichiTile(winTile);
-    data = `${handStr}+${winR}+${extras}${doraSuffix}`;
+    data = `${handStr}+${winR}+${extras}${doraSuffix}${furoSuffix}`;
   }
 
   let result;
@@ -470,12 +530,19 @@ function renderBadRiichiBars(m) {
 // `[{ tiles, ron, tsumo, bonus, yaku, dora, aka }]` or null when nothing scores.
 function evalDiscardScores(m, discardTile, waitEntries, riichi) {
   if (typeof window === "undefined" || !window.Riichi) return null;
-  if (m.melds && m.melds.length) return null;        // riichi/dama need menzen
+  // Open hands are scored too (silent value via _formatRiichiFuroSuffix); they
+  // just can't declare riichi, so force the dama branch when melds are present.
+  const meldCount = (m.melds || []).length;
+  const useRiichi = riichi && meldCount === 0;
+  // Each called meld occupies one set (3 tiles) of the 13-tile structure, so the
+  // concealed portion is 13 − 3·melds at tenpai (14 − 3·melds pre-discard).
+  const tenpaiLen = 13 - 3 * meldCount;
+  const preLen = 14 - 3 * meldCount;
   const hand = (m.hand || []).slice();
   let hand13;
-  if (hand.length === 13) {
+  if (hand.length === tenpaiLen) {
     hand13 = hand;
-  } else if (hand.length === 14) {
+  } else if (hand.length === preLen) {
     const idx = hand.indexOf(discardTile);
     if (idx < 0) return null;
     hand13 = hand.slice();
@@ -492,13 +559,13 @@ function evalDiscardScores(m, discardTile, waitEntries, riichi) {
   );
   const rows = [];
   for (const w of waits) {
-    const ron = _evalWaitScore(hand13, w.tile, m, { riichi, tsumo: false });
-    const tsumo = _evalWaitScore(hand13, w.tile, m, { riichi, tsumo: true });
+    const ron = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: false });
+    const tsumo = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: true });
     if (!ron && !tsumo) continue;                    // no legal win on this wait
     const anyEval = ron || tsumo;
     let yaku = (ron && ron.yaku) || (tsumo && tsumo.yaku) || [];
     yaku = yaku.filter(y => y && y !== "立直" && y !== "ダブル立直");
-    const bonus = riichi ? _badRiichiBonusEv((ron && ron.ten) || (tsumo && tsumo.ten)) : 0;
+    const bonus = useRiichi ? _badRiichiBonusEv((ron && ron.ten) || (tsumo && tsumo.ten)) : 0;
     rows.push({
       tile: w.tile, count: w.count, furiten: w.furiten,
       ron, tsumo, bonus,

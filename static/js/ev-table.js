@@ -359,16 +359,20 @@ function renderEvComparison(m, options) {
       else if ((spec.side === "actual" || spec.side === "expected") && shantenVal === 0) reachRole = "dama";
     }
 
-    // Per-column riichi/dama point scoring (5A/5B). The reach side scores a
-    // declared riichi, the dama side a silent dama — each from its OWN discard
-    // tile and waits. Only tenpai columns score: a tenpai hand's ukeire IS its
-    // wait, so we feed ca.necessary_tiles straight in. A column that broke
-    // tenpai has no winning hand and stays empty (reachRole is null there).
+    // Per-column point scoring for EVERY tenpai pick — not just reach
+    // decisions. The reach side of a 5A/5B scores a declared riichi (with the
+    // ippatsu/ura tail); every other tenpai column scores a silent dama, which
+    // for an attack/defense pick is exactly its win value. Only tenpai columns
+    // score: a tenpai hand's ukeire IS its wait, so we feed ca.necessary_tiles
+    // straight in. A column that broke tenpai has no winning hand and stays
+    // empty. evalDiscardScores folds in any called melds, so an OPEN tenpai
+    // scores its full open-hand value too.
+    const scoreIsRiichi = reachRole === "riichi";
     let scoreGroups = null;
-    if (reachRole && shantenVal === 0
+    if (shantenVal === 0
         && ca && ca.necessary_tiles && ca.necessary_tiles.length
         && typeof evalDiscardScores === "function") {
-      scoreGroups = evalDiscardScores(m, tile, ca.necessary_tiles, reachRole === "riichi");
+      scoreGroups = evalDiscardScores(m, tile, ca.necessary_tiles, scoreIsRiichi);
     }
 
     // Feature-summary inputs (rendered into the bottom Summary row). Each is
@@ -400,7 +404,7 @@ function renderEvComparison(m, options) {
     const doraWaitDisplay = doraWaitEntries.map(nt =>
       indicatorDora(nt) ? nt : { ...nt, count: nt.aka_count || 0 });
 
-    return { tile, colClass, markers, reachRole, scoreGroups, acc, mortal, shanten, shantenVal, dealin, typeCell, waits,
+    return { tile, colClass, markers, reachRole, scoreGroups, scoreIsRiichi, acc, mortal, shanten, shantenVal, dealin, typeCell, waits,
              threatLines, ukeireCount, discardIsDora, discardIsYakuhai, doraWaitEntries, doraWaitDisplay, doraWaitCount, dealinRate };
   });
 
@@ -559,28 +563,29 @@ function renderEvComparison(m, options) {
   }
   html += `</tr></thead><tbody>`;
 
-  // Riichi decisions (5A/5B) swap the tile-acceptance row for a per-column
-  // point-value row: the riichi column shows the value of declaring riichi, the
-  // dama column the value of staying closed — each scored from its own waits.
-  // Only tenpai columns carry a score; a column that broke tenpai stays blank.
-  const anyScore = !!reachSide && cols.some(c => c.scoreGroups && c.scoreGroups.length);
-  if (anyScore) {
-    html += rowFor(
-      `Value`,
-      ` title="Hand value for each call: the riichi column scores a declared riichi (with the ippatsu/ura EV tail), the dama column a silent tenpai. Only the tenpai side is scored."`,
-      "score-col",
-      c => c.scoreGroups
-        ? `<div class="rsc-cell">${renderRiichiScoreCell(c.scoreGroups, c.reachRole === "riichi")}</div>`
-        : `<span class="dim">&mdash;</span>`,
-    );
-  } else {
-    html += rowFor(
-      `Tile acceptance`,
-      ` title="Each cell's “N shared” pill is the tiles every pick accepts; the “+N” beside it is the extra tiles that pick alone accepts. Click the pill to expand the full list."`,
-      "ukeire-col ukeire-acc-row",
-      c => `<div class="ukeire-acc-cell">${c.acc}</div>`,
-    );
-  }
+  // Value and Tile acceptance share ONE row: each pick renders whichever suits
+  // its shanten. A tenpai pick shows its point-value cell — that cell already
+  // lists the wait tiles, so a separate acceptance cell would just repeat them
+  // (the reach side of a 5A/5B scores a declared riichi with the ippatsu/ura
+  // tail; every other tenpai pick a silent dama / its open-hand value). A pick
+  // still short of tenpai shows its tile-acceptance cell instead, keeping the
+  // "N shared" expand pill — which belongs only on acceptance cells, never on a
+  // value cell. The row label adapts to whichever mix the card carries.
+  const isScored = c => c.scoreGroups && c.scoreGroups.length;
+  const anyScore = cols.some(isScored);
+  const anyAcc = cols.some(c => !isScored(c) && c.acc);
+  const valueLabel = anyScore ? (anyAcc ? "Value / acceptance" : "Value") : "Tile acceptance";
+  const valueTitle = anyScore
+    ? ` title="Tenpai picks show their win value and waits; a pick still short of tenpai shows its tile acceptance instead — its “N shared” pill is the tiles every pick accepts, the “+N” the extra it alone accepts."`
+    : ` title="Each cell's “N shared” pill is the tiles every pick accepts; the “+N” beside it is the extra tiles that pick alone accepts. Click the pill to expand the full list."`;
+  html += rowFor(
+    valueLabel,
+    valueTitle,
+    "ukeire-col ukeire-acc-row score-col",
+    c => isScored(c)
+      ? `<div class="rsc-cell">${renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>`
+      : `<div class="ukeire-acc-cell">${c.acc}</div>`,
+  );
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row
   // already shows the EV loss, so a per-pick EV row just repeats it. (The
   // per-column `c.mortal` is still computed in case it's needed elsewhere.)
