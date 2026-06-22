@@ -701,6 +701,10 @@
 .meld-called > .tile {
   transform: rotate(90deg);
   margin: -3px 0;
+  /* Dashed outline mirrors the called tile's ghost in the discard pool
+     (.tile.ghost-tile) so the eye links "thrown here" to "called into here". */
+  border: 2px dashed var(--text-dim);
+  border-radius: 3px;
 }
 .meld-kakan {
   position: relative;

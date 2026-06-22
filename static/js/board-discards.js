@@ -419,12 +419,17 @@ function renderBoardContext(m) {
           const raw = d.discards[i];
           const tile = typeof raw === "string" ? raw : raw.tile;
           const calledBy = (typeof raw === "object" && raw !== null) ? raw.called_by : undefined;
+          const isTsumogiri = (typeof raw === "object" && raw !== null) ? raw.tsumogiri : false;
           const isRiichi = i === d.riichi_idx;
           const absTurn = absTurnMap.get(`${d.seat}_${i}`);
           const posAttrs = `data-turn="${absTurn}" data-seat="${d.seat}"`;
           // dora-highlight is applied automatically by renderTile.
           let cls = "action-tile-sm";
+          // Called tile (taken by an opponent) → dashed outline; tsumogiri
+          // (drawn-and-thrown) → grey shading. Independent, so a tile can be
+          // both (a tsumogiri that got called).
           if (calledBy != null) cls += " ghost-tile";
+          if (isTsumogiri) cls += " tsumogiri-tile";
           if (isRiichi) {
             const riichiAttrs = `${posAttrs} data-riichi-turn="${absTurn}" data-riichi-seat="${d.seat}"`;
             html += renderTile(tile, cls + " riichi-tile",

@@ -379,11 +379,23 @@
   gap: 4px;
 }
 
-/* Ghost tile (called from discard pool) */
+/* Called tile (taken from this discard pool by an opponent's chi/pon/kan).
+   Marked with a visible dashed outline rather than dimming — grey/opacity is
+   being reserved for tsumogiri shading. The matching outline on the meld's
+   called tile (.meld-called > .tile) links the two views of the same tile.
+   2px matches the base .tile transparent border, so there's no layout shift. */
 .tile.ghost-tile {
-  opacity: 0.3;
-  border: 1px dashed var(--text-dim);
+  border: 2px dashed var(--text-dim);
   border-radius: 3px;
+}
+
+/* Tsumogiri (drawn-and-immediately-discarded) tile: greyed/shaded to set it
+   apart from a tedashi (discard from hand) — the tedashi tiles are the ones a
+   defender reads. Reuses the dimming the called-tile ghost used to carry,
+   which freed up now that "called" is a dashed outline. A tile can be both
+   tsumogiri and called: the dashed outline + the shading stack cleanly. */
+.tile.tsumogiri-tile {
+  opacity: 0.4;
 }
 
 /* KD-driven hand highlight: "Safe" = green underline; unsafe tiles get

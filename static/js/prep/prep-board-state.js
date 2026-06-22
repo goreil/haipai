@@ -130,7 +130,10 @@
       if (etype === "tsumo") {
         tiles_left -= 1;
       } else if (etype === "dahai" && actor !== undefined && actor !== null) {
-        discards[actor].tiles.push({ tile: e.pai });
+        // `tsumogiri` (drawn-and-immediately-discarded) rides along on each
+        // discard so the discard-pool renderer can grey-shade it apart from a
+        // tedashi (discard from hand). mjai marks every dahai with this flag.
+        discards[actor].tiles.push({ tile: e.pai, tsumogiri: !!e.tsumogiri });
       } else if (etype === "reach" && actor !== undefined && actor !== null) {
         const d = discards[actor];
         d.riichi_idx = d.tiles.length;
