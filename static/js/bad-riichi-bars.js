@@ -541,8 +541,27 @@ function renderRiichiScoreCell(groups, riichi) {
       + `<span class="rsc-pts" title="${s.han} han · ${s.fu} fu">${s.ten.toLocaleString()}</span></span>`
     : "";
   const blocks = groups.map(g => {
-    const tiles = (g.tiles || []).map(t =>
-      renderTile(t.tile, "tile-sm ukeire-tile-img")).join("");
+    // Wait tiles with their live count (×N) — how many of each winning tile is
+    // still drawable. Furiten waits are flagged on their count so a dealt-away
+    // wait reads as dead rather than a live out.
+    const tileEntries = (g.tiles || []).map(t => {
+      const tileHtml = renderTile(t.tile, "tile-sm ukeire-tile-img");
+      const countCls = t.furiten ? "rsc-count rsc-count-furiten" : "rsc-count";
+      const countTip = t.furiten ? `${t.tile} — furiten (already discarded)` : `${t.tile} ×${t.count}`;
+      return `<span class="rsc-tile-entry">${tileHtml}<span class="${countCls}" title="${countTip}">×${t.count}</span></span>`;
+    }).join("");
+
+    // Yaku / dora pills present on this wait (riichi token already stripped
+    // upstream). Mirrors the old EV-bars strip: a hand with no real yaku of its
+    // own rides on riichi alone.
+    const tagParts = [];
+    const hasYaku = g.yaku && g.yaku.length;
+    if (hasYaku) for (const y of g.yaku) tagParts.push(`<span class="yaku-tag">${y}</span>`);
+    if (g.dora) tagParts.push(`<span class="yaku-tag dora-tag">dora ${g.dora}</span>`);
+    if (g.aka) tagParts.push(`<span class="yaku-tag dora-tag">aka ${g.aka}</span>`);
+    if (!hasYaku) tagParts.push(`<span class="yaku-none">no yaku — riichi only</span>`);
+    const yakuTags = `<span class="rsc-yaku">${tagParts.join(" ")}</span>`;
+
     let body = "";
     if (g.ron) body += line("Ron", g.ron);
     else if (!riichi) body += `<span class="rsc-line rsc-noyaku" title="No yaku — a dama hand can't ron, only menzen-tsumo wins"><span class="rsc-mode">Ron</span><span class="rsc-pts">no yaku</span></span>`;
@@ -550,7 +569,7 @@ function renderRiichiScoreCell(groups, riichi) {
     const bonus = (riichi && g.bonus > 0)
       ? `<span class="rsc-line rsc-bonus" title="Average ippatsu + uradora value on top of the riichi win"><span class="rsc-mode">+ ura</span><span class="rsc-pts">~${g.bonus.toLocaleString()}</span></span>`
       : "";
-    return `<div class="rsc-group"><span class="rsc-tiles">${tiles}</span>`
+    return `<div class="rsc-group">${yakuTags}<span class="rsc-tiles">${tileEntries}</span>`
       + `<span class="rsc-vals">${body}${bonus}</span></div>`;
   }).join("");
   return `<div class="${cls}">${blocks}</div>`;

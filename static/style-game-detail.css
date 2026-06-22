@@ -1096,26 +1096,56 @@
    Replaces the tile-acceptance row on riichi decisions: each pick's column
    shows the point value of its own call (riichi vs dama), scored per wait. */
 .ev-table-cols .rsc-cell { display: flex; justify-content: center; }
+/* 3-column grid — pills | wait tiles | point values — so the tile column
+   left-aligns across every wait group (each group is `display: contents`, so
+   its three children drop straight into the shared columns). Sized to content
+   and centered by .rsc-cell. */
 .ev-table .rsc {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: stretch;
-  width: 100%;
-}
-.ev-table .rsc-group {
-  display: flex;
+  display: inline-grid;
+  grid-template-columns: auto auto auto;
+  gap: 6px 8px;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
-.ev-table .rsc-tiles { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.ev-table .rsc-group { display: contents; }
+.ev-table .rsc-tiles { display: inline-flex; gap: 6px; flex-shrink: 0; }
+/* One wait tile + its live count, stacked. Mirrors the old EV-bars tile column
+   so "how many of this wait are live" reads at a glance. */
+.ev-table .rsc-tile-entry {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.ev-table .rsc-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.ev-table .rsc-count-furiten {
+  color: var(--sev-major, #ef5350);
+  text-decoration: line-through;
+}
 .ev-table .rsc-vals {
   display: flex;
   flex-direction: column;
   gap: 1px;
   align-items: flex-start;
   font-variant-numeric: tabular-nums;
+}
+/* Yaku/dora pills already present on the wait — first grid column, to the LEFT
+   of the wait tiles, right-aligned so they hug the tile column. */
+.ev-table .rsc-yaku {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: flex-end;
+  justify-self: end;
+}
+.ev-table .rsc-yaku .yaku-none {
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--text-dim);
 }
 .ev-table .rsc-line { display: flex; gap: 6px; align-items: baseline; line-height: 1.35; }
 .ev-table .rsc-mode {
