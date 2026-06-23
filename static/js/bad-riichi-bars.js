@@ -621,16 +621,13 @@ function renderRiichiScoreCell(groups, riichi) {
 
     // Yaku / dora pills present on this wait (riichi token already stripped
     // upstream). On a riichi column the declared riichi is always shown as its
-    // own pill — even alongside natural yaku — so the +1 han is explicit; that
-    // pill also replaces the old "no yaku — riichi only" note. A dama column
-    // keeps that note when the hand has no yaku of its own (it can only tsumo).
+    // own pill — even alongside natural yaku — so the +1 han is explicit.
     const tagParts = [];
     if (riichi) tagParts.push(`<span class="yaku-tag riichi-yaku">riichi</span>`);
     const hasYaku = g.yaku && g.yaku.length;
     if (hasYaku) for (const y of g.yaku) tagParts.push(`<span class="yaku-tag">${y}</span>`);
     if (g.dora) tagParts.push(`<span class="yaku-tag dora-tag">dora ${g.dora}</span>`);
     if (g.aka) tagParts.push(`<span class="yaku-tag dora-tag">aka ${g.aka}</span>`);
-    if (!hasYaku && !riichi) tagParts.push(`<span class="yaku-none">no yaku — riichi only</span>`);
     const yakuTags = `<span class="rsc-yaku">${tagParts.join(" ")}</span>`;
 
     let body = "";
