@@ -35,8 +35,15 @@ function renderMeld(meld, tileClass = "action-tile-sm", actorSeat, doraTiles, oy
   const windSup = windChar ? `<sup class="meld-wind">${windChar}</sup>` : "";
 
   if (type === "ankan") {
+    // mjai lists all four tiles in consumed; two go face-up between the backs.
+    // Surface a red five among the faces (there's only ever one) so a kan of
+    // fives reads [back|5m|5mr|back] rather than doubling consumed[0] into
+    // [back|5mr|5mr|back].
     const tile = consumed[0] || pai || "?";
-    return `<span class="meld-group">${renderBackTile(tileClass)}${meldTile(tile)}${meldTile(tile)}${renderBackTile(tileClass)}</span>`;
+    const red = consumed.find(t => t === "5mr" || t === "5pr" || t === "5sr");
+    const normal = consumed.find(t => t !== "5mr" && t !== "5pr" && t !== "5sr") || tile;
+    const faces = red ? [normal, red] : [tile, tile];
+    return `<span class="meld-group">${renderBackTile(tileClass)}${meldTile(faces[0])}${meldTile(faces[1])}${renderBackTile(tileClass)}</span>`;
   }
 
   if (type === "chi") {
