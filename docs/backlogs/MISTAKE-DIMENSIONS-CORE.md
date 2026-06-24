@@ -353,18 +353,31 @@ old category output is left untouched here — it's the scaffold, removed in Pha
 Replace `categorize-explanations.js` (664 lines of per-category if/else) with
 fragments + 3 shape templates. Resolve the **open questions** below first.
 
-- [ ] **2.1** Fragment registry: one `{ win, group, prio }` entry per day-one
-  dimension (shanten, ukeire, yakuhai_kept, dora_kept, dora_acceptance, deal_in),
-  per the table in "Trainer text" above.
-- [ ] **2.2** Three templates (Obvious / Trade-off / Complex) that assemble
-  fragments in narration order (group-internal prio: shanten>ukeire,
-  dora_kept>dora_acceptance), with the skill area supplying framing verbs.
-- [ ] **2.3** Wire the card (`mistake-card.js` → `categorize-explanations.js`) to
-  render from `shape` + win-vector. Keep the card *layout* the same for now
-  (prose block); only the text source changes.
-- [ ] **Exit gate:** every benched mistake renders non-empty, correct text;
-  manual read of one card per shape per skill area (9 cards) reads naturally; no
-  spot produces an empty or contradictory sentence.
+- [x] **2.1** Fragment registry: `_winClause(w, seatWindFor)` in
+  `categorize-explanations.js` emits one clause per day-one dimension (shanten,
+  ukeire, yakuhai_kept, dora_kept, dora_acceptance, deal_in), per the "Trainer
+  text" table. Tiles render as glyphs via `renderTile`.
+- [x] **2.2** Three templates (Obvious / Trade-off / Complex) in
+  `explainDiscardShape` assemble fragments in narration order via `_sideClauses`
+  (group order Speed→Yaku→Dora→Defense, group-internal prio shanten>ukeire,
+  dora_kept>dora_acceptance; Defense leads in a defense/open-defense scene).
+  `_defenseLead` supplies the riichi/open-threat framing line.
+- [x] **2.3** `generateExplanation`'s dahai-vs-dahai branch now calls
+  `explainDiscardShape(m, defenseCtx)` (recomputes `wins`/`shape`/`skillArea`
+  off the shared comparator, so admin/un-prepped paths work too) — the legacy
+  P1-P4/D1-D3/OD*/1A-3C prose is deleted. Action decisions keep their dedicated
+  text. Card layout unchanged (prose block).
+- [x] **Exit gate:** all 1816 discard mistakes in the bench sample render
+  non-empty text, 0 contradictions (`scripts/verify_shape_text.mjs`); the 9
+  shape×skill cards read naturally; verified in-browser (prod #g505, ylue
+  read-only) — tiles render as glyphs, summary pills agree with prose. Golden
+  snapshot + shape (28.5/26.0/35.6/9.9) + skill-area distributions unchanged
+  (text-only); 136 pytest pass. **Open questions resolved:** template tone =
+  encouraging-Obvious / both-sides-named Trade-off / "trust the read" Complex,
+  defense scenes prefix a threat lead; dora co-narration drops the acceptance
+  clause's tile(s) already named by dora_kept (no double "dora"); shape stays
+  recomputed (not persisted) — the snapshot-persistence question defers to
+  EXTRAS-C trends.
 
 ### Phase 3 — Card identity flips to {skill area} × {shape} + delete the codes
 
@@ -440,14 +453,18 @@ purely `{skillArea, shape, wins}`. Hand off to `MISTAKE-DIMENSIONS-EXTRAS.md` fo
 the report funnel, new dimensions, and trends. **The weakness-analysis freeze
 (Phase −1) stays in place until EXTRAS-C re-enables it.**
 
-## Open questions (revisit before Phase 2)
+## Open questions (resolved in Phase 2)
 
-- Exact wording/tone of the three templates per skill area (Attack vs Defense
-  framing verbs).
-- How `dora_acceptance` and `dora_kept` co-narrate when both fire (avoid
-  redundant "dora" mentions).
-- Whether `shape` needs to be persisted on trends snapshots for version
-  comparison, or recomputed (lean: recomputed, like everything else).
+- ~~Exact wording/tone of the three templates per skill area.~~ Obvious is
+  encouraging ("pure-technique spot, one of the easier ones to fix"); Trade-off
+  names both sides ("your X … but Mortal's Y, and here that's worth more");
+  Complex ends "trust the read". Defense/open-defense scenes prefix a threat
+  lead line (`_defenseLead`) and weight the safety clause first.
+- ~~How `dora_acceptance` and `dora_kept` co-narrate.~~ `_sideClauses` drops any
+  acceptance tile already named by `dora_kept`; if nothing extra remains the
+  acceptance clause is omitted, so the sentence never repeats a dora.
+- ~~Persist `shape` on trends snapshots?~~ Recomputed, like everything else.
+  Re-examine when EXTRAS-C rebuilds trends.
 
 ## Pointers
 

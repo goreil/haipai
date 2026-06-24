@@ -1,16 +1,183 @@
-// Per-category mistake explanation text. `generateExplanation(m)` dispatches
-// on the mistake's category code (4A/4B/4C, 5A/5B, 6A/6B, D1/D2/D3, P1-P4,
-// legacy 1A/2A/3A/3B/3C) and returns the HTML fragment shown in the mistake
-// card body.
+// Mistake explanation text. `generateExplanation(m)` returns the HTML fragment
+// shown in the mistake card body.
+//
+// Two regimes:
+//   - Action decisions (call / reach / kan / missed-win) carry no shape and
+//     keep their dedicated per-decision prose (the 4A/4B/4C, 5A/5B, 6A/6B,
+//     hora branches), dispatched on action type.
+//   - Discard-vs-discard is compositional (mistake-dimensions CORE Phase 2):
+//     the shape (Obvious / Trade-off / Complex) is derived from the shared
+//     win-vector (compare-dimensions.js), and the body is assembled from
+//     per-dimension fragments by three shape templates. The old per-category
+//     discard prose (P1-P4, D1-D3, OD*, legacy 1A/2A/3A/3B/3C) is gone.
 //
 // Load order: depends on
-//   - categorize-metadata.js (CATEGORY_INFO is read indirectly via card code;
-//     not used directly here, but conventional)
+//   - compare-dimensions.js (haipaiCompareDimensions — the win-vector + shape)
 //   - categorize-yaku.js (detectClosedHandYaku for the 5A dama-wins branch)
 //   - prep/defense.js (defenseSituation, defenseDealinForTile,
-//     fineLabelForTile, mortalRaisedShanten, _isValueTileMjai,
 //     _isDoubleRiichiContext, tenpaiWaitTiles)
+//   - mistake-card.js (mortalRaisedShanten, for the 5A branch)
 //   - tiles.js (renderTile, formatAction)
+
+// --- Compositional trainer text (mistake-dimensions CORE, Phase 2) ---
+//
+// The discard-vs-discard card body is no longer per-category prose. It is
+// assembled from the shared win-vector (compare-dimensions.js): each winning
+// dimension owns a small fragment, and three shape templates (Obvious /
+// Trade-off / Complex) stitch the fragments together. A new value detector
+// ships exactly one fragment and works in all three templates for free.
+//
+// Action decisions (call / reach / kan / missed-win) carry no shape and keep
+// their dedicated text further down in generateExplanation — only the
+// dahai-vs-dahai branch is compositional.
+
+// Group → narration order. Group-internal prio (shanten>ukeire,
+// dora_kept>dora_acceptance) breaks ties within a group. In a defense scene
+// the safety win headlines the sentence, so Defense leads; otherwise the
+// reading order is Speed → Yaku → Dora → Defense.
+var _GROUP_NARRATION = { Speed: 1, Yaku: 2, Dora: 3, Defense: 4 };
+
+function _narrationRank(w, skillArea) {
+  if ((skillArea === "defense" || skillArea === "open_defense") && w.group === "Defense") return 0;
+  return _GROUP_NARRATION[w.group] || 9;
+}
+
+// One natural-language clause describing what a winning dimension gains, with
+// tiles rendered as glyphs. `seatWindFor(seat)` maps a deal_in entry's seat to
+// a wind label (null when unknown).
+function _winClause(w, seatWindFor) {
+  const tile = (t) => renderTile(t, "tile-sm");
+  switch (w.dim) {
+    case "shanten": {
+      const n = w.magnitude || 1;
+      return n <= 1 ? "reaches tenpai a step sooner" : `gets ${n} steps closer to tenpai`;
+    }
+    case "ukeire":
+      return `accepts ${w.magnitude} more tile${w.magnitude === 1 ? "" : "s"}`;
+    case "yakuhai_kept":
+      return `keeps ${tile(w.tiles[0])} — a yakuhai (points, and the option to open the hand)`;
+    case "dora_kept":
+      return `keeps the ${tile(w.tiles[0])} dora`;
+    case "dora_acceptance": {
+      const ts = (w.tiles || []).map(tile).join("");
+      return ts ? `keeps a wait that still draws ${ts} (dora)` : "keeps a wait that draws more dora";
+    }
+    case "deal_in": {
+      const wind = seatWindFor ? seatWindFor(w.seat) : null;
+      const pct = (w.pct != null) ? `${w.pct.toFixed(1)}% less deal-in` : "less deal-in";
+      return wind ? `stays safer vs ${wind} (${pct})` : `stays safer (${pct})`;
+    }
+  }
+  return "";
+}
+
+// The clauses for one side ("you" = the player's pick, "mortal" = Mortal's),
+// in narration order. Suppressed dimensions (cross-shanten ukeire) never count.
+// When a side both keeps a dora AND its wait draws dora, the acceptance clause
+// only names the *extra* dora the kept clause didn't (and is dropped entirely
+// when there's no extra), so the sentence never says the same dora twice.
+function _sideClauses(wins, side, skillArea, seatWindFor) {
+  const mine = wins
+    .filter(w => w.winner === side && !w.suppressed)
+    .sort((a, b) =>
+      _narrationRank(a, skillArea) - _narrationRank(b, skillArea)
+      || (a.prio || 9) - (b.prio || 9));
+  const keptDora = new Set();
+  for (const w of mine) {
+    if (w.dim === "dora_kept") for (const t of (w.tiles || [])) keptDora.add(t);
+  }
+  const clauses = [];
+  for (const w of mine) {
+    let c;
+    if (w.dim === "dora_acceptance" && keptDora.size) {
+      // Only the dora the kept clause didn't already name.
+      const extra = (w.tiles || []).filter(t => !keptDora.has(t));
+      if (!extra.length) continue;  // wait draws only the dora we already kept — say nothing more
+      c = `its wait also draws ${extra.map(t => renderTile(t, "tile-sm")).join("")}`;
+    } else {
+      c = _winClause(w, seatWindFor);
+    }
+    if (c) clauses.push(c);
+  }
+  return clauses;
+}
+
+// "a and b" / "a, b, and c".
+function _joinClauses(clauses) {
+  if (!clauses.length) return "";
+  if (clauses.length === 1) return clauses[0];
+  if (clauses.length === 2) return `${clauses[0]} and ${clauses[1]}`;
+  return `${clauses.slice(0, -1).join(", ")}, and ${clauses.slice(-1)[0]}`;
+}
+
+// Scene-framing lead line for a defense / open-defense discard. Empty for
+// attack (the shape headline carries the whole sentence there).
+function _defenseLead(skillArea, defenseCtx) {
+  if (skillArea === "open_defense") return "A non-riichi opponent's open hand is threatening.";
+  if (skillArea !== "defense") return "";
+  const riichiOpps = (defenseCtx.threats || []).filter(t => t.kind === "riichi");
+  const winds = riichiOpps.map(t => t.wind).filter(Boolean);
+  if (!winds.length) return "An opponent is in riichi.";
+  const subject = winds.length === 1
+    ? winds[0]
+    : winds.slice(0, -1).join(", ") + " + " + winds.slice(-1)[0];
+  return `${subject} ${winds.length > 1 ? "are" : "is"} in riichi.`;
+}
+
+// The "trust the read" hint for a complex spot — what the visible stats can't
+// see. Defense reads weigh the threat; attack reads weigh hand-building.
+function _complexHint(skillArea) {
+  return (skillArea === "defense" || skillArea === "open_defense")
+    ? "a wait-quality, hand-value, or score read on the threat"
+    : "hand shape, wait quality, or yaku potential";
+}
+
+// Assemble the discard-vs-discard body from shape + win-vector. Returns null
+// when the comparator isn't available (callers fall through to legacy text).
+function explainDiscardShape(m, defenseCtx) {
+  const cmp = (typeof haipaiCompareDimensions !== "undefined") ? haipaiCompareDimensions : null;
+  if (!cmp) return null;
+  const wins = cmp.compareDimensions(m);
+  const shape = cmp.deriveShape(wins, m);
+  const skillArea = cmp.skillAreaFor(m);
+  if (shape !== "obvious" && shape !== "trade-off" && shape !== "complex") return null;
+
+  const threats = (defenseCtx && defenseCtx.threats) || [];
+  const seatWindMap = {};
+  for (const t of threats) seatWindMap[t.seat] = t.wind;
+  const soleWind = threats.length === 1 ? threats[0].wind : null;
+  const seatWindFor = (seat) => (seat != null ? seatWindMap[seat] : soleWind) || null;
+
+  const aT = renderTile(m.actual.pai, "tile-sm");
+  const eT = renderTile(m.expected.pai, "tile-sm");
+  const youText = _joinClauses(_sideClauses(wins, "you", skillArea, seatWindFor));
+  const mortalText = _joinClauses(_sideClauses(wins, "mortal", skillArea, seatWindFor));
+  const lead = _defenseLead(skillArea, defenseCtx);
+  const leadHtml = lead ? `<span class="trigger-line">${lead}</span>` : "";
+
+  if (shape === "obvious") {
+    // Mortal strictly dominates — your column won nothing.
+    let head = mortalText
+      ? `Mortal's ${eT} is simply better — it ${mortalText}.`
+      : `Mortal's ${eT} is simply better here.`;
+    return `${leadHtml}<span class="trigger-line">${head}</span>`
+      + ` Your ${aT} gives that up for nothing — a pure-technique spot, so it's one of the easier ones to fix.`;
+  }
+
+  if (shape === "trade-off") {
+    // Both columns won something — value vs speed vs safety.
+    return `${leadHtml}<span class="trigger-line">A judgment call.</span>`
+      + ` Your ${aT} ${youText} — but Mortal's ${eT} ${mortalText}, and here that's worth more.`;
+  }
+
+  // complex — Mortal's column won nothing visible.
+  if (youText) {
+    return `${leadHtml}<span class="trigger-line">Mortal prefers ${eT}, but the visible stats don't explain it.</span>`
+      + ` Your ${aT} ${youText}, yet Mortal still picks ${eT} — likely ${_complexHint(skillArea)}. Trust the read.`;
+  }
+  return `${leadHtml}<span class="trigger-line">Mortal prefers ${eT} over your ${aT}, but shanten, ukeire and value don't explain it.</span>`
+    + ` The edge is ${_complexHint(skillArea)} — trust the read.`;
+}
 
 function generateExplanation(m) {
   const actual = m.actual;
@@ -24,13 +191,11 @@ function generateExplanation(m) {
   const et = expected.type;
   const cat = m.category || "";
   const shantenStr = m.shanten != null ? `${m.shanten}-shanten` : null;
-  const labels = m.labels || [];
-  // Defense-situation read used by every category below. `hasRiichi` aliases
-  // the riichi flag from defenseCtx so a future open-meld trigger lights up
-  // automatically once it joins the same threats array.
+  // Defense-situation read: the action-decision branches (4A/4B/5A/6A) use it
+  // for their riichi-context lines, and explainDiscardShape uses its threat
+  // list for the deal_in wind labels + the scene lead.
   const defenseCtx = (typeof defenseSituation === "function")
     ? defenseSituation(m) : { in_defense: false, threats: [] };
-  const hasRiichi = !!defenseCtx.riichi_threat;
 
   // Pretty-format the riichi threat list as "West" or "South + West", and
   // build a deal-in suffix for the player's discard. Returns an HTML
@@ -273,388 +438,23 @@ function generateExplanation(m) {
   }
 
   // --- Discard vs discard ---
+  // Compositional: the shape (Obvious / Trade-off / Complex) is derived from
+  // the shared win-vector (compare-dimensions.js) and the body is assembled
+  // from per-dimension fragments via explainDiscardShape. The old per-category
+  // prose (P1-P4, D1-D3, OD*, and legacy 1A/2A/3A/3B/3C) is gone — every
+  // discard mistake routes through the three shape templates now.
   if (at === "dahai" && et === "dahai") {
+    const shapeText = explainDiscardShape(m, defenseCtx);
+    if (shapeText) return shapeText;
+
+    // Fallback only when the comparator isn't loaded (e.g. an unprepped
+    // mistake with no win-vector): an honest minimal description off raw stats.
     const actualStat = statFor(actual.pai);
     const expectedStat = statFor(expected.pai);
-
-    // Shanten increase prefix
-    const catData = m.categorize_data || {};
-    const shantenIncrease = catData.shanten_increase;
-    let shantenWarning = "";
-    if (shantenIncrease) {
-      shantenWarning = `<strong>Your discard increased shanten</strong> (from ${catData.best_shanten} to ${catData.actual_shanten}) — this moves your hand further from winning. `;
-    }
-
-    // Defense trigger description. The 3+-open-melds case rides on the
-    // `threatening_opponent` scene flag (in catData), not defense_trigger —
-    // which is only ever "riichi" today.
-    const defenseTrigger = catData.defense_trigger;
-    function defenseTriggerStr() {
-      if (defenseTrigger === "riichi") return "an opponent declared riichi";
-      if (hasRiichi) return "an opponent declared riichi";
-      // Open Defense scene: a non-riichi opponent's open hand tripped the
-      // open-threat trigger (2+ open calls). The OD tiers reuse the D-tier
-      // bodies below, swapping in this phrase.
-      if (defenseTrigger === "open") return "a non-riichi opponent's open hand is threatening";
-      if (catData.threatening_opponent) return "an opponent has 3+ open calls (threatening hand)";
-      return "an opponent is threatening";
-    }
-    const isOpenDefense = defenseTrigger === "open";
-
-    // Deal-in rate lookup with red-five fallback.
-    const dealinFor = (t) => {
-      if (!t || !m.dealin_rates) return null;
-      const r = m.dealin_rates[t];
-      if (r != null) return r;
-      return m.dealin_rates[t.replace(/r$/, "")] ?? null;
-    };
-    const expectedDealin = dealinFor(expected.pai);
-    const actualDealin = dealinFor(actual.pai);
-    // Fine-grained safety label (e.g. "non-suji 4-5-6", "honor (2 left)").
-    const labelFor = (t) => (t ? fineLabelForTile(m, t) : null);
-    const expectedLabel = labelFor(expected.pai);
-    const actualLabel = labelFor(actual.pai);
-    const pctStr = (r) => (r == null ? "" : `${r.toFixed(1)}%`);
-
-    // --- D1 / OD1: Defend (Mortal's discard has strictly lower deal-in rate) ---
-    if (cat === "D1" || cat === "OD1") {
-      // Multi-threat prioritized defense: Mortal folds to some threats at the
-      // cost of others (see categorize.js prioritizedDefense). The combined
-      // rate can't show this, so spell out which sides it defends vs exposes.
-      const prio = catData.prioritized_defense;
-      if (prio) {
-        // seat -> wind label from the shared defense read (handles oya offset).
-        const threatBySeat = {};
-        for (const t of defenseCtx.threats) threatBySeat[t.seat] = t;
-        const describeThreat = (e) => {
-          const wind = (threatBySeat[e.seat] && threatBySeat[e.seat].wind) || "an opponent";
-          let kindLabel;
-          if (e.kind === "open") {
-            // Mirror the board's "⚠ Open threat ≥N han" pill — every open hand
-            // needs a yaku, so the floor is 1 even when nothing is locked in.
-            const han = Math.max(1, e.guaranteed_han || 0);
-            kindLabel = `open threat ≥${han} han`;
-          } else {
-            kindLabel = "riichi";
-          }
-          return `${wind} (${kindLabel})`;
-        };
-        const joinThreats = (list) => {
-          const parts = list.map(describeThreat);
-          if (parts.length <= 1) return parts[0] || "";
-          if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
-          return `${parts.slice(0, -1).join(", ")}, and ${parts.slice(-1)[0]}`;
-        };
-        let text = `<span class="trigger-line">Multiple opponents are threatening. Mortal prioritises defending against ${joinThreats(prio.defended)}, accepting more risk against ${joinThreats(prio.exposed)}.</span>`;
-        if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-        text += `Against the side it folds to, Mortal's ${expected.pai} is safer than your ${actual.pai}`;
-        const d0 = prio.defended[0];
-        if (d0 && d0.mortal_rate != null && d0.user_rate != null) {
-          const d0Wind = (threatBySeat[d0.seat] && threatBySeat[d0.seat].wind) || "that threat";
-          text += ` (${pctStr(d0.mortal_rate)} vs ${pctStr(d0.user_rate)} against ${d0Wind})`;
-        }
-        text += `.`;
-        return text;
-      }
-      let text = `<span class="trigger-line">${defenseTriggerStr().charAt(0).toUpperCase() + defenseTriggerStr().slice(1)}. Mortal chose a safer tile than you did.</span>`;
-      if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-      text += `Mortal recommends ${expected.pai}`;
-      if (expectedDealin != null) text += ` (deal-in ${pctStr(expectedDealin)}${expectedLabel ? ", " + expectedLabel : ""})`;
-      text += ` — you chose ${actual.pai}`;
-      if (actualDealin != null) text += ` (deal-in ${pctStr(actualDealin)}${actualLabel ? ", " + actualLabel : ""})`;
-      text += isOpenDefense
-        ? `. When an open hand is this developed, lowering your deal-in probability takes priority over the extra tile of acceptance.`
-        : `. When an opponent is threatening, lowering your deal-in probability takes priority over hand progress.`;
-      return text;
-    }
-
-    // --- D2 / OD2: Push (Mortal took the riskier tile, basic strategy justifies it) ---
-    if (cat === "D2" || cat === "OD2") {
-      const reason = catData.push_reason;  // "P1" | "P2" | "P3"
-      const bothSafe = catData.both_safe === true;
-
-      // Both-safe variant: no defense tradeoff. Text teaches the specific
-      // efficiency lesson AND reinforces the "both safe — efficiency only"
-      // read as a defense skill in its own right.
-      if (bothSafe) {
-        const safeLead = isOpenDefense
-          ? `${defenseTriggerStr().charAt(0).toUpperCase() + defenseTriggerStr().slice(1)}, but both your pick and Mortal's are 100% safe against it.`
-          : `An opponent is in riichi, but both your pick and Mortal's are 100% safe.`;
-        let text = `<span class="trigger-line">${safeLead}</span>`;
-        if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-        if (reason === "P1" && expectedStat && actualStat) {
-          text += `Your ${actual.pai} raises shanten from ${catData.best_shanten ?? expectedStat.shanten} to ${catData.actual_shanten ?? actualStat.shanten} — a fundamental setback. `;
-        } else if (reason === "P2" && expectedStat && actualStat) {
-          text += `Mortal's ${expected.pai} keeps ${tileCountStr(expectedStat)} acceptance vs only ${tileCountStr(actualStat)} for your ${actual.pai}. `;
-        } else if (reason === "P3") {
-          const vp = catData.value_preserve || {};
-          if (vp.dora && vp.yakuhai) {
-            text += `Your ${actual.pai} is both dora and yakuhai — Mortal's ${expected.pai} preserves both. `;
-          } else if (vp.yakuhai) {
-            text += `Your ${actual.pai} is a yakuhai — Mortal's ${expected.pai} preserves it (and the option to meld for a yaku). `;
-          } else if (vp.dora) {
-            text += `Your ${actual.pai} is dora — Mortal's ${expected.pai} preserves the hand value. `;
-          } else if (vp.dora_acceptance) {
-            text += `Mortal's ${expected.pai} keeps a wait that accepts the dora, which your ${actual.pai} gives up — same speed, more value. `;
-          } else {
-            text += `Mortal's ${expected.pai} preserves hand value (yakuhai or dora) that you discarded. `;
-          }
-        } else {
-          text += `Mortal's pick is more efficient here. `;
-        }
-        text += `Recognising that both choices are safe — so the decision is pure efficiency — is itself a defense skill.`;
-        return text;
-      }
-
-      let text = `<span class="trigger-line">${defenseTriggerStr().charAt(0).toUpperCase() + defenseTriggerStr().slice(1)}, but Mortal pushed — `;
-      if (reason === "P1") text += `your discard would have raised shanten.</span>`;
-      else if (reason === "P2") text += `your discard has worse tile acceptance.</span>`;
-      else if (reason === "P3") text += `your discard gave up a yakuhai or dora.</span>`;
-      else text += `Mortal accepted the risk for basic-strategy reasons.</span>`;
-      if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-      text += `Mortal's ${expected.pai}`;
-      if (expectedDealin != null) text += ` (deal-in ${pctStr(expectedDealin)}${expectedLabel ? ", " + expectedLabel : ""})`;
-      text += ` is riskier than your ${actual.pai}`;
-      if (actualDealin != null) text += ` (${pctStr(actualDealin)}${actualLabel ? ", " + actualLabel : ""})`;
-      text += `, `;
-      if (reason === "P1" && expectedStat && actualStat) {
-        text += `but your pick raises shanten from ${catData.best_shanten ?? expectedStat.shanten} to ${catData.actual_shanten ?? actualStat.shanten} — a fundamental setback. `;
-      } else if (reason === "P2" && expectedStat && actualStat) {
-        text += `but ${expected.pai} keeps ${tileCountStr(expectedStat)} acceptance vs only ${tileCountStr(actualStat)} for ${actual.pai}. `;
-      } else if (reason === "P3") {
-        const vp = catData.value_preserve || {};
-        if (vp.dora && vp.yakuhai) {
-          text += `but your ${actual.pai} is both dora and yakuhai — ${expected.pai} preserves both. `;
-        } else if (vp.yakuhai) {
-          text += `but your ${actual.pai} is a yakuhai — ${expected.pai} preserves the yaku and the option to meld for speed. `;
-        } else if (vp.dora) {
-          text += `but your ${actual.pai} is dora — ${expected.pai} preserves the hand value. `;
-        } else if (vp.dora_acceptance) {
-          text += `but ${expected.pai} keeps a wait that accepts the dora, which your ${actual.pai} gives up — same speed, more value. `;
-        } else {
-          text += `but ${expected.pai} preserves a yakuhai or dora that your ${actual.pai} gave up. `;
-        }
-      } else {
-        text += `but pure tile efficiency favors pushing here. `;
-      }
-      text += `The lost speed on your discard outweighs the deal-in risk on Mortal's.`;
-      return text;
-    }
-
-    // --- D3 / OD3: Complex (Mortal took the riskier tile, not explained by basic strategy) ---
-    if (cat === "D3" || cat === "OD3") {
-      const bothSafe = catData.both_safe === true;
-
-      if (bothSafe) {
-        const safeLead = isOpenDefense
-          ? `${defenseTriggerStr().charAt(0).toUpperCase() + defenseTriggerStr().slice(1)}, but both your pick and Mortal's are 100% safe against it.`
-          : `An opponent is in riichi, but both your pick and Mortal's are 100% safe.`;
-        let text = `<span class="trigger-line">${safeLead}</span>`;
-        if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-        text += `Mortal preferred ${expected.pai} over your ${actual.pai}, and basic tile efficiency doesn't explain why — likely a hand-shape, yaku-potential, or wait-quality read. `;
-        text += `Noticing that both tiles are safe, so the choice is about hand building rather than survival, is itself a defense skill.`;
-        return text;
-      }
-
-      let text = `<span class="trigger-line">${defenseTriggerStr().charAt(0).toUpperCase() + defenseTriggerStr().slice(1)}. Mortal chose a more dangerous tile, and basic tile efficiency doesn't explain why.</span>`;
-      if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-      text += `Mortal's ${expected.pai}`;
-      if (expectedDealin != null) text += ` (deal-in ${pctStr(expectedDealin)}${expectedLabel ? ", " + expectedLabel : ""})`;
-      text += ` is riskier than your ${actual.pai}`;
-      if (actualDealin != null) text += ` (${pctStr(actualDealin)}${actualLabel ? ", " + actualLabel : ""})`;
-      text += `. Mortal is weighing hand value, yaku potential, or score-situation factors that pure tile efficiency can't see.`;
-      return text;
-    }
-
-    // --- P1: Shanten Failure ---
-    if (cat === "P1") {
-      let text = `<span class="trigger-line">Your discard increased shanten (from ${catData.best_shanten} to ${catData.actual_shanten}).</span>`;
-      text += `This is a fundamental mistake — always maintain or reduce shanten to stay on track toward winning.`;
-      if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
-      if (expectedStat && actualStat) {
-        text += ` Discarding ${expected.pai} keeps shanten at ${catData.best_shanten} with ${tileCountStr(expectedStat)} acceptance,`;
-        text += ` while your ${actual.pai} raises it to ${catData.actual_shanten}.`;
-      }
-      return text;
-    }
-
-    // --- P2: Tile Efficiency ---
-    if (cat === "P2") {
-      let text = shantenWarning;
-      text += `<span class="trigger-line">Your tile has worse acceptance (ukeire) than Mortal's choice.</span>`;
-      if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-      if (expectedStat && actualStat) {
-        text += `Discarding ${expected.pai} gives ${tileCountStr(expectedStat)} acceptance`;
-        text += ` vs ${tileCountStr(actualStat)} for your ${actual.pai}.`;
-      }
-      text += ` Maximize your tile acceptance to reach tenpai as fast as possible.`;
-      return text;
-    }
-
-    // --- P3: Hand Value (reintroduced 2026-04-20) ---
-    if (cat === "P3") {
-      const vp = (m.categorize_data || {}).value_preserve || {};
-      let text = shantenWarning;
-      text += `<span class="trigger-line">Mortal is preserving hand value.</span>`;
-      if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-      if (expectedStat && actualStat) {
-        text += `${expected.pai}: ${tileCountStr(expectedStat)} vs ${actual.pai}: ${tileCountStr(actualStat)}. `;
-      }
-      if (vp.dora && vp.yakuhai) {
-        text += `Your discard ${actual.pai} is <strong>both dora and yakuhai</strong> — it raises hand score and gives you a yaku.`;
-        text += ` Yakuhai also gives the option to meld for that one yaku, which can greatly speed up the hand.`;
-      } else if (vp.yakuhai) {
-        text += `Your discard ${actual.pai} is a yakuhai (value honor) — keeping it means more points if you win.`;
-        text += ` It's also possible to meld the hand for that yakuhai, giving the option of greatly speeding up the hand.`;
-      } else if (vp.dora) {
-        text += `Your discard ${actual.pai} is dora — holding it preserves hand value.`;
-      } else if (vp.dora_acceptance) {
-        const dt = vp.dora_accept_tiles || [];
-        const doraStr = dt.length
-          ? dt.map(t => renderTile(t, "tile-sm")).join("") + ` (dora)`
-          : `the dora`;
-        text += `Neither tile you discarded is dora, but Mortal's ${expected.pai} keeps a wait that still accepts ${doraStr} — `;
-        text += `your ${actual.pai} breaks that shape and gives the dora acceptance up.`;
-        // Whether it's a free swap or a speed-for-value trade depends on the
-        // ukeire/shanten the two picks leave behind — say which, don't overclaim.
-        const sameSh = expectedStat && actualStat && expectedStat.shanten === actualStat.shanten;
-        const mortalWider = expectedStat && actualStat
-          && (expectedStat.necessary_count || 0) >= (actualStat.necessary_count || 0);
-        if (sameSh && mortalWider) {
-          text += ` Same speed, more value: the wait that draws into dora is worth more when it completes.`;
-        } else {
-          text += ` Mortal gives up a little speed for it — the dora the wait draws into is worth more than the extra tiles of acceptance.`;
-        }
-      } else {
-        // Legacy data without value_preserve: fall back to the label hint.
-        if (labels.includes("yakuhai")) {
-          text += `A yakuhai (value honor) is involved — keeping it means more points if you win.`;
-        } else if (labels.includes("dora")) {
-          text += `Dora is involved — holding it preserves hand value.`;
-        } else {
-          text += `When tile acceptance is close, prioritize the discard that leads to a higher-scoring hand.`;
-        }
-      }
-      return text;
-    }
-
-    // --- P4: Complex Decision ---
-    if (cat === "P4") {
-      let text = shantenWarning;
-      text += `<span class="trigger-line">Mortal recommends ${expected.pai} over your ${actual.pai} — a judgment call beyond pure tile efficiency.</span>`;
-      if (shantenStr) text += `Your hand is at ${shantenStr}. `;
-      if (expectedStat && actualStat) {
-        text += `Mortal does not seem to have better tile acceptance so the decision is about something else — `;
-      } else {
-        text += `Mortal sees strategic value beyond tile counting — `;
-      }
-      const factors = [];
-      if (labels.includes("yakuhai") || labels.includes("dora")) factors.push("hand value");
-      if (m.board_state && m.board_state.scores) factors.push("score situation");
-      factors.push("hand shape", "yaku potential");
-      text += `${factors.slice(0, 3).join(", ")}.`;
-      return text;
-    }
-
-    // --- Legacy categories (1A/2A/3A/3B/3C) for old data ---
-
-    // 1A: Pure efficiency (legacy)
-    if (cat === "1A") {
-      let text = shantenWarning;
-      text += `This is a pure tile efficiency mistake — Mortal's pick keeps more tile acceptance than yours.`;
-      if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
-      if (expectedStat && actualStat) {
-        text += ` Discarding ${expected.pai} gives you ${tileCountStr(expectedStat)} acceptance`;
-        text += ` vs ${tileCountStr(actualStat)} for your ${actual.pai}.`;
-      } else if (expectedStat) {
-        text += ` Discarding ${expected.pai} gives you ${tileCountStr(expectedStat)} acceptance for maximum hand progress.`;
-      }
-      text += ` At this point, getting to tenpai as fast as possible is the priority — count your tile acceptance and choose the discard that keeps the most outs.`;
-      return text;
-    }
-
-    // 2A: Value tile ordering
-    if (cat === "2A") {
-      let text = shantenWarning;
-      text += `Both discards have similar tile efficiency, but Mortal prefers keeping one for strategic value.`;
-      if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
-
-      const actualIsValue = _isValueTileMjai(actual.pai);
-      const expectedIsValue = _isValueTileMjai(expected.pai);
-
-      if (labels.includes("yakuhai")) {
-        text += ` One of the tiles involved is a yakuhai (value honor)`;
-        const bs = m.board_state;
-        if (bs) {
-          const winds = [];
-          if (bs.round_wind) winds.push(`round wind: ${bs.round_wind}`);
-          if (bs.seat_wind) winds.push(`seat wind: ${bs.seat_wind}`);
-          if (winds.length) text += ` (${winds.join(", ")})`;
-        }
-        text += ` — keeping it means the hand is worth more points if you win with it.`;
-      } else if (labels.includes("dora")) {
-        text += ` One tile is dora or adjacent to dora — holding it preserves hand value.`;
-      } else if (actualIsValue && !expectedIsValue) {
-        text += ` You discarded the value tile (${actual.pai}), but Mortal wanted to keep it for hand value potential.`;
-      } else if (!actualIsValue && expectedIsValue) {
-        text += ` Mortal recommends discarding the less valuable ${expected.pai} to preserve your hand's scoring potential.`;
-      }
-
-      if (expectedStat && actualStat) {
-        text += ` Tile acceptance is similar (${tileCountStr(expectedStat)} vs ${tileCountStr(actualStat)}), but Mortal weighs the hand value difference.`;
-      }
-      text += ` When tile acceptance is close, prioritize keeping tiles that add han (yaku value) to your hand.`;
-      return text;
-    }
-
-    // 3B: Defense
-    if (cat === "3B") {
-      const threateningOpp = catData.threatening_opponent;
-      let text = "";
-      if (hasRiichi && threateningOpp) {
-        text = `An opponent is in riichi and another has 3+ open calls — multiple threats demand a defensive approach.`;
-      } else if (hasRiichi) {
-        text = `An opponent is in riichi, and this is a defense-oriented decision.`;
-      } else if (threateningOpp) {
-        text = `An opponent has 3+ open calls, signaling a fast, threatening hand. Mortal chooses a safer discard.`;
-      } else {
-        text = `This is a defense-oriented decision.`;
-      }
-      if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
-      text += ` Mortal recommends ${expected.pai} over your ${actual.pai}.`;
-
-      text += ` When an opponent declares riichi, tile safety becomes critical — prioritize tiles already in their discard pool (100% safe), then suji-safe tiles, before considering efficiency.`;
-      return text;
-    }
-
-    // 3A: Complex/strategic decision
-    if (cat === "3A") {
-      let text = shantenWarning;
-      text += `This is a complex strategic decision — Mortal prefers ${expected.pai} for reasons beyond pure tile efficiency.`;
-      if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
-      if (expectedStat && actualStat) {
-        text += ` Tile acceptance is comparable (${tileCountStr(expectedStat)} vs ${tileCountStr(actualStat)}), so the decision turns on other factors —`;
-      } else {
-        text += ` Mortal is considering factors beyond pure tile counting —`;
-      }
-      const factors = [];
-      if (hasRiichi) factors.push("opponent riichi pressure");
-      if (labels.includes("yakuhai") || labels.includes("dora")) factors.push("hand value optimization");
-      if (m.board_state && m.board_state.scores) factors.push("score situation");
-      factors.push("hand shape flexibility", "yaku potential");
-      text += ` ${factors.slice(0, 3).join(", ")}.`;
-      text += ` You chose ${actual.pai} instead. These strategic decisions are the hardest to learn — they require reading the game state holistically.`;
-      return text;
-    }
-
-    // Uncategorized discard vs discard
     let text = `Mortal recommends discarding ${expected.pai} instead of your ${actual.pai}.`;
     if (shantenStr) text += ` Your hand is at ${shantenStr}.`;
     if (expectedStat && actualStat) {
       text += ` Tile acceptance: ${tileCountStr(expectedStat)} for ${expected.pai} vs ${tileCountStr(actualStat)} for ${actual.pai}.`;
-    }
-    if (m.top_actions && m.top_actions.length >= 2) {
-      text += ` Mortal's EV: ${m.top_actions[0].q_value.toFixed(2)} for the best play vs ${(mortalFor(actual.pai)?.q_value || m.top_actions[m.top_actions.length - 1].q_value).toFixed(2)} for yours.`;
     }
     return text;
   }
