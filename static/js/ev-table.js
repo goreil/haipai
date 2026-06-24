@@ -15,6 +15,14 @@ const SHOW_SPEED_ROW = false;
 // further toward neutral grey. Raises get no special (red) treatment anymore —
 // the distance is conveyed purely by where the colour sits on the ramp.
 const SHANTEN_PILL_RAMP = 4; // shanten that reaches the fully-grey end
+
+// Hover text for soft-safe (`Safe*`) cells. Mirrors board-discards.js: the
+// tile's 0% deal-in is a behavioural tsumogiri-extended-genbutsu read (it
+// passed while an open opp's wait was frozen), not a rules-guaranteed safe
+// tile — so we mark it `Safe*` and suppress the deal-in equation entirely.
+const SOFT_SAFE_TITLE = "Safe* · passed while their wait was frozen "
+  + "(a competent opp would have ronned a winning tile) — "
+  + "behavioural, not a guaranteed safe tile";
 function shantenPillStyle(shanten) {
   const t = Math.max(0, Math.min(1, shanten / SHANTEN_PILL_RAMP));
   const lerp = (a, b) => Math.round(a + (b - a) * t);
@@ -291,6 +299,7 @@ function renderEvComparison(m, options) {
     let dealinStyle = "";
     let dealinCls = "";
     let waits = "";
+    let isSoftSafe = false;
     const dealinRate = useKd ? getFieldForTile(displayDealin, tile) : null;
     if (useKd) {
       const rate = dealinRate;
@@ -311,12 +320,16 @@ function renderEvComparison(m, options) {
         // read (the tile passed an open opp while their wait was frozen), not a
         // rules-guaranteed safe tile. Mark "Safe*" so it reads distinctly from
         // hard genbutsu — but only when genbutsu isn't already covering it.
-        const isSoftSafe = isSafe && coarseLabel !== "genbutsu"
+        isSoftSafe = isSafe && coarseLabel !== "genbutsu"
           && fineLabel !== "genbutsu" && softSafeForTile(m, tile);
         const gradientColor = isSafe ? null : dealinColor(rate);
         dealinCls = isSafe ? "dealin-genbutsu dealin-cell" : "dealin-cell";
         dealinStyle = gradientColor ? ` style="color:${gradientColor}"` : "";
-        dealin = `<span class="${dealinCls}"${dealinStyle}>${rate.toFixed(1)}%</span>`;
+        // Soft-safe cells read "Safe*" (with the behavioural-safety tooltip)
+        // instead of "0.0%" — the wait equation is suppressed downstream too.
+        const dealinText = isSoftSafe ? "Safe*" : `${rate.toFixed(1)}%`;
+        const dealinTitle = isSoftSafe ? ` title="${SOFT_SAFE_TITLE}"` : "";
+        dealin = `<span class="${dealinCls}"${dealinStyle}${dealinTitle}>${dealinText}</span>`;
         const display = isSoftSafe ? "Safe*"
           : (isSafe ? "Safe" : (fineLabel || dealinLabelText(coarseLabel)));
         typeCell = `<span class="${dealinCls}"${dealinStyle}>${display}</span>`;
@@ -381,7 +394,7 @@ function renderEvComparison(m, options) {
     }
 
     return { tile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
-             acc, mortal, shanten, shantenVal, dealin, typeCell, waits, threatLines };
+             acc, mortal, shanten, shantenVal, dealin, typeCell, waits, threatLines, isSoftSafe };
   });
 
   // Feature-summary pills. The win-vector is now computed once by the shared
@@ -527,10 +540,17 @@ function renderEvComparison(m, options) {
             const rateCls = safe ? "dealin-threat-rate dealin-genbutsu" : "dealin-threat-rate";
             const rateText = tl.rate == null ? "&ndash;"
               : (tl.rate === 0 ? (tl.softSafe ? "Safe*" : "Safe") : `${tl.rate.toFixed(1)}%`);
+            // Soft-safe vs this threat: the 0% is behavioural (its wait was
+            // frozen), so we suppress the wait-shape equation and just mark the
+            // line Safe* with the explanatory tooltip.
+            const rateTitle = tl.softSafe ? ` title="${SOFT_SAFE_TITLE}"` : "";
+            const waitsCell = tl.softSafe
+              ? `<span class="dealin-threat-none" title="${SOFT_SAFE_TITLE}">wait frozen</span>`
+              : (tl.waits || `<span class="dealin-threat-none">no live wait</span>`);
             s += `<div class="dealin-threat-line">`
               +    `<span class="dealin-threat-seat threat-${tl.kind}" title="Deal-in against the ${seatWindFor(tl.seat)} opponent">${tl.wind}</span>`
-              +    `<span class="waits-row-list dealin-threat-waits">${tl.waits || `<span class="dealin-threat-none">no live wait</span>`}</span>`
-              +    `<span class="${rateCls}"${rateStyle}>${rateText}</span>`
+              +    `<span class="waits-row-list dealin-threat-waits">${waitsCell}</span>`
+              +    `<span class="${rateCls}"${rateStyle}${rateTitle}>${rateText}</span>`
               +  `</div>`;
           }
           s += `<div class="dealin-threat-total">`
@@ -539,6 +559,13 @@ function renderEvComparison(m, options) {
             +    c.dealin
             +  `</div></div>`;
           return s;
+        }
+        // Soft-safe (single threat): the 0% is behavioural — the tile passed
+        // while the open opp's wait was frozen — not a live-wait calculation.
+        // Skip the wait equation and show just the Safe* mark (c.dealin already
+        // carries the "Safe*" text and the explanatory tooltip).
+        if (c.isSoftSafe) {
+          return `<div class="dealin-stack"><div class="dealin-rate-line">${c.dealin}</div></div>`;
         }
         // When wait shapes exist, render the deal-in cell as an equation:
         // the per-wait pills are addends (pill + pill + …) and the tile's total
