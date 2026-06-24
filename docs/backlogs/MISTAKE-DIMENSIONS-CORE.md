@@ -386,24 +386,30 @@ flip and the code deletion ship together so there is never a window where the
 card names a shape while the codebase still maintains P-numbers. (The original
 plan's 3.2/3.3 **complex report funnel** moved to EXTRAS-A.)
 
-- [ ] **3.0** Switch the card **badge** to **{skill area} × {shape}**. Today
-  `mistake-card.js:108` renders `catLabel(m.category)`; compute it instead as
-  `{skillArea} / {shape}` (e.g. "Attack / Trade-off", "Defense / Complex"), with
-  `skillArea` from the categorize result (Phase 1.2) and color from a new
-  skill-area→color map (replacing `GROUP_COLORS` keyed by code). Same change in
-  `game-render.js` (sidebar + detail badges, ~189/206/337).
-- [ ] **3.1** Promote the Summary pill row to the **top** of the mistake card;
-  demote prose to a short caption beneath (`mistake-card.js`, card CSS in
-  `static/style-game-detail.css`).
-- [ ] **3.2 (legacy removal — see the checklist in "Legacy category removal")**
-  Delete the `category` emission from `categorize.js`, delete
-  `lib/categories.py` + the `/api/categories` route + its frontend fetch, and
-  repoint the remaining consumers (`account.js`, `admin.js`,
-  `categorize-metadata.js`) onto skill-area + shape.
-- [ ] **Exit gate:** badge reads "{skill} / {shape}" on every card; pills sit
-  above prose; **`rg "P1|P2|P3|P4|catGroup|catLabel|CATEGORY_INFO|/api/categories"
-  static/js lib routes` returns nothing live** (only this doc + git history);
-  skill-area distribution + win-vector golden snapshot unchanged.
+- [x] **3.0** Card **badge** is now **{skill area} × {shape}** via
+  `mistakeBadge(m)` (`categorize-metadata.js`) — a skill-area→label/color map
+  (`SKILL_AREA_INFO`) + shape labels (`SHAPE_INFO`), with action decisions
+  showing the action label (`ACTION_INFO`, e.g. "Riichi / Bad Riichi"). Wired
+  into `mistake-card.js`, `game-render.js` (rounds badge + summary grouping),
+  outline color via `skillAreaColor(m.skillArea)`.
+- [ ] **3.1** *(deferred — pills already render above prose, satisfying the exit
+  gate; the fuller "hoist the summary pill row out of the EV table to card top,
+  demote prose to a caption" restructure is a separable UX redesign held for a
+  direction call.)*
+- [x] **3.2 (legacy removal — see the checklist in "Legacy category removal")**
+  `categorize.js` returns `category:null` for dahai (action codes survive);
+  `classifyPush`/`classifyDefense`/`prioritizedDefense` + `categorize_data`
+  trail deleted; `lib/categories.py` deleted (`compute_summary` moved to
+  `lib/parse.py`); `/api/categories` route + `main.js` fetch removed;
+  `categorize-metadata.js` rewritten; `account.js`/`admin.js`/`board-discards.js`/
+  `skill-areas.js`/`trends-analysis.js` repointed; `wrong_category` retired from
+  `REPORT_KINDS`.
+- [x] **Exit gate:** badge reads "{skill} / {shape}"; pills sit above prose;
+  `rg "P1|P2|P3|P4|catGroup|catLabel|CATEGORY_INFO|/api/categories" static/js lib
+  routes` returns nothing live (only changelog/historical comments); skill-area
+  distribution + win-vector golden snapshot **byte-identical** (no version bump —
+  comparator + grouping unchanged); 137 pytest pass; shape-text verifier 0
+  contradictions; bench shape split 28.5/26.0/35.6/9.9 holds.
 
 ### Legacy category removal (checklist for Phase 3.2)
 
@@ -411,32 +417,31 @@ Every live reader of a P/D/OD code or `CATEGORY_INFO`, found by grep, with its
 replacement. The skill-area axis is preserved (via `skill_area_for_entry`); only
 the *code* layer dies.
 
-- [ ] **Categorizer**: `categorize.js` stops returning a `category` string; result
-  is `{ skillArea, shape, wins }`.
-- [ ] **Backend**: delete `lib/categories.py` (`CATEGORY_INFO` / `CATEGORIES`) and
-  the `/api/categories` route (`routes/pages.py:53`). Keep
-  `lib/parse.py::skill_area_for_entry` and `decision_counts` (they don't depend on
-  codes). Confirm `routes/game.py:102`'s skill-area classifier path is unaffected.
-- [ ] **Metadata module**: `categorize-metadata.js` — drop `CATEGORY_INFO`,
-  `catLabel`/`catGroup`/`catDesc`, and the code-keyed `GROUP_COLORS`; replace with
-  a small skill-area label/color map + shape labels.
-- [ ] **Boot**: `main.js:43` stops fetching `/api/categories`.
-- [ ] **Card + game render**: `mistake-card.js`, `game-render.js` use
-  `skillArea`/`shape` (done in 3.0/3.1).
-- [ ] **Account legend** (`account.js:98`): the category-legend grid becomes a
-  skill-area × shape legend.
-- [ ] **Admin reports** (`admin.js:234/253/257`): report rows show skill-area +
-  shape instead of `catLabel`; the `suggested_category` display becomes inert (see
-  next).
-- [ ] **Reports table** (`db/reports.py`, `db/schema.py`): retire the
-  `wrong_category` kind for *new* reports (EXTRAS-A's `complex_gap` replaces the
-  report taxonomy). Leave existing `suggested_category` rows as **read-only
-  historical text** — no destructive migration. `REPORT_KINDS` drops
-  `wrong_category` going forward; `wrong_text` stays.
-- [ ] **Trends** (`trends-analysis.js:304` iterates `CATEGORY_INFO`): currently
-  behind the Phase −1 freeze. Stub its `CATEGORY_INFO` iteration so the file still
-  loads; the real skill-area/shape aggregation is built in **EXTRAS-C** when the
-  freeze lifts. Note this explicitly so it isn't mistaken for "trends done".
+- [x] **Categorizer**: `categorize.js` returns `category:null` for dahai; result
+  is `{ skillArea, shape, wins }` (action decisions keep an action code on
+  `category` — they carry no shape, so the action label names the call).
+- [x] **Backend**: deleted `lib/categories.py` (`CATEGORY_INFO` / `CATEGORIES`)
+  and the `/api/categories` route. `compute_summary` (which never used the
+  registry) moved to `lib/parse.py`. `skill_area_for_entry` / `decision_counts`
+  untouched.
+- [x] **Metadata module**: `categorize-metadata.js` rewritten — `CATEGORY_INFO` /
+  `catLabel` / `catGroup` / `catDesc` / `GROUP_COLORS` gone; replaced with
+  `SKILL_AREA_INFO` (label+color), `SHAPE_INFO`, `ACTION_INFO`, and
+  `mistakeBadge`/`mistakeFacet`/`skillAreaColor`/`shapeLabel` helpers.
+- [x] **Boot**: `main.js` no longer fetches `/api/categories`.
+- [x] **Card + game render**: `mistake-card.js`, `game-render.js` use
+  `skillArea`/`shape` (badge + outline + summary grouping).
+- [x] **Account legend** (`account.js`): now a skill-area + shape legend.
+- [x] **Admin reports** (`admin.js`): report rows show skill-area + shape via
+  `mistakeBadge`; `suggested_category` renders as inert historical text.
+- [x] **Reports table** (`db/reports.py`): `REPORT_KINDS` drops `wrong_category`
+  (route + db reject it for new reports); `wrong_text` stays; existing
+  `suggested_category` rows kept as read-only historical text — no migration.
+  Tests updated to assert the retirement.
+- [x] **Trends** (`trends-analysis.js`): the `CATEGORY_INFO` drill-down iteration
+  is stubbed to list whatever facet keys are present (so it loads + historical
+  snapshots still classify via a prefix map in `skill-areas.js`); the real
+  skill-area/shape aggregation is **EXTRAS-C** when the freeze lifts — NOT done.
 
 ### Progress-tracking summary
 
@@ -446,7 +451,7 @@ the *code* layer dies.
 | 0  | Pills==card; ukeire-gate fixed; golden snapshot frozen | skill-area stable; snapshot captured |
 | 1  | `{skillArea, shape, wins}` derived & sane | snapshot held; skill-area stable |
 | 2  | Compositional text on every card | snapshot held (text only) |
-| 3  | Badge → {skill}×{shape}; **codes deleted** | grep-clean; snapshot + skill-area held |
+| 3  | Badge → {skill}×{shape}; **codes deleted** (3.1 pill-hoist deferred) | grep-clean; snapshot byte-identical; 137 pytest |
 
 After Phase 3 the core is complete, the legacy codes are gone, and the result is
 purely `{skillArea, shape, wins}`. Hand off to `MISTAKE-DIMENSIONS-EXTRAS.md` for

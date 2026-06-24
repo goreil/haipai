@@ -21,7 +21,6 @@
 
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
-import { execSync } from "node:child_process";
 import {
   existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync,
 } from "node:fs";
@@ -193,7 +192,6 @@ if (!reprep && existsSync(cachePath)) {
 // --- categorize ---
 const { categorize } = require(join(repoRoot, "static/js/categorize.js"));
 const t0 = process.hrtime.bigint();
-const byCat = new Map();        // cat   -> { count, ev, games:Set }
 const byShape = new Map();      // shape -> { count, ev }
 const bySkillShape = new Map(); // skill -> Map(shape -> count) — the new axis pair
 const computed = [];            // {game_id, id, wins, shape, skill_area} for the golden diff
@@ -201,16 +199,11 @@ let totalMistakes = 0, totalEv = 0;
 const allGames = new Set();
 for (const { game_id, m } of prepped) {
   const out = categorize(m);
-  const cat = out.category || "??";
   const ev = m.ev_loss || 0;
-  if (!byCat.has(cat)) byCat.set(cat, { count: 0, ev: 0, games: new Set() });
-  const e = byCat.get(cat);
-  e.count++;
-  e.ev += ev;
-  e.games.add(game_id);
 
-  // New result axes (CORE Phase 1): skill area × shape, independent of the
-  // legacy code. shape is "n/a" for action (non-dahai) decisions.
+  // Result axes (CORE Phase 3): skill area × shape are the whole model now —
+  // the legacy P/D/OD code layer is gone. shape is "n/a" for action (non-dahai)
+  // decisions; those keep an action code on out.category but no shape.
   const shape = out.shape || "n/a";
   if (!byShape.has(shape)) byShape.set(shape, { count: 0, ev: 0 });
   const se = byShape.get(shape);
@@ -240,49 +233,14 @@ if (existsSync(baselinePath)) {
   }
 }
 
-// --- table (same layout as category_stats.mjs, plus a Δ column) ---
-const CATEGORY_INFO = JSON.parse(
-  execSync(`${join(repoRoot, ".venv/bin/python")} -c ` +
-    `"import json; from lib.categories import CATEGORY_INFO; print(json.dumps(CATEGORY_INFO))"`,
-    { cwd: repoRoot }).toString()
-);
-const ORDER = ["P1", "P2", "P3", "P4", "D1", "D2", "D3",
-               "4A", "4B", "4C", "5A", "5B", "6A", "6B"];
-const baseCats = baseline ? Object.keys(baseline.byCat) : [];
-const present = new Set([...byCat.keys(), ...baseCats]);
-const cats = [...ORDER.filter(c => present.has(c)),
-              ...[...present].filter(c => !ORDER.includes(c)).sort()];
-
+// Formatting helpers shared by the Shape distribution + skill×shape matrix.
 const pct = (n, d) => d ? (n / d * 100).toFixed(1) + "%" : "—";
 const delta = (n) => baseline ? (n > 0 ? `+${n}` : n < 0 ? `${n}` : "·") : "";
-const cols = baseline ? [4, 18, 9, 7, 6, 10, 7] : [4, 18, 9, 7, 10, 7];
-const row = (cells) => cells.map((c, i) =>
-  i < 2 ? String(c).padEnd(cols[i]) : String(c).padStart(cols[i])).join(" ");
 
 console.log(`\nSample: ${allGames.size} games, ${totalMistakes} mistakes, ` +
   `EV loss ${totalEv.toFixed(1)}  (categorize: ${catMs.toFixed(0)}ms, prep=${prepHash})`);
-const header = baseline
-  ? ["Cat", "Label", "Mistakes", "%", "Δ", "EV loss", "Games"]
-  : ["Cat", "Label", "Mistakes", "%", "EV loss", "Games"];
-console.log(row(header));
-console.log("-".repeat(cols.reduce((a, b) => a + b + 1, -1)));
 
-let lastGroup = null;
-for (const cat of cats) {
-  const info = CATEGORY_INFO[cat] || { group: "?", label: "(unknown)" };
-  if (info.group !== lastGroup) {
-    if (lastGroup !== null) console.log("");
-    lastGroup = info.group;
-  }
-  const e = byCat.get(cat) || { count: 0, ev: 0, games: new Set() };
-  const cells = [cat, info.label, e.count, pct(e.count, totalMistakes)];
-  if (baseline) cells.push(delta(e.count - (baseline.byCat[cat]?.count || 0)));
-  cells.push(e.ev.toFixed(1), e.games.size);
-  console.log(row(cells));
-}
-console.log("-".repeat(cols.reduce((a, b) => a + b + 1, -1)));
-
-// --- Shape distribution (the new headline, replacing P4+D3 "complex decision") ---
+// --- Shape distribution (the headline — there is no legacy category table) ---
 // Shape is derived from the win-vector topology (compare-dimensions.js), not
 // from any P/D/OD code: obvious (you win nothing) / trade-off (both win
 // something) / complex (Mortal wins nothing visible) / n/a (action decision).
@@ -353,8 +311,6 @@ if (saveBaseline) {
   writeFileSync(baselinePath, JSON.stringify({
     sampleKey, prepHash, saved: new Date().toISOString().slice(0, 16),
     total: totalMistakes, totalEv,
-    byCat: Object.fromEntries([...byCat].map(([c, e]) =>
-      [c, { count: e.count, ev: +e.ev.toFixed(1) }])),
     byShape: Object.fromEntries([...byShape].map(([s, e]) =>
       [s, { count: e.count, ev: +e.ev.toFixed(1) }])),
   }, null, 2));

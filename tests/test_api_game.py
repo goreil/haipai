@@ -42,15 +42,15 @@ class TestApiMe:
         assert data["username"] == "testuser"
 
 
-# --- /api/categories ---
+# --- /api/categories (retired in CORE Phase 3) ---
 
 class TestCategoriesApi:
-    def test_categories_api(self, client):
+    def test_categories_api_removed(self, client):
+        # The category-code registry + its endpoint were deleted; a mistake is
+        # now {skillArea, shape, wins}, computed client-side.
         _login(client)
         res = client.get("/api/categories")
-        assert res.status_code == 200
-        data = res.get_json()
-        assert "1A" in data
+        assert res.status_code == 404
 
 
 # --- /api/trends (basic + with data + multiple games) ---

@@ -104,10 +104,10 @@ function _updatePrepBannerDOM() {
   if (fill) fill.style.width = pct + "%";
 }
 
-// Run the JS categorizer over every mistake, overwriting category /
-// categorize_data / labels in place. Same shape as what the backend
-// stored — downstream renderers read these fields and don't care that
-// they were rewritten client-side.
+// Run the JS categorizer over every mistake, writing its result fields in
+// place. skillArea + shape (the {skill area} × {shape} card identity) and the
+// win-vector are the live model; category survives only for action decisions.
+// Downstream renderers (badge, board, trends) read these off the mistake.
 function recategorizeGameInPlace(game) {
   if (!game || !game.rounds) return;
   if (typeof haipaiCategorize === "undefined") return;
@@ -115,6 +115,9 @@ function recategorizeGameInPlace(game) {
     for (const m of rnd.mistakes || []) {
       const out = haipaiCategorize.categorize(m);
       m.category = out.category;
+      m.skillArea = out.skillArea;
+      m.shape = out.shape;
+      m.wins = out.wins;
       m.categorize_data = out.categorize_data;
       m.labels = out.labels;
     }

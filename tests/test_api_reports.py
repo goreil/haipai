@@ -31,7 +31,8 @@ class TestCategoryReport:
         })
         assert res.status_code == 400
 
-    def test_report_valid_wrong_category(self, client):
+    def test_report_wrong_category_retired(self, client):
+        # CORE Phase 3 retired the wrong_category kind — it's now an invalid kind.
         _login(client)
         me = client.get("/api/me").get_json()
         _, mistake_id = insert_game(me["id"], with_mistakes=True)
@@ -41,8 +42,7 @@ class TestCategoryReport:
             "suggested_category": "3A",
             "reason": "This is clearly a push/fold decision",
         })
-        assert res.status_code == 200
-        assert res.get_json()["ok"] is True
+        assert res.status_code == 400
 
     def test_report_valid_wrong_text(self, client):
         _login(client)
@@ -173,7 +173,7 @@ class TestCategoryReport:
         _, mistake_id = insert_game(me["id"], with_mistakes=True)
 
         client.post(f"/api/mistakes/{mistake_id}/report", json={
-            "kind": "wrong_category", "suggested_category": "3A",
+            "kind": "wrong_text", "reason": "first take",
         })
         client.post(f"/api/mistakes/{mistake_id}/report", json={
             "kind": "wrong_text", "reason": "changed my mind",

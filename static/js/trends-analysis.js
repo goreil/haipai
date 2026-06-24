@@ -162,7 +162,7 @@ function cancelWeaknessAnalysis() {
 // otherwise old games (parsed before U-04) contribute EV with no
 // matching denominator and inflate EV/D ~10x.
 function trendAggregateAll(games) {
-  const byCat = {};                 // {P1: {count, ev}, ...}
+  const byCat = {};                 // facet key -> {count, ev} (historical snapshots: old codes; live: action codes)
   const decCounts = { attack: 0, defense: 0, open_defense: 0, riichi: 0, meld: 0, kan: 0 };
   let gamesIncluded = 0;
   for (const g of games) {
@@ -300,19 +300,23 @@ function renderTrendGroupBreakdown(saKey, byCat, decCounts) {
   if (!sa) return "";
   const denom = decCounts ? (decCounts[saKey] || 0) : 0;
 
+  // CORE Phase 3 stub: the category-code registry (CATEGORY_INFO) is gone, so
+  // the per-sub-category drill-down is rebuilt against {skill area} × {shape}
+  // in EXTRAS-C (when the weakness-analysis freeze lifts). Until then we list
+  // whatever facet keys are present in `byCat` for this skill area — historical
+  // snapshots carry the old P/D/OD codes; live data carries action codes.
   const entries = [];
-  for (const [cat, info] of Object.entries(CATEGORY_INFO)) {
-    if (info.group !== sa.catGroup) continue;
-    const data = byCat[cat];
-    if (info.legacy && (!data || data.count === 0)) continue;
+  for (const [cat, data] of Object.entries(byCat)) {
+    if (trendSkillAreaFor(cat) !== saKey) continue;
+    if (!data || data.count === 0) continue;
     entries.push({
       cat,
-      label: info.label,
-      desc: info.desc,
-      study: info.study,
-      ev: data ? data.ev : 0,
-      count: data ? data.count : 0,
-      evPerD: denom > 0 && data ? data.ev / denom : null,
+      label: cat,
+      desc: "",
+      study: sa.study,
+      ev: data.ev,
+      count: data.count,
+      evPerD: denom > 0 ? data.ev / denom : null,
     });
   }
   entries.sort((a, b) => b.ev - a.ev);
@@ -334,7 +338,7 @@ function renderTrendGroupBreakdown(saKey, byCat, decCounts) {
     const studyStr = e.study ? ` <span style="opacity:0.7">— ${e.study}</span>` : "";
     html += `<div style="display:flex;flex-direction:column;gap:3px">
       <div class="trend-bar-row">
-        <span class="trend-bar-label" style="color:${sa.color};min-width:140px">${e.cat} · ${e.label}</span>
+        <span class="trend-bar-label" style="color:${sa.color};min-width:140px">${e.label}</span>
         <span class="trend-bar-value" style="flex:1">${primary} <span class="trend-bar-count">(${e.ev.toFixed(1)} EV · ${e.count})</span></span>
       </div>
       ${e.desc ? `<div style="color:var(--text-dim);font-size:11.5px;line-height:1.45;padding-left:4px">${e.desc}${studyStr}</div>` : ""}

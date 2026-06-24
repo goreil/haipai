@@ -4,8 +4,12 @@
 // expected, discard_stats, dealin_rates, board_state). Prep runs in
 // static/js/prep/ on fetch; this file decides the category from those inputs.
 //
-// Output: { category, categorize_data, labels } in the shape consumers
-// (mistake-card, categorize-explanations, EV table) read from each mistake.
+// Output: { skillArea, shape, wins, category, categorize_data, labels }. For
+// dahai mistakes `category` is null — the win-vector + derived `shape`
+// (obvious / trade-off / complex) describe it instead (CORE Phase 3 deleted
+// the P/D/OD codes). `category` survives only for action decisions
+// (4A–4C meld, 5A/5B riichi, 6A/6B kan), which carry no shape. Consumers
+// (mistake-card, categorize-explanations, EV table) read these per mistake.
 //
 // !! Bump CATEGORIZER_VERSION whenever the decision tree, RULES, or the
 // skill-area grouping in static/js/prep/parse.js::skill_area_for_entry
@@ -31,7 +35,7 @@
     6: "Open Defense axis (OD1/OD2/OD3, backlog C-02): non-riichi opponents whose open melds pass the prep-side trigger emit kind='open' threats; dahai mistakes in open-threat-only scenes route to OD tiers via the same defend/push/complex logic as D1-D3.",
     7: "P3 also fires on dora-acceptance: when Mortal's pick keeps a wait that accepts strictly more live dora than yours (its ukeire intersects the active dora set more), the mistake is hand value, not Complex. Net rule — suppressed when Mortal's own discard is a dora (throwing a dora to re-accept it is a wash). Fixes #4932 (breaking the 5m6m ryanmen drops the 4m-dora acceptance).",
     8: "Multi-threat prioritized defense → Defend. With 2+ live threats, Mortal's pick can be strictly safer than yours against some and more dangerous against others; the combined deal-in rate nets this out and the spot fell through to D3/Complex. Now read per_threat directly: safer vs >=1 threat AND more dangerous vs >=1 other → D1/OD1 with a per-side `prioritized_defense` story (which sides it folds to, which it exposes). Kind-agnostic — Mortal may prioritize riichi or open either way (#m20071: folds to both riichi, exposes to the open hand).",
-    9: "Shared dimension comparator (static/js/compare-dimensions.js, mistake-dimensions CORE Phase 0). The win-vector that drives the EV-table feature pills is now a single source of truth, fixing the ukeire-gate bug: cross-shanten ukeire 'gains' are marked suppressed and shown as context ('wider, a step slower') instead of a green +ukeire pill (ev-table previously fired with no shanten gate). The P/D/OD category output here is unchanged — still the scaffold consumed downstream until CORE Phase 3 deletes it.",
+    9: "Shared dimension comparator (static/js/compare-dimensions.js, mistake-dimensions CORE Phase 0). The win-vector that drives the EV-table feature pills is now a single source of truth, fixing the ukeire-gate bug: cross-shanten ukeire 'gains' are marked suppressed and shown as context ('wider, a step slower') instead of a green +ukeire pill (ev-table previously fired with no shanten gate). CORE Phase 3 then DELETED the legacy dahai category codes (P1-P4 push, D1-D3 defense, OD1-OD3 open defense): dahai mistakes now return category:null and are described purely by {skillArea, shape, wins} — the comparator + skill-area grouping are unchanged from Phase 0 (the golden snapshot stays byte-identical), so the version does not bump. `category` survives only for action decisions (4A-4C meld, 5A/5B riichi, 6A/6B kan), which carry no shape.",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
@@ -128,9 +132,11 @@
     // pon East when daiminkan East was the play. "Missed Kan", not "Bad Call".
     if ((at === "dahai" || at === "none" || at === "chi" || at === "pon") && KAN.has(et)) return "6B";
 
-    if (et === "hora") return "P4";
+    // Both-dahai → no action code; the caller derives shape from the
+    // win-vector instead. A missed agari (et === "hora") or any unrecognised
+    // action combo carries no action code either — skill area alone names it.
     if (at === "dahai" && et === "dahai") return null;
-    return "P4";
+    return null;
   }
 
   // --- Labels (mirror labels.py::compute_labels) ---
@@ -212,107 +218,11 @@
     return false;
   }
 
-  // --- _classify_push: P1 / P2 / P3 / P4 ---
-  // valueCtx (optional): { doraApplies, yakuhaiApplies } — each true iff
-  // the actual (your) discard qualifies for that value dimension AND the
-  // expected (Mortal's) discard does NOT. This is what distinguishes
-  // "Mortal preserves a value tile" (P3) from "both sides give up the
-  // same kind of value" (P4) — see #6165 (both red five), #6710 (both
-  // dragons).
-  //
-  // All shanten / ukeire comparisons are against Mortal's expected pick,
-  // never against the in-app speed calculator's top — see #6805, #6283,
-  // #12151 / #12164 where calc found a faster line than Mortal and the
-  // user was falsely flagged with a shanten failure or worse ukeire.
-  function classifyPush(actualTile, expectedTile, discardStats, catData, labels, valueCtx) {
-    const actualStat = findInStats(actualTile, discardStats);
-    const expectedStat = findInStats(expectedTile, discardStats);
-
-    // P1: your discard's shanten is strictly worse than Mortal's pick.
-    if (actualStat && expectedStat
-        && actualStat.shanten != null
-        && expectedStat.shanten != null
-        && actualStat.shanten > expectedStat.shanten) {
-      return "P1";
-    }
-
-    // P2: strictly worse ukeire at the same shanten as Mortal.
-    const aNec = (actualStat && actualStat.necessary_count) || 0;
-    const eNec = (expectedStat && expectedStat.necessary_count) || 0;
-    if (actualStat && expectedStat) {
-      const aSh = actualStat.shanten;
-      const eSh = expectedStat.shanten;
-      const sameShanten = aSh == null || eSh == null || eSh === aSh;
-      if (sameShanten && eNec > aNec) return "P2";
-    }
-
-    // P3: hand-value preservation. Fires whenever your discard carries
-    // dora/yakuhai that Mortal's pick doesn't — pure value check, no
-    // ukeire comparison. (#12611: discarding E gives more ukeire than
-    // Mortal's 6p, but E is round wind + dora so the mistake is still
-    // hand value, not "complex".) doraAcceptApplies extends this to the
-    // case where the dora is in the WAIT, not the discarded tile: Mortal's
-    // pick keeps a wait that accepts more live dora than yours (#4932).
-    if (valueCtx && (valueCtx.doraApplies || valueCtx.yakuhaiApplies
-                     || valueCtx.doraAcceptApplies)) {
-      return "P3";
-    }
-
-    return "P4";
-  }
-
-  // --- _classify_defense: D1 / D2 / D3 (with push_reason side-output) ---
-  function classifyDefense(actualTile, expectedTile, dealinRates,
-                            discardStats, catData, labels, valueCtx) {
-    const userR = dealinFor(actualTile, dealinRates);
-    const mortalR = dealinFor(expectedTile, dealinRates);
-
-    // Strict inequality — equal deal-in rate means Mortal isn't defending.
-    if (userR != null && mortalR != null && mortalR < userR) {
-      return { category: "D1", pushReason: null };
-    }
-
-    const push = classifyPush(actualTile, expectedTile, discardStats, catData,
-                              labels, valueCtx);
-    if (push === "P1" || push === "P2" || push === "P3") {
-      return { category: "D2", pushReason: push };
-    }
-    return { category: "D3", pushReason: null };
-  }
-
-  // --- Multi-threat "prioritized defense" detection ---
-  // With 2+ live threats, Mortal's pick can be a deliberate trade: strictly
-  // safer than yours against some threats, strictly more dangerous against
-  // others. The combined deal-in rate (classifyDefense's input) nets this out
-  // and hides the defensive intent, so a clear fold otherwise lands in
-  // D3/Complex. Read per_threat directly instead: when Mortal is strictly
-  // safer than you against >=1 threat AND strictly more dangerous against >=1
-  // other, it is folding to the safer side -> Defend. Strict inequalities only
-  // (house rule: no "close enough"). Kind-agnostic — don't assume riichi is
-  // favoured over open; #m20071 folds to both riichi and exposes to the open
-  // hand, but Mortal can choose the other way.
-  function prioritizedDefense(actualTile, expectedTile, perThreat) {
-    if (!Array.isArray(perThreat) || perThreat.length < 2) return null;
-    const defended = [];
-    const exposed = [];
-    for (const th of perThreat) {
-      if (!th || !th.dealin_rates) continue;
-      const userR = dealinFor(actualTile, th.dealin_rates);
-      const mortalR = dealinFor(expectedTile, th.dealin_rates);
-      if (userR == null || mortalR == null) continue;
-      const desc = {
-        seat: th.seat,
-        kind: th.kind || "riichi",
-        guaranteed_han: th.guaranteed_han ?? null,
-        user_rate: userR,
-        mortal_rate: mortalR,
-      };
-      if (mortalR < userR) defended.push(desc);
-      else if (mortalR > userR) exposed.push(desc);
-    }
-    if (defended.length && exposed.length) return { defended, exposed };
-    return null;
-  }
+  // The legacy P1–P4 / D1–D3 dahai classifiers (classifyPush / classifyDefense /
+  // prioritizedDefense) were deleted in mistake-dimensions CORE Phase 3. Dahai
+  // mistakes are now described by the win-vector + derived `shape` (obvious /
+  // trade-off / complex) from the shared comparator (compare-dimensions.js),
+  // never by a category code.
 
   // Lazy handle on the shared dimension comparator (compare-dimensions.js).
   // Resolved at call time, never at factory time, to break the circular
@@ -368,136 +278,18 @@
       return { category: actionCat, categorize_data: {}, labels: [], ...dimensions(m) };
     }
 
-    // dahai vs dahai — needs discard_stats + dealin_rates.
-    const discardStats = m.discard_stats || [];
-    const dealinRates = m.dealin_rates || null;
-
-    // Reconstruct dora/winds from the canonical board_state shipped server-side.
-    // dora_tiles is the full active set (opening indicator + any kan-revealed
-    // dora visible at decision time), so kan dora are tagged on labels.
+    // dahai vs dahai — the legacy P/D/OD category is gone (CORE Phase 3). The
+    // mistake is now fully described by the win-vector + derived `shape`
+    // (obvious / trade-off / complex), computed once in dimensions(m) off the
+    // shared comparator. `labels` is retained (honor/terminal/dora/yakuhai
+    // tags) for any downstream tagging; categorize_data no longer carries a
+    // classifier trail because nothing reads it.
     const board = m.board_state || {};
     const doraTiles = new Set(board.dora_tiles || []);
-    const roundWind = board.round_wind || null;
-    const seatWind = board.seat_wind || null;
+    const labels = computeLabels(
+      actual.pai, expected.pai, doraTiles, board.round_wind, board.seat_wind);
 
-    // categorize_data accumulator.
-    const catData = {};
-    // Headline shanten = Mortal's expected discard's resulting shanten.
-    // Calc-only fields (discardStats[0]) are display-only and never enter
-    // categorize_data; the trainer text always reasons off Mortal's pick.
-    const expectedShanten = getShantenForTile(expected.pai, discardStats);
-    if (expectedShanten != null) {
-      catData.shanten = expectedShanten;
-    }
-
-    // Shanten-increase signal: your discard puts you at a worse shanten
-    // than Mortal's choice would have.
-    const actualShanten = getShantenForTile(actual.pai, discardStats);
-    if (actualShanten != null && expectedShanten != null && actualShanten > expectedShanten) {
-      catData.shanten_increase = true;
-      catData.actual_shanten = actualShanten;
-      catData.best_shanten = expectedShanten;
-    }
-
-    // Threat kinds come from prep's per_threat (single source of truth).
-    // Missing kind tags (older prepped data) are treated as riichi.
-    const threatKinds = new Set(
-      (m.per_threat || []).map(t => (t && t.kind) || "riichi"));
-    const hasDealin = !!(dealinRates && Object.keys(dealinRates).length > 0);
-    const riichiThreat = hasDealin
-      && (threatKinds.has("riichi") || threatKinds.size === 0);
-    const openOnlyThreat = hasDealin && !riichiThreat && threatKinds.has("open");
-
-    if (riichiThreat) {
-      catData.defense_trigger = "riichi";
-    } else if (openOnlyThreat) {
-      catData.defense_trigger = "open";
-    }
-
-    // Scene flag: any non-player seat with 3+ open calls (chi/pon/daiminkan)
-    // visible at decision time signals a fast, threatening hand even without
-    // a riichi declaration. opponent_melds is already cut at the mistake's
-    // tiles_left, so future melds don't leak in. Mirrors the original
-    // _has_threatening_opponent in the removed Python categorizer.
-    if (hasThreateningOpponent(board.opponent_melds)) {
-      catData.threatening_opponent = true;
-    }
-
-    const labels = computeLabels(actual.pai, expected.pai, doraTiles, roundWind, seatWind);
-
-    // Per-dimension value preservation — each is true only when YOUR
-    // discard has that value AND Mortal's discard does not. Splitting
-    // dora and yakuhai independently is what handles #5094 cleanly:
-    // both tiles are yakuhai (yakuhai_applies=false), but only yours is
-    // dora (dora_applies=true), so it's still a hand-value mistake.
-    const doraApplies = tileIsDora(actual.pai, doraTiles)
-                     && !tileIsDora(expected.pai, doraTiles);
-    const yakuhaiApplies = tileIsYakuhai(actual.pai, roundWind, seatWind)
-                        && !tileIsYakuhai(expected.pai, roundWind, seatWind);
-
-    // Dora-acceptance (#4932): Mortal's wait accepts strictly more live dora
-    // than yours. Net rule — if Mortal's own discard is a dora it's throwing
-    // value to re-accept it, so the gain is a wash and we don't fire. (When
-    // YOUR discard is the dora, doraApplies already routes to P3 upstream.)
-    const doraAcceptExpected = doraUkeireForTile(expected.pai, discardStats, doraTiles);
-    const doraAcceptActual = doraUkeireForTile(actual.pai, discardStats, doraTiles);
-    const doraAcceptApplies = doraAcceptExpected > doraAcceptActual
-                           && !tileIsDora(expected.pai, doraTiles);
-    const valueCtx = { doraApplies, yakuhaiApplies, doraAcceptApplies };
-
-    if (doraApplies || yakuhaiApplies || doraAcceptApplies) {
-      catData.value_preserve = {
-        dora: doraApplies,
-        yakuhai: yakuhaiApplies,
-        dora_acceptance: doraAcceptApplies,
-      };
-      // Name the dora tiles Mortal's wait keeps but yours drops, for the
-      // explanation text ("Mortal's wait still accepts 4m (dora)").
-      if (doraAcceptApplies) {
-        const expStat = findInStats(expected.pai, discardStats);
-        const actStat = findInStats(actual.pai, discardStats);
-        const yourDora = new Set(((actStat && actStat.necessary_tiles) || [])
-          .filter(nt => doraTiles.has(nt.tile)).map(nt => nt.tile));
-        catData.value_preserve.dora_accept_tiles =
-          ((expStat && expStat.necessary_tiles) || [])
-            .filter(nt => doraTiles.has(nt.tile) && !yourDora.has(nt.tile))
-            .map(nt => nt.tile);
-      }
-    }
-
-    let category;
-    if (riichiThreat || openOnlyThreat) {
-      // Multi-threat trade-off first: when Mortal's pick folds to some threats
-      // at the cost of others, the combined-rate logic in classifyDefense
-      // can't see it and would call Complex. Surface it as Defend with the
-      // per-side story before falling through to the normal defend/push split.
-      const prio = prioritizedDefense(actual.pai, expected.pai, m.per_threat);
-      if (prio) {
-        category = "D1";
-        catData.prioritized_defense = prio;
-      } else {
-        const def = classifyDefense(actual.pai, expected.pai, dealinRates,
-                                    discardStats, catData, labels, valueCtx);
-        category = def.category;
-        if (def.pushReason) catData.push_reason = def.pushReason;
-
-        const userR = dealinFor(actual.pai, dealinRates);
-        const mortalR = dealinFor(expected.pai, dealinRates);
-        if (userR === 0 && mortalR === 0 && (category === "D2" || category === "D3")) {
-          catData.both_safe = true;
-        }
-      }
-      // Open-only threats use the same defend/push/complex logic but land in
-      // their own OD tier so trends can split riichi defense from open defense.
-      if (openOnlyThreat) {
-        category = { D1: "OD1", D2: "OD2", D3: "OD3" }[category] || category;
-      }
-    } else {
-      category = classifyPush(actual.pai, expected.pai, discardStats, catData,
-                              labels, valueCtx);
-    }
-
-    return { category, categorize_data: catData, labels, ...dimensions(m) };
+    return { category: null, categorize_data: {}, labels, ...dimensions(m) };
   }
 
   return {
@@ -507,8 +299,6 @@
     categorize,
     // exposed for parity tests / future reuse:
     categorizeByActionType,
-    classifyPush,
-    classifyDefense,
     computeLabels,
     tileIsYakuhaiOrDora,
     tileIsDora,

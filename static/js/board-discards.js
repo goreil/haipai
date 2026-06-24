@@ -247,16 +247,18 @@ function renderBoardContext(m) {
   }
 
   // All player discards + inline melds (collapsible).
-  // Auto-expand for meld/riichi/kan mistakes, any Defense category, when
-  // there's a riichi threat, or if the category is unset.
+  // Auto-expand for meld/riichi/kan decisions, defensive scenes (riichi or
+  // open-threat defense), when there's a live threat, or if the skill area is
+  // unknown.
   if (b.all_discards && b.all_discards.length) {
     const hasDiscards = b.all_discards.some(d => d.discards.length > 0 || meldsBySeat[d.seat]);
     if (hasDiscards) {
       const doraTiles = getDoraTiles(b);
-      const cat = m.category || "";
-      const expandDiscards = !cat
-                             || (Array.isArray(m.per_threat) && m.per_threat.length > 0)
-                             || /^[3-6]/.test(cat) || /^D/.test(cat);
+      const sa = m.skillArea;
+      const expandDiscards = (Array.isArray(m.per_threat) && m.per_threat.length > 0)
+                             || sa === "defense" || sa === "open_defense"
+                             || sa === "meld" || sa === "riichi" || sa === "kan"
+                             || !sa;
       const playerSeat = mistakeActorSeat(m);
       // Each seat's wind label rotates from the dealer (oya). We derive oya
       // from the player's absolute actor id + their stored seat wind — the

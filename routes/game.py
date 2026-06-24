@@ -7,8 +7,7 @@ from pathlib import Path
 import json
 
 import db
-from lib.parse import parse_game
-from lib.categories import compute_summary
+from lib.parse import parse_game, compute_summary
 
 DIR = Path(__file__).parent.parent
 games_bp = Blueprint("games", __name__)
@@ -229,11 +228,10 @@ def api_report_category(mistake_id):
     if reason and len(reason) > 500:
         return jsonify({"error": "reason too long (max 500 chars)"}), 400
 
-    if kind == "wrong_category" and not suggested:
-        return jsonify({"error": "suggested_category required for wrong_category"}), 400
-
+    # `suggested_category` is no longer written by new reports (the code layer
+    # is gone) — accepted for back-compat but dropped.
     report_id = db.submit_category_report(conn, uid, mistake_id,
-                                          kind=kind, suggested_category=suggested,
+                                          kind=kind, suggested_category=None,
                                           reason=reason)
     return jsonify({"ok": True, "id": report_id})
 

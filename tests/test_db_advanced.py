@@ -188,8 +188,7 @@ class TestCategoryReports:
         gid, mid = _add_game_with_mistake(conn, uid)
 
         report_id = db.submit_category_report(
-            conn, uid, mid, kind="wrong_category",
-            suggested_category="3A", reason="Should be push/fold")
+            conn, uid, mid, kind="wrong_text", reason="Should be push/fold")
         assert report_id is not None
         assert isinstance(report_id, int)
 
@@ -198,10 +197,17 @@ class TestCategoryReports:
         ).fetchone()
         assert row["user_id"] == uid
         assert row["mistake_id"] == mid
-        assert row["kind"] == "wrong_category"
+        assert row["kind"] == "wrong_text"
         assert row["agree"] == 0
-        assert row["suggested_category"] == "3A"
         assert row["reason"] == "Should be push/fold"
+
+    def test_submit_category_report_wrong_category_retired(self, sample_user):
+        """CORE Phase 3 retired wrong_category — the db layer now rejects it."""
+        conn, uid = sample_user
+        gid, mid = _add_game_with_mistake(conn, uid)
+        with pytest.raises(ValueError):
+            db.submit_category_report(
+                conn, uid, mid, kind="wrong_category", suggested_category="3A")
 
     def test_submit_category_report_wrong_text(self, sample_user):
         """submit_category_report with kind=wrong_text stores reason and no
@@ -246,8 +252,8 @@ class TestCategoryReports:
         conn, uid = sample_user
         gid, mid = _add_game_with_mistake(conn, uid)
 
-        db.submit_category_report(conn, uid, mid, kind="wrong_category",
-                                  suggested_category="3A", reason="first")
+        db.submit_category_report(conn, uid, mid, kind="wrong_text",
+                                  reason="first")
         db.submit_category_report(conn, uid, mid, kind="wrong_text",
                                   reason="second")
 
@@ -272,8 +278,7 @@ class TestCategoryReports:
         conn, uid = sample_user
         gid, mid = _add_game_with_mistake(conn, uid)
 
-        db.submit_category_report(conn, uid, mid, kind="wrong_category",
-                                  suggested_category="3B",
+        db.submit_category_report(conn, uid, mid, kind="wrong_text",
                                   reason="Defense mistake")
 
         reports = db.list_category_reports(conn)
@@ -281,7 +286,7 @@ class TestCategoryReports:
         r = reports[0]
         assert r["username"] == "testuser"
         assert r["game_id"] == gid
-        assert r["suggested_category"] == "3B"
+        assert r["suggested_category"] is None
         # round_idx + mistake_idx let the admin JS find the right kyoku entry
         # for re-prep. mortal_file is the relative path the admin endpoint
         # loads slim mortal_data from.

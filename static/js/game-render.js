@@ -186,7 +186,7 @@ function renderGame() {
       const sc = sevClass(m);
       const dataAttrs = `data-game="${state.currentGame}" data-round="${rnd.round}" data-turn="${m.turn}" data-index="${idx}"`;
       const midAttr = m.id ? ` data-mid="${m.id}"` : "";
-      const catGrpColor = GROUP_COLORS[catGroup(m.category)] || null;
+      const catGrpColor = m.skillArea ? skillAreaColor(m.skillArea) : null;
       const cardStyle = catGrpColor ? ` style="border-left-color:${catGrpColor}"` : "";
 
       // Arm the ambient active-dora set up front so the action chips below
@@ -202,11 +202,9 @@ function renderGame() {
       if (m.id) html += `<a class="dev-id" href="#m${m.id}" data-action="openHash" title="Deep-link to this mistake">#m${m.id}</a>`;
       html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;
       html += `<span class="ev-loss" title="${EV_LOSS_TOOLTIP}">${m.ev_loss.toFixed(2)} EV</span>`;
-      if (m.category) {
-        const grp = catGroup(m.category);
-        const color = GROUP_COLORS[grp] || "#888";
-        const desc = catDesc(m.category);
-        html += `<span class="cat-badge" style="background:${color}20;color:${color};border:1px solid ${color}40" title="${desc}">${catLabel(m.category)}</span>`;
+      const badge = mistakeBadge(m);
+      if (badge) {
+        html += `<span class="cat-badge" style="background:${badge.color}20;color:${badge.color};border:1px solid ${badge.color}40" title="${badge.desc}">${badge.label}</span>`;
       }
       if (m.bad_riichi_reason === "furiten") {
         const tip = (m.furiten_tiles || []).length
@@ -317,50 +315,48 @@ function renderGame() {
       }
     }
 
-    // Build by_category from this game's mistakes
-    const gameByCat = {};
+    // Roll mistakes up by skill area, then split each into facets (shape for
+    // discards, action label for meld/riichi/kan). No category codes — the
+    // grouping mirrors the {skill area} × {shape} card identity.
+    const groups = {};
     for (const m of allMistakes) {
-      const cat = m.category;
-      if (!cat) continue;
-      if (!gameByCat[cat]) gameByCat[cat] = { count: 0, ev: 0, mistakes: [] };
-      gameByCat[cat].count += 1;
-      gameByCat[cat].ev = Math.round((gameByCat[cat].ev + (m.ev_loss || 0)) * 100) / 100;
-      gameByCat[cat].mistakes.push(m);
+      const sa = m.skillArea;
+      if (!sa) continue;
+      if (!groups[sa]) groups[sa] = { count: 0, ev: 0, subs: {}, mistakes: [] };
+      groups[sa].count += 1;
+      groups[sa].ev = Math.round((groups[sa].ev + (m.ev_loss || 0)) * 100) / 100;
+      groups[sa].mistakes.push(m);
+      const facet = mistakeFacet(m);
+      const fkey = facet.key || "—";
+      if (!groups[sa].subs[fkey]) {
+        groups[sa].subs[fkey] = { label: facet.label || "Other", desc: facet.desc, count: 0, ev: 0, mistakes: [] };
+      }
+      const sub = groups[sa].subs[fkey];
+      sub.count += 1;
+      sub.ev = Math.round((sub.ev + (m.ev_loss || 0)) * 100) / 100;
+      sub.mistakes.push(m);
     }
 
-    if (Object.keys(gameByCat).length) {
+    if (Object.keys(groups).length) {
       html += `<div class="game-summary"><h3>Mistake Breakdown</h3>`;
 
-      // Group by skill area
-      const groups = {};
-      for (const [cat, data] of Object.entries(gameByCat)) {
-        const grp = catGroup(cat);
-        if (!groups[grp]) groups[grp] = { count: 0, ev: 0, subs: {}, mistakes: [] };
-        groups[grp].count += data.count;
-        groups[grp].ev += data.ev;
-        groups[grp].subs[cat] = data;
-        groups[grp].mistakes.push(...data.mistakes);
-      }
-
       html += `<div class="category-groups">`;
-      for (const [grp, data] of Object.entries(groups).sort((a, b) => b[1].ev - a[1].ev)) {
-        const color = GROUP_COLORS[grp] || "#888";
-        const grpId = grp.replace(/\s/g, "-").toLowerCase();
+      for (const [sa, data] of Object.entries(groups).sort((a, b) => b[1].ev - a[1].ev)) {
+        const color = skillAreaColor(sa);
+        const grpName = skillAreaLabel(sa);
+        const grpId = sa.replace(/[\s_]/g, "-").toLowerCase();
         html += `<div class="cat-group" style="border-left: 3px solid ${color}">
           <div class="cat-group-header" data-action="toggleGameMistakes" data-group-id="${grpId}" style="cursor:pointer">
-            <span class="cat-group-name" style="color:${color}">${grp}</span>
+            <span class="cat-group-name" style="color:${color}">${grpName}</span>
             <span class="cat-group-stat">${data.count} mistakes &middot; ${data.ev.toFixed(2)} EV <span class="cat-expand">&#9660;</span></span>
           </div>`;
-        // Subcategories
+        // Facets (shape / action label)
         const subs = Object.entries(data.subs).sort((a, b) => b[1].ev - a[1].ev);
-        for (const [cat, sub] of subs) {
-          const info = CATEGORY_INFO[cat];
-          const label = info ? info.label : cat;
-          const desc = info ? info.desc : "";
+        for (const [, sub] of subs) {
           const tiers = { severe: 0, mistake: 0, light: 0, unsure: 0 };
           for (const m of sub.mistakes) tiers[sevTier(m.ev_loss)]++;
-          html += `<div class="cat-sub" title="${desc}">
-            <span class="cat-sub-label">${label}</span>
+          html += `<div class="cat-sub" title="${sub.desc || ""}">
+            <span class="cat-sub-label">${sub.label}</span>
             <span class="cat-sub-count">${sub.count}</span>
             <span class="cat-sub-ev">${sub.ev.toFixed(2)} EV</span>
             <span class="tier-count sev-major" title="Severe">${tiers.severe} Severe</span>

@@ -57,6 +57,9 @@ function prepAndCategorizeReports(reports, mortalByGame) {
     if (r.mistake) {
       const out = haipaiCategorize.categorize(r.mistake);
       r.mistake.category = out.category;
+      r.mistake.skillArea = out.skillArea;
+      r.mistake.shape = out.shape;
+      r.mistake.wins = out.wins;
       r.mistake.categorize_data = out.categorize_data;
       r.mistake.labels = out.labels;
     }
@@ -226,12 +229,12 @@ async function adminDeleteUser(userId) {
 function renderReportCard(r) {
   const date = new Date(r.created_at + "Z").toLocaleString();
   const kindLabel = r.kind === "wrong_category" ? "Wrong category" : "Wrong text";
-  // The mistake's category is what the JS categorizer just computed — the
-  // same code path the reporter saw. Falls back to "?" if prep / mortal_data
-  // wasn't available.
-  const aiCat = (r.mistake && r.mistake.category) || null;
-  const catBadge = aiCat
-    ? `<span class="report-orig-cat" title="${escapeHtml(catDesc(aiCat))}">${escapeHtml(catLabel(aiCat))}</span>`
+  // The mistake's skill area × shape, as the JS categorizer just computed it —
+  // the same code path the reporter saw. Empty if prep / mortal_data wasn't
+  // available.
+  const aiBadge = r.mistake ? mistakeBadge(r.mistake) : null;
+  const catBadge = aiBadge
+    ? `<span class="report-orig-cat" title="${escapeHtml(aiBadge.desc || "")}">${escapeHtml(aiBadge.label)}</span>`
     : "";
   let html = `<div class="report-card" id="report-${r.id}">
     <div class="report-strip">
@@ -250,11 +253,10 @@ function renderReportCard(r) {
       <div class="reason-text">`;
     if (r.reason) html += escapeHtml(r.reason);
     if (r.suggested_category) {
-      const fromCat = aiCat ? escapeHtml(catLabel(aiCat)) : "?";
-      html += `<div class="reason-suggested">Suggested:
-        <span class="from">${fromCat}</span>
-        <span class="arrow">&rarr;</span>
-        <span class="to">${escapeHtml(catLabel(r.suggested_category))}</span>
+      // Historical only — the wrong_category report kind was retired with the
+      // legacy codes (CORE Phase 3). Show the stored code verbatim as a record.
+      html += `<div class="reason-suggested">Suggested category (legacy):
+        <span class="to"><code>${escapeHtml(r.suggested_category)}</code></span>
       </div>`;
     }
     html += `</div></div>`;
@@ -268,7 +270,7 @@ function renderReportCard(r) {
     const explanation = generateExplanation(r.mistake);
     const trainerText = explanation
       ? `<div class="mascot-speech"><img src="/static/mascot.svg" class="mascot-avatar" alt=""><div class="speech-bubble">${explanation}</div></div>`
-      : `<div class="report-trainer-empty">No trainer text generated for this mistake (category: <code>${escapeHtml(r.mistake.category || "?")}</code>).</div>`;
+      : `<div class="report-trainer-empty">No trainer text generated for this mistake (${escapeHtml((aiBadge && aiBadge.label) || "?")}).</div>`;
     html += `<div class="report-mistake-embed">${renderMistakeCard(r.mistake)}${trainerText}</div>`;
   }
 

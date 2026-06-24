@@ -262,11 +262,10 @@ def _decision_counts_for_kyoku(entries, start_pos, end_pos, events, player_id):
     by the trends EV/D bars.
 
     Each entry lands in exactly ONE bucket (sum of buckets = number of
-    counted entries), via ``skill_area_for_entry``. That shares its
-    priority rule with ``categorize_by_action_type`` / CATEGORY_INFO
-    groups, so a mistake's skill area (via its code's group) and its
-    denominator bucket always agree: a 5B (missed riichi) goes to the
-    ``riichi`` denominator, a D2 push goes to ``defense``, etc.
+    counted entries), via ``skill_area_for_entry`` — the same scene-based
+    classifier the frontend reads for a mistake's skill area, so a mistake's
+    skill area and its denominator bucket always agree: a missed riichi goes
+    to the ``riichi`` denominator, a riichi-defense discard to ``defense``, etc.
     """
     counts = {"attack": 0, "defense": 0, "riichi": 0, "meld": 0, "kan": 0}
     state = walk_kyoku(events, start_pos, end_pos, player_id)
@@ -400,3 +399,45 @@ def parse_game(data, game_date=None) -> GameRecord:
     }
 
 
+
+def compute_summary(game):
+    """Compute summary stats for a game. Mutates game dict.
+
+    No `by_category` rollup: the JS categorizer is the source of truth and
+    recomputes per-game / cross-game skill-area / shape aggregates on the
+    frontend. (Moved here from the deleted lib/categories.py in
+    mistake-dimensions CORE Phase 3 — it never depended on the category
+    registry, only on `severity` and the per-round decision counts.)
+    """
+    total = 0
+    total_ev = 0.0
+    total_decisions = 0
+    by_severity = {"???": 0, "??": 0, "?": 0, "!": 0}
+    decision_counts = {"attack": 0, "defense": 0, "riichi": 0, "meld": 0, "kan": 0}
+    has_decision_counts = False
+
+    for rnd in game["rounds"]:
+        # Prefer decision_count (excludes post-riichi), fall back to turn_count
+        dc = rnd.get("decision_count") or rnd.get("turn_count")
+        if dc:
+            total_decisions += dc
+        per_cat = rnd.get("decision_counts")
+        if per_cat:
+            has_decision_counts = True
+            for k, v in per_cat.items():
+                decision_counts[k] = decision_counts.get(k, 0) + v
+        for m in rnd["mistakes"]:
+            total += 1
+            total_ev += m["ev_loss"]
+            sev = severity(m["ev_loss"])
+            if sev in by_severity:
+                by_severity[sev] += 1
+
+    game["summary"] = {
+        "total_mistakes": total,
+        "total_ev_loss": round(total_ev, 2),
+        "total_decisions": total_decisions if total_decisions > 0 else None,
+        "ev_per_decision": round(total_ev / total_decisions, 4) if total_decisions > 0 else None,
+        "by_severity": by_severity,
+        "decision_counts": decision_counts if has_decision_counts else None,
+    }

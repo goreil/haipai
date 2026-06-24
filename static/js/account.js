@@ -93,48 +93,43 @@ function showHelp() {
   renderGameList();
   const content = document.getElementById("content");
 
-  // Group categories (skip legacy)
-  const groups = {};
-  for (const [code, info] of Object.entries(CATEGORY_INFO)) {
-    if (info.legacy) continue;
-    const grp = info.group;
-    if (!groups[grp]) groups[grp] = [];
-    groups[grp].push({ code, ...info });
-  }
-
   let html = `<div class="game-header"><h2>Help</h2></div>`;
 
-  for (const [grp, cats] of Object.entries(groups)) {
-    const color = GROUP_COLORS[grp] || "#888";
-    html += `<div class="help-group">`;
-    html += `<div class="help-group-header" style="color:${color}">${grp}</div>`;
-    for (const cat of cats) {
-      html += `<div class="help-cat">
-        <span class="help-cat-label">${cat.label}</span>
-        <span class="help-cat-desc">${cat.desc || ""}</span>
-        ${cat.study ? `<span class="help-cat-study">${cat.study}</span>` : ""}
-      </div>`;
-    }
-    html += `</div>`;
+  // Skill-area legend: each mistake is {skill area} × {shape}.
+  html += `<div class="help-group">`;
+  html += `<div class="help-group-header">Skill areas</div>`;
+  for (const [key, info] of Object.entries(SKILL_AREA_INFO)) {
+    html += `<div class="help-cat">
+      <span class="help-cat-label" style="color:${info.color}">${info.label}</span>
+    </div>`;
   }
+  html += `</div>`;
+
+  // Shape legend.
+  html += `<div class="help-group">`;
+  html += `<div class="help-group-header">Mistake shapes</div>`;
+  for (const shape of ["obvious", "trade-off", "complex"]) {
+    const info = SHAPE_INFO[shape];
+    html += `<div class="help-cat">
+      <span class="help-cat-label">${info.label}</span>
+      <span class="help-cat-desc">${info.desc}</span>
+    </div>`;
+  }
+  html += `</div>`;
 
   // How categorization works
   html += `
     <div class="help-section">
       <h3>How Auto-Categorization Works</h3>
-      <p>Every discard mistake is categorized against <span style="color:#81c784"><b>Mortal AI</b></span> &mdash; a neural-network mahjong AI that considers the full game state: tile efficiency, defense, hand value, riichi timing, opponent behavior, and more. Mortal's pick is the reference for every category below.</p>
-      <p style="margin-top:8px"><b>Step 1: Defense check</b></p>
-      <p>If an opponent declared riichi, the mistake is categorized as <span style="color:#ff6b6b">Defense</span>, comparing your tile's deal-in rate to Mortal's:</p>
-      <p style="padding-left:16px">&bull; <b>D1 Defend</b> &mdash; Mortal's discard has a lower deal-in rate than yours</p>
-      <p style="padding-left:16px">&bull; <b>D2 Push</b> &mdash; Mortal took the riskier tile, but basic strategy (shanten or tile acceptance) justifies it</p>
-      <p style="padding-left:16px">&bull; <b>D3 Complex</b> &mdash; Mortal took the riskier tile and it's not a basic-strategy call (a real judgment call)</p>
-      <p style="margin-top:8px"><b>Step 2: Attack classification</b> (no riichi threat)</p>
-      <p>Mistakes are ranked by difficulty, from most basic to most complex. All comparisons are against Mortal's recommended discard:</p>
-      <p style="padding-left:16px">&bull; <b>P1 Shanten Failure</b> &mdash; Your discard ends up at a worse shanten than Mortal's pick &mdash; your hand moved further from winning</p>
-      <p style="padding-left:16px">&bull; <b>P2 Tile Efficiency</b> &mdash; Same shanten as Mortal's pick, but fewer tile acceptance (ukeire)</p>
-      <p style="padding-left:16px">&bull; <b>P3 Hand Value</b> &mdash; Your discard gives up a yakuhai or dora that Mortal's pick preserves</p>
-      <p style="padding-left:16px">&bull; <b>P4 Complex Decision</b> &mdash; Mortal prefers a different tile for reasons that aren't pure shanten, ukeire, or hand value &mdash; a real judgment call</p>
-      <p>&bull; <b>Non-discard actions</b> (chi, pon, riichi, kan) are categorized by type: Meld, Riichi, or Kan.</p>
+      <p>Every discard mistake is compared against <span style="color:#81c784"><b>Mortal AI</b></span> &mdash; a neural-network mahjong AI that considers the full game state: tile efficiency, defense, hand value, riichi timing, opponent behavior, and more. Mortal's pick is the reference for every comparison.</p>
+      <p style="margin-top:8px"><b>The scene sets the skill area.</b></p>
+      <p>What's happening on the board decides which skill the spot tests &mdash; <span style="color:#4a9eff">Attack</span> when your hand can move forward, <span style="color:#ff6b6b">Defense</span> when an opponent is in riichi, <span style="color:#f5b342">Open Defense</span> when a non-riichi open hand is threatening, and <span style="color:#ee5fa7">Meld</span> / <span style="color:#a855f7">Riichi</span> / <span style="color:#22c55e">Kan</span> for those call decisions.</p>
+      <p style="margin-top:8px"><b>The win-vector sets the shape.</b></p>
+      <p>For a discard we evaluate every dimension &mdash; speed (shanten, ukeire), value (yakuhai, dora), and safety (deal-in) &mdash; and see which tile wins each. The pattern of wins is the shape:</p>
+      <p style="padding-left:16px">&bull; <b>Obvious</b> &mdash; ${SHAPE_INFO["obvious"].desc}</p>
+      <p style="padding-left:16px">&bull; <b>Trade-off</b> &mdash; ${SHAPE_INFO["trade-off"].desc}</p>
+      <p style="padding-left:16px">&bull; <b>Complex</b> &mdash; ${SHAPE_INFO["complex"].desc}</p>
+      <p>&bull; <b>Non-discard actions</b> (chi, pon, riichi, kan) carry no shape &mdash; the call itself (e.g. Bad Riichi, Missed Call) names the mistake.</p>
     </div>
 
     <div class="help-section">

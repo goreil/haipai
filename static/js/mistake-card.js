@@ -83,10 +83,11 @@ function renderMistakeCard(m, opts = {}) {
   // here — action chips, hand, melds, board, EV table — auto-highlights dora.
   setActiveDora(doraTiles);
 
-  // Outline colour follows the category group (Attack/Defense/Riichi/Meld/Kan)
-  // instead of severity — tells the student at a glance which skill area the
-  // card is about. Severity stays visible via the tier badge + EV number.
-  const catGrpColor = GROUP_COLORS[catGroup(m.category)] || null;
+  // Outline colour follows the skill area (Attack/Defense/Open Defense/Meld/
+  // Riichi/Kan) instead of severity — tells the student at a glance which skill
+  // area the card is about. Severity stays visible via the tier badge + EV
+  // number.
+  const catGrpColor = m.skillArea ? skillAreaColor(m.skillArea) : null;
   const cardStyle = catGrpColor ? ` style="border-left-color:${catGrpColor}"` : "";
   let html = `<div class="mistake ${sc}"${cardStyle}>`;
   html += `<div class="mistake-top">`;
@@ -102,10 +103,9 @@ function renderMistakeCard(m, opts = {}) {
   if (m.id) html += `<a class="dev-id" href="#m${m.id}" data-action="openHash" title="Deep-link to this mistake">#m${m.id}</a>`;
   html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;
   html += `<span class="ev-loss" title="${EV_LOSS_TOOLTIP}">${m.ev_loss.toFixed(2)} EV</span>`;
-  if (m.category) {
-    const grp = catGroup(m.category);
-    const color = GROUP_COLORS[grp] || "#888";
-    html += `<span class="cat-badge" style="background:${color}20;color:${color};border:1px solid ${color}40" title="${catDesc(m.category)}">${catLabel(m.category)}</span>`;
+  const badge = mistakeBadge(m);
+  if (badge) {
+    html += `<span class="cat-badge" style="background:${badge.color}20;color:${badge.color};border:1px solid ${badge.color}40" title="${badge.desc}">${badge.label}</span>`;
   }
   if (m.bad_riichi_reason === "furiten") {
     const tip = (m.furiten_tiles || []).length
@@ -226,31 +226,15 @@ function onAnnotate(el) {
 
 // --- Category report handlers ---
 
-var REPORT_CATEGORIES = [
-  ["P1", "P1 – Shanten Failure"],
-  ["P2", "P2 – Tile Efficiency"],
-  ["P3", "P3 – Hand Value"],
-  ["P4", "P4 – Complex Decision"],
-  ["D1", "D1 – Defend"],
-  ["D2", "D2 – Push"],
-  ["D3", "D3 – Complex"],
-  ["OD1", "OD1 – Open Defense / Defend"],
-  ["OD2", "OD2 – Open Defense / Push"],
-  ["OD3", "OD3 – Open Defense / Complex"],
-  ["4A", "4A – Bad Call"],
-  ["4B", "4B – Missed Call"],
-  ["4C", "4C – Wrong Choice"],
-  ["5A", "5A – Bad Riichi"],
-  ["5B", "5B – Missed Riichi"],
-  ["6A", "6A – Bad Kan"],
-  ["6B", "6B – Missed Kan"],
-];
-
+// The mistake-correctness report row. As of CORE Phase 3 the only report kind
+// is `wrong_text` (the explanation reads wrong) — the old `wrong_category`
+// kind retired with the category codes (there is no code to suggest anymore;
+// EXTRAS-A's complex-gap funnel replaces that feedback path). Existing
+// `wrong_category` rows stay readable in admin as historical text.
 function renderReportRow(m) {
   const rep = m.my_report || null;
   const kind = rep ? rep.kind : null;
-  const detailsOpen = kind === "wrong_category" || kind === "wrong_text";
-  const suggested = (rep && rep.suggested_category) || "";
+  const detailsOpen = kind === "wrong_text";
   const reason = (rep && rep.reason) || "";
 
   function btn(k, label, tip) {
@@ -269,21 +253,11 @@ function renderReportRow(m) {
                data-action="onReportClear">Undo</button>`
     : "";
   let html = `<div class="report-row" data-mid="${m.id}">
-    <span class="report-ask">Was this right?</span>
-    ${btn("wrong_category", "Wrong category", "The category label is wrong")}
-    ${btn("wrong_text", "Explanation wrong", "The category is fine but the explanation is off")}
+    <span class="report-ask">Was this explanation right?</span>
+    ${btn("wrong_text", "Explanation wrong", "The explanation is off for this mistake")}
     ${undoBtn}
     <span class="report-status"></span>
     <div class="report-details" style="display:${detailsOpen ? "" : "none"}">`;
-
-  html += `<div class="report-details-cat" style="display:${kind === "wrong_category" ? "" : "none"}">
-    <label class="report-details-label">What should it be?</label>
-    <select class="report-category" data-mid="${m.id}" data-change-action="onReportDetails">
-      <option value="">Select correct category…</option>`;
-  for (const [code, label] of REPORT_CATEGORIES) {
-    html += `<option value="${code}"${suggested === code ? " selected" : ""}>${label}</option>`;
-  }
-  html += `</select></div>`;
 
   html += `<input type="text" class="report-reason"
                   placeholder="Why? (optional)" maxlength="500"
@@ -328,22 +302,12 @@ function _reportState(mid) {
 async function onReportClick(btn, mid, kind) {
   const st = _reportState(mid);
   if (!st) return;
-  // Toggle off if already active (lets the user "unsay" their choice, though
-  // right now we just re-click same kind as a no-op since saves are cheap).
   st.row.querySelectorAll(".report-btn").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
 
   const details = st.row.querySelector(".report-details");
-  const catWrap = st.row.querySelector(".report-details-cat");
-  if (kind === "wrong_category") {
+  if (kind === "wrong_text") {
     details.style.display = "";
-    catWrap.style.display = "";
-    // Don't save until a category is picked.
-    const cat = st.row.querySelector(".report-category").value;
-    if (cat) await saveReport(mid, "wrong_category", cat, st.reason || null);
-  } else if (kind === "wrong_text") {
-    details.style.display = "";
-    catWrap.style.display = "none";
     await saveReport(mid, "wrong_text", null, st.reason || null);
   }
 }
@@ -351,8 +315,7 @@ async function onReportClick(btn, mid, kind) {
 async function onReportDetails(el, mid) {
   const st = _reportState(mid);
   if (!st || !st.kind) return;
-  if (st.kind === "wrong_category" && !st.suggested) return;
-  await saveReport(mid, st.kind, st.suggested || null, st.reason || null);
+  await saveReport(mid, st.kind, null, st.reason || null);
 }
 
 async function onReportClear(mid) {

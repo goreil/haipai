@@ -3,16 +3,22 @@
 from db.mistakes import row_to_mistake
 
 
-REPORT_KINDS = ("wrong_category", "wrong_text")
+# As of mistake-dimensions CORE Phase 3 the only live report kind is
+# 'wrong_text' — 'wrong_category' retired with the category codes (there is no
+# code to suggest anymore; EXTRAS-A's complex-gap funnel replaces that path).
+# Existing 'wrong_category' rows + their suggested_category stay readable as
+# historical text; the column is kept, just no longer written by new reports.
+REPORT_KINDS = ("wrong_text",)
 
 
 def submit_category_report(conn, user_id, mistake_id, kind, suggested_category=None, reason=None):
     """Upsert a category report for a mistake. One report per user per mistake;
     submitting again replaces the previous one.
 
-    kind: 'wrong_category' (AI picked wrong category, provides
-    suggested_category) or 'wrong_text' (category is right but the
-    explanation is wrong, provides optional reason).
+    kind: 'wrong_text' — the trainer explanation reads wrong for this mistake
+    (provides an optional free-text reason). `suggested_category` is retained
+    only for back-compatibility with stored historical rows; new reports pass
+    None.
     """
     if kind not in REPORT_KINDS:
         raise ValueError(f"invalid report kind: {kind!r}")

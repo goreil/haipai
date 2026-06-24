@@ -107,13 +107,6 @@ mortalDir = mortalDir || repoRoot;
 const { prepGame } = require(join(repoRoot, "static/js/prep/prep.js"));
 const { categorize } = require(join(repoRoot, "static/js/categorize.js"));
 
-// Category labels/groups from the backend registry — single source of truth.
-const CATEGORY_INFO = JSON.parse(
-  execSync(`${join(repoRoot, ".venv/bin/python")} -c ` +
-    `"import json; from lib.categories import CATEGORY_INFO; print(json.dumps(CATEGORY_INFO))"`,
-    { cwd: repoRoot }).toString()
-);
-
 // prep warns about wall inconsistencies per game; keep them out of the table.
 let warnCount = 0;
 const realWarn = console.warn;
@@ -167,7 +160,10 @@ const mistakeCounts = new Map(
 );
 const mistakesTotal = games.reduce((s, g) => s + (mistakeCounts.get(g.id) || 0), 0);
 
-const byCat = new Map(); // cat -> { count, ev, games:Set }
+// CORE Phase 3: the legacy category codes are gone — a mistake is {skillArea,
+// shape, wins}. Tally the shape distribution + skill-area × shape matrix.
+const byShape = new Map();      // shape -> { count, ev }
+const bySkillShape = new Map(); // skill -> Map(shape -> count)
 let totalMistakes = 0, totalEv = 0;
 let analyzed = 0, mistakesSeen = 0;
 const skipped = [];
@@ -193,14 +189,18 @@ for (const g of games) {
     for (const rnd of game.rounds) {
       for (const m of rnd.mistakes || []) {
         const out = categorize(m);
-        const cat = out.category || "??";
-        if (!byCat.has(cat)) byCat.set(cat, { count: 0, ev: 0, games: new Set() });
-        const e = byCat.get(cat);
-        e.count++;
-        e.ev += m.ev_loss || 0;
-        e.games.add(g.id);
+        const ev = m.ev_loss || 0;
+        const shape = out.shape || "n/a";
+        if (!byShape.has(shape)) byShape.set(shape, { count: 0, ev: 0 });
+        const se = byShape.get(shape);
+        se.count++;
+        se.ev += ev;
+        const skill = out.skillArea || "(none)";
+        if (!bySkillShape.has(skill)) bySkillShape.set(skill, new Map());
+        const sm = bySkillShape.get(skill);
+        sm.set(shape, (sm.get(shape) || 0) + 1);
         totalMistakes++;
-        totalEv += m.ev_loss || 0;
+        totalEv += ev;
       }
     }
     analyzed++;
@@ -212,43 +212,45 @@ for (const g of games) {
 }
 db.close();
 
-// --- table ---
-const ORDER = ["P1", "P2", "P3", "P4", "D1", "D2", "D3",
-               "4A", "4B", "4C", "5A", "5B", "6A", "6B"];
-const cats = [...ORDER.filter(c => byCat.has(c)),
-              ...[...byCat.keys()].filter(c => !ORDER.includes(c)).sort()];
-
+// --- shape distribution + skill-area × shape matrix ---
 const pct = (n, d) => d ? (n / d * 100).toFixed(1) + "%" : "—";
-const cols = [4, 18, 9, 7, 10, 7, 8];
-const row = (cells) => cells.map((c, i) =>
-  i < 2 ? String(c).padEnd(cols[i]) : String(c).padStart(cols[i])).join(" ");
 
 console.log(`\nGames: ${games.length} total, ${analyzed} analyzed` +
   (skipped.length ? `, ${skipped.length} skipped (missing/unreadable mortal file)` : "") +
   (userFilter != null ? `  [user ${userFilter}]` : ""));
-console.log(`Mistakes: ${totalMistakes}   total EV loss: ${totalEv.toFixed(1)}\n`);
-console.log(row(["Cat", "Label", "Mistakes", "%", "EV loss", "Games", "% games"]));
-console.log("-".repeat(cols.reduce((a, b) => a + b + 1, -1)));
+console.log(`Mistakes: ${totalMistakes}   total EV loss: ${totalEv.toFixed(1)}`);
 
-let lastGroup = null;
-for (const cat of cats) {
-  const info = CATEGORY_INFO[cat] || { group: "?", label: "(unknown)" };
-  if (info.group !== lastGroup) {
-    if (lastGroup !== null) console.log("");
-    lastGroup = info.group;
-  }
-  const e = byCat.get(cat);
-  console.log(row([cat, info.label, e.count, pct(e.count, totalMistakes),
-                   e.ev.toFixed(1), e.games.size, pct(e.games.size, analyzed)]));
+const SHAPE_ORDER = ["obvious", "trade-off", "complex", "n/a"];
+const shapeKeys = [...SHAPE_ORDER.filter(s => byShape.has(s)),
+                   ...[...byShape.keys()].filter(s => !SHAPE_ORDER.includes(s)).sort()];
+console.log("\nShape distribution (win-vector topology):");
+for (const s of shapeKeys) {
+  const e = byShape.get(s);
+  console.log(`  ${s.padEnd(10)} ${String(e.count).padStart(5)}  ${pct(e.count, totalMistakes)}` +
+    `   ${e.ev.toFixed(1).padStart(8)} EV (${pct(e.ev, totalEv)})`);
 }
-console.log("-".repeat(cols.reduce((a, b) => a + b + 1, -1)));
-console.log(row(["", "TOTAL", totalMistakes, "100.0%", totalEv.toFixed(1), analyzed, ""]));
 
-const p4 = byCat.get("P4") || { count: 0, ev: 0 };
-const d3 = byCat.get("D3") || { count: 0, ev: 0 };
-console.log(`\nComplex decisions (P4 attack + D3 defense): ` +
-  `${p4.count + d3.count} mistakes = ${pct(p4.count + d3.count, totalMistakes)} of all, ` +
-  `${(p4.ev + d3.ev).toFixed(1)} EV (${pct(p4.ev + d3.ev, totalEv)} of EV loss)`);
+const skillKeys = [...bySkillShape.keys()].sort((a, b) => {
+  const ca = [...bySkillShape.get(a).values()].reduce((x, y) => x + y, 0);
+  const cb = [...bySkillShape.get(b).values()].reduce((x, y) => x + y, 0);
+  return cb - ca;
+});
+const mcols = [14, ...shapeKeys.map(() => 10), 8];
+const mrow = (cells) => cells.map((c, i) =>
+  i === 0 ? String(c).padEnd(mcols[i]) : String(c).padStart(mcols[i])).join(" ");
+console.log("\nSkill area × shape:");
+console.log(mrow(["skill", ...shapeKeys, "total"]));
+console.log("-".repeat(mcols.reduce((a, b) => a + b + 1, -1)));
+for (const sk of skillKeys) {
+  const sm = bySkillShape.get(sk);
+  const counts = shapeKeys.map(s => sm.get(s) || 0);
+  console.log(mrow([sk, ...counts, counts.reduce((a, b) => a + b, 0)]));
+}
+
+const complex = byShape.get("complex") || { count: 0, ev: 0 };
+console.log(`\nComplex decisions (Mortal wins nothing visible): ` +
+  `${complex.count} mistakes = ${pct(complex.count, totalMistakes)} of all, ` +
+  `${complex.ev.toFixed(1)} EV (${pct(complex.ev, totalEv)} of EV loss)`);
 if (warnCount && !verbose) {
   console.log(`(${warnCount} prep warnings suppressed — rerun with --verbose to see them)`);
 }

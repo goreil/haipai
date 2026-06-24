@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""Top-level pages + miscellaneous APIs: index, tile assets, health,
-trends, categories registry."""
+"""Top-level pages + miscellaneous APIs: index, tile assets, health, trends."""
 
 from flask import Blueprint, jsonify, request, send_from_directory
 from flask_login import current_user, login_required
 from pathlib import Path
 
 import db
-from lib.categories import CATEGORY_INFO
 
 DIR = Path(__file__).parent.parent
 pages_bp = Blueprint("pages", __name__)
@@ -48,11 +46,6 @@ def datenschutz_en():
 @pages_bp.route("/tiles/<filename>")
 def tiles(filename):
     return send_from_directory(DIR / "riichi-mahjong-tiles" / "Regular", filename)
-
-
-@pages_bp.route("/api/categories")
-def api_categories():
-    return jsonify(CATEGORY_INFO)
 
 
 @pages_bp.route("/api/trends")

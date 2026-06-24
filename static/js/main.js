@@ -40,8 +40,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderImpersonateBanner(me);
   if (typeof mailboxInit === "function") mailboxInit();
 
-  const catRes = await fetch("/api/categories");
-  CATEGORY_INFO = await catRes.json();
   await fetchGames();
 
   // Deep-link to a specific game via #g<id> or to a specific mistake via
