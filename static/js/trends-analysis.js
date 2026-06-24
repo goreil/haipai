@@ -30,6 +30,10 @@ function _idsMatch(a, b) {
 }
 
 async function startWeaknessAnalysis() {
+  // Defensive: the trigger button is removed while the analysis is frozen
+  // (Phase −1, see WEAKNESS_ANALYSIS_ENABLED in trends-view.js), but never run
+  // even if an action somehow fires.
+  if (typeof WEAKNESS_ANALYSIS_ENABLED !== "undefined" && !WEAKNESS_ANALYSIS_ENABLED) return;
   const trendsGames = await fetchTrends();
   const ids = trendsGames.map(g => g.id);
   const gen = ++trendsAnalysisGen;

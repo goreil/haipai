@@ -11,6 +11,14 @@
 // SPA session; refreshed after a fresh analysis auto-saves a new row.
 var trendsSnapshots = null;
 
+// Phase −1 of the mistake-model redesign (docs/backlogs/MISTAKE-DIMENSIONS-
+// REDESIGN.md): the weakness analysis is frozen while the categorizer version
+// churns and `shape` derivation lands, so users can't write half-migrated
+// snapshots tagged with throwaway versions. Blocks NEW runs only — saved
+// snapshot history (renderSnapshotsHistory) stays read-only visible. Flip back
+// to true in Phase 5.
+var WEAKNESS_ANALYSIS_ENABLED = false;
+
 async function fetchTrends() {
   const res = await fetch("/api/trends");
   return await res.json();
@@ -133,6 +141,15 @@ function renderTrends(games) {
 // A stale stash is still worth showing — the previous analysis is the
 // closest thing to current truth until the user opts to refresh.
 function renderWeaknessSection(games) {
+  // Frozen during the mistake-model redesign — see WEAKNESS_ANALYSIS_ENABLED.
+  // Show a static notice instead of the button / stale-banner / cached panels;
+  // the saved-analysis history below is unaffected.
+  if (!WEAKNESS_ANALYSIS_ENABLED) {
+    return `<div id="weakness-section" class="trend-chart-card">
+      <h3>Weakness analysis paused</h3>
+      <p style="font-size:13px;color:var(--text-dim);margin:4px 0 0">We're rebuilding the mistake model. Weakness analysis is paused for now — your saved analyses below are unchanged.</p>
+    </div>`;
+  }
   const ids = games.map(g => g.id);
   if (trendsStash) {
     const exactMatch = _idsMatch(trendsStash.gameIds, ids);
