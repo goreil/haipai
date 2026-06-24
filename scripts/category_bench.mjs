@@ -193,19 +193,39 @@ if (!reprep && existsSync(cachePath)) {
 // --- categorize ---
 const { categorize } = require(join(repoRoot, "static/js/categorize.js"));
 const t0 = process.hrtime.bigint();
-const byCat = new Map(); // cat -> { count, ev, games:Set }
+const byCat = new Map();        // cat   -> { count, ev, games:Set }
+const byShape = new Map();      // shape -> { count, ev }
+const bySkillShape = new Map(); // skill -> Map(shape -> count) — the new axis pair
+const computed = [];            // {game_id, id, wins, shape, skill_area} for the golden diff
 let totalMistakes = 0, totalEv = 0;
 const allGames = new Set();
 for (const { game_id, m } of prepped) {
-  const cat = categorize(m).category || "??";
+  const out = categorize(m);
+  const cat = out.category || "??";
+  const ev = m.ev_loss || 0;
   if (!byCat.has(cat)) byCat.set(cat, { count: 0, ev: 0, games: new Set() });
   const e = byCat.get(cat);
   e.count++;
-  e.ev += m.ev_loss || 0;
+  e.ev += ev;
   e.games.add(game_id);
+
+  // New result axes (CORE Phase 1): skill area × shape, independent of the
+  // legacy code. shape is "n/a" for action (non-dahai) decisions.
+  const shape = out.shape || "n/a";
+  if (!byShape.has(shape)) byShape.set(shape, { count: 0, ev: 0 });
+  const se = byShape.get(shape);
+  se.count++;
+  se.ev += ev;
+  const skill = out.skillArea || "(none)";
+  if (!bySkillShape.has(skill)) bySkillShape.set(skill, new Map());
+  const sm = bySkillShape.get(skill);
+  sm.set(shape, (sm.get(shape) || 0) + 1);
+
+  computed.push({ game_id, id: m.id ?? null, wins: out.wins, shape, skill_area: out.skillArea });
+
   allGames.add(game_id);
   totalMistakes++;
-  totalEv += m.ev_loss || 0;
+  totalEv += ev;
 }
 const catMs = Number(process.hrtime.bigint() - t0) / 1e6;
 
@@ -262,21 +282,72 @@ for (const cat of cats) {
 }
 console.log("-".repeat(cols.reduce((a, b) => a + b + 1, -1)));
 
-const p4 = byCat.get("P4") || { count: 0, ev: 0 };
-const d3 = byCat.get("D3") || { count: 0, ev: 0 };
-const complex = { count: p4.count + d3.count, ev: p4.ev + d3.ev };
-let headline =
-  `\nComplex decisions (P4 attack + D3 defense): ${complex.count} mistakes = ` +
-  `${pct(complex.count, totalMistakes)} of all, ` +
-  `${complex.ev.toFixed(1)} EV (${pct(complex.ev, totalEv)} of EV loss)`;
-if (baseline) {
-  const b = baseline.complex;
-  headline += `\n  vs baseline: ${delta(complex.count - b.count)} mistakes ` +
-    `(${(complex.count / totalMistakes * 100 - b.count / baseline.total * 100).toFixed(1)}pp), ` +
-    `${(complex.ev - b.ev >= 0 ? "+" : "")}${(complex.ev - b.ev).toFixed(1)} EV` +
-    `  [baseline saved ${baseline.saved}]`;
+// --- Shape distribution (the new headline, replacing P4+D3 "complex decision") ---
+// Shape is derived from the win-vector topology (compare-dimensions.js), not
+// from any P/D/OD code: obvious (you win nothing) / trade-off (both win
+// something) / complex (Mortal wins nothing visible) / n/a (action decision).
+const SHAPE_ORDER = ["obvious", "trade-off", "complex", "n/a"];
+const shapeKeys = [...SHAPE_ORDER.filter(s => byShape.has(s)),
+                   ...[...byShape.keys()].filter(s => !SHAPE_ORDER.includes(s)).sort()];
+console.log("\nShape distribution (win-vector topology):");
+for (const s of shapeKeys) {
+  const e = byShape.get(s);
+  const baseShape = baseline && baseline.byShape && baseline.byShape[s];
+  const d = baseShape ? `  ${delta(e.count - baseShape.count)}` : "";
+  console.log(`  ${s.padEnd(10)} ${String(e.count).padStart(5)}  ${pct(e.count, totalMistakes)}` +
+    `   ${e.ev.toFixed(1).padStart(8)} EV (${pct(e.ev, totalEv)})${d}`);
 }
-console.log(headline);
+
+// --- Skill area × shape matrix (the two orthogonal axes that replace the tree) ---
+const skillKeys = [...bySkillShape.keys()].sort((a, b) => {
+  const ca = [...bySkillShape.get(a).values()].reduce((x, y) => x + y, 0);
+  const cb = [...bySkillShape.get(b).values()].reduce((x, y) => x + y, 0);
+  return cb - ca;
+});
+const mcols = [14, ...shapeKeys.map(() => 10), 8];
+const mrow = (cells) => cells.map((c, i) =>
+  i === 0 ? String(c).padEnd(mcols[i]) : String(c).padStart(mcols[i])).join(" ");
+console.log("\nSkill area × shape:");
+console.log(mrow(["skill", ...shapeKeys, "total"]));
+console.log("-".repeat(mcols.reduce((a, b) => a + b + 1, -1)));
+for (const sk of skillKeys) {
+  const sm = bySkillShape.get(sk);
+  const counts = shapeKeys.map(s => sm.get(s) || 0);
+  const tot = counts.reduce((a, b) => a + b, 0);
+  console.log(mrow([sk, ...counts, tot]));
+}
+
+// --- Golden-snapshot win-vector diff (the Phase 0 regression guard) ---
+// Only meaningful when the run's sample + prep match the frozen fixture;
+// otherwise the keys won't line up and a diff would be noise.
+const fixturePath = join(repoRoot, "tests", "fixtures", "golden_dimensions.json");
+if (existsSync(fixturePath)) {
+  const fx = JSON.parse(readFileSync(fixturePath, "utf8"));
+  if (fx.meta.sample_key === sampleKey && fx.meta.prep_hash === prepHash) {
+    const byKey = new Map(fx.entries.map(e => [`${e.game_id}:${e.id}`, e]));
+    let matched = 0, missing = 0, winsDiff = 0, shapeDiff = 0, skillDiff = 0;
+    for (const c of computed) {
+      const g = byKey.get(`${c.game_id}:${c.id}`);
+      if (!g) { missing++; continue; }
+      matched++;
+      if (JSON.stringify(g.wins) !== JSON.stringify(c.wins)) winsDiff++;
+      if (g.shape !== c.shape) shapeDiff++;
+      if ((g.skill_area || null) !== (c.skill_area || null)) skillDiff++;
+    }
+    const clean = !winsDiff && !shapeDiff && !skillDiff && !missing;
+    console.log(`\nGolden snapshot (v${fx.meta.categorizer_version}, ${fx.entries.length} entries): ` +
+      (clean
+        ? `✓ ${matched} matched, win-vector + shape + skill-area identical`
+        : `✗ ${winsDiff} win-vector / ${shapeDiff} shape / ${skillDiff} skill-area diffs` +
+          (missing ? `, ${missing} not in fixture` : "") + ` over ${matched} matched`));
+    if (!clean) {
+      console.log("  Intended changes must be re-frozen: node scripts/snapshot_golden_dimensions.mjs");
+    }
+  } else {
+    console.log(`\nGolden snapshot: skipped — fixture is from a different sample/prep ` +
+      `(fixture prep=${fx.meta.prep_hash}, run prep=${prepHash}).`);
+  }
+}
 
 if (saveBaseline) {
   writeFileSync(baselinePath, JSON.stringify({
@@ -284,7 +355,8 @@ if (saveBaseline) {
     total: totalMistakes, totalEv,
     byCat: Object.fromEntries([...byCat].map(([c, e]) =>
       [c, { count: e.count, ev: +e.ev.toFixed(1) }])),
-    complex: { count: complex.count, ev: +complex.ev.toFixed(1) },
+    byShape: Object.fromEntries([...byShape].map(([s, e]) =>
+      [s, { count: e.count, ev: +e.ev.toFixed(1) }])),
   }, null, 2));
   console.log(`Baseline saved → ${baselinePath}`);
 }

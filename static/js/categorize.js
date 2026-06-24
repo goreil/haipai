@@ -314,6 +314,47 @@
     return null;
   }
 
+  // Lazy handle on the shared dimension comparator (compare-dimensions.js).
+  // Resolved at call time, never at factory time, to break the circular
+  // dependency (compare-dimensions requires categorize for its primitives):
+  // by the first categorize() call both modules are fully loaded. In the
+  // browser the comparator attaches to the global as a sibling script.
+  let _comparator = null;
+  function comparator() {
+    if (_comparator) return _comparator;
+    try {
+      // CommonJS (Node bench/snapshot tools): lazily require the sibling.
+      // Guard on `require` existing — the parity vm context fakes module.exports
+      // without a require, and must fall through to the global lookup (which is
+      // also absent there, leaving the comparator null → empty dimensions).
+      if (typeof module === "object" && module.exports
+          && typeof require === "function") {
+        _comparator = require("./compare-dimensions.js");
+      } else if (typeof globalThis !== "undefined") {
+        _comparator = globalThis.haipaiCompareDimensions || null;
+      }
+    } catch (_e) {
+      _comparator = null;
+    }
+    return _comparator;
+  }
+
+  // The new result axes (CORE Phase 1.2): the win-vector + the scene-derived
+  // skill area + the topology-derived shape. Computed for every mistake (the
+  // win-vector is action-type agnostic; shape is "n/a" for non-dahai). Nothing
+  // *new* reads the legacy `category` field — it remains only as the scaffold
+  // deleted in Phase 3.
+  function dimensions(m) {
+    const cmp = comparator();
+    if (!cmp) return { skillArea: null, shape: "n/a", wins: [] };
+    const wins = cmp.compareDimensions(m);
+    return {
+      skillArea: cmp.skillAreaFor(m),
+      shape: cmp.deriveShape(wins, m),
+      wins,
+    };
+  }
+
   // --- Main: categorize_mistake decision-only ---
   // Mirrors the categorize_mistake orchestration in __init__.py, but skips
   // the steps that *produce* inputs (shanten/defense/board) — those run
@@ -324,7 +365,7 @@
 
     const actionCat = categorizeByActionType(actual, expected);
     if (actionCat != null) {
-      return { category: actionCat, categorize_data: {}, labels: [] };
+      return { category: actionCat, categorize_data: {}, labels: [], ...dimensions(m) };
     }
 
     // dahai vs dahai — needs discard_stats + dealin_rates.
@@ -456,7 +497,7 @@
                               labels, valueCtx);
     }
 
-    return { category, categorize_data: catData, labels };
+    return { category, categorize_data: catData, labels, ...dimensions(m) };
   }
 
   return {

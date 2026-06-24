@@ -213,5 +213,30 @@
       .map(nt => nt.tile);
   }
 
-  return { compareDimensions, skillAreaFor, threatScene, comparedTiles };
+  // Derive the three-way shape from the win-vector topology (CORE Phase 1.1).
+  // The single source of truth for both the golden snapshot and the live
+  // categorize result — they import this, never a forked copy, so the frozen
+  // baseline and the runtime classification can't drift.
+  //
+  // Shape describes a discard-vs-discard value/speed/safety trade, so it is
+  // derived only when BOTH picks are dahai. Action decisions (call / reach /
+  // kan) are classified by their action category and carry no shape ("n/a").
+  function deriveShape(wins, m) {
+    const actualType = m && m.actual && m.actual.type;
+    const expectedType = m && m.expected && m.expected.type;
+    if (actualType !== "dahai" || expectedType !== "dahai") return "n/a";
+    const youWin = wins.filter(w => w.winner === "you" && !w.suppressed);
+    const mortalWin = wins.filter(w => w.winner === "mortal" && !w.suppressed);
+    // Check "Mortal wins nothing visible" FIRST → complex ("the stats don't
+    // explain it — trust the read"). That single branch covers both the
+    // one-sided case (you won something, Mortal nothing) AND the both-empty
+    // case (identical visible stats, yet Mortal's pick is better): the same
+    // unnamed edge as every other complex spot, we just don't have a feature
+    // to name it yet.
+    if (!mortalWin.length) return "complex";
+    if (!youWin.length) return "obvious";
+    return "trade-off";
+  }
+
+  return { compareDimensions, deriveShape, skillAreaFor, threatScene, comparedTiles };
 }));

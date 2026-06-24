@@ -66,32 +66,14 @@ if (!existsSync(cachePath)) {
 }
 const prepped = JSON.parse(readFileSync(cachePath, "utf8")).mistakes;
 
-const { compareDimensions, skillAreaFor } =
+const { compareDimensions, deriveShape, skillAreaFor } =
   require(join(repoRoot, "static/js/compare-dimensions.js"));
 const { CATEGORIZER_VERSION } = require(join(repoRoot, "static/js/categorize.js"));
 
 // Build the snapshot. Stable sort by (game_id, mistake id) so the committed
-// fixture diffs cleanly. `shape` is derived here too (its real home is Phase 1,
-// but freezing it now makes the topology reviewable and gives Phases 1–3 a
-// shape baseline, not just a raw win-vector).
-function deriveShape(wins, m) {
-  const actualType = m.actual && m.actual.type;
-  const expectedType = m.expected && m.expected.type;
-  // Shape describes a discard-vs-discard value/speed/safety trade. Action
-  // decisions (call / reach / kan) are classified by their action category, not
-  // by win-vector topology, so they carry no shape.
-  if (actualType !== "dahai" || expectedType !== "dahai") return "n/a";
-  const youWin = wins.filter(w => w.winner === "you" && !w.suppressed);
-  const mortalWin = wins.filter(w => w.winner === "mortal" && !w.suppressed);
-  // Check "Mortal wins nothing visible" FIRST → complex ("the stats don't
-  // explain it — trust the read"). That single branch covers both the one-sided
-  // case (you won something, Mortal nothing) AND the both-empty case (identical
-  // visible stats, yet Mortal's pick is better): same unnamed edge as every
-  // other complex spot, we just don't have the feature for it yet.
-  if (!mortalWin.length) return "complex";
-  if (!youWin.length) return "obvious";
-  return "trade-off";
-}
+// fixture diffs cleanly. `shape` is derived via the shared comparator's
+// `deriveShape` (CORE Phase 1.1) — the same function the live categorize result
+// now uses, so the frozen baseline and the runtime classification can't drift.
 
 const entries = prepped.map(({ game_id, m }) => {
   const wins = compareDimensions(m);

@@ -326,25 +326,27 @@ old category output is left untouched here — it's the scaffold, removed in Pha
 
 ### Phase 1 — Derive `shape` + skill area (the new result shape)
 
-- [ ] **1.1** Compute `shape` from win-vector topology (mirror the reviewed
-  `deriveShape` already frozen into the Phase 0 golden snapshot):
-  `youWin = wins.filter(w => w.winner==="you" && !w.suppressed)`,
-  `mortalWin = …"mortal"…`; **check Mortal-empty first** so both-empty → complex:
-  `shape = !mortalWin.length ? "complex" : !youWin.length ? "obvious" : "trade-off"`.
-  Derive shape **only for discard-vs-discard** (`actual.type === expected.type === "dahai"`);
-  action decisions (call / reach / kan) carry **no shape** (`n/a`). Baseline split
-  on the frozen sample: complex 35.6% / obvious 28.5% / trade-off 26.0% / n/a 9.9%.
-- [ ] **1.2** Make the categorize result expose `{ skillArea, shape, wins }`
-  (skill area from `skill_area_for_entry`, not from any code). The legacy `category`
-  field may still be emitted as scaffold for the not-yet-migrated consumers, but
-  nothing *new* reads it, and it is deleted in Phase 3.
-- [ ] **1.3** Add `skill-area × shape` + `shape` distribution readouts to
-  `category_bench` (replacing the P4/D3 "complex-decision" headline) so the split
-  is inspectable on the frozen sample, and diff the win-vector against the Phase 0
-  golden snapshot.
-- [ ] **Exit gate:** shape distribution printed and sanity-checked (dora-keeping
-  shanten failure → `trade-off`, not `obvious`; pure ukeire loss → `obvious`);
-  win-vector matches the golden snapshot; skill-area distribution stable.
+- [x] **1.1** `deriveShape(wins, m)` added to and exported from
+  `compare-dimensions.js` — the **single source of truth** the live categorize
+  result and the snapshot tool both import (the tool's forked copy is gone, so
+  they can't drift; the golden fixture stayed byte-identical, proving the move
+  changed nothing). Mortal-empty checked first → both-empty lands in `complex`;
+  shape is `n/a` unless both picks are `dahai`.
+- [x] **1.2** `categorize(m)` now spreads `{ skillArea, shape, wins }` onto its
+  result on both the action-type early-return and the dahai path, via a lazily
+  resolved handle on the shared comparator (lazy to break the circular
+  dependency; guarded so the parity vm context — which has no `require` — falls
+  through to an empty win-vector instead of throwing). `skillArea` comes from
+  `skill_area_for_entry`, never a code. The legacy `category` field still emits
+  as scaffold (deleted in Phase 3); nothing *new* reads it.
+- [x] **1.3** `category_bench` now prints a **Shape distribution** (the new
+  headline, replacing P4/D3 "complex decision"), a **skill area × shape** matrix,
+  and a **golden-snapshot diff** (win-vector + shape + skill-area, gated on the
+  fixture's sample/prep matching the run). `--baseline` now records `byShape`.
+- [x] **Exit gate:** shape split printed (`complex 35.6% / obvious 28.5% /
+  trade-off 26.0% / n/a 9.9%`, matching the frozen Phase 0 baseline); win-vector
+  golden diff `✓ 2015 matched, identical`; skill-area distribution unchanged;
+  parity vm still 2121/2121; 136 pytest pass.
 
 ### Phase 2 — Trainer-text rewrite (the first user-visible payoff)
 
