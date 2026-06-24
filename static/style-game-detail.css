@@ -1892,6 +1892,15 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
+/* Context pill: a non-win note, not a green advantage. Used for cross-shanten
+   ukeire — more tile acceptance, but at a worse shanten (a wide-but-slow shape).
+   Muted/dashed chrome so it reads as context, never a feature this pick wins. */
+.feat-pill-context {
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  font-weight: 600;
+}
 .feat-pill-tiles {
   display: inline-flex;
   align-items: center;

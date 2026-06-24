@@ -133,10 +133,21 @@ function compareDimensions(m) {
 const wins      = compareDimensions(m);
 const youWin    = wins.filter(w => w.winner === "you"    && !w.suppressed);
 const mortalWin = wins.filter(w => w.winner === "mortal" && !w.suppressed);
-const shape = !youWin.length ? "obvious"
-            : !mortalWin.length ? "complex"
+// Check "Mortal wins nothing" FIRST so the both-empty case lands in complex,
+// per the table above (Mortal's column has zero pills → complex), NOT obvious.
+const shape = !mortalWin.length ? "complex"
+            : !youWin.length ? "obvious"
             : "trade-off";
 ```
+
+Shape is **discard-only**: it describes a tile-vs-tile value/speed/safety trade,
+so it is derived only when both `actual.type` and `expected.type` are `dahai`.
+Action decisions (call / reach / kan) are classified by their action category,
+not by win-vector topology, and carry **no shape** (`n/a`). The both-empty
+*discard* case — identical visible stats, yet Mortal's pick is better — is
+**complex**, the same unnamed edge as every other complex spot; we just don't
+have the feature to name it yet (this is what the EXTRAS value dimensions
+gradually convert to trade-offs).
 
 Same `wins` array renders the pills. Card category and pills can no longer
 contradict each other.
@@ -279,39 +290,50 @@ Goal: one module returns the full win-vector; the pills consume it (fixing the
 ukeire-gate bug), and we freeze a golden baseline to guard everything after. The
 old category output is left untouched here — it's the scaffold, removed in Phase 3.
 
-- [ ] **0.1** New file `static/js/compare-dimensions.js` exporting
-  `compareDimensions(m) -> Array<{ dim, group, winner: "you"|"mortal"|null, magnitude?, tiles?, suppressed?, context? }>`.
-  Reuse the existing helpers from `categorize.js` (`findInStats`,
-  `getShantenForTile`, `doraUkeireForTile`, `tileIsDora`, `tileIsYakuhai`,
-  `dealinFor`) — lift the shared ones into the module or import them; do NOT fork
-  a second copy of the dora/yakuhai logic.
-- [ ] **0.2** Emit every dimension tagged with its **group**: Speed (shanten,
-  ukeire), Yaku (yakuhai_kept), Dora (dora_kept, dora_acceptance), Defense
-  (deal_in). Model `deal_in` as a **per-opponent vector** from day one (read
-  `m.per_threat`, like `prioritizedDefense` at `categorize.js:293`), even though
-  only the aggregate is consumed yet.
-- [ ] **0.3** Repoint the `ev-table.js` pill loop (`432–536`) at the win-vector.
-  This **fixes the ukeire-gate bug**: today `ev-table.js:451` fires
-  `if (col.ukeireCount > best)` with no shanten gate, while `categorize.js:244`
-  gates on `sameShanten`. After unifying, the pill must mark cross-shanten ukeire
-  `suppressed: true` and render it as context ("wider but a step slower"), never
-  as a green +ukeire pill. (`categorize.js` keeps emitting its code unchanged this
-  phase — scaffold.)
-- [ ] **0.4** Capture the **golden snapshot**: dump `compareDimensions` output +
-  `skill_area_for_entry` for every mistake in the `category_bench` sample to a
-  committed fixture. Hand-review it once; this becomes the regression baseline for
-  Phases 1–3 (replaces legacy-category parity).
-- [ ] **0.5** Bump `CATEGORIZER_VERSION` (→ 9) + changelog entry (the pill
-  ukeire-gate fix is the only intended behavior delta this phase).
-- [ ] **Exit gate:** golden snapshot committed + reviewed; spot-check 3–4
-  cross-shanten "+ukeire" cards now show suppressed context, not a green pill;
-  skill-area distribution unchanged vs today.
+- [x] **0.1** New file `static/js/compare-dimensions.js` exporting
+  `compareDimensions(m) -> Array<{ dim, group, prio, winner, magnitude?, pct?, tiles?, suppressed?, context?, seat?, kind? }>`.
+  Reuses `categorize.js`'s helpers (`findInStats`, `getShantenForTile`,
+  `doraUkeireForTile`, `tileIsDora`, `tileIsYakuhai`, `dealinFor`) — they were
+  lifted into the categorizer's export list and imported here; no forked copy.
+  Also exports `skillAreaFor(m)` (scene → `skill_area_for_entry`) and
+  `threatScene(m)` for Phase 1 reuse.
+- [x] **0.2** Every dimension tagged with its **group**: Speed (shanten, ukeire),
+  Yaku (yakuhai_kept), Dora (dora_kept, dora_acceptance), Defense (deal_in).
+  `deal_in` reads `m.per_threat` and emits a **per-opponent vector** (one entry
+  per seat) when 2+ threats are live; a lone threat collapses to one aggregate
+  entry.
+- [x] **0.3** `ev-table.js` pill loop repointed at the win-vector
+  (`renderWinPill` + `featCells`). **Ukeire-gate bug fixed**: cross-shanten
+  ukeire is `suppressed` and rendered as a muted/dashed context pill
+  ("wider, but a step slower"), never a green +ukeire. The old per-column
+  recompute (and its dead `isDoraTile`/`isYakuhaiTile`/feature-input block) is
+  gone. `categorize.js` category output unchanged (scaffold) — verified
+  byte-identical to HEAD over the 2015-mistake sample.
+- [x] **0.4** Golden snapshot captured →
+  `tests/fixtures/golden_dimensions.json` (2015 entries: win-vector +
+  `skill_area` + derived `shape`). Tool: `scripts/snapshot_golden_dimensions.mjs`
+  (`--check` diffs against it). **Reviewed + frozen** as the Phase 1–3 baseline.
+- [x] **0.5** `CATEGORIZER_VERSION` → 9 + changelog entry added.
+- [x] **Exit gate:** golden snapshot reviewed + **frozen**; cross-shanten
+  "+ukeire" now shows suppressed context not a green pill *(verified in-browser)*;
+  skill-area distribution captured as the baseline (attack 65.7% / defense 14.0%
+  / open_defense 10.5% / meld 6.5% / riichi 2.4% / kan 0.8%); shape split complex
+  35.6% / obvious 28.5% / trade-off 26.0% / n/a 9.9%. Two intended deltas beyond
+  the scaffold (both accepted at freeze): the ukeire-gate fix, and
+  `dora_acceptance` adopting the categorizer's canonical full-wait indicator-dora
+  count (per 0.1's reuse directive) over ev-table's old gains+aka heuristic
+  (fires 178/2015).
 
 ### Phase 1 — Derive `shape` + skill area (the new result shape)
 
-- [ ] **1.1** Compute `shape` from win-vector topology:
+- [ ] **1.1** Compute `shape` from win-vector topology (mirror the reviewed
+  `deriveShape` already frozen into the Phase 0 golden snapshot):
   `youWin = wins.filter(w => w.winner==="you" && !w.suppressed)`,
-  `mortalWin = …"mortal"…`; `shape = !youWin.length ? "obvious" : !mortalWin.length ? "complex" : "trade-off"`.
+  `mortalWin = …"mortal"…`; **check Mortal-empty first** so both-empty → complex:
+  `shape = !mortalWin.length ? "complex" : !youWin.length ? "obvious" : "trade-off"`.
+  Derive shape **only for discard-vs-discard** (`actual.type === expected.type === "dahai"`);
+  action decisions (call / reach / kan) carry **no shape** (`n/a`). Baseline split
+  on the frozen sample: complex 35.6% / obvious 28.5% / trade-off 26.0% / n/a 9.9%.
 - [ ] **1.2** Make the categorize result expose `{ skillArea, shape, wins }`
   (skill area from `skill_area_for_entry`, not from any code). The legacy `category`
   field may still be emitted as scaffold for the not-yet-migrated consumers, but

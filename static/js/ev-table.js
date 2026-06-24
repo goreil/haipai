@@ -40,15 +40,9 @@ function renderEvComparison(m, options) {
   // and renderUkeireTiles() calls (the card renderer sets it too; this makes the
   // table self-sufficient if reached standalone).
   setActiveDora(ukeireDora);
-  // A tile is dora if it's a red five or sits in the active indicator-dora set.
-  const isDoraTile = (t) => !!t && (/^5[mps]r$/.test(t) || ukeireDora.has(tileBase(t)));
-  // A tile is a yakuhai (value honor) for the hero if it's a dragon, the round
-  // wind, or the hero's seat wind. Reuse categorize.js's trigger so the pill and
-  // the hand-value category stay in lockstep (it owns the yakuhai definition).
-  const roundWind = (m.board_state && m.board_state.round_wind) || null;
-  const heroSeatWind = (m.board_state && m.board_state.seat_wind) || null;
-  const isYakuhaiTile = (t) => !!t && typeof haipaiCategorize !== "undefined"
-    && haipaiCategorize.tileIsYakuhai(t, roundWind, heroSeatWind);
+  // The per-tile dora / yakuhai / shanten / deal-in comparisons that used to be
+  // recomputed here now live in the shared comparator (compare-dimensions.js);
+  // the feature pills below read its win-vector. See renderWinPill.
   const threatCount = Array.isArray(m.per_threat) ? m.per_threat.length : 0;
   const displayDealin = m.dealin_rates;
   const displayBreakdowns = m.wait_breakdowns;
@@ -386,154 +380,65 @@ function renderEvComparison(m, options) {
       scoreGroups = evalDiscardScores(m, tile, ca.necessary_tiles, scoreIsRiichi);
     }
 
-    // Feature-summary inputs (rendered into the bottom Summary row). Each is
-    // computed independently of the others — unlike the categorizer, which
-    // short-circuits on a shanten > ukeire > dora precedence, the summary
-    // always evaluates every feature so the full picture is visible.
-    const ukeireCount = ca && ca.necessary_count != null ? ca.necessary_count : null;
-    const discardIsDora = isDoraTile(tile);
-    const discardIsYakuhai = isYakuhaiTile(tile);
-    // A necessary tile yields a dora if its base sits in the indicator-dora set
-    // (every copy counts) OR it's a five with a live red copy still drawable
-    // (aka_count — only the red copies count). Without the aka_count branch a
-    // wait that accepts e.g. a red 5m/5s but no indicator-dora was dropped.
-    const indicatorDora = (nt) => ukeireDora.has(tileBase(nt.tile));
-    // Source from this pick's *gains* (tiles the other picks don't accept) when
-    // the diff is active — a dora both picks accept is shared, not a reason to
-    // prefer this pick, so it shouldn't surface as "+dora accept". Falls back to
-    // the full wait when there's no diff (single-pick view).
-    const doraSource = (diffEnabled && diffByTile[tile])
-      ? diffByTile[tile].gains
-      : (ca && ca.necessary_tiles) || [];
-    const doraWaitEntries = doraSource
-      .filter(nt => indicatorDora(nt) || (nt.aka_count || 0) > 0);
-    const doraWaitCount = doraWaitEntries.reduce((s, nt) =>
-      s + (indicatorDora(nt) ? (nt.count || 0) : (nt.aka_count || 0)), 0);
-    // For the pill display, a non-indicator-dora five contributes only its red
-    // copies — clamp count to aka_count so renderUkeireTiles drops the plain
-    // (non-dora) chip and shows just the red one. Indicator dora keeps every copy.
-    const doraWaitDisplay = doraWaitEntries.map(nt =>
-      indicatorDora(nt) ? nt : { ...nt, count: nt.aka_count || 0 });
-
-    return { tile, colClass, markers, reachRole, scoreGroups, scoreIsRiichi, acc, mortal, shanten, shantenVal, dealin, typeCell, waits,
-             threatLines, ukeireCount, discardIsDora, discardIsYakuhai, doraWaitEntries, doraWaitDisplay, doraWaitCount, dealinRate };
+    return { tile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
+             acc, mortal, shanten, shantenVal, dealin, typeCell, waits, threatLines };
   });
 
-  // Feature-summary pills. For each column, compare its feature values against
-  // the best value among the OTHER columns and emit a green pill for every
-  // dimension where this pick wins. We only surface positive attributes per
-  // column now: ukeire, dora kept, dora acceptance, lower shanten, lower deal-in.
+  // Feature-summary pills. The win-vector is now computed once by the shared
+  // comparator (static/js/compare-dimensions.js) — the SAME array the
+  // categorizer's `shape` derives from — so the pills and the category can no
+  // longer drift. Each winning dimension renders a green pill on its winner's
+  // column (winner "you" → the played/actual column, "mortal" → the AI/expected
+  // column). The lone behavioural change vs the old per-column loop: a
+  // cross-shanten ukeire "gain" is `suppressed` and shown as a neutral context
+  // pill ("wider, a step slower") instead of a green +ukeire — the old loop
+  // fired +ukeire with no shanten gate, which this fixes.
   const featPill = (kind, label, title, tilesHtml = "", style = "") =>
     `<span class="feat-pill feat-pill-${kind}" title="${title}"${style ? ` style="${style}"` : ""}>`
     + `<span class="feat-pill-label">${label}</span>`
     + (tilesHtml ? `<span class="feat-pill-tiles">${tilesHtml}</span>` : "")
     + `</span>`;
 
-  const featCells = cols.map((col, i) => {
-    const others = cols.filter((_, j) => j !== i);
-    const pills = [];
-
-    // -shanten (positive): this pick reaches tenpai sooner (lower shanten) than
-    // the best other pick. The advantage rides on the *better* side as a green
-    // pill — we only surface positive attributes per column now.
-    if (col.shantenVal != null) {
-      const os = others.map(o => o.shantenVal).filter(v => v != null);
-      if (os.length) {
-        const bestOther = Math.min(...os);
-        if (col.shantenVal < bestOther) {
-          pills.push(featPill("pos", `-${bestOther - col.shantenVal} shanten`,
-            "Reaches tenpai sooner (lower shanten) than the other pick"));
-        }
-      }
-    }
-
-    // +ukeire: accepts more tiles than the other pick.
-    if (col.ukeireCount != null) {
-      const os = others.map(o => o.ukeireCount).filter(v => v != null);
-      if (os.length) {
-        const best = Math.max(...os);
-        if (col.ukeireCount > best) {
-          pills.push(featPill("pos", `+${col.ukeireCount - best} ukeire`,
-            "Accepts more tiles than the other pick"));
-        }
-      }
-    }
-
-    // +dora: keeps a dora the other pick throws away. The kept dora is the
-    // other pick's discarded tile — show it in the pill.
-    if (!col.discardIsDora) {
-      const thrown = [...new Set(others.filter(o => o.discardIsDora).map(o => o.tile))];
-      if (thrown.length) {
-        const tilesHtml = thrown.map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join("");
-        pills.push(featPill("pos", "+dora", "Keeps a dora the other pick discards", tilesHtml));
-      }
-    }
-
-    // +yakuhai: keeps a yakuhai (value honor) the other pick throws away. Mirrors
-    // categorize.js's yakuhaiApplies trigger (one side keeps a yakuhai while the
-    // other doesn't). The kept yakuhai is the other pick's discard — show it.
-    if (!col.discardIsYakuhai) {
-      const thrown = [...new Set(others.filter(o => o.discardIsYakuhai).map(o => o.tile))];
-      if (thrown.length) {
-        const tilesHtml = thrown.map(t => renderTile(t, "tile-sm ukeire-tile-img")).join("");
-        pills.push(featPill("pos", "+yakuhai", "Keeps a yakuhai (value honor) the other pick discards", tilesHtml));
-      }
-    }
-
-    // +dora acceptance: its wait accepts more live dora than the other pick —
-    // show the dora tiles its wait keeps.
-    if (col.doraWaitCount > 0) {
-      const best = Math.max(0, ...others.map(o => o.doraWaitCount || 0));
-      if (col.doraWaitCount > best) {
-        pills.push(featPill("pos", "+dora accept",
+  const renderWinPill = (w) => {
+    switch (w.dim) {
+      case "shanten":
+        return featPill("pos", `-${w.magnitude} shanten`,
+          "Reaches tenpai sooner (lower shanten) than the other pick");
+      case "ukeire":
+        return w.suppressed
+          ? featPill("context", w.context || "wider, a step slower",
+              "Accepts more tiles, but at a worse shanten — a wide-but-slow shape, not a speed win")
+          : featPill("pos", `+${w.magnitude} ukeire`,
+              "Accepts more tiles than the other pick");
+      case "yakuhai_kept":
+        return featPill("pos", "+yakuhai",
+          "Keeps a yakuhai (value honor) the other pick discards",
+          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""));
+      case "dora_kept":
+        return featPill("pos", "+dora", "Keeps a dora the other pick discards",
+          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""));
+      case "dora_acceptance":
+        return featPill("pos", "+dora accept",
           "Its wait accepts more live dora than the other pick",
-          renderUkeireTiles(col.doraWaitDisplay)));
-      }
+          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""));
+      case "deal_in":
+        return w.seat != null
+          ? featPill("pos", `-${w.pct.toFixed(1)}% deal-in ${seatWindShort(w.seat)}`,
+              `Deals in ${w.pct.toFixed(1)}% less often than the other pick against ${seatWindFor(w.seat)}`)
+          : featPill("pos", `-${w.pct.toFixed(1)}% deal-in`,
+              `Deals in ${w.pct.toFixed(1)}% less often than the other pick`);
+      default:
+        return "";
     }
+  };
 
-    // -deal-in: deals in LESS often than the other pick (KD threat data only).
-    // The advantage rides on the *safer* side now as a green pill — the
-    // percentage-point gap under the riskiest other pick. No gradient for now;
-    // plain green chrome like the other positive attributes.
-    //
-    // With 2+ live opponents the advantage is broken out per direction: a pick
-    // can be safer against one threat yet riskier against another, and a single
-    // aggregate nets those out and hides the trade-off. So we compare each
-    // opponent's deal-in rate independently against the safest other pick for
-    // *that same opponent*, and emit one pill — tagged with the seat wind — per
-    // direction where this pick wins. Single-opponent picks keep the lone
-    // aggregate pill.
-    if (useKd) {
-      if (threatCount >= 2 && col.threatLines) {
-        for (const tl of col.threatLines) {
-          if (tl.rate == null) continue;
-          const os = others
-            .map(o => (o.threatLines || []).find(x => x.seat === tl.seat))
-            .filter(x => x && x.rate != null)
-            .map(x => x.rate);
-          if (!os.length) continue;
-          const bestOther = Math.min(...os);
-          if (tl.rate < bestOther) {
-            const diff = bestOther - tl.rate;
-            pills.push(featPill("pos", `-${diff.toFixed(1)}% deal-in ${tl.wind}`,
-              `Deals in ${diff.toFixed(1)}% less often than the other pick against ${seatWindFor(tl.seat)}`));
-          }
-        }
-      } else if (col.dealinRate != null) {
-        const os = others.map(o => o.dealinRate).filter(v => v != null);
-        if (os.length) {
-          const bestOther = Math.min(...os);
-          if (col.dealinRate < bestOther) {
-            const diff = bestOther - col.dealinRate;
-            pills.push(featPill("pos", `-${diff.toFixed(1)}% deal-in`,
-              `Deals in ${diff.toFixed(1)}% less often than the other pick`));
-          }
-        }
-      }
-    }
-
-    return pills.join("");
-  });
+  const wins = (typeof haipaiCompareDimensions !== "undefined")
+    ? haipaiCompareDimensions.compareDimensions(m) : [];
+  const sideForWinner = (w) =>
+    w.winner === "you" ? "actual" : w.winner === "mortal" ? "expected" : null;
+  const featCells = cols.map((col) => wins
+    .filter(w => col.side === sideForWinner(w))
+    .map(renderWinPill).join(""));
   const anyFeat = featCells.some(s => s);
 
   // The tiles every pick accepts are common ground — each acceptance cell shows

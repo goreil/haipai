@@ -21,7 +21,7 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 8;
+  const CATEGORIZER_VERSION = 9;
   const CATEGORIZER_CHANGELOG = {
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
     2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
@@ -31,6 +31,7 @@
     6: "Open Defense axis (OD1/OD2/OD3, backlog C-02): non-riichi opponents whose open melds pass the prep-side trigger emit kind='open' threats; dahai mistakes in open-threat-only scenes route to OD tiers via the same defend/push/complex logic as D1-D3.",
     7: "P3 also fires on dora-acceptance: when Mortal's pick keeps a wait that accepts strictly more live dora than yours (its ukeire intersects the active dora set more), the mistake is hand value, not Complex. Net rule — suppressed when Mortal's own discard is a dora (throwing a dora to re-accept it is a wash). Fixes #4932 (breaking the 5m6m ryanmen drops the 4m-dora acceptance).",
     8: "Multi-threat prioritized defense → Defend. With 2+ live threats, Mortal's pick can be strictly safer than yours against some and more dangerous against others; the combined deal-in rate nets this out and the spot fell through to D3/Complex. Now read per_threat directly: safer vs >=1 threat AND more dangerous vs >=1 other → D1/OD1 with a per-side `prioritized_defense` story (which sides it folds to, which it exposes). Kind-agnostic — Mortal may prioritize riichi or open either way (#m20071: folds to both riichi, exposes to the open hand).",
+    9: "Shared dimension comparator (static/js/compare-dimensions.js, mistake-dimensions CORE Phase 0). The win-vector that drives the EV-table feature pills is now a single source of truth, fixing the ukeire-gate bug: cross-shanten ukeire 'gains' are marked suppressed and shown as context ('wider, a step slower') instead of a green +ukeire pill (ev-table previously fired with no shanten gate). The P/D/OD category output here is unchanged — still the scaffold consumed downstream until CORE Phase 3 deletes it.",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
@@ -473,5 +474,13 @@
     tileIsYakuhai,
     statsReasonablyAgree,
     isHonorMjai, isTerminalMjai, isValueTileMjai,
+    // Lifted for the shared dimension comparator (compare-dimensions.js) so the
+    // pills and the categorizer read identical shanten/ukeire/dora/deal-in
+    // primitives — never a forked second copy.
+    findInStats,
+    getShantenForTile,
+    doraUkeireForTile,
+    dealinFor,
+    tileBase,
   };
 }));
