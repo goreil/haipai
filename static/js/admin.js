@@ -163,8 +163,9 @@ function renderAdmin() {
     </select>
     <select data-change-action="adminReportKind">
       <option value="">All kinds (${reports.length})</option>
-      <option value="wrong_category" ${reportKind==="wrong_category"?"selected":""}>wrong_category (${counts.wrong_category||0})</option>
+      <option value="complex_gap" ${reportKind==="complex_gap"?"selected":""}>complex_gap (${counts.complex_gap||0})</option>
       <option value="wrong_text" ${reportKind==="wrong_text"?"selected":""}>wrong_text (${counts.wrong_text||0})</option>
+      <option value="wrong_category" ${reportKind==="wrong_category"?"selected":""}>wrong_category (${counts.wrong_category||0})</option>
     </select>
   </div>`;
   if (adminState.reportsLoading) {
@@ -228,7 +229,9 @@ async function adminDeleteUser(userId) {
 // reason quote + the full mistake card the reporter actually saw.
 function renderReportCard(r) {
   const date = new Date(r.created_at + "Z").toLocaleString();
-  const kindLabel = r.kind === "wrong_category" ? "Wrong category" : "Wrong text";
+  const kindLabel = r.kind === "wrong_category" ? "Wrong category"
+    : r.kind === "complex_gap" ? "Complex gap"
+    : "Wrong text";
   // The mistake's skill area × shape, as the JS categorizer just computed it —
   // the same code path the reporter saw. Empty if prep / mortal_data wasn't
   // available.
@@ -252,7 +255,14 @@ function renderReportCard(r) {
       <span class="quote-mark">&ldquo;</span>
       <div class="reason-text">`;
     if (r.reason) html += escapeHtml(r.reason);
-    if (r.suggested_category) {
+    if (r.suggested_category && r.kind === "complex_gap") {
+      // complex_gap rides its quick-tags here (comma-joined). Show them as the
+      // dimensions the player flagged — these cluster into add-on B's backlog.
+      const tags = r.suggested_category.split(",").map(s => s.trim()).filter(Boolean);
+      html += `<div class="reason-suggested">Tagged:
+        ${tags.map(t => `<span class="to"><code>${escapeHtml(t)}</code></span>`).join(" ")}
+      </div>`;
+    } else if (r.suggested_category) {
       // Historical only — the wrong_category report kind was retired with the
       // legacy codes (CORE Phase 3). Show the stored code verbatim as a record.
       html += `<div class="reason-suggested">Suggested category (legacy):

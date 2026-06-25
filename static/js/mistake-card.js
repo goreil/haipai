@@ -226,12 +226,24 @@ function onAnnotate(el) {
 
 // --- Category report handlers ---
 
-// The mistake-correctness report row. As of CORE Phase 3 the only report kind
-// is `wrong_text` (the explanation reads wrong) — the old `wrong_category`
-// kind retired with the category codes (there is no code to suggest anymore;
-// EXTRAS-A's complex-gap funnel replaces that feedback path). Existing
-// `wrong_category` rows stay readable in admin as historical text.
+// Quick-tags offered on the complex-gap funnel (EXTRAS-A). Keys are stored
+// comma-joined in the report's `suggested_category` column; labels are the
+// candidate dimensions a clustered backlog would build next.
+const COMPLEX_GAP_TAGS = [
+  { key: "wait_quality", label: "Wait quality" },
+  { key: "score_pressure", label: "Score pressure" },
+  { key: "safe_tile_mgmt", label: "Safe-tile mgmt" },
+  { key: "shape", label: "Shape" },
+];
+
+// The mistake-correctness report row (the `wrong_text` kind — the explanation
+// reads wrong). Complex cards get no row here: their EXTRAS-A feedback funnel
+// lives inside the trainer's speech bubble instead (`renderComplexGapFunnel`,
+// embedded by `trainerBubbleHtml`), where it's far more visible. The old
+// `wrong_category` kind retired with the category codes (CORE Phase 3); existing
+// rows stay readable in admin as historical text.
 function renderReportRow(m) {
+  if (m.shape === "complex") return "";
   const rep = m.my_report || null;
   const kind = rep ? rep.kind : null;
   const detailsOpen = kind === "wrong_text";
@@ -265,6 +277,120 @@ function renderReportRow(m) {
                   data-mid="${m.id}" data-change-action="onReportDetails">`;
   html += `</div></div>`;
   return html;
+}
+
+// The Haipai trainer's speech bubble: the teaching text plus, on complex cards,
+// the embedded complex-gap feedback funnel. A complex card is where our visible
+// stats can't explain Mortal's pick — so right where the trainer admits that,
+// we ask the player to teach us. Only the game-detail render paths use this;
+// admin / trends build their own non-interactive bubbles.
+function trainerBubbleHtml(m) {
+  const explanation = generateExplanation(m);
+  const funnel = (m.shape === "complex" && m.id) ? renderComplexGapFunnel(m) : "";
+  if (!explanation && !funnel) return "";
+  return `<div class="mascot-speech">`
+    + `<img src="/static/mascot.svg" class="mascot-avatar" alt="">`
+    + `<div class="speech-bubble">${explanation}${funnel}</div></div>`;
+}
+
+// The complex-gap feedback funnel (EXTRAS-A.1), embedded in the trainer bubble
+// just under the "the stats don't explain it — trust the read" line. Multi-select
+// quick-tags + free text, written to `category_reports` under the `complex_gap`
+// kind (tags ride in `suggested_category`, free text in `reason`). The container
+// keeps the `report-row` class so the shared save/clear handlers (which key off
+// `.report-row[data-mid]`) work unchanged.
+function renderComplexGapFunnel(m) {
+  const rep = (m.my_report && m.my_report.kind === "complex_gap") ? m.my_report : null;
+  const activeTags = new Set(
+    (rep && rep.suggested_category ? rep.suggested_category.split(",") : [])
+      .map(s => s.trim()).filter(Boolean)
+  );
+  const reason = (rep && rep.reason) || "";
+  const undoBtn = rep
+    ? `<button type="button" class="report-undo" data-mid="${m.id}"
+               title="Remove this feedback"
+               data-action="onReportClear">Undo</button>`
+    : "";
+
+  let html = `<div class="report-row complex-gap-row" data-mid="${m.id}">
+    <div class="complex-gap-prompt">We can't pin down what Mortal read here — can
+      you? <span class="complex-gap-help">Tag it or tell us; it helps us build the
+      stat we're missing.</span></div>
+    <div class="complex-gap-tags">`;
+  for (const t of COMPLEX_GAP_TAGS) {
+    const active = activeTags.has(t.key) ? " active" : "";
+    html += `<button type="button" class="complex-tag${active}"
+                     data-mid="${m.id}" data-tag="${t.key}"
+                     data-action="onComplexTag">${t.label}</button>`;
+  }
+  html += `</div>
+    <div class="complex-gap-input">
+      <input type="text" class="report-reason complex-gap-reason"
+             placeholder="Your read (optional)…" maxlength="500"
+             value="${reason.replace(/"/g, "&quot;")}"
+             data-mid="${m.id}" data-change-action="onComplexReason">
+      ${undoBtn}
+      <span class="report-status"></span>
+    </div>
+  </div>`;
+  return html;
+}
+
+function _findMistakeById(mid) {
+  if (!state.currentGameData) return null;
+  for (const rnd of state.currentGameData.rounds || []) {
+    for (const m of rnd.mistakes || []) {
+      if (m.id === mid) return m;
+    }
+  }
+  return null;
+}
+
+function _complexGapState(mid) {
+  const row = document.querySelector(`.report-row[data-mid="${mid}"]`);
+  if (!row) return null;
+  const tags = [...row.querySelectorAll(".complex-tag.active")].map(b => b.dataset.tag);
+  const reason = row.querySelector(".complex-gap-reason")?.value?.trim() || "";
+  return { row, tags, reason };
+}
+
+// Persist (or clear) the funnel. An empty funnel — no tags, no text — stores
+// nothing: if a report already exists we delete it, otherwise we no-op.
+async function saveComplexGap(mid) {
+  const st = _complexGapState(mid);
+  if (!st) return;
+  if (!st.tags.length && !st.reason) {
+    if (_findMistakeById(mid)?.my_report) await onReportClear(mid);
+    return;
+  }
+  const suggested = st.tags.join(",");
+  const ok = await saveReport(mid, "complex_gap", suggested, st.reason || null);
+  if (ok) {
+    // Mirror the save into state so a re-render (tab switch) keeps the
+    // selection and the Undo button without a server round-trip.
+    const m = _findMistakeById(mid);
+    if (m) m.my_report = { kind: "complex_gap", suggested_category: suggested, reason: st.reason || null };
+    if (!st.row.querySelector(".report-undo")) {
+      const status = st.row.querySelector(".report-status");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "report-undo";
+      btn.title = "Remove this feedback";
+      btn.dataset.mid = mid;
+      btn.dataset.action = "onReportClear";
+      btn.textContent = "Undo";
+      status.parentNode.insertBefore(btn, status);
+    }
+  }
+}
+
+function onComplexTag(btn, mid) {
+  btn.classList.toggle("active");
+  saveComplexGap(mid);
+}
+
+function onComplexReason(mid) {
+  saveComplexGap(mid);
 }
 
 async function saveReport(mistakeId, kind, suggested, reason) {
@@ -345,9 +471,11 @@ async function onReportClear(mid) {
     }
   }
   if (row) {
-    row.querySelectorAll(".report-btn").forEach(b => b.classList.remove("active"));
+    row.querySelectorAll(".report-btn, .complex-tag").forEach(b => b.classList.remove("active"));
     const details = row.querySelector(".report-details");
     if (details) details.style.display = "none";
+    const reasonInput = row.querySelector(".complex-gap-reason");
+    if (reasonInput) reasonInput.value = "";
     const undo = row.querySelector(".report-undo");
     if (undo) undo.remove();
   }

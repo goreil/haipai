@@ -52,6 +52,22 @@ grepping. If you change a concept that isn't listed, add it.
 - Meld rendering: `static/js/board-melds.js`
 - Categorization (the live, client-side engine — there is no `lib/categorize.py`): `static/js/categorize.js` (entry), `static/js/categorize-metadata.js` (category labels/groups/colors), `static/js/categorize-yaku.js` (closed-hand yaku detection), `static/js/categorize-explanations.js` (per-category explanation blocks). Before/after changing any of these, benchmark with `scripts/category_bench.mjs` → `.claude/skills/categorize-bench/SKILL.md`
 - Mistake card (per-round entry on game detail): `static/js/mistake-card.js`
+- Complex-gap feedback funnel (EXTRAS-A): on **complex**-shape cards, embedded
+  INSIDE the trainer's speech bubble (under the "stats don't explain it — trust
+  the read" line), a "We can't pin down what Mortal read — can you?" CTA with
+  multi-select quick-tags + free text. Complex cards get NO `wrong_text` report
+  row (the funnel replaces it). The bubble is built by `trainerBubbleHtml(m)`
+  (`static/js/mistake-card.js`) — used by both game-detail render paths in
+  `static/js/game-render.js` (rounds + summary); admin/trends build their own
+  non-interactive bubbles via `generateExplanation` directly, so the funnel never
+  leaks there. Funnel render/handlers `renderComplexGapFunnel`/`saveComplexGap`/
+  `onComplexTag`/`onComplexReason` (`static/js/mistake-card.js`), actions in
+  `static/js/actions.js`, styles `.complex-gap-*` (`static/style-game-detail.css`).
+  Stored in `category_reports` under kind `complex_gap` (tags comma-joined in
+  `suggested_category`, free text in `reason`; no schema change): `db/reports.py`
+  `REPORT_KINDS` + the report route in `routes/game.py`. Read path:
+  `scripts/show_reports.py` (`--kind complex_gap`, tag tally) + admin reports
+  (`static/js/admin.js`).
 - EV / severity tier coloring: `static/js/severity.js` (shared helpers), `static/js/ev-table.js`; importers: `static/js/trends-charts.js`, `static/js/game-render.js`, `static/js/categorize-explanations.js`
 - Skill-area metadata (push/defense/riichi labels): `static/js/skill-areas.js`; importers: `static/js/trends-*.js`, `static/js/game-render.js`
 - Trends page: `static/js/trends-view.js` (page shell + fetch), `static/js/trends-charts.js` (SVG charts), `static/js/trends-analysis.js` (worker pool + aggregations)

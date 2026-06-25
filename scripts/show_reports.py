@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dump per-mistake wrong-category / wrong-text reports.
+"""Dump per-mistake category reports (complex_gap / wrong_text / legacy wrong_category).
 
 Runs against the SQLite DB — locally that's ./games.db, inside the app
 container it's /app/data/games.db. Set DB_PATH to override.
@@ -66,12 +66,19 @@ def fetch(db_path, kind=None, since=None, mistake_id=None, user_id=None):
 def summarize(rows):
     by_kind = {}
     by_suggested = {}
+    by_tag = {}
     for r in rows:
         by_kind[r["kind"]] = by_kind.get(r["kind"], 0) + 1
         if r["kind"] == "wrong_category":
             cat = r["suggested_category"] or "?"
             by_suggested[cat] = by_suggested.get(cat, 0) + 1
-    return by_kind, by_suggested
+        elif r["kind"] == "complex_gap":
+            # complex_gap stores comma-joined quick-tags in suggested_category.
+            for tag in (r["suggested_category"] or "").split(","):
+                tag = tag.strip()
+                if tag:
+                    by_tag[tag] = by_tag.get(tag, 0) + 1
+    return by_kind, by_suggested, by_tag
 
 
 def pretty_print(rows):
@@ -79,13 +86,18 @@ def pretty_print(rows):
         print("(no reports)")
         return
 
-    by_kind, by_suggested = summarize(rows)
+    by_kind, by_suggested, by_tag = summarize(rows)
     print(f"Total: {len(rows)}  |  " + "  ".join(f"{k}={v}" for k, v in by_kind.items()))
     if by_suggested:
         print()
         print("Suggested categories (wrong_category reports only):")
         for cat in sorted(by_suggested):
             print(f"  {cat:<4}  {by_suggested[cat]:>3}")
+    if by_tag:
+        print()
+        print("Quick-tags (complex_gap reports only):")
+        for tag in sorted(by_tag, key=lambda t: -by_tag[t]):
+            print(f"  {tag:<16}  {by_tag[tag]:>3}")
     print()
     print("Reports (newest first):")
     for r in rows:
@@ -94,14 +106,15 @@ def pretty_print(rows):
                 f"game={r['game_id']} turn={r['turn']} ev={r['ev_loss']}  kind={r['kind']}")
         print(head)
         if r["suggested_category"]:
-            print(f"         suggested: {r['suggested_category']}")
+            label = "tags" if r["kind"] == "complex_gap" else "suggested"
+            print(f"         {label}: {r['suggested_category']}")
         if r["reason"]:
             print(f"         reason: {r['reason']}")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--kind", choices=("wrong_category", "wrong_text"),
+    ap.add_argument("--kind", choices=("complex_gap", "wrong_text", "wrong_category"),
                     help="Filter by report kind.")
     ap.add_argument("--since", help="ISO date/timestamp, e.g. 2026-04-01.")
     ap.add_argument("--mistake", type=int, help="Filter to a specific mistake id.")

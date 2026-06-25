@@ -227,11 +227,14 @@ def api_report_category(mistake_id):
         return jsonify({"error": "reason must be a string"}), 400
     if reason and len(reason) > 500:
         return jsonify({"error": "reason too long (max 500 chars)"}), 400
+    if suggested and len(suggested) > 200:
+        return jsonify({"error": "suggested_category too long (max 200 chars)"}), 400
 
-    # `suggested_category` is no longer written by new reports (the code layer
-    # is gone) — accepted for back-compat but dropped.
+    # `complex_gap` rides its quick-tags in `suggested_category`; `wrong_text`
+    # never sends one (the legacy category-code path is gone), so it stays None.
+    stored_suggested = suggested if kind == "complex_gap" else None
     report_id = db.submit_category_report(conn, uid, mistake_id,
-                                          kind=kind, suggested_category=None,
+                                          kind=kind, suggested_category=stored_suggested,
                                           reason=reason)
     return jsonify({"ok": True, "id": report_id})
 

@@ -13,52 +13,40 @@ done.
 
 | Add-on | What it is | Core dependency |
 | ------ | ---------- | --------------- |
-| **A. Complex → feedback funnel** | report prompt on complex cards → `category_reports` | `shape` (Phase 1) + pills-first card (Phase 3) |
+| **A. Complex → feedback funnel** ✅ SHIPPED | report prompt on complex cards → `category_reports` | `shape` (Phase 1) + pills-first card (Phase 3) |
 | **B. New value dimensions** | yaku_progress / open_ability / shape_quality / per-opponent defense | comparator + fragment registry (Phases 0 & 2) |
 | **C. Trends + admin dashboard** | skill-area counter, behavioral profiling, complex-coverage %, re-enable weakness analysis | the win-vectors (Phase 0) |
 
 ---
 
-## A. Complex cards: turn the blind spot into a feature funnel
+## A. Complex cards: turn the blind spot into a feature funnel — ✅ SHIPPED
 
-A **Complex** card is, by definition, a spot our visible dimensions can't
-explain — which is exactly where the player can teach *us*. Every complex card
-carries a lightweight report prompt:
-
-> *"Mortal sees something our stats don't capture yet — what do you think it
-> read?"* → free-text + optional quick-tags (e.g. *wait quality / score
-> pressure / safe-tile management / shape*).
-
-This writes to the existing `category_reports` table under a new report type
-(e.g. `complex_gap`). Note CORE Phase 3 retires the `wrong_category` kind (the
-codes it referenced are gone); `complex_gap` becomes the new primary report type
-alongside the surviving `wrong_text` (read via `scripts/show_reports.py` / the
-`category-reports` skill). Two payoffs:
-
-1. **Product**: the complex bucket becomes a backlog generator — clustered
-   reports tell us which dimension to build next (feeds add-on B).
-2. **User**: "help us out" reframes a frustrating "we don't know" into
-   participation, instead of a dead end.
+A **Complex** card is a spot our visible dimensions can't explain — exactly
+where the player can teach *us*. Complex cards embed a feedback funnel **inside
+the trainer's speech bubble** (right under the "the visible stats don't explain
+it — trust the read" line, for maximum visibility): a *"We can't pin down what
+Mortal read here — can you?"* CTA + multi-select quick-tags (wait quality /
+score pressure / safe-tile mgmt / shape) + free text. Complex cards get no
+`wrong_text` report row — the bubble funnel replaces it. It writes to
+`category_reports` under the new `complex_gap` kind (tags ride comma-joined in
+`suggested_category`, free text in `reason`; no schema change).
 
 This is the user-facing complement to the **admin-only complex-coverage %**
-(add-on C): coverage measures how blind we are; the reports tell us *what* we're
-blind to.
+(add-on C): coverage measures how blind we are; the clustered `complex_gap`
+reports tell us *what* we're blind to and feed add-on B's dimension backlog.
 
-### Checklist
-
-> Was Phase 3.2 / 3.3 in the original combined plan.
-
-- [ ] **A.1** On **complex** cards, add the report prompt ("Mortal sees something
-  our stats don't capture yet — what did it read?") with free-text + quick-tags
-  (wait quality / score pressure / safe-tile mgmt / shape). Non-complex cards show
-  no prompt. Sits below the pills-first card layout from CORE Phase 3.1.
-- [ ] **A.2** Wire it to the existing `category_reports` table under a new type
-  `complex_gap` (alongside the surviving `wrong_text`; `wrong_category` was retired
-  in CORE Phase 3). Backend:
-  `db/reports.py` + the report route. Read path: `scripts/show_reports.py` /
-  `category-reports` skill must surface the new type.
-- [ ] **Exit gate:** submit a `complex_gap` report from a complex card in the UI;
-  confirm it lands via `scripts/show_reports.py`. Non-complex cards show no prompt.
+Where it lives:
+- Trainer bubble assembler `trainerBubbleHtml(m)` (`static/js/mistake-card.js`),
+  used by both game-detail render paths in `static/js/game-render.js`. Funnel
+  render + handlers `renderComplexGapFunnel` / `saveComplexGap` / `onComplexTag` /
+  `onComplexReason` (`static/js/mistake-card.js`); actions registered in
+  `static/js/actions.js`; styles `.complex-gap-*` in `static/style-game-detail.css`.
+  Admin / trends build their own non-interactive bubbles via `generateExplanation`,
+  so the funnel never leaks there.
+- Backend: `complex_gap` in `db/reports.py` `REPORT_KINDS`; the report route
+  (`routes/game.py`) writes the tags through `suggested_category` for this kind.
+- Read path: `scripts/show_reports.py` (tag tally + `--kind complex_gap`) and the
+  admin reports view (`static/js/admin.js`) both surface it.
 
 ---
 

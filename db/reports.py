@@ -3,12 +3,15 @@
 from db.mistakes import row_to_mistake
 
 
-# As of mistake-dimensions CORE Phase 3 the only live report kind is
-# 'wrong_text' — 'wrong_category' retired with the category codes (there is no
-# code to suggest anymore; EXTRAS-A's complex-gap funnel replaces that path).
-# Existing 'wrong_category' rows + their suggested_category stay readable as
-# historical text; the column is kept, just no longer written by new reports.
-REPORT_KINDS = ("wrong_text",)
+# Live report kinds (mistake-dimensions CORE Phase 3 + EXTRAS-A):
+#   'wrong_text'  — the trainer explanation reads wrong for this mistake.
+#   'complex_gap' — EXTRAS-A funnel: on a *complex* card (our visible stats
+#                   can't explain Mortal's pick) the player tells us what they
+#                   think Mortal read. Quick-tags ride in `suggested_category`
+#                   (comma-joined keys), free text in `reason`.
+# 'wrong_category' retired with the category codes (CORE Phase 3); existing
+# rows + their suggested_category stay readable as historical text.
+REPORT_KINDS = ("wrong_text", "complex_gap")
 
 
 def submit_category_report(conn, user_id, mistake_id, kind, suggested_category=None, reason=None):
@@ -16,9 +19,9 @@ def submit_category_report(conn, user_id, mistake_id, kind, suggested_category=N
     submitting again replaces the previous one.
 
     kind: 'wrong_text' — the trainer explanation reads wrong for this mistake
-    (provides an optional free-text reason). `suggested_category` is retained
-    only for back-compatibility with stored historical rows; new reports pass
-    None.
+    (optional free-text `reason`; `suggested_category` is None for new rows).
+    kind: 'complex_gap' — the player's read on a complex card; `reason` is the
+    free text and `suggested_category` carries the comma-joined quick-tags.
     """
     if kind not in REPORT_KINDS:
         raise ValueError(f"invalid report kind: {kind!r}")

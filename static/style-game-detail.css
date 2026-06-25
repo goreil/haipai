@@ -1533,6 +1533,56 @@
   outline: none;
 }
 
+/* Complex-gap feedback funnel (EXTRAS-A): embedded INSIDE the trainer's speech
+   bubble on complex cards — right where the trainer admits the stats can't
+   explain Mortal's pick, we ask the player. Reads as a CTA under the teaching
+   text, divided off by a hairline rather than boxed. */
+.complex-gap-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.complex-gap-prompt {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+  line-height: 1.45;
+}
+.complex-gap-help { color: var(--text-dim); font-weight: 400; }
+.complex-gap-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.complex-tag {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+}
+.complex-tag:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+.complex-tag.active {
+  background: rgba(74, 158, 255, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.complex-gap-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
 /* Summary view */
 .game-summary {
   padding: 16px;

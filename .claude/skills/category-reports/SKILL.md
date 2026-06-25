@@ -1,6 +1,6 @@
 ---
 name: category-reports
-description: Read user-submitted category-correctness reports (agree / wrong_category / wrong_text) for the Haipai mistake categorizer. Use when the user asks to "check the category reports", investigate a categorization complaint, or wants the latest user feedback on mistakes. Reports live in the `category_reports` SQLite table.
+description: Read user-submitted category-correctness reports (complex_gap / wrong_text / legacy wrong_category) for the Haipai mistake categorizer. Use when the user asks to "check the category reports", investigate a categorization complaint, or wants the latest user feedback on mistakes. Reports live in the `category_reports` SQLite table.
 ---
 
 # Category reports
@@ -18,8 +18,10 @@ The dump is sorted newest-first and includes the mistake's ev_loss and turn, plu
 ## Useful filters
 
 ```bash
-# Only wrong_category reports
-docker exec haipai-app-1 python3 /app/scripts/show_reports.py --kind wrong_category
+# Only complex_gap reports (the EXTRAS-A "what did Mortal read?" funnel on
+# complex cards). The dump tallies the quick-tags and labels suggested_category
+# as `tags:` for this kind.
+docker exec haipai-app-1 python3 /app/scripts/show_reports.py --kind complex_gap
 
 # Since a date
 docker exec haipai-app-1 python3 /app/scripts/show_reports.py --since 2026-04-01
@@ -31,7 +33,9 @@ docker exec haipai-app-1 python3 /app/scripts/show_reports.py --mistake 5747
 docker exec haipai-app-1 python3 /app/scripts/show_reports.py --json
 ```
 
-`--kind` is one of `agree`, `wrong_category`, `wrong_text`.
+`--kind` is one of `complex_gap`, `wrong_text`, `wrong_category` (legacy).
+For `complex_gap`, `suggested_category` holds the comma-joined quick-tags
+(wait_quality / score_pressure / safe_tile_mgmt / shape), not a category code.
 
 ## Inspecting the underlying mistake
 

@@ -60,6 +60,7 @@ var HAIPAI_CLICK_ACTIONS = {
   toggleGameMistakes: (el) => toggleGameMistakes(el.dataset.groupId),
   onReportClick: (el) => onReportClick(el, +el.dataset.mid, el.dataset.kind),
   onReportClear: (el) => onReportClear(+el.dataset.mid),
+  onComplexTag: (el) => onComplexTag(el, +el.dataset.mid),
 
   // --- ev table ---
   toggleShared: (el) => toggleShared(el),
@@ -85,6 +86,7 @@ var HAIPAI_CLICK_ACTIONS = {
 var HAIPAI_CHANGE_ACTIONS = {
   onAnnotate: (el) => onAnnotate(el),
   onReportDetails: (el) => onReportDetails(el, +el.dataset.mid),
+  onComplexReason: (el) => onComplexReason(+el.dataset.mid),
   reloadAdminReports: (el) => reloadAdminReports(el.value),
   adminReportKind: (el) => { adminState.reportKind = el.value; renderAdmin(); },
   onToggleMistake: (el) => onToggleMistake(el),

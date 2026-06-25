@@ -414,13 +414,9 @@ function renderGame() {
         html += `</div>`;
       }
 
-      // Explanation
-      {
-        const explanation = generateExplanation(m);
-        if (explanation) {
-          html += `<div class="mascot-speech"><img src="/static/mascot.svg" class="mascot-avatar" alt="""><div class="speech-bubble">${explanation}</div></div>`;
-        }
-      }
+      // Trainer bubble: explanation + (on complex cards) the embedded
+      // complex-gap feedback funnel.
+      html += trainerBubbleHtml(m);
 
       // Note input (always visible)
       {
@@ -515,8 +511,7 @@ function renderGame() {
         // Inline mistake list (hidden by default) with explanatory text
         const sorted = [...data.mistakes].sort((a, b) => (b.ev_loss || 0) - (a.ev_loss || 0));
         let panelHtml = sorted.map(m => {
-          const explanation = generateExplanation(m);
-          const explSpan = explanation ? `<div class="mascot-speech"><img src="/static/mascot.svg" class="mascot-avatar" alt="""><div class="speech-bubble">${explanation}</div></div>` : "";
+          const explSpan = trainerBubbleHtml(m);
           const loc = mistakeLoc.get(m) || {};
           const cardOpts = {
             annotate: true,

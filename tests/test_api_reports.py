@@ -56,6 +56,32 @@ class TestCategoryReport:
         assert res.status_code == 200
         assert res.get_json()["ok"] is True
 
+    def test_report_complex_gap_stores_tags_and_reason(self, client):
+        """EXTRAS-A funnel: a complex_gap report stores its quick-tags in
+        suggested_category (comma-joined) and the free text in reason."""
+        _login(client)
+        me = client.get("/api/me").get_json()
+        _, mistake_id = insert_game(me["id"], with_mistakes=True)
+
+        res = client.post(f"/api/mistakes/{mistake_id}/report", json={
+            "kind": "complex_gap",
+            "suggested_category": "wait_quality,shape",
+            "reason": "Looks like a wait-quality read to me",
+        })
+        assert res.status_code == 200
+        assert res.get_json()["ok"] is True
+
+        conn = db.get_db()
+        row = conn.execute(
+            "SELECT kind, suggested_category, reason FROM category_reports "
+            "WHERE mistake_id = ? AND user_id = ?",
+            (mistake_id, me["id"]),
+        ).fetchone()
+        conn.close()
+        assert row["kind"] == "complex_gap"
+        assert row["suggested_category"] == "wait_quality,shape"
+        assert row["reason"] == "Looks like a wait-quality read to me"
+
     def test_report_missing_kind(self, client):
         _login(client)
         me = client.get("/api/me").get_json()
