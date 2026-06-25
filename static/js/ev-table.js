@@ -406,40 +406,49 @@ function renderEvComparison(m, options) {
   // cross-shanten ukeire "gain" is `suppressed` and shown as a neutral context
   // pill ("wider, a step slower") instead of a green +ukeire — the old loop
   // fired +ukeire with no shanten gate, which this fixes.
-  const featPill = (kind, label, title, tilesHtml = "", style = "") =>
-    `<span class="feat-pill feat-pill-${kind}" title="${title}"${style ? ` style="${style}"` : ""}>`
+  // A winning pill is tinted by its group's colour (the shared scheme in
+  // compare-dimensions.GROUP_META: Efficiency=blue, Yaku=green, Value=gold,
+  // Defense=pink). `grpColor` swaps the green `feat-pill-pos` chrome for the
+  // group-tinted `feat-pill-grp` (driven by the `--feat-grp` custom property).
+  // The suppressed context pill passes no colour and keeps its muted chrome.
+  const featPill = (kind, label, title, tilesHtml = "", grpColor = "") =>
+    `<span class="feat-pill ${grpColor ? "feat-pill-grp" : "feat-pill-" + kind}" title="${title}"${grpColor ? ` style="--feat-grp:${grpColor}"` : ""}>`
     + `<span class="feat-pill-label">${label}</span>`
     + (tilesHtml ? `<span class="feat-pill-tiles">${tilesHtml}</span>` : "")
     + `</span>`;
 
+  const groupColors = (typeof haipaiCompareDimensions !== "undefined"
+    && haipaiCompareDimensions.GROUP_META) || {};
+
   const renderWinPill = (w) => {
+    const c = (groupColors[w.group] || {}).color || "";
     switch (w.dim) {
       case "shanten":
         return featPill("pos", `-${w.magnitude} shanten`,
-          "Reaches tenpai sooner (lower shanten) than the other pick");
+          "Reaches tenpai sooner (lower shanten) than the other pick", "", c);
       case "ukeire":
         return w.suppressed
           ? featPill("context", w.context || "wider, a step slower",
               "Accepts more tiles, but at a worse shanten — a wide-but-slow shape, not a speed win")
           : featPill("pos", `+${w.magnitude} ukeire`,
-              "Accepts more tiles than the other pick");
+              "Accepts more tiles than the other pick", "", c);
       case "yakuhai_kept":
         return featPill("pos", "+yakuhai",
           "Keeps a yakuhai (value honor) the other pick discards",
-          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""));
+          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
       case "dora_kept":
         return featPill("pos", "+dora", "Keeps a dora the other pick discards",
-          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""));
+          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
       case "dora_acceptance":
         return featPill("pos", "+dora accept",
           "Its wait accepts more live dora than the other pick",
-          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""));
+          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
       case "deal_in":
         return w.seat != null
           ? featPill("pos", `-${w.pct.toFixed(1)}% deal-in ${seatWindShort(w.seat)}`,
-              `Deals in ${w.pct.toFixed(1)}% less often than the other pick against ${seatWindFor(w.seat)}`)
+              `Deals in ${w.pct.toFixed(1)}% less often than the other pick against ${seatWindFor(w.seat)}`, "", c)
           : featPill("pos", `-${w.pct.toFixed(1)}% deal-in`,
-              `Deals in ${w.pct.toFixed(1)}% less often than the other pick`);
+              `Deals in ${w.pct.toFixed(1)}% less often than the other pick`, "", c);
       default:
         return "";
     }

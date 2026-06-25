@@ -43,13 +43,32 @@
     return { severe: 0, mistake: 0, light: 0, unsure: 0 };
   }
 
-  // Walk every mistake, run the shared comparator, and tally pills per side/dim.
-  // Returns { missed: {dim->entry}, you: {dim->entry} } or null when nothing
-  // qualifies (no pills, or the comparator is unavailable). `tier()` is injected
-  // so this stays decoupled from severity.js for the node test harness.
+  // Add one mistake's EV/tier into a {key->entry} ledger, once per key.
+  // `seen` guards the per-mistake dedup; `make` builds a fresh entry.
+  function tally(ledger, key, seen, ev, t, make) {
+    if (seen[key]) return false;
+    seen[key] = true;
+    var e = ledger[key];
+    if (!e) { e = ledger[key] = make(); }
+    e.count += 1;
+    e.ev += ev;
+    e.tiers[t] += 1;
+    return true;
+  }
+
+  // Walk every mistake, run the shared comparator, and tally pills two ways:
+  //   dims   — per (side, dim): the detailed breakdown rows.
+  //   groups — per (side, group): the rolled-up view for the top-summary. This
+  //            is where the double-count is resolved — a mistake winning both
+  //            `dora_kept` and `dora_acceptance` on one side is TWO dim rows but
+  //            ONE "Value" group hit.
+  // Each dim entry carries its `group` so the renderer can colour it. Returns
+  // { dims: {missed,you}, groups: {missed,you} } or null when nothing qualifies.
+  // `tier()` is injected so this stays decoupled from severity.js for tests.
   function aggregate(game, compareDimensions, tier) {
     if (typeof compareDimensions !== "function") return null;
-    var ledgers = { missed: {}, you: {} };
+    var dims = { missed: {}, you: {} };
+    var groups = { missed: {}, you: {} };
     var any = false;
     var rounds = (game && game.rounds) || [];
     for (var r = 0; r < rounds.length; r++) {
@@ -59,30 +78,31 @@
         var wins = compareDimensions(m) || [];
         var ev = m.ev_loss || 0;
         var t = tier(m.ev_loss);
-        // A mistake counts ONCE per (side, dim): the per-seat deal_in vector can
-        // emit the same dim+winner twice for one decision, but it's still one
-        // mistake leaking defense EV.
-        var seen = {};
+        // Per-mistake dedup keys: the per-seat deal_in vector can emit the same
+        // dim+winner twice for one decision, and a Value mistake can emit two
+        // dims — neither should inflate its count.
+        var seenDim = {};
+        var seenGroup = {};
         for (var w = 0; w < wins.length; w++) {
           var win = wins[w];
           if (!win || win.suppressed) continue;
           if (win.winner !== "you" && win.winner !== "mortal") continue;
           if (!CONCEPT_META[win.dim]) continue;
           var side = win.winner === "mortal" ? "missed" : "you";
-          var key = side + "|" + win.dim;
-          if (seen[key]) continue;
-          seen[key] = true;
-          var led = ledgers[side];
-          var e = led[win.dim];
-          if (!e) { e = led[win.dim] = { dim: win.dim, count: 0, ev: 0, tiers: emptyTiers() }; }
-          e.count += 1;
-          e.ev += ev;
-          e.tiers[t] += 1;
+          var dim = win.dim, grp = win.group || "Other";
+          (function (dim, grp) {
+            tally(dims[side], dim, seenDim, ev, t, function () {
+              return { dim: dim, group: grp, count: 0, ev: 0, tiers: emptyTiers() };
+            });
+            tally(groups[side], grp, seenGroup, ev, t, function () {
+              return { group: grp, count: 0, ev: 0, tiers: emptyTiers() };
+            });
+          })(dim, grp);
           any = true;
         }
       }
     }
-    return any ? ledgers : null;
+    return any ? { dims: dims, groups: groups } : null;
   }
 
   return { CONCEPT_META, aggregate };

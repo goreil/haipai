@@ -43,6 +43,18 @@
   } = categorize;
   const skillAreaForEntry = prepParse && prepParse.skill_area_for_entry;
 
+  // Group → display label + colour. The single source for the colour scheme
+  // shared by the EV-table feature pills (ev-table.js) and the concept
+  // breakdown (game-concept-breakdown.js / game-render.js). Keyed by the
+  // `group` field every win carries, so a new dimension inherits its group's
+  // colour for free. Hues match the skill-area palette (skill-areas.js).
+  const GROUP_META = {
+    Speed:   { label: "Efficiency", color: "#4a9eff" },  // blue
+    Yaku:    { label: "Yaku",       color: "#22c55e" },  // green
+    Dora:    { label: "Value",      color: "#f5b342" },  // gold
+    Defense: { label: "Defense",    color: "#ee5fa7" },  // pink
+  };
+
   // The two tiles under comparison, derived exactly as ev-table.js does: a
   // reach action has no pai of its own (the riichi tile is the next dahai), so
   // 5A reads actual_riichi_tile and 5B reuses the player's discard for both.
@@ -238,5 +250,5 @@
     return "trade-off";
   }
 
-  return { compareDimensions, deriveShape, skillAreaFor, threatScene, comparedTiles };
+  return { compareDimensions, deriveShape, skillAreaFor, threatScene, comparedTiles, GROUP_META };
 }));

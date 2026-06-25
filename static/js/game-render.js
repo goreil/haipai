@@ -55,16 +55,50 @@ function setSeverityFiltersVisible(show) {
   if (el) el.style.display = show ? "" : "none";
 }
 
+// Group colour for a concept group (Efficiency/Yaku/Value/Defense), from the
+// shared scheme in compare-dimensions.GROUP_META.
+function conceptGroupColor(group) {
+  const gm = (typeof haipaiCompareDimensions !== "undefined"
+    && haipaiCompareDimensions.GROUP_META) || {};
+  return (gm[group] || {}).color || "var(--text)";
+}
+
+// The single biggest concept-GROUP leak across both ledgers — feeds the
+// summary-bar headline. Groups are deduped (Dora + Dora acceptance = one Value
+// hit), so this is the double-count-safe view the per-dim rows are not.
+function conceptTopGroup(agg) {
+  if (!agg) return null;
+  const gm = (typeof haipaiCompareDimensions !== "undefined"
+    && haipaiCompareDimensions.GROUP_META) || {};
+  let best = null;
+  for (const side of ["missed", "you"]) {
+    for (const g of Object.values(agg.groups[side])) {
+      if (!best || g.ev > best.ev) best = Object.assign({ side: side }, g);
+    }
+  }
+  if (!best) return null;
+  return Object.assign({}, best, { meta: gm[best.group] || { label: best.group, color: "var(--accent)" } });
+}
+
+// Summary-bar stat for the top concept group (only the single leader is shown).
+function renderTopGroupStat(agg) {
+  const tg = conceptTopGroup(agg);
+  if (!tg) return "";
+  const word = tg.side === "missed" ? "under-using" : "over-valuing";
+  return `<div class="stat" title="Your biggest concept-group EV leak this game. Pills are rolled up by category and de-duplicated (Dora + Dora acceptance count once); you’re ${word} this group.">
+    <span class="value" style="color:${tg.meta.color}">${tg.meta.label}</span>
+    <span class="label">Top leak &middot; ${tg.ev.toFixed(2)} EV</span>
+  </div>`;
+}
+
 // Concept-level EV ledger shown at the top of a game (see
 // game-concept-breakdown.js). Two columns: pills the AI won (you under-used the
-// concept) and pills you won on a losing play (you over-prioritized it). Each
-// row mirrors the Summary tab's stats — count, summed EV, severity split.
-function renderConceptBreakdown(game) {
-  if (typeof haipaiConceptBreakdown === "undefined"
-      || typeof haipaiCompareDimensions === "undefined") return "";
-  const ledgers = haipaiConceptBreakdown.aggregate(
-    game, haipaiCompareDimensions.compareDimensions, sevTier);
-  if (!ledgers) return "";
+// concept) and pills you won on a losing play (you over-prioritized it). The
+// first column is the concept rendered as a group-coloured pill; the rest mirror
+// the Summary tab's stats — count, summed EV, severity split. Takes the
+// precomputed aggregate so renderGame can reuse it for the summary-bar headline.
+function renderConceptBreakdown(agg) {
+  if (!agg || typeof haipaiConceptBreakdown === "undefined") return "";
 
   const META = haipaiConceptBreakdown.CONCEPT_META;
   const TIER_CHIPS = [
@@ -88,7 +122,7 @@ function renderConceptBreakdown(game) {
       </div>`;
     for (const e of rows) {
       h += `<div class="concept-row">
-        <span class="concept-name">${META[e.dim].label}</span>
+        <span class="concept-pill" style="--grp:${conceptGroupColor(e.group)}">${META[e.dim].label}</span>
         <span class="concept-count" title="${e.count} mistake${e.count === 1 ? "" : "s"}">${e.count}&times;</span>
         <span class="concept-ev">${e.ev.toFixed(2)} EV</span>
         <span class="concept-tiers">${tierChips(e.tiers)}</span>
@@ -98,9 +132,9 @@ function renderConceptBreakdown(game) {
   };
 
   const missed = ledgerHtml("Losing points here",
-    "The better play held this edge — you’re under-using these", ledgers.missed);
+    "The better play held this edge — you’re under-using these", agg.dims.missed);
   const over = ledgerHtml("Overvaluing these",
-    "You won this edge but the play still cost EV — you’re over-prioritizing these", ledgers.you);
+    "You won this edge but the play still cost EV — you’re over-prioritizing these", agg.dims.you);
   if (!missed && !over) return "";
   return `<div class="concept-breakdown">${missed}${over}</div>`;
 }
@@ -118,6 +152,13 @@ function renderGame() {
   for (const rnd of game.rounds) {
     for (const mi of rnd.mistakes) tierCounts[sevTier(mi.ev_loss)]++;
   }
+
+  // Concept aggregate, computed once: the summary-bar headline (top group) and
+  // the breakdown ledgers below both read it.
+  const conceptAgg = (typeof haipaiConceptBreakdown !== "undefined"
+      && typeof haipaiCompareDimensions !== "undefined")
+    ? haipaiConceptBreakdown.aggregate(game, haipaiCompareDimensions.compareDimensions, sevTier)
+    : null;
 
   const dateObj = new Date(game.date + "T00:00:00");
   const displayDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -139,11 +180,12 @@ function renderGame() {
       <div class="stat" title="EV loss 0.5–1.0"><span class="value" style="color:var(--sev-medium)">${tierCounts.mistake}</span><span class="label">Mistake</span></div>
       <div class="stat" title="EV loss 0.2–0.5"><span class="value" style="color:var(--sev-light)">${tierCounts.light}</span><span class="label">Light</span></div>
       <div class="stat" title="EV loss < 0.2 — AI not confident"><span class="value" style="color:var(--sev-minor)">${tierCounts.unsure}</span><span class="label">Unsure</span></div>
+      ${renderTopGroupStat(conceptAgg)}
     </div>
   `;
 
   // Concept-level EV ledger, top of the game (under the summary bar).
-  html += renderConceptBreakdown(game);
+  html += renderConceptBreakdown(conceptAgg);
 
   // JS prep banner. Categorization itself runs in JS at render time
   // (see recategorizeGameInPlace); the only progress worth showing is the

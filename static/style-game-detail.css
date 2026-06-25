@@ -90,8 +90,17 @@
   padding: 3px 0;
   font-size: 12px;
 }
-.concept-name {
-  color: var(--text);
+/* First column: the concept rendered as a group-coloured pill. `--grp` is the
+   group colour (compare-dimensions.GROUP_META), set inline per row. */
+.concept-pill {
+  justify-self: start;
+  padding: 2px 9px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--grp);
+  background: color-mix(in srgb, var(--grp) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--grp) 38%, transparent);
 }
 .concept-count {
   color: var(--text-dim);
@@ -1955,6 +1964,14 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px dashed rgba(255, 255, 255, 0.18);
   font-weight: 600;
+}
+/* Group-tinted winning pill: `--feat-grp` is the group colour (set inline by
+   ev-table.js's renderWinPill). Replaces the flat green feat-pill-pos chrome so
+   every pill reads its concept's category at a glance. */
+.feat-pill-grp {
+  color: var(--feat-grp);
+  background: color-mix(in srgb, var(--feat-grp) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--feat-grp) 40%, transparent);
 }
 .feat-pill-tiles {
   display: inline-flex;
