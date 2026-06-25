@@ -13,10 +13,12 @@
 //                  OVER-prioritizing the concept (chasing dora/speed when
 //                  folding or a safer shape scored better).
 //
-// Each concept row carries the mistake count, the summed EV loss, and a
-// severity split — mirroring the Summary tab's per-facet stats. A mistake's
-// full ev_loss is attributed to every concept it touches (one mistake can be
-// both "overvalued dora" and "missed defense"), so the two ledgers are an
+// Buckets roll up to the GROUP (compare-dimensions.GROUP_META: Efficiency /
+// Yaku / Value / Defense), deduped per mistake — so a mistake winning both
+// ukeire and shanten, or both dora_kept and dora_acceptance, is ONE group hit,
+// not two. Each row carries the summed EV loss and a severity split. A mistake's
+// full ev_loss is attributed to every group it touches (one mistake can be both
+// "overvalued Value" and "missed Defense"), so the two ledgers are an
 // attribution view, not a partition of total EV.
 
 (function (root, factory) {
@@ -56,18 +58,15 @@
     return true;
   }
 
-  // Walk every mistake, run the shared comparator, and tally pills two ways:
-  //   dims   — per (side, dim): the detailed breakdown rows.
-  //   groups — per (side, group): the rolled-up view for the top-summary. This
-  //            is where the double-count is resolved — a mistake winning both
-  //            `dora_kept` and `dora_acceptance` on one side is TWO dim rows but
-  //            ONE "Value" group hit.
-  // Each dim entry carries its `group` so the renderer can colour it. Returns
-  // { dims: {missed,you}, groups: {missed,you} } or null when nothing qualifies.
-  // `tier()` is injected so this stays decoupled from severity.js for tests.
+  // Walk every mistake, run the shared comparator, and tally winning pills per
+  // (side, group), deduped per mistake — the per-seat deal_in vector can emit
+  // the same group twice for one decision, and a Value mistake can emit both
+  // dora_kept and dora_acceptance; neither should double-count. Returns
+  // { groups: {missed, you} } (each value a {group->entry} map) or null when
+  // nothing qualifies. `tier()` is injected so this stays decoupled from
+  // severity.js for tests.
   function aggregate(game, compareDimensions, tier) {
     if (typeof compareDimensions !== "function") return null;
-    var dims = { missed: {}, you: {} };
     var groups = { missed: {}, you: {} };
     var any = false;
     var rounds = (game && game.rounds) || [];
@@ -78,10 +77,6 @@
         var wins = compareDimensions(m) || [];
         var ev = m.ev_loss || 0;
         var t = tier(m.ev_loss);
-        // Per-mistake dedup keys: the per-seat deal_in vector can emit the same
-        // dim+winner twice for one decision, and a Value mistake can emit two
-        // dims — neither should inflate its count.
-        var seenDim = {};
         var seenGroup = {};
         for (var w = 0; w < wins.length; w++) {
           var win = wins[w];
@@ -89,20 +84,17 @@
           if (win.winner !== "you" && win.winner !== "mortal") continue;
           if (!CONCEPT_META[win.dim]) continue;
           var side = win.winner === "mortal" ? "missed" : "you";
-          var dim = win.dim, grp = win.group || "Other";
-          (function (dim, grp) {
-            tally(dims[side], dim, seenDim, ev, t, function () {
-              return { dim: dim, group: grp, count: 0, ev: 0, tiers: emptyTiers() };
-            });
-            tally(groups[side], grp, seenGroup, ev, t, function () {
-              return { group: grp, count: 0, ev: 0, tiers: emptyTiers() };
-            });
-          })(dim, grp);
+          var grp = win.group || "Other";
+          // make() runs synchronously inside tally this iteration, so the loop
+          // `var grp` is captured correctly — no IIFE needed.
+          tally(groups[side], grp, seenGroup, ev, t, function () {
+            return { group: grp, count: 0, ev: 0, tiers: emptyTiers() };
+          });
           any = true;
         }
       }
     }
-    return any ? { dims: dims, groups: groups } : null;
+    return any ? { groups: groups } : null;
   }
 
   return { CONCEPT_META, aggregate };

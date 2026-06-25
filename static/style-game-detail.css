@@ -84,7 +84,7 @@
 }
 .concept-row {
   display: grid;
-  grid-template-columns: 1fr 32px 70px auto;
+  grid-template-columns: 1fr 72px auto;
   align-items: center;
   gap: 8px;
   padding: 3px 0;
@@ -102,20 +102,26 @@
   background: color-mix(in srgb, var(--grp) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--grp) 38%, transparent);
 }
-.concept-count {
-  color: var(--text-dim);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
 .concept-ev {
   color: var(--accent);
   font-weight: 600;
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 .concept-tiers {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+/* Disclaimer under the breakdown: one mistake can win pills in several concepts,
+   so a row's EV is attributed to every concept it touches (columns don't sum to
+   total EV). */
+.concept-note {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-dim);
 }
 
 .filter-banner {
