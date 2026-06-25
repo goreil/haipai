@@ -55,6 +55,56 @@ function setSeverityFiltersVisible(show) {
   if (el) el.style.display = show ? "" : "none";
 }
 
+// Concept-level EV ledger shown at the top of a game (see
+// game-concept-breakdown.js). Two columns: pills the AI won (you under-used the
+// concept) and pills you won on a losing play (you over-prioritized it). Each
+// row mirrors the Summary tab's stats — count, summed EV, severity split.
+function renderConceptBreakdown(game) {
+  if (typeof haipaiConceptBreakdown === "undefined"
+      || typeof haipaiCompareDimensions === "undefined") return "";
+  const ledgers = haipaiConceptBreakdown.aggregate(
+    game, haipaiCompareDimensions.compareDimensions, sevTier);
+  if (!ledgers) return "";
+
+  const META = haipaiConceptBreakdown.CONCEPT_META;
+  const TIER_CHIPS = [
+    ["severe", "sev-major", "Severe"],
+    ["mistake", "sev-medium", "Mistake"],
+    ["light", "sev-light", "Light"],
+    ["unsure", "sev-minor", "Unsure"],
+  ];
+  const tierChips = (t) => TIER_CHIPS
+    .filter(([k]) => t[k])
+    .map(([k, cls, lbl]) => `<span class="tier-count ${cls}" title="${lbl}">${t[k]}</span>`)
+    .join("");
+
+  const ledgerHtml = (title, sub, led) => {
+    const rows = Object.values(led).sort((a, b) => b.ev - a.ev);
+    if (!rows.length) return "";
+    let h = `<div class="concept-ledger">
+      <div class="concept-ledger-head">
+        <span class="concept-ledger-title">${title}</span>
+        <span class="concept-ledger-sub">${sub}</span>
+      </div>`;
+    for (const e of rows) {
+      h += `<div class="concept-row">
+        <span class="concept-name">${META[e.dim].label}</span>
+        <span class="concept-count" title="${e.count} mistake${e.count === 1 ? "" : "s"}">${e.count}&times;</span>
+        <span class="concept-ev">${e.ev.toFixed(2)} EV</span>
+        <span class="concept-tiers">${tierChips(e.tiers)}</span>
+      </div>`;
+    }
+    return h + `</div>`;
+  };
+
+  const missed = ledgerHtml("Losing points here",
+    "The better play held this edge — you’re under-using these", ledgers.missed);
+  const over = ledgerHtml("Overvaluing these",
+    "You won this edge but the play still cost EV — you’re over-prioritizing these", ledgers.you);
+  if (!missed && !over) return "";
+  return `<div class="concept-breakdown">${missed}${over}</div>`;
+}
+
 function renderGame() {
   setSeverityFiltersVisible(true);
   const game = state.currentGameData;
@@ -91,6 +141,9 @@ function renderGame() {
       <div class="stat" title="EV loss < 0.2 — AI not confident"><span class="value" style="color:var(--sev-minor)">${tierCounts.unsure}</span><span class="label">Unsure</span></div>
     </div>
   `;
+
+  // Concept-level EV ledger, top of the game (under the summary bar).
+  html += renderConceptBreakdown(game);
 
   // JS prep banner. Categorization itself runs in JS at render time
   // (see recategorizeGameInPlace); the only progress worth showing is the

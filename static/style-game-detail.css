@@ -54,6 +54,61 @@
   text-transform: uppercase;
 }
 
+/* Concept-level EV breakdown — two ledgers at the top of a game. */
+.concept-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.concept-ledger {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.concept-ledger-head {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+.concept-ledger-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.concept-ledger-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.concept-row {
+  display: grid;
+  grid-template-columns: 1fr 32px 70px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+.concept-name {
+  color: var(--text);
+}
+.concept-count {
+  color: var(--text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.concept-ev {
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.concept-tiers {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .filter-banner {
   padding: 8px 14px;
   margin-bottom: 14px;
