@@ -2,7 +2,10 @@
 // impersonation. Impersonate banner rendering also lives here.
 
 var adminState = { users: [], reports: [], reportKind: "", reportScope: "others", reportsLoading: false,
-                   userSort: { col: "latest_game", dir: "desc" } };
+                   userSort: { col: "latest_game", dir: "desc" },
+                   // Category-shape snapshot panel: history of saved runs, the
+                   // last in-browser computed result, and live run status.
+                   snapshot: { history: null, result: null, running: false, status: "" } };
 
 async function showAdmin() {
   state.currentGame = null;
@@ -25,6 +28,21 @@ async function showAdmin() {
   adminState.reports = reportPayload.reports || [];
   prepAndCategorizeReports(adminState.reports, reportPayload.mortal_data_by_game || {});
   renderAdmin();
+  // Snapshot history is cheap; load it lazily after the main render so the
+  // dashboard paints immediately, then refresh the panel in place.
+  loadSnapshotHistory();
+}
+
+async function loadSnapshotHistory() {
+  try {
+    const res = await fetch("/api/admin/category-snapshots");
+    if (!res.ok) return;
+    const data = await res.json();
+    adminState.snapshot.history = data.snapshots || [];
+  } catch (e) {
+    adminState.snapshot.history = [];
+  }
+  renderSnapshotPanel();
 }
 
 // Re-fetch reports for the currently selected scope and re-render in place.
@@ -147,6 +165,11 @@ function renderAdmin() {
     </table>
   </div>`;
 
+  // Global category-shape snapshot. Rendered into its own container so the
+  // compute loop can update it (progress + result) without re-running the
+  // whole admin render.
+  html += `<div id="category-snapshot-panel">${snapshotPanelHtml()}</div>`;
+
   // Category reports — each report embeds the full mistake card the
   // reporting user saw; the admin's only action is Delete (after fixing
   // the underlying category/copy via a Claude skill).
@@ -179,6 +202,264 @@ function renderAdmin() {
   }
 
   content.innerHTML = html;
+}
+
+// --- Category-shape snapshot ---------------------------------------------
+//
+// The mistake categorizer is client-side only (static/js/categorize.js), so
+// the only way to tally the global shape distribution is to run it here in the
+// browser over every game — the same prep + categorize the games view does.
+// "complex" (Mortal wins nothing visible — stats don't explain the play) is
+// the headline bucket we want to drive down as the categorizer evolves.
+
+var SNAPSHOT_SHAPE_ORDER = ["obvious", "trade-off", "complex", "n/a"];
+
+function snapshotPct(n, d) { return d ? (n / d * 100).toFixed(1) + "%" : "—"; }
+
+// Re-render just the snapshot panel in place (used during/after a compute run
+// so we don't disturb the rest of the admin dashboard).
+function renderSnapshotPanel() {
+  const el = document.getElementById("category-snapshot-panel");
+  if (el) el.innerHTML = snapshotPanelHtml();
+}
+
+function snapshotPanelHtml() {
+  const s = adminState.snapshot;
+  const ver = (typeof haipaiCategorize !== "undefined" && haipaiCategorize.CATEGORIZER_VERSION) || "?";
+  let html = `<div class="game-header" style="margin-top:8px"><h2>Category snapshot</h2></div>`;
+  html += `<div class="admin-card snapshot-card">`;
+  html += `<div class="admin-card-header">
+      <b>Mistake shape distribution</b>
+      <span class="admin-meta">&middot; categorizer v${ver} &middot; computed live in your browser</span>
+    </div>`;
+  html += `<p class="snapshot-note">Runs the same prep + categorize the games view uses, over every game across all users, and tallies which "shape" bucket each mistake falls in. <b>Complex</b> = Mortal wins nothing the stats can explain — the bucket we want to shrink. Save a run to track it over time.</p>`;
+
+  if (s.running) {
+    html += `<div class="snapshot-status">${escapeHtml(s.status || "Working…")}</div>`;
+  } else {
+    html += `<div class="snapshot-actions">
+        <button class="btn" data-action="computeCategorySnapshot">Compute snapshot</button>
+        ${s.result ? `<button class="btn btn-sm" data-action="saveCategorySnapshot">Save this run</button>` : ""}
+        ${s.status ? `<span class="snapshot-status-inline">${escapeHtml(s.status)}</span>` : ""}
+      </div>`;
+  }
+
+  if (s.result) html += renderSnapshotResult(s.result);
+  html += renderSnapshotHistory();
+  html += `</div>`;
+  return html;
+}
+
+function renderSnapshotResult(r) {
+  const total = r.total_mistakes || 0;
+  const totalEv = r.total_ev || 0;
+  const complex = r.by_shape.complex || { count: 0, ev: 0 };
+
+  let html = `<div class="snapshot-headline">
+      <div class="snapshot-big">
+        <span class="snapshot-big-num">${snapshotPct(complex.count, total)}</span>
+        <span class="snapshot-big-label">complex</span>
+      </div>
+      <div class="snapshot-headline-meta">
+        ${complex.count.toLocaleString()} of ${total.toLocaleString()} mistakes &middot;
+        ${complex.ev.toFixed(0)} EV (${snapshotPct(complex.ev, totalEv)} of all EV loss)<br>
+        ${r.game_count.toLocaleString()}${r.total_games ? ` of ${r.total_games.toLocaleString()}` : ""} games analyzed${r.skipped ? ` &middot; ${r.skipped} skipped (prep/load failed)` : ""}
+      </div>
+    </div>`;
+
+  // Full shape table.
+  const shapeKeys = SNAPSHOT_SHAPE_ORDER.filter(k => r.by_shape[k])
+    .concat(Object.keys(r.by_shape).filter(k => !SNAPSHOT_SHAPE_ORDER.includes(k)).sort());
+  html += `<table class="snapshot-table"><tr>
+      <th>Shape</th><th>Mistakes</th><th>%</th><th>EV loss</th><th>% EV</th></tr>`;
+  for (const k of shapeKeys) {
+    const e = r.by_shape[k];
+    html += `<tr class="${k === "complex" ? "snapshot-row-complex" : ""}">
+        <td>${escapeHtml(k)}</td>
+        <td>${e.count.toLocaleString()}</td>
+        <td>${snapshotPct(e.count, total)}</td>
+        <td>${e.ev.toFixed(0)}</td>
+        <td>${snapshotPct(e.ev, totalEv)}</td>
+      </tr>`;
+  }
+  html += `</table>`;
+
+  // Skill area × shape matrix (counts), sorted by total desc.
+  const skills = Object.keys(r.by_skill_shape).sort((a, b) => {
+    const sum = o => Object.values(o).reduce((x, y) => x + y, 0);
+    return sum(r.by_skill_shape[b]) - sum(r.by_skill_shape[a]);
+  });
+  if (skills.length) {
+    html += `<details class="snapshot-matrix"><summary>Skill area × shape</summary>`;
+    html += `<table class="snapshot-table"><tr><th>Skill area</th>${
+      shapeKeys.map(k => `<th>${escapeHtml(k)}</th>`).join("")}<th>Total</th></tr>`;
+    for (const sk of skills) {
+      const row = r.by_skill_shape[sk];
+      const cells = shapeKeys.map(k => row[k] || 0);
+      const tot = cells.reduce((a, b) => a + b, 0);
+      html += `<tr><td>${escapeHtml(sk)}</td>${
+        cells.map(c => `<td>${c.toLocaleString()}</td>`).join("")}<td><b>${tot.toLocaleString()}</b></td></tr>`;
+    }
+    html += `</table></details>`;
+  }
+  return html;
+}
+
+function renderSnapshotHistory() {
+  const hist = adminState.snapshot.history;
+  if (hist == null) return `<div class="snapshot-history-empty">Loading history…</div>`;
+  if (!hist.length) return `<div class="snapshot-history-empty">No saved snapshots yet.</div>`;
+  let html = `<details class="snapshot-history" open><summary>Saved snapshots (${hist.length})</summary>`;
+  for (const h of hist) {
+    const sm = h.summary || {};
+    const total = sm.total_mistakes || h.mistake_count || 0;
+    const complex = (sm.by_shape && sm.by_shape.complex) || { count: 0 };
+    const when = h.created_at ? new Date(h.created_at + "Z").toLocaleString() : "—";
+    // Normalize a saved snapshot into the same shape renderSnapshotResult
+    // expects, so an expanded history row shows the full breakdown — proving
+    // the save kept everything the live run presented.
+    const result = {
+      by_shape: sm.by_shape || {},
+      by_skill_shape: sm.by_skill_shape || {},
+      total_mistakes: total,
+      total_ev: sm.total_ev || 0,
+      game_count: h.game_count || 0,
+      total_games: sm.total_games || 0,
+      skipped: sm.skipped || 0,
+    };
+    html += `<details class="snapshot-saved">
+        <summary>${escapeHtml(when)} &middot; <b>v${h.categorizer_version}</b> &middot;
+          ${(h.game_count || 0).toLocaleString()} games &middot; ${total.toLocaleString()} mistakes &middot;
+          <b>${snapshotPct(complex.count, total)} complex</b></summary>
+        ${renderSnapshotResult(result)}
+      </details>`;
+  }
+  html += `</details>`;
+  return html;
+}
+
+// Run prep + categorize over every game (concurrency-limited) and tally the
+// shape distribution. Mirrors the trends per-game pipeline but global and
+// bucketed by shape. Result is held in adminState until the admin saves it.
+async function computeCategorySnapshot() {
+  const s = adminState.snapshot;
+  if (s.running) return;
+  if (typeof haipaiPrep === "undefined" || typeof haipaiCategorize === "undefined"
+      || typeof recategorizeGameInPlace === "undefined") {
+    s.status = "Categorizer not loaded — reload the page and retry.";
+    renderSnapshotPanel();
+    return;
+  }
+  s.running = true;
+  s.result = null;
+  s.status = "Loading game list…";
+  renderSnapshotPanel();
+
+  let ids = [];
+  try {
+    const res = await fetch("/api/admin/snapshot/game-ids");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    ids = (await res.json()).game_ids || [];
+  } catch (e) {
+    s.running = false;
+    s.status = "Failed to load game list.";
+    renderSnapshotPanel();
+    return;
+  }
+
+  const byShape = {};       // shape -> { count, ev }
+  const bySkillShape = {};  // skill -> { shape -> count }
+  let totalMistakes = 0, totalEv = 0, analyzed = 0, skipped = 0, done = 0;
+
+  const bump = (shape, skill, ev) => {
+    (byShape[shape] = byShape[shape] || { count: 0, ev: 0 });
+    byShape[shape].count += 1;
+    byShape[shape].ev += ev;
+    (bySkillShape[skill] = bySkillShape[skill] || {});
+    bySkillShape[skill][shape] = (bySkillShape[skill][shape] || 0) + 1;
+    totalMistakes += 1;
+    totalEv += ev;
+  };
+
+  const updateStatus = () => {
+    s.status = `Analyzing ${done}/${ids.length} games… (${totalMistakes.toLocaleString()} mistakes, ${snapshotPct((byShape.complex || {}).count || 0, totalMistakes)} complex)`;
+    const el = document.querySelector("#category-snapshot-panel .snapshot-status");
+    if (el) el.textContent = s.status; else renderSnapshotPanel();
+  };
+
+  const queue = ids.slice();
+  async function worker() {
+    while (queue.length) {
+      const id = queue.shift();
+      try {
+        const res = await fetch(`/api/admin/snapshot/game/${id}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const payload = await res.json();
+        const game = payload.game;
+        const md = payload.mortal_data;
+        if (game && md) {
+          await haipaiPrep.prepGameAsync(game, md);
+          recategorizeGameInPlace(game);
+          for (const rnd of game.rounds || []) {
+            for (const m of rnd.mistakes || []) {
+              bump(m.shape || "n/a", m.skillArea || "(none)", m.ev_loss || 0);
+            }
+          }
+          analyzed += 1;
+        } else {
+          skipped += 1;
+        }
+      } catch (e) {
+        skipped += 1;
+        console.warn("Snapshot: skipping game", id, e);
+      }
+      done += 1;
+      if (done % 3 === 0 || done === ids.length) updateStatus();
+    }
+  }
+
+  const concurrency = Math.min(3, ids.length);
+  await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+  s.result = {
+    by_shape: byShape,
+    by_skill_shape: bySkillShape,
+    total_mistakes: totalMistakes,
+    total_ev: totalEv,
+    game_count: analyzed,
+    total_games: ids.length,
+    skipped,
+  };
+  s.running = false;
+  s.status = `Done — ${analyzed.toLocaleString()} games, ${totalMistakes.toLocaleString()} mistakes. Save to keep this run.`;
+  renderSnapshotPanel();
+}
+
+async function saveCategorySnapshot() {
+  const s = adminState.snapshot;
+  if (!s.result) return;
+  const ver = (typeof haipaiCategorize !== "undefined" && haipaiCategorize.CATEGORIZER_VERSION) || 0;
+  const body = {
+    categorizer_version: ver,
+    game_count: s.result.game_count,
+    mistake_count: s.result.total_mistakes,
+    summary: {
+      by_shape: s.result.by_shape,
+      by_skill_shape: s.result.by_skill_shape,
+      total_mistakes: s.result.total_mistakes,
+      total_ev: s.result.total_ev,
+      total_games: s.result.total_games,
+      skipped: s.result.skipped,
+    },
+  };
+  const res = await apiPost("/api/admin/category-snapshots", body);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    alert(data.error || "Failed to save snapshot");
+    return;
+  }
+  s.status = "Saved.";
+  await loadSnapshotHistory();  // re-renders the panel
 }
 
 async function adminImpersonate(userId) {

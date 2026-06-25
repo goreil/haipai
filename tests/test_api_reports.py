@@ -352,3 +352,86 @@ class TestAdminDeleteUser:
         )
         assert res.status_code == 409
         assert "impersonating" in res.get_json()["error"].lower()
+
+
+# --- Global category-shape snapshot (admin dashboard) ---
+
+class TestCategorySnapshot:
+    @staticmethod
+    def _promote(user_id):
+        conn = db.get_db()
+        conn.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (user_id,))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def _csrf(client):
+        return client.get("/api/me").get_json()["csrf_token"]
+
+    def _admin(self, client):
+        _login(client)
+        me = client.get("/api/me").get_json()
+        self._promote(me["id"])
+        return me
+
+    def test_endpoints_require_admin(self, client):
+        _login(client)  # plain user
+        assert client.get("/api/admin/snapshot/game-ids").status_code == 403
+        assert client.get("/api/admin/category-snapshots").status_code == 403
+
+    def test_game_ids_lists_all_games(self, client):
+        me = self._admin(client)
+        g1, _ = insert_game(me["id"])
+        g2, _ = insert_game(me["id"], with_mistakes=False)
+        ids = client.get("/api/admin/snapshot/game-ids").get_json()["game_ids"]
+        assert g1 in ids and g2 in ids
+
+    def test_snapshot_game_payload_is_cross_user(self, client):
+        """The per-game endpoint serves any game regardless of owner."""
+        me = self._admin(client)
+        conn = db.get_db()
+        from werkzeug.security import generate_password_hash
+        other = db.create_user(conn, "other", generate_password_hash("longpassword"))
+        conn.close()
+        gid, _ = insert_game(other)  # owned by someone else
+        res = client.get(f"/api/admin/snapshot/game/{gid}")
+        assert res.status_code == 200
+        body = res.get_json()
+        assert body["game"]["id"] == gid
+        assert "rounds" in body["game"]
+
+    def test_snapshot_game_404(self, client):
+        self._admin(client)
+        assert client.get("/api/admin/snapshot/game/999999").status_code == 404
+
+    def test_save_and_list_roundtrip(self, client):
+        self._admin(client)
+        payload = {
+            "categorizer_version": 9,
+            "game_count": 5,
+            "mistake_count": 120,
+            "summary": {
+                "by_shape": {"complex": {"count": 30, "ev": 88.0}},
+                "total_mistakes": 120,
+                "total_ev": 200.0,
+            },
+        }
+        res = client.post(
+            "/api/admin/category-snapshots",
+            headers={"X-CSRFToken": self._csrf(client)},
+            json=payload,
+        )
+        assert res.status_code == 200
+        snaps = client.get("/api/admin/category-snapshots").get_json()["snapshots"]
+        assert len(snaps) == 1
+        assert snaps[0]["mistake_count"] == 120
+        assert snaps[0]["summary"]["by_shape"]["complex"]["count"] == 30
+
+    def test_save_rejects_missing_fields(self, client):
+        self._admin(client)
+        res = client.post(
+            "/api/admin/category-snapshots",
+            headers={"X-CSRFToken": self._csrf(client)},
+            json={"game_count": 5},
+        )
+        assert res.status_code == 400

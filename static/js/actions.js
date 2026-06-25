@@ -74,6 +74,8 @@ var HAIPAI_CLICK_ACTIONS = {
   adminImpersonate: (el) => adminImpersonate(+el.dataset.userId),
   adminDeleteUser: (el) => adminDeleteUser(+el.dataset.userId),
   adminDeleteReport: (el) => adminDeleteReport(+el.dataset.reportId),
+  computeCategorySnapshot: () => computeCategorySnapshot(),
+  saveCategorySnapshot: () => saveCategorySnapshot(),
 
   // --- trends ---
   startWeaknessAnalysis: () => startWeaknessAnalysis(),

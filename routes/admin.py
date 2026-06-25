@@ -91,6 +91,74 @@ def api_admin_delete_category_report(report_id):
     return jsonify({"ok": True})
 
 
+# --- Global category-shape snapshot ---
+#
+# The mistake categorizer is client-side only (static/js/categorize.js) and the
+# container has no Node, so the shape distribution can't be tallied in Python.
+# Instead the admin browser runs the same prep + categorize the app uses, over
+# every game. These endpoints feed that loop (the per-game payload is identical
+# in spirit to what /api/games/<id> ships, but cross-user and admin-gated) and
+# persist the resulting tally so the "complex" bucket can be tracked over time.
+
+@admin_bp.route("/api/admin/snapshot/game-ids")
+@require_admin
+def api_admin_snapshot_game_ids():
+    """All game ids across all users, for the client-side snapshot loop."""
+    from app import get_conn
+    conn = get_conn()
+    rows = conn.execute("SELECT id FROM games ORDER BY id").fetchall()
+    return jsonify({"game_ids": [r["id"] for r in rows]})
+
+
+@admin_bp.route("/api/admin/snapshot/game/<int:game_id>")
+@require_admin
+def api_admin_snapshot_game(game_id):
+    """One game's rounds+mistakes plus slim mortal_data, regardless of owner,
+    so the admin browser can prep + categorize it. Mirrors the per-game fetch
+    the trends pipeline does, minus the owner scoping."""
+    from app import get_conn
+    from routes.game import load_slim_mortal_data
+    conn = get_conn()
+    game = db.get_game(conn, game_id)  # user_id=None → no owner filter
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+    row = conn.execute(
+        "SELECT mortal_file FROM games WHERE id = ?", (game_id,)
+    ).fetchone()
+    mortal_data = load_slim_mortal_data(row["mortal_file"] if row else None)
+    return jsonify({"game": game, "mortal_data": mortal_data})
+
+
+@admin_bp.route("/api/admin/category-snapshots")
+@require_admin
+def api_admin_list_category_snapshots():
+    """History of saved global shape snapshots, newest first."""
+    from app import get_conn
+    conn = get_conn()
+    return jsonify({"snapshots": db.list_category_snapshots(conn)})
+
+
+@admin_bp.route("/api/admin/category-snapshots", methods=["POST"])
+@require_admin
+def api_admin_save_category_snapshot():
+    """Persist a snapshot the admin browser just computed. Body:
+    { categorizer_version, game_count, mistake_count, summary }."""
+    from app import get_conn
+    conn = get_conn()
+    data = request.get_json(silent=True) or {}
+    try:
+        cv = int(data["categorizer_version"])
+        gc = int(data["game_count"])
+        mc = int(data["mistake_count"])
+    except (KeyError, TypeError, ValueError):
+        return jsonify({"error": "Missing/invalid snapshot fields"}), 400
+    summary = data.get("summary") or {}
+    if not isinstance(summary, dict):
+        return jsonify({"error": "summary must be an object"}), 400
+    snap_id = db.insert_category_snapshot(conn, cv, gc, mc, summary)
+    return jsonify({"ok": True, "id": snap_id})
+
+
 # --- Impersonation ---
 
 @admin_bp.route("/api/admin/impersonate/<int:user_id>", methods=["POST"])

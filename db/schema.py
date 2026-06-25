@@ -65,6 +65,21 @@ CREATE TABLE IF NOT EXISTS weakness_snapshots (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Global (all-users) snapshots of the mistake shape-bucket distribution,
+-- captured from the admin dashboard. Unlike weakness_snapshots these are not
+-- per-user: one row = one full-corpus tally tagged with the categorizer
+-- version that produced it, so the "complex" bucket can be tracked as the
+-- categorizer evolves. summary_json holds { by_shape, by_skill_shape,
+-- total_mistakes, total_ev }.
+CREATE TABLE IF NOT EXISTS category_snapshots (
+    id INTEGER PRIMARY KEY,
+    categorizer_version INTEGER NOT NULL,
+    game_count INTEGER NOT NULL,
+    mistake_count INTEGER NOT NULL,
+    summary_json TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY,
     type TEXT NOT NULL CHECK(type IN ('feature','thanks')),
@@ -90,6 +105,7 @@ CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
 CREATE INDEX IF NOT EXISTS idx_mistakes_game_id ON mistakes(game_id);
 CREATE INDEX IF NOT EXISTS idx_category_reports_mistake ON category_reports(mistake_id);
 CREATE INDEX IF NOT EXISTS idx_weakness_snapshots_user ON weakness_snapshots(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_category_snapshots_created ON category_snapshots(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_audience ON messages(audience_user_id);
 """
 
