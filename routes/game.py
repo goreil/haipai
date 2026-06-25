@@ -74,13 +74,10 @@ def api_game_mortal(game_id):
     return resp
 
 
-def load_slim_mortal_data(mortal_file):
-    """Load and slim a Mortal analysis JSON by relative-to-DIR path.
-
-    Returns the slim dict or ``None`` if the file is missing, outside DIR, or
-    unreadable. Path is resolved + bounded to DIR to prevent escaping the app
-    root via traversal.
-    """
+def _read_mortal_json(mortal_file):
+    """Load a Mortal analysis JSON by relative-to-DIR path, returning the raw
+    dict or ``None`` (missing, outside DIR, or unreadable). Path is resolved +
+    bounded to DIR to prevent escaping the app root via traversal."""
     if not mortal_file:
         return None
     mortal_path = (DIR / mortal_file).resolve()
@@ -90,9 +87,23 @@ def load_slim_mortal_data(mortal_file):
         return None
     try:
         with open(mortal_path) as f:
-            return _slim_mortal_data(json.load(f))
+            return json.load(f)
     except (ValueError, OSError):
         return None
+
+
+def load_slim_mortal_data(mortal_file):
+    """Slim Mortal analysis JSON (only the fields JS prep + the skill-area
+    classifier need). Returns the slim dict or ``None``."""
+    md = _read_mortal_json(mortal_file)
+    return _slim_mortal_data(md) if md is not None else None
+
+
+def load_full_mortal_data(mortal_file):
+    """Full Mortal analysis JSON, no slimming. Used where prep needs the
+    complete per-entry payload — the slim copy drops fields prep can't
+    reconstruct for ~10% of games (see the admin category snapshot)."""
+    return _read_mortal_json(mortal_file)
 
 
 def _slim_mortal_data(md):

@@ -113,11 +113,12 @@ def api_admin_snapshot_game_ids():
 @admin_bp.route("/api/admin/snapshot/game/<int:game_id>")
 @require_admin
 def api_admin_snapshot_game(game_id):
-    """One game's rounds+mistakes plus slim mortal_data, regardless of owner,
-    so the admin browser can prep + categorize it. Mirrors the per-game fetch
-    the trends pipeline does, minus the owner scoping."""
+    """One game's rounds+mistakes plus FULL mortal_data, regardless of owner,
+    so the admin browser can prep + categorize it. Uses the full payload (not
+    the slim one the trends/reports paths ship) because prep can't reconstruct
+    ~10% of games from the slimmed entries, which silently skewed the tally."""
     from app import get_conn
-    from routes.game import load_slim_mortal_data
+    from routes.game import load_full_mortal_data
     conn = get_conn()
     game = db.get_game(conn, game_id)  # user_id=None → no owner filter
     if not game:
@@ -125,7 +126,7 @@ def api_admin_snapshot_game(game_id):
     row = conn.execute(
         "SELECT mortal_file FROM games WHERE id = ?", (game_id,)
     ).fetchone()
-    mortal_data = load_slim_mortal_data(row["mortal_file"] if row else None)
+    mortal_data = load_full_mortal_data(row["mortal_file"] if row else None)
     return jsonify({"game": game, "mortal_data": mortal_data})
 
 
