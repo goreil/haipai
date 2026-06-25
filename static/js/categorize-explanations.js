@@ -54,8 +54,6 @@ function _winClause(w, seatWindFor) {
     }
     case "ukeire":
       return `accepts ${w.magnitude} more tile${w.magnitude === 1 ? "" : "s"}`;
-    case "yakuhai_kept":
-      return `keeps ${tile(w.tiles[0])} — a yakuhai (points, and the option to open the hand)`;
     case "dora_kept":
       return `keeps the ${tile(w.tiles[0])} dora`;
     case "dora_acceptance": {
@@ -69,6 +67,17 @@ function _winClause(w, seatWindFor) {
     }
   }
   return "";
+}
+
+// The yaku a winning Yaku-group dimension keeps open, as a short name. New
+// yaku detectors add a case here and are folded into the unified "wants to go
+// …" clause for free. Returns null for non-yaku dimensions.
+function _yakuName(w) {
+  switch (w.dim) {
+    case "tanyao_kept": return "tanyao";
+    case "yakuhai_kept": return `yakuhai ${renderTile(w.tiles[0], "tile-sm")}`;
+  }
+  return null;
 }
 
 // The clauses for one side ("you" = the player's pick, "mortal" = Mortal's),
@@ -86,10 +95,21 @@ function _sideClauses(wins, side, skillArea, seatWindFor) {
   for (const w of mine) {
     if (w.dim === "dora_kept") for (const t of (w.tiles || [])) keptDora.add(t);
   }
+  // All Yaku-group wins (yakuhai, tanyao, …) collapse into ONE clause naming
+  // every yaku the pick keeps open — "wants to go tanyao and yakuhai 🀅, …" —
+  // rather than a separate fragment each. Emitted once, at the first yaku win's
+  // narration slot; the rest are skipped.
+  const yakuNames = mine.map(_yakuName).filter(Boolean);
+  let yakuEmitted = false;
   const clauses = [];
   for (const w of mine) {
     let c;
-    if (w.dim === "dora_acceptance" && keptDora.size) {
+    if (_yakuName(w)) {
+      if (yakuEmitted) continue;
+      yakuEmitted = true;
+      c = `wants to go ${_joinClauses(yakuNames)}, which gives the option `
+        + `for more points and speeds up the hand`;
+    } else if (w.dim === "dora_acceptance" && keptDora.size) {
       // Only the dora the kept clause didn't already name.
       const extra = (w.tiles || []).filter(t => !keptDora.has(t));
       if (!extra.length) continue;  // wait draws only the dora we already kept — say nothing more

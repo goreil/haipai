@@ -436,6 +436,9 @@ function renderEvComparison(m, options) {
         return featPill("pos", "+yakuhai",
           "Keeps a yakuhai (value honor) the other pick discards",
           (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
+      case "tanyao_kept":
+        return featPill("pos", `+tanyao ${w.magnitude}/14`,
+          `Cuts a terminal/honor to keep the hand all-simples — ${w.magnitude}/14 tiles toward tanyao; the other pick keeps a non-simple`, "", c);
       case "dora_kept":
         return featPill("pos", "+dora", "Keeps a dora the other pick discards",
           (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);

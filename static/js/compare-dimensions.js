@@ -10,7 +10,7 @@
 // evaluated and emitted (nothing short-circuits), each tagged with its group:
 //
 //   Speed   — shanten, ukeire   (ukeire is GATED: only a real win at tied shanten)
-//   Yaku    — yakuhai_kept
+//   Yaku    — yakuhai_kept, tanyao_kept
 //   Dora    — dora_kept, dora_acceptance
 //   Defense — deal_in           (a per-opponent vector, read off m.per_threat)
 //
@@ -39,8 +39,14 @@
   // shanten/deal-in logic (the whole point of a shared comparator).
   const {
     findInStats, getShantenForTile, doraUkeireForTile, dealinFor,
-    tileIsDora, tileIsYakuhai,
+    tileIsDora, tileIsYakuhai, isValueTileMjai,
   } = categorize;
+
+  // tanyao_kept fires only on an already-simple-heavy hand — a realistic
+  // all-simples shape, not an incidental terminal cut from a terminal-heavy
+  // hand. The pre-discard hand is 14 tiles; ">= 11 simples" leaves at most 3
+  // non-simples (terminals/honors) to clear for tanyao.
+  const TANYAO_MIN_SIMPLES = 11;
   const skillAreaForEntry = prepParse && prepParse.skill_area_for_entry;
 
   // Group → display label + colour. The single source for the colour scheme
@@ -156,6 +162,24 @@
       wins.push({ dim: "yakuhai_kept", group: "Yaku", prio: 1, winner: "mortal", tiles: [actualTile] });
     }
 
+    // --- Yaku / tanyao_kept — the side that cuts a non-simple (terminal/honor)
+    // keeps the hand all-simples (tanyao), while the other side cuts a simple. ---
+    // Gated on an already-simple-heavy hand so we only flag genuine tanyao
+    // shapes. The pill's "N/14" is the simples the winning pick preserves — cutting
+    // a non-simple keeps every simple, so that's just the pre-discard simple count.
+    const hand = m.hand || [];
+    const simples = hand.reduce((n, t) => n + (isValueTileMjai(t) ? 0 : 1), 0);
+    if (simples >= TANYAO_MIN_SIMPLES && actualTile && expectedTile
+        && !meldBlocksTanyao(m.melds)) {
+      const aNon = isValueTileMjai(actualTile);
+      const eNon = isValueTileMjai(expectedTile);
+      if (aNon && !eNon) {
+        wins.push({ dim: "tanyao_kept", group: "Yaku", prio: 1, winner: "you", magnitude: simples });
+      } else if (eNon && !aNon) {
+        wins.push({ dim: "tanyao_kept", group: "Yaku", prio: 1, winner: "mortal", magnitude: simples });
+      }
+    }
+
     // --- Dora / dora_kept — the side that keeps a dora the other drops. ---
     const aDora = tileIsDora(actualTile, doraTiles);
     const eDora = tileIsDora(expectedTile, doraTiles);
@@ -217,6 +241,19 @@
     }
 
     return wins;
+  }
+
+  // A called meld containing any terminal/honor makes tanyao impossible no
+  // matter how the concealed hand develops — so tanyao_kept must never fire.
+  // Each meld's tiles are its `consumed` array plus the called `pai`.
+  function meldBlocksTanyao(melds) {
+    for (const meld of (melds || [])) {
+      if (!meld) continue;
+      const tiles = (meld.consumed || []).slice();
+      if (meld.pai) tiles.push(meld.pai);
+      if (tiles.some(t => isValueTileMjai(t))) return true;
+    }
+    return false;
   }
 
   // The live-dora tiles the winning wait accepts that the losing wait doesn't —

@@ -42,6 +42,7 @@
     shanten:         { label: "Speed (shanten)" },
     ukeire:          { label: "Efficiency (ukeire)" },
     yakuhai_kept:    { label: "Yakuhai" },
+    tanyao_kept:     { label: "Tanyao" },
     dora_kept:       { label: "Dora" },
     dora_acceptance: { label: "Dora acceptance" },
     deal_in:         { label: "Defense (deal-in)" },
