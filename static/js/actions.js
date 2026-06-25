@@ -55,6 +55,8 @@ var HAIPAI_CLICK_ACTIONS = {
   },
   deleteGame: () => deleteGame(state.currentGame),
   switchGameView: (el) => switchGameView(el.dataset.view),
+  filterConcept: (el) => toggleConceptFilter(el.dataset.conceptSide, el.dataset.conceptGroup),
+  clearConceptFilter: () => toggleConceptFilter(null, null),
   toggleGameMistakes: (el) => toggleGameMistakes(el.dataset.groupId),
   onReportClick: (el) => onReportClick(el, +el.dataset.mid, el.dataset.kind),
   onReportClear: (el) => onReportClear(+el.dataset.mid),

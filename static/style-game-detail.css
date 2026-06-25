@@ -82,9 +82,13 @@
   font-size: 11px;
   color: var(--text-dim);
 }
+/* pill (fills) | severity chips | EV. EV is the last column and flush-right
+   (justify-self:end), so every row's EV right-edge lands on the same vertical
+   line no matter how many severity chips precede it — the chip count is absorbed
+   by the 1fr pill, never by the EV column. */
 .concept-row {
   display: grid;
-  grid-template-columns: 1fr 72px auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 8px;
   padding: 3px 0;
@@ -102,7 +106,30 @@
   background: color-mix(in srgb, var(--grp) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--grp) 38%, transparent);
 }
+/* Clickable pills double as the rounds-view concept filter. */
+.concept-pill-btn {
+  cursor: pointer;
+  transition: filter 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+}
+.concept-pill-btn:hover {
+  filter: brightness(1.25);
+}
+/* Selected filter: solid fill so the active concept reads as a pressed control. */
+.concept-pill-active {
+  color: var(--bg, #1a1a1a);
+  background: var(--grp);
+  border-color: var(--grp);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--grp) 45%, transparent);
+}
+/* Non-selected pills recede while a filter is active. */
+.concept-pill-dim {
+  opacity: 0.5;
+}
+.concept-pill-dim:hover {
+  opacity: 1;
+}
 .concept-ev {
+  justify-self: end;
   color: var(--accent);
   font-weight: 600;
   text-align: right;
@@ -132,6 +159,31 @@
   border: 1px solid rgba(255, 183, 77, 0.25);
   color: #ffb74d;
   font-size: 13px;
+}
+
+/* Concept-filter banner: carries an inline group pill + a clear button. */
+.concept-filter-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.concept-filter-banner .concept-pill {
+  cursor: default;
+}
+.concept-filter-clear {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.concept-filter-clear:hover {
+  background: rgba(255, 183, 77, 0.15);
 }
 
 .categorization-banner {

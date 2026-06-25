@@ -83,6 +83,7 @@ async function fetchGame(id) {
   state.currentGameData = await res.json();
   if (mres.ok) state.currentGameData.mortal_data = await mres.json();
   state.currentGame = id;
+  state.conceptFilter = null; // the breakdown is per-game; don't carry a filter across games
   // Normalize the URL to the canonical game hash — unless we arrived via a
   // #m<id> mistake deep-link, in which case keep that hash so the URL stays
   // shareable and the back button rewinds to the mistake, not the game.

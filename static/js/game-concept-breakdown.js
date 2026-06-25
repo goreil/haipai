@@ -97,5 +97,23 @@
     return any ? { groups: groups } : null;
   }
 
-  return { CONCEPT_META, aggregate };
+  // Does this single mistake feed the (side, group) ledger cell? Mirrors the
+  // per-pill test inside aggregate() exactly, so the rounds filter and the
+  // breakdown rows always agree on which mistakes belong to a concept group.
+  // side is "missed" (Mortal won the pill) or "you" (you won it).
+  function mistakeTouchesGroup(m, compareDimensions, side, group) {
+    if (typeof compareDimensions !== "function") return false;
+    var wins = compareDimensions(m) || [];
+    for (var w = 0; w < wins.length; w++) {
+      var win = wins[w];
+      if (!win || win.suppressed) continue;
+      if (win.winner !== "you" && win.winner !== "mortal") continue;
+      if (!CONCEPT_META[win.dim]) continue;
+      var s = win.winner === "mortal" ? "missed" : "you";
+      if (s === side && (win.group || "Other") === group) return true;
+    }
+    return false;
+  }
+
+  return { CONCEPT_META, aggregate, mistakeTouchesGroup };
 }));

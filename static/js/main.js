@@ -16,6 +16,9 @@ var state = {
   showLight: false,
   showMistake: false,
   gameView: "rounds", // "rounds" or "summary"
+  // Concept-breakdown pill filter: {side:"missed"|"you", group} or null. When
+  // set, the rounds view shows only mistakes touching that concept group.
+  conceptFilter: null,
 };
 
 // --- Init ---
