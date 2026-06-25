@@ -407,8 +407,8 @@ function renderEvComparison(m, options) {
   // pill ("wider, a step slower") instead of a green +ukeire — the old loop
   // fired +ukeire with no shanten gate, which this fixes.
   // A winning pill is tinted by its group's colour (the shared scheme in
-  // compare-dimensions.GROUP_META: Efficiency=blue, Yaku=green, Value=gold,
-  // Defense=pink). `grpColor` swaps the green `feat-pill-pos` chrome for the
+  // compare-dimensions.GROUP_META: Efficiency=blue, Yaku=cyan, Value=gold,
+  // Defense=red). `grpColor` swaps the green `feat-pill-pos` chrome for the
   // group-tinted `feat-pill-grp` (driven by the `--feat-grp` custom property).
   // The suppressed context pill passes no colour and keeps its muted chrome.
   const featPill = (kind, label, title, tilesHtml = "", grpColor = "") =>

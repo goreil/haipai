@@ -55,13 +55,25 @@ function setSeverityFiltersVisible(show) {
   if (el) el.style.display = show ? "" : "none";
 }
 
+// Group key → { label, color } for every pill the breakdown can render: the
+// win-vector groups (compare-dimensions.GROUP_META) plus the category/shape
+// pills the aggregator adds (haipaiConceptBreakdown.PILL_META). Merged here so
+// the breakdown rows, the rounds filter banner, and the summary-bar headline all
+// resolve colours the same way.
+function conceptMetaMap() {
+  const gm = (typeof haipaiCompareDimensions !== "undefined"
+    && haipaiCompareDimensions.GROUP_META) || {};
+  const pm = (typeof haipaiConceptBreakdown !== "undefined"
+    && haipaiConceptBreakdown.PILL_META) || {};
+  return Object.assign({}, gm, pm);
+}
+
 // The single biggest concept-GROUP leak across both ledgers — feeds the
 // summary-bar headline. Groups are deduped (Dora + Dora acceptance = one Value
 // hit), so this is the double-count-safe view the per-dim rows are not.
 function conceptTopGroup(agg) {
   if (!agg) return null;
-  const gm = (typeof haipaiCompareDimensions !== "undefined"
-    && haipaiCompareDimensions.GROUP_META) || {};
+  const gm = conceptMetaMap();
   let best = null;
   for (const side of ["missed", "you"]) {
     for (const g of Object.values(agg.groups[side])) {
@@ -95,7 +107,7 @@ function renderTopGroupStat(agg) {
 function renderConceptBreakdown(agg) {
   if (!agg || typeof haipaiCompareDimensions === "undefined") return "";
 
-  const gm = haipaiCompareDimensions.GROUP_META || {};
+  const gm = conceptMetaMap();
   const TIER_CHIPS = [
     ["severe", "sev-major", "Severe"],
     ["mistake", "sev-medium", "Mistake"],
@@ -252,8 +264,7 @@ function renderGame() {
   // filters don't show conflicting "X of Y" counts.
   const cf = state.conceptFilter;
   if (cf && state.gameView === "rounds") {
-    const gm = (typeof haipaiCompareDimensions !== "undefined"
-      && haipaiCompareDimensions.GROUP_META) || {};
+    const gm = conceptMetaMap();
     const meta = gm[cf.group] || { label: cf.group, color: "var(--text)" };
     const matched = game.rounds.reduce((sum, r) => sum + r.mistakes.filter(mistakeVisible).length, 0);
     const verb = cf.side === "missed" ? "under-using" : "over-prioritizing";

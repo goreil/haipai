@@ -48,11 +48,15 @@
   // breakdown (game-concept-breakdown.js / game-render.js). Keyed by the
   // `group` field every win carries, so a new dimension inherits its group's
   // colour for free. Hues match the skill-area palette (skill-areas.js).
+  // Colours align with the skill-area card palette (categorize-metadata
+  // SKILL_AREA_INFO) so a concept shares one hue across the app: Defense is red
+  // (matching the Defense card; pink is reserved by Meld), and Yaku is cyan
+  // (green is reserved by Kan). Efficiency/Value keep their blue/gold.
   const GROUP_META = {
     Speed:   { label: "Efficiency", color: "#4a9eff" },  // blue
-    Yaku:    { label: "Yaku",       color: "#22c55e" },  // green
+    Yaku:    { label: "Yaku",       color: "#22d3ee" },  // cyan
     Dora:    { label: "Value",      color: "#f5b342" },  // gold
-    Defense: { label: "Defense",    color: "#ee5fa7" },  // pink
+    Defense: { label: "Defense",    color: "#ff6b6b" },  // red
   };
 
   // The two tiles under comparison, derived exactly as ev-table.js does: a

@@ -20,6 +20,12 @@
 // full ev_loss is attributed to every group it touches (one mistake can be both
 // "overvalued Value" and "missed Defense"), so the two ledgers are an
 // attribution view, not a partition of total EV.
+//
+// On top of the win-vector groups, the breakdown adds category/shape pills that
+// read straight off the categorized mistake (m.category / m.shape), so action
+// decisions the win-vector can't describe still surface (ACTION_CELL/PILL_META):
+//   • Riichi / Meld / Kan — Missed (→ Losing points here) vs Bad (→ Overvaluing).
+//   • Complex — missed-side only: dahai spots the visible stats don't explain.
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
@@ -41,32 +47,81 @@
     deal_in:         { label: "Defense (deal-in)" },
   };
 
+  // Action-decision codes (categorize.js::categorizeByActionType) → the ledger
+  // cell they feed. These are NOT win-vector pills — they read straight off the
+  // categorized `m.category`, so a call/riichi/kan that the win-vector can't
+  // describe still surfaces. A *missed* action (you should have acted) is a leak
+  // you under-used → "missed"; a *bad* action (you acted when you shouldn't) is
+  // a concept you over-prioritized → "you". 4C (called the wrong combination) is
+  // still an active call, so it sits with the over-melding side.
+  var ACTION_CELL = {
+    "5B": { side: "missed", group: "Riichi" },  // Missed Riichi
+    "5A": { side: "you",    group: "Riichi" },  // Bad Riichi
+    "4B": { side: "missed", group: "Meld" },    // Missed Call
+    "4A": { side: "you",    group: "Meld" },    // Bad Call
+    "4C": { side: "you",    group: "Meld" },    // Wrong combination
+    "6B": { side: "missed", group: "Kan" },     // Missed Kan
+    "6A": { side: "you",    group: "Kan" },     // Bad Kan
+  };
+
+  // Display meta for the category/shape pills the breakdown adds on top of the
+  // win-vector groups (whose meta lives in compare-dimensions.GROUP_META).
+  // Colours mirror the skill-area card palette (categorize-metadata
+  // SKILL_AREA_INFO) so a pill matches its mistake-card badge: Riichi=purple,
+  // Meld=pink, Kan=green. Complex is grey — it's a shape, not a skill area, and
+  // only ever lands in the "missed" ledger (the stats don't explain Mortal's
+  // pick, so you're under-reading something).
+  var PILL_META = {
+    Riichi:  { label: "Riichi",  color: "#a855f7" },
+    Meld:    { label: "Meld",    color: "#ee5fa7" },
+    Kan:     { label: "Kan",     color: "#22c55e" },
+    Complex: { label: "Complex", color: "#9ca3af" },
+  };
+
   function emptyTiers() {
     return { severe: 0, mistake: 0, light: 0, unsure: 0 };
   }
 
-  // Add one mistake's EV/tier into a {key->entry} ledger, once per key.
-  // `seen` guards the per-mistake dedup; `make` builds a fresh entry.
-  function tally(ledger, key, seen, ev, t, make) {
-    if (seen[key]) return false;
-    seen[key] = true;
-    var e = ledger[key];
-    if (!e) { e = ledger[key] = make(); }
-    e.count += 1;
-    e.ev += ev;
-    e.tiers[t] += 1;
-    return true;
+  // The full set of (side, group) ledger cells a single mistake feeds, deduped.
+  // Two sources, merged here so aggregate() and mistakeTouchesGroup() can never
+  // disagree on which mistakes belong to a cell:
+  //   1. Win-vector groups (Speed/Yaku/Dora/Defense) — winning pills from the
+  //      shared comparator. The per-seat deal_in vector can emit the same group
+  //      twice and a Value mistake can emit both dora_kept and dora_acceptance,
+  //      so we dedup per (side, group).
+  //   2. Category/shape pills — the action code (Riichi/Meld/Kan) off
+  //      `m.category`, plus a "missed Complex" cell when the shape is complex.
+  function cellsFor(m, compareDimensions) {
+    var cells = [];
+    var seen = {};
+    function add(side, group) {
+      var k = side + "|" + group;
+      if (seen[k]) return;
+      seen[k] = true;
+      cells.push({ side: side, group: group });
+    }
+    if (typeof compareDimensions === "function") {
+      var wins = compareDimensions(m) || [];
+      for (var w = 0; w < wins.length; w++) {
+        var win = wins[w];
+        if (!win || win.suppressed) continue;
+        if (win.winner !== "you" && win.winner !== "mortal") continue;
+        if (!CONCEPT_META[win.dim]) continue;
+        add(win.winner === "mortal" ? "missed" : "you", win.group || "Other");
+      }
+    }
+    var cell = m && m.category && ACTION_CELL[m.category];
+    if (cell) add(cell.side, cell.group);
+    if (m && m.shape === "complex") add("missed", "Complex");
+    return cells;
   }
 
-  // Walk every mistake, run the shared comparator, and tally winning pills per
-  // (side, group), deduped per mistake — the per-seat deal_in vector can emit
-  // the same group twice for one decision, and a Value mistake can emit both
-  // dora_kept and dora_acceptance; neither should double-count. Returns
+  // Walk every mistake and tally its (side, group) cells. Returns
   // { groups: {missed, you} } (each value a {group->entry} map) or null when
   // nothing qualifies. `tier()` is injected so this stays decoupled from
-  // severity.js for tests.
+  // severity.js for tests. A mistake's full ev_loss is attributed to every cell
+  // it touches (cells are deduped per mistake, so each group counts it once).
   function aggregate(game, compareDimensions, tier) {
-    if (typeof compareDimensions !== "function") return null;
     var groups = { missed: {}, you: {} };
     var any = false;
     var rounds = (game && game.rounds) || [];
@@ -74,22 +129,17 @@
       var mistakes = rounds[r].mistakes || [];
       for (var i = 0; i < mistakes.length; i++) {
         var m = mistakes[i];
-        var wins = compareDimensions(m) || [];
         var ev = m.ev_loss || 0;
         var t = tier(m.ev_loss);
-        var seenGroup = {};
-        for (var w = 0; w < wins.length; w++) {
-          var win = wins[w];
-          if (!win || win.suppressed) continue;
-          if (win.winner !== "you" && win.winner !== "mortal") continue;
-          if (!CONCEPT_META[win.dim]) continue;
-          var side = win.winner === "mortal" ? "missed" : "you";
-          var grp = win.group || "Other";
-          // make() runs synchronously inside tally this iteration, so the loop
-          // `var grp` is captured correctly — no IIFE needed.
-          tally(groups[side], grp, seenGroup, ev, t, function () {
-            return { group: grp, count: 0, ev: 0, tiers: emptyTiers() };
-          });
+        var cells = cellsFor(m, compareDimensions);
+        for (var c = 0; c < cells.length; c++) {
+          var side = cells[c].side, grp = cells[c].group;
+          var led = groups[side];
+          var e = led[grp];
+          if (!e) { e = led[grp] = { group: grp, count: 0, ev: 0, tiers: emptyTiers() }; }
+          e.count += 1;
+          e.ev += ev;
+          e.tiers[t] += 1;
           any = true;
         }
       }
@@ -97,23 +147,16 @@
     return any ? { groups: groups } : null;
   }
 
-  // Does this single mistake feed the (side, group) ledger cell? Mirrors the
-  // per-pill test inside aggregate() exactly, so the rounds filter and the
-  // breakdown rows always agree on which mistakes belong to a concept group.
-  // side is "missed" (Mortal won the pill) or "you" (you won it).
+  // Does this single mistake feed the (side, group) ledger cell? Reuses
+  // cellsFor() so the rounds filter and the breakdown rows always agree on which
+  // mistakes belong to a concept group. side is "missed" / "you".
   function mistakeTouchesGroup(m, compareDimensions, side, group) {
-    if (typeof compareDimensions !== "function") return false;
-    var wins = compareDimensions(m) || [];
-    for (var w = 0; w < wins.length; w++) {
-      var win = wins[w];
-      if (!win || win.suppressed) continue;
-      if (win.winner !== "you" && win.winner !== "mortal") continue;
-      if (!CONCEPT_META[win.dim]) continue;
-      var s = win.winner === "mortal" ? "missed" : "you";
-      if (s === side && (win.group || "Other") === group) return true;
+    var cells = cellsFor(m, compareDimensions);
+    for (var c = 0; c < cells.length; c++) {
+      if (cells[c].side === side && cells[c].group === group) return true;
     }
     return false;
   }
 
-  return { CONCEPT_META, aggregate, mistakeTouchesGroup };
+  return { CONCEPT_META, PILL_META, ACTION_CELL, cellsFor, aggregate, mistakeTouchesGroup };
 }));
