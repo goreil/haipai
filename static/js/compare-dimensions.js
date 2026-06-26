@@ -10,7 +10,7 @@
 // evaluated and emitted (nothing short-circuits), each tagged with its group:
 //
 //   Speed   — shanten, ukeire   (ukeire is GATED: only a real win at tied shanten)
-//   Yaku    — yakuhai_kept, tanyao_kept
+//   Yaku    — yakuhai_kept, tanyao_kept, honitsu_kept, ittsu_kept
 //   Dora    — dora_kept, dora_acceptance
 //   Defense — deal_in           (a per-opponent vector, read off m.per_threat)
 //
@@ -39,7 +39,7 @@
   // shanten/deal-in logic (the whole point of a shared comparator).
   const {
     findInStats, getShantenForTile, doraUkeireForTile, dealinFor,
-    tileIsDora, tileIsYakuhai, isValueTileMjai,
+    tileIsDora, tileIsYakuhai, isValueTileMjai, tileBase,
   } = categorize;
 
   // tanyao_kept fires only on an already-simple-heavy hand — a realistic
@@ -47,6 +47,27 @@
   // hand. The pre-discard hand is 14 tiles; ">= 11 simples" leaves at most 3
   // non-simples (terminals/honors) to clear for tanyao.
   const TANYAO_MIN_SIMPLES = 11;
+  // honitsu_kept: of the 14 tiles, >= 10 share one suit-or-honors — a committed
+  // flush shape, so cutting one of the few off-suit tiles is the yaku play.
+  const HONITSU_MIN_INSHAPE = 10;
+  // ittsu_kept: one suit holds >= 6 of the 9 distinct ranks (1-9) needed for a
+  // straight — a genuinely stretched suit, not an incidental run.
+  const ITTSU_MIN_UNIQUE = 6;
+
+  // mjai suit ("m"/"p"/"s" for numbers, "z" for honors) and rank (1-9, 0 for
+  // honors). tileBase strips the red-five "r" so 5mr reads as 5m.
+  function tileSuit(t) {
+    if (!t) return null;
+    const b = tileBase(t);
+    if ("ESWNPFC".includes(b)) return "z";
+    const s = b[b.length - 1];
+    return (s === "m" || s === "p" || s === "s") ? s : null;
+  }
+  function tileRank(t) {
+    const b = t && tileBase(t);
+    if (!b || "ESWNPFC".includes(b)) return 0;
+    return parseInt(b[0], 10) || 0;
+  }
   const skillAreaForEntry = prepParse && prepParse.skill_area_for_entry;
 
   // Group → display label + colour. The single source for the colour scheme
@@ -180,6 +201,62 @@
       }
     }
 
+    // --- Yaku / honitsu_kept — the side that cuts an off-suit tile keeps the
+    // hand one-suit-plus-honors (honitsu), while the other cuts an in-shape
+    // tile. --- Mirrors tanyao: the off-shape cut is the yaku play. Gated on a
+    // committed flush shape (>= 11 of 14 tiles in the dominant suit or honors)
+    // and suppressed when a called meld already holds an off-suit tile (an open
+    // off-suit meld makes any flush impossible). magnitude = in-shape tiles, N/14.
+    const fullHand = allHandTiles(m);
+    const domSuit = dominantSuit(fullHand);
+    if (domSuit && actualTile && expectedTile && !meldBlocksHonitsu(m.melds, domSuit)) {
+      const inShape = fullHand.reduce((n, t) => {
+        const s = tileSuit(t);
+        return n + (s === domSuit || s === "z" ? 1 : 0);
+      }, 0);
+      if (inShape >= HONITSU_MIN_INSHAPE) {
+        const aOff = isOffSuit(actualTile, domSuit);
+        const eOff = isOffSuit(expectedTile, domSuit);
+        // `suit`/`tiles` drive the pill's colour indicator: a representative
+        // mid tile (5) of the flush suit, the same way the yakuhai pill shows
+        // the honor it keeps.
+        const winner = (aOff && !eOff) ? "you" : (eOff && !aOff) ? "mortal" : null;
+        if (winner) {
+          wins.push({
+            dim: "honitsu_kept", group: "Yaku", prio: 1, winner, magnitude: inShape,
+            suit: domSuit, tiles: [`5${domSuit}`],
+          });
+        }
+      }
+    }
+
+    // --- Yaku / ittsu_kept — the side that does NOT cut a sole ittsu rank keeps
+    // the straight (123-456-789 in one suit) alive, while the other throws a
+    // tile the run still needs. --- Unlike tanyao/honitsu the off-shape tiles
+    // (other suits, honors, duplicate ranks) are neutral for ittsu — they fill
+    // the free 4th set / pair — so the signal is "who threw a needed rank", not
+    // "who cut the off-shape tile". Gated on a stretched suit (>= 6 of the 9
+    // distinct ranks present) and suppressed when 2+ called melds aren't ittsu
+    // runs of the target suit (only one free set fits around the three runs).
+    const ittsu = ittsuTargetInfo(m);
+    if (ittsu && ittsu.unique >= ITTSU_MIN_UNIQUE && actualTile && expectedTile
+        && !meldBlocksIttsu(m.melds, ittsu.suit)) {
+      const counts = ittsuRankCounts(m, ittsu.suit);
+      const aNeed = ittsuNeededRank(actualTile, ittsu.suit, counts);
+      const eNeed = ittsuNeededRank(expectedTile, ittsu.suit, counts);
+      const winner = (eNeed && !aNeed) ? "you" : (aNeed && !eNeed) ? "mortal" : null;
+      if (winner) {
+        // `missing`/`tiles` drive the pill: the ranks the straight still lacks
+        // (its colour shows the target suit) plus how many of each remain live,
+        // for the hover.
+        const missing = ittsuMissing(m, ittsu.suit, counts);
+        wins.push({
+          dim: "ittsu_kept", group: "Yaku", prio: 1, winner, magnitude: ittsu.unique,
+          suit: ittsu.suit, tiles: missing.map(x => x.tile), missing,
+        });
+      }
+    }
+
     // --- Dora / dora_kept — the side that keeps a dora the other drops. ---
     const aDora = tileIsDora(actualTile, doraTiles);
     const eDora = tileIsDora(expectedTile, doraTiles);
@@ -254,6 +331,132 @@
       if (tiles.some(t => isValueTileMjai(t))) return true;
     }
     return false;
+  }
+
+  // Every tile of the hand (concealed + the tiles locked in called melds) so the
+  // honitsu/ittsu shapes read all 14, not just the concealed portion of an open
+  // hand. A meld's tiles are its `consumed` array plus the called `pai`.
+  function meldTiles(meld) {
+    if (!meld) return [];
+    const tiles = (meld.consumed || []).slice();
+    if (meld.pai) tiles.push(meld.pai);
+    return tiles;
+  }
+  function allHandTiles(m) {
+    const tiles = (m.hand || []).slice();
+    for (const meld of (m.melds || [])) tiles.push(...meldTiles(meld));
+    return tiles;
+  }
+
+  // The numbered suit ("m"/"p"/"s") with the most tiles — the suit a honitsu/
+  // chinitsu would be built around. null when the hand has no numbered tiles.
+  function dominantSuit(tiles) {
+    const c = { m: 0, p: 0, s: 0 };
+    for (const t of tiles) {
+      const s = tileSuit(t);
+      if (s && s !== "z") c[s]++;
+    }
+    let best = null, bestN = 0;
+    for (const s of ["m", "p", "s"]) if (c[s] > bestN) { bestN = c[s]; best = s; }
+    return best;
+  }
+  // An off-suit numbered tile (a different colour) — the only cut that advances
+  // honitsu. Honors are in-shape, never off-suit.
+  function isOffSuit(t, dom) {
+    const s = tileSuit(t);
+    return !!s && s !== "z" && s !== dom;
+  }
+  // A called meld holding any off-suit numbered tile (a second colour) makes a
+  // flush impossible — honitsu_kept must never fire.
+  function meldBlocksHonitsu(melds, dom) {
+    for (const meld of (melds || [])) {
+      if (meldTiles(meld).some(t => isOffSuit(t, dom))) return true;
+    }
+    return false;
+  }
+
+  // A called meld that is one of the three ittsu runs (123 / 456 / 789) of the
+  // given suit — these contribute their ranks toward the straight; any other
+  // meld (a pon, a 234 chi, an off-suit run) does not.
+  function isIttsuRunMeld(meld, suit) {
+    const tiles = meldTiles(meld);
+    if (tiles.length !== 3) return false;                 // pon/kan aren't runs
+    if (tiles.some(t => tileSuit(t) !== suit)) return false;
+    const ranks = tiles.map(tileRank).sort((a, b) => a - b);
+    return ranks[1] === ranks[0] + 1 && ranks[2] === ranks[1] + 1
+      && (ranks[0] === 1 || ranks[0] === 4 || ranks[0] === 7);
+  }
+  // Tiles usable for an ittsu in `suit`: concealed tiles of that suit plus the
+  // ranks locked in ittsu-run melds of that suit. A 234 chi (or any non-run
+  // meld) is excluded — its tiles can't serve the straight.
+  function ittsuTilesFor(m, suit) {
+    const tiles = (m.hand || []).filter(t => tileSuit(t) === suit);
+    for (const meld of (m.melds || [])) {
+      if (isIttsuRunMeld(meld, suit)) tiles.push(...meldTiles(meld));
+    }
+    return tiles;
+  }
+  // Best ittsu candidate: the suit with the most distinct 1-9 ranks present.
+  function ittsuTargetInfo(m) {
+    let best = null;
+    for (const suit of ["m", "p", "s"]) {
+      const unique = new Set(ittsuTilesFor(m, suit).map(tileRank)).size;
+      if (!best || unique > best.unique) best = { suit, unique };
+    }
+    return best;
+  }
+  function ittsuRankCounts(m, suit) {
+    const counts = {};
+    for (const t of ittsuTilesFor(m, suit)) {
+      const r = tileRank(t);
+      counts[r] = (counts[r] || 0) + 1;
+    }
+    return counts;
+  }
+  // True iff cutting `tile` drops a rank the straight still needs — a sole copy
+  // of a 1-9 rank in the target suit. A duplicate rank, an off-suit tile, or an
+  // honor is safe to cut (the run survives).
+  function ittsuNeededRank(tile, suit, counts) {
+    if (tileSuit(tile) !== suit) return false;
+    const r = tileRank(tile);
+    if (r < 1 || r > 9) return false;
+    return (counts[r] || 0) === 1;
+  }
+  // The 1-9 ranks the straight still lacks, each with how many copies remain
+  // live (4 minus every visible copy — our hand/melds, all discards, opponents'
+  // melds, dora indicators). Powers the ittsu pill's hover ("still needs 4s,
+  // 3 left"). Visible counts fall back gracefully to 4-left when the board
+  // state is absent (e.g. parity tests).
+  function visibleCounts(m) {
+    const board = m.board_state || {};
+    const map = {};
+    const add = (t) => { if (!t) return; const b = tileBase(t); map[b] = (map[b] || 0) + 1; };
+    for (const t of (m.hand || [])) add(t);
+    for (const meld of (m.melds || [])) meldTiles(meld).forEach(add);
+    for (const d of (board.all_discards || [])) for (const x of (d.discards || [])) add(x.tile);
+    for (const om of (board.opponent_melds || [])) for (const meld of (om.melds || [])) meldTiles(meld).forEach(add);
+    for (const ind of (board.dora_indicators || [])) add(ind);
+    return map;
+  }
+  function ittsuMissing(m, suit, counts) {
+    const vis = visibleCounts(m);
+    const out = [];
+    for (let r = 1; r <= 9; r++) {
+      if ((counts[r] || 0) > 0) continue;
+      const tile = `${r}${suit}`;
+      out.push({ tile, left: Math.max(0, 4 - (vis[tile] || 0)) });
+    }
+    return out;
+  }
+  // 2+ called melds that aren't ittsu runs of the target suit kill the straight:
+  // the three runs already fill three of the four sets, leaving room for only
+  // one free meld (the 4th set) around them.
+  function meldBlocksIttsu(melds, suit) {
+    let nonRun = 0;
+    for (const meld of (melds || [])) {
+      if (meld && !isIttsuRunMeld(meld, suit)) nonRun++;
+    }
+    return nonRun >= 2;
   }
 
   // The live-dora tiles the winning wait accepts that the losing wait doesn't —

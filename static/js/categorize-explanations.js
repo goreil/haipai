@@ -75,6 +75,8 @@ function _winClause(w, seatWindFor) {
 function _yakuName(w) {
   switch (w.dim) {
     case "tanyao_kept": return "tanyao";
+    case "honitsu_kept": return "honitsu";
+    case "ittsu_kept": return "ittsu";
     case "yakuhai_kept": return `yakuhai ${renderTile(w.tiles[0], "tile-sm")}`;
   }
   return null;

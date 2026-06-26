@@ -439,6 +439,21 @@ function renderEvComparison(m, options) {
       case "tanyao_kept":
         return featPill("pos", `+tanyao ${w.magnitude}/14`,
           `Cuts a terminal/honor to keep the hand all-simples — ${w.magnitude}/14 tiles toward tanyao; the other pick keeps a non-simple`, "", c);
+      case "honitsu_kept": {
+        const suitName = { m: "manzu", p: "pinzu", s: "souzu" }[w.suit] || "one suit";
+        return featPill("pos", `+honitsu ${w.magnitude}/14`,
+          `Cuts an off-suit tile to keep the hand ${suitName} plus honors — ${w.magnitude}/14 tiles toward the flush; the other pick keeps an off-suit tile`,
+          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
+      }
+      case "ittsu_kept": {
+        const suitName = { m: "manzu", p: "pinzu", s: "souzu" }[w.suit] || "one suit";
+        const need = (w.missing || []).map(x => `${x.tile} (${x.left} left)`).join(", ");
+        return featPill("pos", `+ittsu ${w.magnitude}/9`,
+          `Keeps the straight alive — ${w.magnitude}/9 distinct ranks toward 123-456-789 in ${suitName}`
+            + (need ? `; still needs ${need}` : "")
+            + `. The other pick throws a rank the run still needs`,
+          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
+      }
       case "dora_kept":
         return featPill("pos", "+dora", "Keeps a dora the other pick discards",
           (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
