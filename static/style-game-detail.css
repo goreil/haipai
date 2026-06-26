@@ -1210,6 +1210,15 @@
 }
 .ev-table-cols .col-actual { background: rgba(239,83,80,0.08); }
 .ev-table-cols .col-expected { background: rgba(102,187,106,0.08); }
+
+/* Mobile: drop the axis-label column ("Tile acceptance" / "Deal-in" /
+   "Summary") to give the pick columns the full width. The labels are
+   redundant once you know the row order, and the extra room matters more on a
+   narrow screen. With table-layout:fixed the two pick columns reclaim the
+   freed space automatically. */
+@media (max-width: 640px) {
+  .ev-table-cols th.ev-axis { display: none; }
+}
 /* Acceptance cell holds the diff/full ukeire chips; let it wrap and centre. */
 .ev-table-cols .ukeire-acc-cell {
   display: flex;
