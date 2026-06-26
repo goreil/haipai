@@ -137,13 +137,24 @@ function renderConceptBreakdown(agg) {
       const isActive = cf && cf.side === side && cf.group === e.group;
       const cls = "concept-pill concept-pill-btn"
         + (isActive ? " concept-pill-active" : (filtering ? " concept-pill-dim" : ""));
+      // Per-dim sub-pills (Yaku → Tanyao/Yakuhai…, Value → Dora/Dora acceptance),
+      // each carrying its own EV. Group colour, sorted by EV. Action/shape groups
+      // (Riichi/Meld/Kan/Complex) have no finer dims, so this stays empty for them.
+      const subs = Object.values(e.subs || {}).sort((a, b) => b.ev - a.ev);
+      const subsHtml = subs.length
+        ? `<div class="concept-subs">` + subs.map((s) =>
+            `<span class="concept-sub" style="--grp:${meta.color}">`
+            + `<span class="concept-sub-label">${s.label}</span>`
+            + `<span class="concept-sub-ev">${s.ev.toFixed(2)}</span></span>`).join("")
+          + `</div>`
+        : "";
       h += `<div class="concept-row">
         <span class="${cls}" style="--grp:${meta.color}" role="button" tabindex="0"
           title="${isActive ? "Click to clear this filter" : `Show only rounds where you’re ${side === "missed" ? "under-using" : "over-prioritizing"} ${meta.label}`}"
           data-action="filterConcept" data-concept-side="${side}" data-concept-group="${e.group}">${meta.label}</span>
         <span class="concept-tiers">${tierChips(e.tiers)}</span>
         <span class="concept-ev">${e.ev.toFixed(2)} EV</span>
-      </div>`;
+      </div>${subsHtml}`;
     }
     return h + `</div>`;
   };

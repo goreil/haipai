@@ -85,45 +85,67 @@
     return { severe: 0, mistake: 0, light: 0, unsure: 0 };
   }
 
-  // The full set of (side, group) ledger cells a single mistake feeds, deduped.
-  // Two sources, merged here so aggregate() and mistakeTouchesGroup() can never
-  // disagree on which mistakes belong to a cell:
-  //   1. Win-vector groups (Speed/Yaku/Dora/Defense) — winning pills from the
-  //      shared comparator. The per-seat deal_in vector can emit the same group
-  //      twice and a Value mistake can emit both dora_kept and dora_acceptance,
-  //      so we dedup per (side, group).
+  // Every concept hit a single mistake feeds, NOT deduped — the raw
+  // (side, group, dim, label) tuples from both sources. Callers dedup at the
+  // granularity they need: cellsFor() dedups per (side, group) for the filter,
+  // aggregate() dedups per group for the row EV and per (group, dim) for the
+  // sub-pills. `dim`/`label` are present only for win-vector hits (a group like
+  // Yaku or Value has a finer concept inside it); action/shape pills ARE their
+  // own leaf, so they carry no sub-dim.
+  //   1. Win-vector dims (Speed/Yaku/Dora/Defense) — winning pills from the
+  //      shared comparator. The per-seat deal_in vector can emit the same dim
+  //      twice and a Value mistake can emit both dora_kept and dora_acceptance.
   //   2. Category/shape pills — the action code (Riichi/Meld/Kan) off
-  //      `m.category`, plus a "missed Complex" cell when the shape is complex.
-  function cellsFor(m, compareDimensions) {
-    var cells = [];
-    var seen = {};
-    function add(side, group) {
-      var k = side + "|" + group;
-      if (seen[k]) return;
-      seen[k] = true;
-      cells.push({ side: side, group: group });
-    }
+  //      `m.category`, plus a "missed Complex" hit when the shape is complex.
+  function rawHits(m, compareDimensions) {
+    var hits = [];
     if (typeof compareDimensions === "function") {
       var wins = compareDimensions(m) || [];
       for (var w = 0; w < wins.length; w++) {
         var win = wins[w];
         if (!win || win.suppressed) continue;
         if (win.winner !== "you" && win.winner !== "mortal") continue;
-        if (!CONCEPT_META[win.dim]) continue;
-        add(win.winner === "mortal" ? "missed" : "you", win.group || "Other");
+        var meta = CONCEPT_META[win.dim];
+        if (!meta) continue;
+        hits.push({
+          side: win.winner === "mortal" ? "missed" : "you",
+          group: win.group || "Other",
+          dim: win.dim,
+          label: meta.label,
+        });
       }
     }
     var cell = m && m.category && ACTION_CELL[m.category];
-    if (cell) add(cell.side, cell.group);
-    if (m && m.shape === "complex") add("missed", "Complex");
+    if (cell) hits.push({ side: cell.side, group: cell.group, dim: null, label: null });
+    if (m && m.shape === "complex") hits.push({ side: "missed", group: "Complex", dim: null, label: null });
+    return hits;
+  }
+
+  // The full set of (side, group) ledger cells a single mistake feeds, deduped.
+  // Derived from rawHits so aggregate() and mistakeTouchesGroup() can never
+  // disagree on which mistakes belong to a cell.
+  function cellsFor(m, compareDimensions) {
+    var hits = rawHits(m, compareDimensions);
+    var cells = [];
+    var seen = {};
+    for (var i = 0; i < hits.length; i++) {
+      var k = hits[i].side + "|" + hits[i].group;
+      if (seen[k]) continue;
+      seen[k] = true;
+      cells.push({ side: hits[i].side, group: hits[i].group });
+    }
     return cells;
   }
 
-  // Walk every mistake and tally its (side, group) cells. Returns
+  // Walk every mistake and tally its concept hits. Returns
   // { groups: {missed, you} } (each value a {group->entry} map) or null when
-  // nothing qualifies. `tier()` is injected so this stays decoupled from
-  // severity.js for tests. A mistake's full ev_loss is attributed to every cell
-  // it touches (cells are deduped per mistake, so each group counts it once).
+  // nothing qualifies. Each entry carries the group total (deduped per group, so
+  // each mistake's full ev_loss counts once) plus a `subs` map of the finer
+  // win-vector dims inside that group (Yaku → Tanyao/Yakuhai/…, Value → Dora/
+  // Dora acceptance), each deduped per dim and carrying its own summed EV. Subs
+  // don't sum to the group EV — a mistake winning both dora_kept and
+  // dora_acceptance counts its full EV in each sub AND once in the group.
+  // `tier()` is injected so this stays decoupled from severity.js for tests.
   function aggregate(game, compareDimensions, tier) {
     var groups = { missed: {}, you: {} };
     var any = false;
@@ -134,16 +156,32 @@
         var m = mistakes[i];
         var ev = m.ev_loss || 0;
         var t = tier(m.ev_loss);
-        var cells = cellsFor(m, compareDimensions);
-        for (var c = 0; c < cells.length; c++) {
-          var side = cells[c].side, grp = cells[c].group;
+        var hits = rawHits(m, compareDimensions);
+        var seenGrp = {}, seenSub = {};
+        for (var c = 0; c < hits.length; c++) {
+          var side = hits[c].side, grp = hits[c].group;
           var led = groups[side];
           var e = led[grp];
-          if (!e) { e = led[grp] = { group: grp, count: 0, ev: 0, tiers: emptyTiers() }; }
-          e.count += 1;
-          e.ev += ev;
-          e.tiers[t] += 1;
-          any = true;
+          if (!e) { e = led[grp] = { group: grp, count: 0, ev: 0, tiers: emptyTiers(), subs: {} }; }
+          var gk = side + "|" + grp;
+          if (!seenGrp[gk]) {
+            seenGrp[gk] = true;
+            e.count += 1;
+            e.ev += ev;
+            e.tiers[t] += 1;
+            any = true;
+          }
+          // Finer per-dim breakdown — only win-vector hits have one.
+          if (hits[c].dim) {
+            var sk = gk + "|" + hits[c].dim;
+            if (!seenSub[sk]) {
+              seenSub[sk] = true;
+              var s = e.subs[hits[c].dim];
+              if (!s) { s = e.subs[hits[c].dim] = { dim: hits[c].dim, label: hits[c].label, ev: 0, count: 0 }; }
+              s.ev += ev;
+              s.count += 1;
+            }
+          }
         }
       }
     }
@@ -161,5 +199,5 @@
     return false;
   }
 
-  return { CONCEPT_META, PILL_META, ACTION_CELL, cellsFor, aggregate, mistakeTouchesGroup };
+  return { CONCEPT_META, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, mistakeTouchesGroup };
 }));
