@@ -55,8 +55,9 @@ var HAIPAI_CLICK_ACTIONS = {
   },
   deleteGame: () => deleteGame(state.currentGame),
   switchGameView: (el) => switchGameView(el.dataset.view),
-  filterConcept: (el) => toggleConceptFilter(el.dataset.conceptSide, el.dataset.conceptGroup),
-  clearConceptFilter: () => toggleConceptFilter(null, null),
+  filterConcept: (el) => toggleConceptFilter(el.dataset.conceptSide, el.dataset.conceptGroup, el.dataset.conceptDim),
+  clearConceptFilters: () => clearConceptFilters(),
+  setSevLevel: (el) => setSevLevel(parseInt(el.dataset.level, 10)),
   toggleGameMistakes: (el) => toggleGameMistakes(el.dataset.groupId),
   onReportClick: (el) => onReportClick(el, +el.dataset.mid, el.dataset.kind),
   onReportClear: (el) => onReportClear(+el.dataset.mid),
@@ -91,9 +92,7 @@ var HAIPAI_CHANGE_ACTIONS = {
   onComplexReason: (el) => onComplexReason(+el.dataset.mid),
   reloadAdminReports: (el) => reloadAdminReports(el.value),
   adminReportKind: (el) => { adminState.reportKind = el.value; renderAdmin(); },
-  onToggleMistake: (el) => onToggleMistake(el),
-  onToggleLight: (el) => onToggleLight(el),
-  onToggleUnsure: (el) => onToggleUnsure(el),
+  onSevSlider: (el) => onSevSlider(el),
 };
 
 document.addEventListener("click", (e) => {

@@ -482,19 +482,5 @@ async function onReportClear(mid) {
   if (status) { status.textContent = "Removed"; status.className = "report-status ok"; }
 }
 
-// --- Filter handlers (severity checkboxes in the toolbar) ---
-
-function onToggleMistake(cb) {
-  state.showMistake = cb.checked;
-  if (state.currentGameData) renderGame();
-}
-
-function onToggleLight(cb) {
-  state.showLight = cb.checked;
-  if (state.currentGameData) renderGame();
-}
-
-function onToggleUnsure(cb) {
-  state.showUnsure = cb.checked;
-  if (state.currentGameData) renderGame();
-}
+// Severity filtering now lives in the rendered "Filters" panel (the slider in
+// game-render.js::renderFiltersPanel), not in toolbar checkboxes.

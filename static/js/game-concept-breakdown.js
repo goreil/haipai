@@ -146,7 +146,7 @@
   // don't sum to the group EV — a mistake winning both dora_kept and
   // dora_acceptance counts its full EV in each sub AND once in the group.
   // `tier()` is injected so this stays decoupled from severity.js for tests.
-  function aggregate(game, compareDimensions, tier) {
+  function aggregate(game, compareDimensions, tier, predicate) {
     var groups = { missed: {}, you: {} };
     var any = false;
     var rounds = (game && game.rounds) || [];
@@ -154,6 +154,7 @@
       var mistakes = rounds[r].mistakes || [];
       for (var i = 0; i < mistakes.length; i++) {
         var m = mistakes[i];
+        if (predicate && !predicate(m)) continue;
         var ev = m.ev_loss || 0;
         var t = tier(m.ev_loss);
         var hits = rawHits(m, compareDimensions);
@@ -199,5 +200,19 @@
     return false;
   }
 
-  return { CONCEPT_META, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, mistakeTouchesGroup };
+  // Does this mistake match a concept filter {side, group, dim}? A group-level
+  // filter (dim null/falsy) checks the deduped cells; a sub-pill filter (dim
+  // set, e.g. "tanyao_kept") requires a raw win-vector hit with that exact dim
+  // on the same side — so clicking "Tanyao" narrows to Tanyao, not all of Yaku.
+  function mistakeTouchesConcept(m, compareDimensions, f) {
+    if (!f) return false;
+    if (!f.dim) return mistakeTouchesGroup(m, compareDimensions, f.side, f.group);
+    var hits = rawHits(m, compareDimensions);
+    for (var h = 0; h < hits.length; h++) {
+      if (hits[h].side === f.side && hits[h].group === f.group && hits[h].dim === f.dim) return true;
+    }
+    return false;
+  }
+
+  return { CONCEPT_META, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, mistakeTouchesGroup, mistakeTouchesConcept };
 }));

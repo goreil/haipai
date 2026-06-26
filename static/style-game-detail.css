@@ -24,6 +24,60 @@
 
 .game-header .log-link a:hover { text-decoration: underline; }
 
+/* Filters panel — "Filters" heading + cumulative severity slider + tier labels,
+   sitting above the summary bar (which reflects the slider). */
+.filters-panel {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 10px 16px 12px;
+  margin-bottom: 12px;
+}
+.filters-head {
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.filters-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 440px;
+}
+.sev-slider {
+  width: 100%;
+  height: 6px;
+  margin: 2px 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.sev-ticks {
+  display: flex;
+  justify-content: space-between;
+}
+/* Severity tier labels under the slider double as click targets. Off tiers are
+   dimmed; the slider level lights them up cumulatively (Severe..Unsure). */
+.sev-tick {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  opacity: 0.45;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+.sev-tick.on {
+  opacity: 1;
+  color: var(--tick);
+}
+.sev-tick:hover {
+  opacity: 1;
+}
+
 /* Summary bar */
 .summary-bar {
   display: flex;
@@ -172,6 +226,30 @@
   background: color-mix(in srgb, var(--grp) 22%, transparent);
   color: var(--text);
   font-variant-numeric: tabular-nums;
+}
+/* Sub-pills are clickable filters too (narrower than their group pill). */
+.concept-sub-btn {
+  cursor: pointer;
+  transition: filter 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+}
+.concept-sub-btn:hover {
+  filter: brightness(1.25);
+}
+.concept-sub-active {
+  color: var(--bg, #1a1a1a);
+  background: var(--grp);
+  border-color: var(--grp);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--grp) 45%, transparent);
+}
+.concept-sub-active .concept-sub-ev {
+  background: color-mix(in srgb, #000 22%, transparent);
+  color: var(--bg, #1a1a1a);
+}
+.concept-sub-dim {
+  opacity: 0.5;
+}
+.concept-sub-dim:hover {
+  opacity: 1;
 }
 /* Disclaimer under the breakdown: one mistake can win pills in several concepts,
    so a row's EV is attributed to every concept it touches (columns don't sum to

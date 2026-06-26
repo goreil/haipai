@@ -135,10 +135,6 @@
 .toolbar input[type="checkbox"] {
   accent-color: var(--accent);
 }
-.severity-filters {
-  display: inline-flex;
-  gap: 8px;
-}
 .toolbar-menu {
   position: relative;
 }

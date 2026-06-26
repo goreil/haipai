@@ -12,13 +12,15 @@ var state = {
   games: [],
   currentGame: null,
   currentGameData: null,
-  showUnsure: false,
-  showLight: false,
-  showMistake: false,
+  // Severity slider: a single cumulative threshold 0..3 over SEV_ORDER
+  // (0 = severe only, 1 = +mistake, 2 = +light, 3 = +unsure). Set per game by
+  // autoSetSeverityFilters; the summary bar + concept ledgers reflect it too.
+  sevLevel: 3,
   gameView: "rounds", // "rounds" or "summary"
-  // Concept-breakdown pill filter: {side:"missed"|"you", group} or null. When
-  // set, the rounds view shows only mistakes touching that concept group.
-  conceptFilter: null,
+  // Concept-breakdown pill filters (additive / OR). Array of
+  // {side:"missed"|"you", group, dim:null|<win-vector dim>}. Empty = no filter;
+  // a mistake shows when it touches ANY selected pill.
+  conceptFilters: [],
 };
 
 // --- Init ---

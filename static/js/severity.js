@@ -40,6 +40,14 @@ var TIER_TOOLTIP = {
   unsure: "Unsure — Mortal EV gap <0.2 (AI not confident)",
 };
 
+// Cumulative severity ordering, most → least severe. The filter slider exposes a
+// single threshold (state.sevLevel): a tier is shown when its rank <= the level.
+var SEV_ORDER = ["severe", "mistake", "light", "unsure"];
+function sevRank(tier) {
+  var i = SEV_ORDER.indexOf(tier);
+  return i < 0 ? 0 : i;
+}
+
 function sevClass(m) {
   const ev = typeof m === "object" && m !== null ? m.ev_loss : null;
   return TIER_CLASS[sevTier(ev)] || "";

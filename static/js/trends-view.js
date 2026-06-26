@@ -35,7 +35,6 @@ async function fetchSnapshots() {
 }
 
 async function showTrends() {
-  setSeverityFiltersVisible(false);
   state.currentGame = null;
   state.currentGameData = null;
   renderGameList();

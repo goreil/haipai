@@ -50,11 +50,6 @@ function renderGameList() {
 
 // --- Render: Game Detail ---
 
-function setSeverityFiltersVisible(show) {
-  const el = document.getElementById("severity-filters");
-  if (el) el.style.display = show ? "" : "none";
-}
-
 // Group key → { label, color } for every pill the breakdown can render: the
 // win-vector groups (compare-dimensions.GROUP_META) plus the category/shape
 // pills the aggregator adds (haipaiConceptBreakdown.PILL_META). Merged here so
@@ -119,14 +114,14 @@ function renderConceptBreakdown(agg) {
     .map(([k, cls, lbl]) => `<span class="tier-count ${cls}" title="${lbl}">${t[k]}</span>`)
     .join("");
 
-  const cf = state.conceptFilter;
-  // A filter is active somewhere: dim the non-selected pills so the chosen one
-  // reads as the active filter rather than just another row.
-  const filtering = !!cf;
+  // A filter is active somewhere: dim the non-selected pills so the chosen ones
+  // read as the active filter rather than just more rows.
+  const filtering = state.conceptFilters.length > 0;
 
   const ledgerHtml = (title, sub, led, side) => {
     const rows = Object.values(led).sort((a, b) => b.ev - a.ev);
     if (!rows.length) return "";
+    const verb = side === "missed" ? "under-using" : "over-prioritizing";
     let h = `<div class="concept-ledger">
       <div class="concept-ledger-head">
         <span class="concept-ledger-title">${title}</span>
@@ -134,23 +129,30 @@ function renderConceptBreakdown(agg) {
       </div>`;
     for (const e of rows) {
       const meta = gm[e.group] || { label: e.group, color: "var(--text)" };
-      const isActive = cf && cf.side === side && cf.group === e.group;
+      const isActive = conceptFilterActive(side, e.group, null);
       const cls = "concept-pill concept-pill-btn"
         + (isActive ? " concept-pill-active" : (filtering ? " concept-pill-dim" : ""));
       // Per-dim sub-pills (Yaku → Tanyao/Yakuhai…, Value → Dora/Dora acceptance),
-      // each carrying its own EV. Group colour, sorted by EV. Action/shape groups
-      // (Riichi/Meld/Kan/Complex) have no finer dims, so this stays empty for them.
+      // each carrying its own EV and clickable as its own narrower filter. Group
+      // colour, sorted by EV. Action/shape groups (Riichi/Meld/Kan/Complex) have
+      // no finer dims, so this stays empty for them.
       const subs = Object.values(e.subs || {}).sort((a, b) => b.ev - a.ev);
       const subsHtml = subs.length
-        ? `<div class="concept-subs">` + subs.map((s) =>
-            `<span class="concept-sub" style="--grp:${meta.color}">`
-            + `<span class="concept-sub-label">${s.label}</span>`
-            + `<span class="concept-sub-ev">${s.ev.toFixed(2)}</span></span>`).join("")
+        ? `<div class="concept-subs">` + subs.map((s) => {
+            const subActive = conceptFilterActive(side, e.group, s.dim);
+            const subCls = "concept-sub concept-sub-btn"
+              + (subActive ? " concept-sub-active" : (filtering ? " concept-sub-dim" : ""));
+            return `<span class="${subCls}" style="--grp:${meta.color}" role="button" tabindex="0"`
+              + ` title="${subActive ? "Click to clear this filter" : `Show only rounds ${verb} ${s.label}`}"`
+              + ` data-action="filterConcept" data-concept-side="${side}" data-concept-group="${e.group}" data-concept-dim="${s.dim}">`
+              + `<span class="concept-sub-label">${s.label}</span>`
+              + `<span class="concept-sub-ev">${s.ev.toFixed(2)}</span></span>`;
+          }).join("")
           + `</div>`
         : "";
       h += `<div class="concept-row">
         <span class="${cls}" style="--grp:${meta.color}" role="button" tabindex="0"
-          title="${isActive ? "Click to clear this filter" : `Show only rounds where you’re ${side === "missed" ? "under-using" : "over-prioritizing"} ${meta.label}`}"
+          title="${isActive ? "Click to clear this filter" : `Show only rounds where you’re ${verb} ${meta.label}`}"
           data-action="filterConcept" data-concept-side="${side}" data-concept-group="${e.group}">${meta.label}</span>
         <span class="concept-tiers">${tierChips(e.tiers)}</span>
         <span class="concept-ev">${e.ev.toFixed(2)} EV</span>
@@ -168,55 +170,128 @@ function renderConceptBreakdown(agg) {
   return `<div class="concept-breakdown">${missed}${over}${note}</div>`;
 }
 
-// Combined rounds-view visibility for a mistake: the severity toggles AND, when
-// a concept pill is selected in the breakdown, the concept-group filter.
+// Does a mistake clear the severity slider? Cumulative: shown when its tier rank
+// is at or above the slider threshold (state.sevLevel 0..3 over SEV_ORDER).
+function sliderVisible(m) {
+  return sevRank(sevTier(m.ev_loss)) <= state.sevLevel;
+}
+
+// Combined rounds-view visibility for a mistake: the severity slider AND, when
+// any concept pills are selected, a match against ANY of them (additive / OR).
 function mistakeVisible(m) {
-  const t = sevTier(m.ev_loss);
-  if (t === "unsure" && !state.showUnsure) return false;
-  if (t === "light" && !state.showLight) return false;
-  if (t === "mistake" && !state.showMistake) return false;
-  const cf = state.conceptFilter;
-  if (cf && typeof haipaiConceptBreakdown !== "undefined"
+  if (!sliderVisible(m)) return false;
+  const cfs = state.conceptFilters;
+  if (cfs && cfs.length
+      && typeof haipaiConceptBreakdown !== "undefined"
       && typeof haipaiCompareDimensions !== "undefined") {
-    if (!haipaiConceptBreakdown.mistakeTouchesGroup(
-        m, haipaiCompareDimensions.compareDimensions, cf.side, cf.group)) return false;
+    const cd = haipaiCompareDimensions.compareDimensions;
+    if (!cfs.some(f => haipaiConceptBreakdown.mistakeTouchesConcept(m, cd, f))) return false;
   }
   return true;
 }
 
-// Toggle the concept-breakdown filter. Clicking the active pill (or "Show all")
-// clears it; clicking another sets it. Filtering only makes sense in the rounds
-// view, so selecting one snaps there. Pass (null, null) to clear.
-function toggleConceptFilter(side, group) {
-  const cf = state.conceptFilter;
-  if (!side || (cf && cf.side === side && cf.group === group)) {
-    state.conceptFilter = null;
+// True when `f` is already in the active concept-filter set.
+function conceptFilterActive(side, group, dim) {
+  return state.conceptFilters.some(
+    f => f.side === side && f.group === group && (f.dim || null) === (dim || null));
+}
+
+// Toggle one concept-breakdown pill in/out of the additive filter set. Clicking
+// an active pill removes it; clicking a new one adds it (OR semantics). Filtering
+// only makes sense in the rounds view, so adding one snaps there.
+function toggleConceptFilter(side, group, dim) {
+  if (!side) return; // defensive; "Show all" uses clearConceptFilters
+  dim = dim || null;
+  const cfs = state.conceptFilters;
+  const idx = cfs.findIndex(
+    f => f.side === side && f.group === group && (f.dim || null) === dim);
+  if (idx >= 0) {
+    cfs.splice(idx, 1);
   } else {
-    state.conceptFilter = { side, group };
+    cfs.push({ side, group, dim });
     if (state.gameView !== "rounds") state.gameView = "rounds";
   }
   renderGame();
 }
 
+function clearConceptFilters() {
+  state.conceptFilters = [];
+  renderGame();
+}
+
+// Severity slider input handler: clamp to 0..3 and re-render.
+function onSevSlider(el) {
+  const v = parseInt(el.value, 10);
+  state.sevLevel = Number.isFinite(v) ? Math.max(0, Math.min(3, v)) : 3;
+  renderGame();
+}
+
+// Jump the slider to a specific level (clicking a tier label is a shortcut for
+// dragging the slider there).
+function setSevLevel(level) {
+  state.sevLevel = Math.max(0, Math.min(3, level));
+  renderGame();
+}
+
+// The "Filters" panel at the top of a game: a section heading, the cumulative
+// severity slider, and the tier labels under it (Severe is always on; deeper
+// tiers light up as the slider deepens). Tier labels double as click targets.
+function renderFiltersPanel() {
+  const TIERS = [
+    ["Severe", "var(--sev-major)"],
+    ["Mistake", "var(--sev-medium)"],
+    ["Light", "var(--sev-light)"],
+    ["Unsure", "var(--sev-minor)"],
+  ];
+  const ticks = TIERS.map(([label, color], rank) => {
+    const on = rank <= state.sevLevel;
+    return `<span class="sev-tick${on ? " on" : ""}" style="--tick:${color}"
+      role="button" tabindex="0" data-action="setSevLevel" data-level="${rank}"
+      title="Show down to ${label.toLowerCase()}">${label}</span>`;
+  }).join("");
+  return `<div class="filters-panel">
+    <div class="filters-head">Filters</div>
+    <div class="filters-row">
+      <input type="range" class="sev-slider" min="0" max="3" step="1" value="${state.sevLevel}"
+        aria-label="Severity threshold" data-change-action="onSevSlider">
+      <div class="sev-ticks">${ticks}</div>
+    </div>
+  </div>`;
+}
+
 function renderGame() {
-  setSeverityFiltersVisible(true);
   const game = state.currentGameData;
   if (!game) return;
   const content = document.getElementById("content");
 
   const s = game.summary || {};
 
-  // Recount by UI tier (server-side by_severity only has 3 buckets).
+  // Recount by UI tier (server-side by_severity only has 3 buckets). `total`
+  // counts everything; `vis` only the tiers the severity slider currently shows
+  // — the summary bar reflects the slider, so it tallies the visible set.
   const tierCounts = { severe: 0, mistake: 0, light: 0, unsure: 0 };
+  let visCount = 0, visEv = 0;
   for (const rnd of game.rounds) {
-    for (const mi of rnd.mistakes) tierCounts[sevTier(mi.ev_loss)]++;
+    for (const mi of rnd.mistakes) {
+      tierCounts[sevTier(mi.ev_loss)]++;
+      if (sliderVisible(mi)) { visCount++; visEv += mi.ev_loss || 0; }
+    }
   }
+  // Which severity stats to surface: severe is always on, deeper tiers appear
+  // only once the slider reaches them (TIER_SLOTS index = SEV_ORDER rank).
+  const TIER_SLOTS = [
+    ["severe", "var(--sev-major)", "Severe", "EV loss > 1.0"],
+    ["mistake", "var(--sev-medium)", "Mistake", "EV loss 0.5–1.0"],
+    ["light", "var(--sev-light)", "Light", "EV loss 0.2–0.5"],
+    ["unsure", "var(--sev-minor)", "Unsure", "EV loss < 0.2 — AI not confident"],
+  ];
 
-  // Concept aggregate, computed once: the summary-bar headline (top group) and
-  // the breakdown ledgers below both read it.
+  // Concept aggregate, computed once over the slider-visible mistakes (so the
+  // ledgers + summary headline track the slider too): the summary-bar headline
+  // (top group) and the breakdown ledgers below both read it.
   const conceptAgg = (typeof haipaiConceptBreakdown !== "undefined"
       && typeof haipaiCompareDimensions !== "undefined")
-    ? haipaiConceptBreakdown.aggregate(game, haipaiCompareDimensions.compareDimensions, sevTier)
+    ? haipaiConceptBreakdown.aggregate(game, haipaiCompareDimensions.compareDimensions, sevTier, sliderVisible)
     : null;
 
   const dateObj = new Date(game.date + "T00:00:00");
@@ -230,15 +305,15 @@ function renderGame() {
     </div>
 
 
+    ${renderFiltersPanel()}
+
     <div class="summary-bar">
-      <div class="stat"><span class="value">${s.total_mistakes || 0}</span><span class="label">Mistakes</span></div>
-      <div class="stat" title="Total expected value lost to mistakes this game, compared to Mortal's (the AI) preferred plays."><span class="value">${(s.total_ev_loss || 0).toFixed(2)}</span><span class="label">EV Loss</span></div>
+      <div class="stat" title="Mistakes shown at the current severity level."><span class="value">${visCount}</span><span class="label">Mistakes</span></div>
+      <div class="stat" title="Expected value lost across the shown mistakes, compared to Mortal's (the AI) preferred plays."><span class="value">${visEv.toFixed(2)}</span><span class="label">EV Loss</span></div>
       ${s.total_decisions ? `<div class="stat" title="How many of your decisions Mortal reviewed this game."><span class="value">${s.total_decisions}</span><span class="label">Decisions</span></div>
       <div class="stat" title="Average expected value lost per decision — lower is better."><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
-      <div class="stat" title="EV loss > 1.0"><span class="value" style="color:var(--sev-major)">${tierCounts.severe}</span><span class="label">Severe</span></div>
-      <div class="stat" title="EV loss 0.5–1.0"><span class="value" style="color:var(--sev-medium)">${tierCounts.mistake}</span><span class="label">Mistake</span></div>
-      <div class="stat" title="EV loss 0.2–0.5"><span class="value" style="color:var(--sev-light)">${tierCounts.light}</span><span class="label">Light</span></div>
-      <div class="stat" title="EV loss < 0.2 — AI not confident"><span class="value" style="color:var(--sev-minor)">${tierCounts.unsure}</span><span class="label">Unsure</span></div>
+      ${TIER_SLOTS.filter((_, rank) => rank <= state.sevLevel).map(([key, color, label, tip]) =>
+        `<div class="stat" title="${tip}"><span class="value" style="color:${color}">${tierCounts[key]}</span><span class="label">${label}</span></div>`).join("")}
       ${renderTopGroupStat(conceptAgg)}
     </div>
   `;
@@ -270,19 +345,25 @@ function renderGame() {
     </div>`;
   }
 
-  // Concept-filter banner: shown when a breakdown pill is selected. It owns the
-  // messaging while active (the severity banner is suppressed) so the two
-  // filters don't show conflicting "X of Y" counts.
-  const cf = state.conceptFilter;
-  if (cf && state.gameView === "rounds") {
+  // Concept-filter banner: shown when one or more breakdown pills are selected.
+  // It owns the messaging while active (the severity banner is suppressed) so the
+  // two filters don't show conflicting "X of Y" counts. Pills are additive (OR),
+  // so the banner lists every selected concept.
+  const cfs = state.conceptFilters;
+  if (cfs.length && state.gameView === "rounds") {
     const gm = conceptMetaMap();
-    const meta = gm[cf.group] || { label: cf.group, color: "var(--text)" };
+    const subMeta = (typeof haipaiConceptBreakdown !== "undefined" && haipaiConceptBreakdown.CONCEPT_META) || {};
     const matched = game.rounds.reduce((sum, r) => sum + r.mistakes.filter(mistakeVisible).length, 0);
-    const verb = cf.side === "missed" ? "under-using" : "over-prioritizing";
+    const pills = cfs.map((f) => {
+      const meta = gm[f.group] || { label: f.group, color: "var(--text)" };
+      const label = f.dim ? ((subMeta[f.dim] || {}).label || f.dim) : meta.label;
+      return `<span class="concept-pill" style="--grp:${meta.color}">${label}</span>`;
+    }).join("");
+    const lead = cfs.length === 1 ? "matching" : "matching any of";
     html += `<div class="filter-banner concept-filter-banner">
-      Showing the ${matched} mistake${matched === 1 ? "" : "s"} where you’re ${verb}
-      <span class="concept-pill" style="--grp:${meta.color}">${meta.label}</span>.
-      <button class="concept-filter-clear" data-action="clearConceptFilter">Show all</button>
+      <span class="concept-filter-text">Showing the ${matched} mistake${matched === 1 ? "" : "s"} ${lead}</span>
+      ${pills}
+      <button class="concept-filter-clear" data-action="clearConceptFilters">Show all</button>
     </div>`;
   } else {
     // Filter banner (7b): show when severity filters hide some mistakes
@@ -290,7 +371,7 @@ function renderGame() {
     const visibleMistakes = game.rounds.reduce((sum, r) => sum + r.mistakes.filter(mistakeVisible).length, 0);
     if (totalMistakes > 0 && visibleMistakes < totalMistakes && state.gameView === "rounds") {
       const hidden = totalMistakes - visibleMistakes;
-      html += `<div class="filter-banner">Showing ${visibleMistakes} of ${totalMistakes} mistakes. ${hidden} hidden by severity filter.</div>`;
+      html += `<div class="filter-banner">Showing ${visibleMistakes} of ${totalMistakes} mistakes. ${hidden} hidden by the severity slider.</div>`;
     }
   }
 
@@ -306,7 +387,7 @@ function renderGame() {
     const visible = rnd.mistakes.filter(mistakeVisible);
     // With a concept filter active a clean/non-matching round carries nothing to
     // show, so drop it entirely rather than render an empty "Clean" card.
-    if (state.conceptFilter && visible.length === 0) continue;
+    if (state.conceptFilters.length && visible.length === 0) continue;
 
     const outcomeStr = rnd.outcome ? (OUTCOME_EMOJI[rnd.outcome] || rnd.outcome) : "";
     // Prefer the decision count; old games stored before it existed only
@@ -567,9 +648,9 @@ function renderGame() {
 
 function switchGameView(view) {
   state.gameView = view;
-  // The concept filter only governs the rounds view; leaving the Summary tab
+  // The concept filters only govern the rounds view; leaving the Summary tab
   // would otherwise keep stale pills lit with nothing to filter.
-  if (view !== "rounds") state.conceptFilter = null;
+  if (view !== "rounds") state.conceptFilters = [];
   renderGame();
 }
 
