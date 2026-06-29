@@ -62,18 +62,13 @@ server {
 #     add_header X-Content-Type-Options "nosniff" always;
 #     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 #     add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-#     # 'wasm-unsafe-eval' lets the browser compile the WASM shanten kernel
-#     # (static/wasm/) without permitting eval(). Drop it if WASM is removed.
-#     add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'" always;
-#     # CSP hardening canary (docs/backlogs/CSP-HARDENING.md): the same policy
-#     # but WITHOUT script-src 'unsafe-inline'. Report-Only does NOT block —
-#     # the browser only logs a console violation if some inline JS still
-#     # tries to run. All inline on*= handlers were removed (now data-action
-#     # delegation via static/js/actions.js), so this should stay silent.
-#     # Once it's confirmed clean in real use, fold the strict script-src into
-#     # the enforced header above and delete this line (see Step 4 / root
-#     # script scripts/csp_drop_unsafe_inline.sh).
-#     add_header Content-Security-Policy-Report-Only "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; script-src 'self' 'wasm-unsafe-eval'" always;
+#     # script-src is strict (no 'unsafe-inline') — all inline on*= handlers were
+#     # removed in favour of data-action delegation (static/js/actions.js), see
+#     # docs/backlogs/CSP-HARDENING.md. 'wasm-unsafe-eval' lets the browser compile
+#     # the WASM shanten kernel (static/wasm/) without permitting eval(); drop it if
+#     # WASM is removed. The buymeacoffee.com entries back the support widget in
+#     # static/index.html (script from cdnjs, avatar img from cdn, payment iframe).
+#     add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://cdn.buymeacoffee.com; script-src 'self' 'wasm-unsafe-eval' https://cdnjs.buymeacoffee.com; frame-src https://buymeacoffee.com https://www.buymeacoffee.com; connect-src 'self' https://*.buymeacoffee.com" always;
 #
 #     # Static asset caching
 #     location /static/ {
