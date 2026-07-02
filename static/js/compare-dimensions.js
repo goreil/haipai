@@ -182,7 +182,6 @@
       };
       if (!sameShanten) {
         entry.suppressed = true;
-        entry.context = "wider, but a step slower";
       }
       wins.push(entry);
     }

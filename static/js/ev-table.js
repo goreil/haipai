@@ -64,11 +64,8 @@ function renderWinFeatPill(w, oya) {
       return featPill("pos", `-${w.magnitude} shanten`,
         "Reaches tenpai sooner (lower shanten) than the other pick", "", c);
     case "ukeire":
-      return w.suppressed
-        ? featPill("context", w.context || "wider, a step slower",
-            "Accepts more tiles, but at a worse shanten — a wide-but-slow shape, not a speed win")
-        : featPill("pos", `+${w.magnitude} ukeire`,
-            "Accepts more tiles than the other pick", "", c);
+      return featPill("pos", `+${w.magnitude} ukeire`,
+        "Accepts more tiles than the other pick", "", c);
     case "yakuhai_kept":
       return featPill("pos", "+yakuhai",
         "Keeps a yakuhai (value honor) the other pick discards",
@@ -493,21 +490,20 @@ function renderEvComparison(m, options) {
   // longer drift. Each winning dimension renders a green pill on its winner's
   // column (winner "you" → the played/actual column, "mortal" → the AI/expected
   // column). The lone behavioural change vs the old per-column loop: a
-  // cross-shanten ukeire "gain" is `suppressed` and shown as a neutral context
-  // pill ("wider, a step slower") instead of a green +ukeire — the old loop
-  // fired +ukeire with no shanten gate, which this fixes.
+  // cross-shanten ukeire "gain" is `suppressed` by the comparator (never a real
+  // speed win — the old loop fired +ukeire with no shanten gate) and is
+  // filtered out here entirely rather than shown as a pill.
   // A winning pill is tinted by its group's colour (the shared scheme in
   // compare-dimensions.GROUP_META: Efficiency=blue, Yaku=cyan, Value=gold,
   // Defense=red). `grpColor` swaps the green `feat-pill-pos` chrome for the
   // group-tinted `feat-pill-grp` (driven by the `--feat-grp` custom property).
-  // The suppressed context pill passes no colour and keeps its muted chrome.
   // Delegate to the shared renderer (top-level renderWinFeatPill) so the table
   // and the trade-off boxes stay pixel-identical. `oya` supplies the per-seat
   // deal-in wind label.
   const renderWinPill = (w) => renderWinFeatPill(w, oya);
 
   const wins = (typeof haipaiCompareDimensions !== "undefined")
-    ? haipaiCompareDimensions.compareDimensions(m) : [];
+    ? haipaiCompareDimensions.compareDimensions(m).filter(w => !w.suppressed) : [];
   const sideForWinner = (w) =>
     w.winner === "you" ? "actual" : w.winner === "mortal" ? "expected" : null;
   const featCells = cols.map((col) => wins
