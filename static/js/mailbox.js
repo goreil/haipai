@@ -17,21 +17,27 @@ function mailboxInit() {
   const wrapper = document.getElementById("mailbox");
   const trigger = document.getElementById("mailbox-trigger");
   const tabs = document.querySelectorAll(".mailbox-tab");
-  const markAllBtn = document.getElementById("mailbox-mark-all-read");
   if (!wrapper || !trigger) return;
 
   wrapper.style.display = "";
 
+  const closeMailbox = () => {
+    if (!wrapper.classList.contains("open")) return;
+    wrapper.classList.remove("open");
+    mailboxMarkAllRead();
+  };
+
   trigger.addEventListener("click", (e) => {
     e.stopPropagation();
-    const opening = !wrapper.classList.contains("open");
-    wrapper.classList.toggle("open");
-    if (opening) {
-      mailboxEnsureLoaded().then(() => {
-        const hasUnread = mailbox.messages.some((m) => m.unread);
-        mailboxSetFilter(hasUnread ? "unread" : "read");
-      });
+    if (wrapper.classList.contains("open")) {
+      closeMailbox();
+      return;
     }
+    wrapper.classList.add("open");
+    mailboxEnsureLoaded().then(() => {
+      const hasUnread = mailbox.messages.some((m) => m.unread);
+      mailboxSetFilter(hasUnread ? "unread" : "read");
+    });
   });
 
   tabs.forEach((t) =>
@@ -41,18 +47,11 @@ function mailboxInit() {
     })
   );
 
-  if (markAllBtn) {
-    markAllBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      mailboxMarkAllRead();
-    });
-  }
-
   document.addEventListener("click", (e) => {
-    if (!wrapper.contains(e.target)) wrapper.classList.remove("open");
+    if (!wrapper.contains(e.target)) closeMailbox();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") wrapper.classList.remove("open");
+    if (e.key === "Escape") closeMailbox();
   });
 
   // Eager fetch so the unread badge shows before the first click.
@@ -156,17 +155,14 @@ function mailboxEscape(s) {
 function mailboxUpdateBadge() {
   const badge = document.getElementById("mailbox-badge");
   const trigger = document.getElementById("mailbox-trigger");
-  const markAllBtn = document.getElementById("mailbox-mark-all-read");
   const unread = mailbox.messages.filter((m) => m.unread).length;
   if (unread > 0) {
     badge.textContent = unread > 99 ? "99+" : unread;
     badge.style.display = "";
     trigger.classList.add("has-unread");
-    if (markAllBtn) markAllBtn.disabled = false;
   } else {
     badge.style.display = "none";
     trigger.classList.remove("has-unread");
-    if (markAllBtn) markAllBtn.disabled = true;
   }
 }
 

@@ -1180,24 +1180,6 @@
   letter-spacing: 0.2px;
   color: var(--text);
 }
-.mailbox-header .actions {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-.mailbox-link {
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  font-size: 11px;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  font-family: inherit;
-}
-.mailbox-link:hover { color: var(--accent); background: rgba(79, 195, 247, 0.06); }
-.mailbox-link:disabled { color: var(--border); cursor: default; background: none; }
-
 .mailbox-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
