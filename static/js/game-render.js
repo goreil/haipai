@@ -137,26 +137,26 @@ function renderConceptBreakdown(agg, boxes) {
       // colour, sorted by EV. Action/shape groups (Riichi/Meld/Kan/Complex) have
       // no finer dims, so this stays empty for them.
       const subs = Object.values(e.subs || {}).sort((a, b) => b.ev - a.ev);
-      const subsHtml = subs.length
-        ? `<div class="concept-subs">` + subs.map((s) => {
-            const subActive = conceptFilterActive(side, e.group, s.dim);
-            const subCls = "concept-sub concept-sub-btn"
-              + (subActive ? " concept-sub-active" : (filtering ? " concept-sub-dim" : ""));
-            return `<span class="${subCls}" style="--grp:${meta.color}" role="button" tabindex="0"`
-              + ` title="${subActive ? "Click to clear this filter" : `Show only rounds ${verb} ${s.label}`}"`
-              + ` data-action="filterConcept" data-concept-side="${side}" data-concept-group="${e.group}" data-concept-dim="${s.dim}">`
-              + `<span class="concept-sub-label">${s.label}</span>`
-              + `<span class="concept-sub-ev">${s.ev.toFixed(2)}</span></span>`;
-          }).join("")
-          + `</div>`
-        : "";
+      const subsHtml = subs.map((s) => {
+        const subActive = conceptFilterActive(side, e.group, s.dim);
+        const subCls = "concept-sub concept-sub-btn"
+          + (subActive ? " concept-sub-active" : (filtering ? " concept-sub-dim" : ""));
+        return `<span class="${subCls}" style="--grp:${meta.color}" role="button" tabindex="0"`
+          + ` title="${subActive ? "Click to clear this filter" : `Show only rounds ${verb} ${s.label}`}"`
+          + ` data-action="filterConcept" data-concept-side="${side}" data-concept-group="${e.group}" data-concept-dim="${s.dim}">`
+          + `<span class="concept-sub-label">${s.label}</span>`
+          + `<span class="concept-sub-ev">${s.ev.toFixed(2)}</span></span>`;
+      }).join("");
       h += `<div class="concept-row">
-        <span class="${cls}" style="--grp:${meta.color}" role="button" tabindex="0"
-          title="${isActive ? "Click to clear this filter" : `Show only rounds where you’re ${verb} ${meta.label}`}"
-          data-action="filterConcept" data-concept-side="${side}" data-concept-group="${e.group}">${meta.label}</span>
+        <span class="concept-row-left">
+          <span class="${cls}" style="--grp:${meta.color}" role="button" tabindex="0"
+            title="${isActive ? "Click to clear this filter" : `Show only rounds where you’re ${verb} ${meta.label}`}"
+            data-action="filterConcept" data-concept-side="${side}" data-concept-group="${e.group}">${meta.label}</span>
+          ${subsHtml}
+        </span>
         <span class="concept-tiers">${tierChips(e.tiers)}</span>
         <span class="concept-ev">${e.ev.toFixed(2)} EV</span>
-      </div>${subsHtml}`;
+      </div>`;
     }
     return h + `</div>`;
   };

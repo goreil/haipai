@@ -150,7 +150,16 @@
   padding: 3px 0;
   font-size: 12px;
 }
-/* First column: the concept rendered as a group-coloured pill. `--grp` is the
+/* First column: the group pill plus its per-dim sub-pills, inline on one row
+   (wraps if there are many). */
+.concept-row-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+/* The concept rendered as a group-coloured pill. `--grp` is the
    group colour (compare-dimensions.GROUP_META), set inline per row. */
 .concept-pill {
   justify-self: start;
@@ -196,15 +205,8 @@
   gap: 6px;
   justify-content: flex-end;
 }
-/* Per-dim sub-pills under a group row (Tanyao, Yakuhai, Dora, Dora acceptance…).
-   Each is a small group-coloured chip carrying its own EV, indented to read as a
-   breakdown of the row above. */
-.concept-subs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 4px 0 6px 6px;
-}
+/* Per-dim sub-pills next to a group pill (Tanyao, Yakuhai, Dora, Dora
+   acceptance…). Each is a small group-coloured chip carrying its own EV. */
 .concept-sub {
   display: inline-flex;
   align-items: center;
