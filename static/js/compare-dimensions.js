@@ -284,20 +284,28 @@
     // Net rule (categorizer's): a side throwing its own dora to re-accept it is
     // a wash, so the win is suppressed when that side's discard is itself a
     // dora. The dora the winning wait keeps but the loser's drops names the tiles.
+    // GATED on tied shanten, same as ukeire: a slower shape's wait can intersect
+    // more live dora simply by being wider, so a shanten-losing side's "extra"
+    // dora acceptance is the same wide-but-slow seduction, not a real value win.
     const aAcc = doraUkeireForTile(actualTile, discardStats, doraTiles);
     const eAcc = doraUkeireForTile(expectedTile, discardStats, doraTiles);
+    const sameShantenForDora = aSh == null || eSh == null || aSh === eSh;
     if (eAcc > aAcc && !eDora) {
-      wins.push({
+      const entry = {
         dim: "dora_acceptance", group: "Dora", prio: 2, winner: "mortal",
         magnitude: eAcc - aAcc,
         tiles: doraAcceptTiles(expectedStat, actualStat, doraTiles),
-      });
+      };
+      if (!sameShantenForDora) entry.suppressed = true;
+      wins.push(entry);
     } else if (aAcc > eAcc && !aDora) {
-      wins.push({
+      const entry = {
         dim: "dora_acceptance", group: "Dora", prio: 2, winner: "you",
         magnitude: aAcc - eAcc,
         tiles: doraAcceptTiles(actualStat, expectedStat, doraTiles),
-      });
+      };
+      if (!sameShantenForDora) entry.suppressed = true;
+      wins.push(entry);
     }
 
     // --- Defense / deal_in — per-opponent vector (read off per_threat). ---
