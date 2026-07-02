@@ -292,46 +292,61 @@
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
-.tradeoff-box-sub {
-  font-size: 11px;
-  color: var(--text-dim);
-  margin-bottom: 6px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+/* You | AI column layout — mirrors the mistake-view comparison: a red You band
+   and a green AI band split by a vertical divider, under column labels. The
+   header + all rows live in ONE grid (.tradeoff-grid) and inherit its column
+   tracks via subgrid, so the divider is a single straight line across every row
+   (a per-row grid would let the auto EV column drift the split). Row gap is 0 so
+   the tinted bands read as continuous columns. Third column = shared EV + jump. */
+.tradeoff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  margin-top: 4px;
 }
-.to-legend-you { color: var(--text); }
-.to-legend-better { color: var(--text); }
-/* your pole | "vs" | better pole | EV | jump. The two poles share the flexible
-   space; EV + jump are fixed on the right so every row's EV lines up. */
+.tradeoff-colhead,
 .tradeoff-row {
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto auto;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: stretch;
   font-size: 12px;
 }
+.tradeoff-colhead {
+  align-items: center;
+}
+.to-colhead {
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.to-colhead-you { color: var(--sev-major); border-bottom: 2px solid color-mix(in srgb, var(--sev-major) 45%, transparent); }
+.to-colhead-ai  { color: var(--sev-minor); border-bottom: 2px solid color-mix(in srgb, var(--sev-minor) 45%, transparent); }
 .to-pole {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 5px;
   min-width: 0;
+  padding: 5px 8px;
 }
-/* Your play packs to the left edge; the better play mirrors it toward the "vs"
-   in the middle, so the two poles read as a face-off. */
-.to-pole-you { justify-self: start; justify-content: flex-start; }
-.to-pole-better { justify-self: end; justify-content: flex-end; }
+/* You = red band, AI = green band, split by a divider (border on the You cell so
+   it runs down both header and rows). Tints match .col-actual / .col-expected. */
+.to-pole-you {
+  background: rgba(239, 83, 80, 0.08);
+  border-right: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+}
+.to-pole-ai { background: rgba(102, 187, 106, 0.08); }
 .to-pole-empty { color: var(--text-dim); }
 .to-pole .tile-sm { width: 20px; height: auto; vertical-align: middle; }
-.to-vs {
-  font-size: 10px;
-  font-style: italic;
-  color: var(--text-dim);
-  text-transform: uppercase;
+.to-end {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0 5px 10px;
 }
 .to-ev {
-  justify-self: end;
   font-weight: 600;
   color: var(--accent);
   font-variant-numeric: tabular-nums;

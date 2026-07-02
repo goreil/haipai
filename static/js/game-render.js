@@ -191,10 +191,11 @@ function renderTradeoffBoxes(boxes, gm) {
       + `<span class="feat-pill-label">${label}</span></span>`;
   };
 
-  // One pole of a mistake row: every concrete win pill for that side (identical
-  // to the EV-table summary), plus an action pill when relevant. When a pole has
-  // no pills at all it falls back to the compared tile, then a dash — so a row is
-  // never blank.
+  // One pole (column cell) of a mistake row: every concrete win pill for that
+  // side (identical to the EV-table summary), plus an action pill when relevant.
+  // When a pole has no pills at all it falls back to the compared tile, then a
+  // dash — so a cell is never blank. `side` is "you" (red) / "ai" (green),
+  // mirroring the mistake-view You/AI columns.
   const poleHtml = (wins, action, tile, oya, side) => {
     let pills = canPill ? wins.map((w) => renderWinFeatPill(w, oya)).join("") : "";
     if (action) pills += actionPill(action, side);
@@ -216,10 +217,8 @@ function renderTradeoffBoxes(boxes, gm) {
         : `<span class="to-goto to-goto-off" title="No detail to jump to">→</span>`;
       return `<div class="tradeoff-row">
         ${poleHtml(m.youWins, m.youAction, m.youTile, m.oya, "you")}
-        <span class="to-vs">vs</span>
-        ${poleHtml(m.betterWins, m.betterAction, m.betterTile, m.oya, "better")}
-        <span class="to-ev"${evStyle}>${m.ev.toFixed(2)}</span>
-        ${goto}
+        ${poleHtml(m.betterWins, m.betterAction, m.betterTile, m.oya, "ai")}
+        <span class="to-end"><span class="to-ev"${evStyle}>${m.ev.toFixed(2)}</span>${goto}</span>
       </div>`;
     }).join("");
     return `<div class="tradeoff-box">
@@ -227,8 +226,14 @@ function renderTradeoffBoxes(boxes, gm) {
         <span class="tradeoff-box-title">${box.title}</span>
         <span class="tradeoff-box-ev">${box.ev.toFixed(2)} EV</span>
       </div>
-      <div class="tradeoff-box-sub"><span class="to-legend-you">Your play</span> vs <span class="to-legend-better">better play</span></div>
-      ${rows}
+      <div class="tradeoff-grid">
+        <div class="tradeoff-colhead">
+          <span class="to-colhead to-colhead-you">You</span>
+          <span class="to-colhead to-colhead-ai">AI</span>
+          <span class="to-end"></span>
+        </div>
+        ${rows}
+      </div>
     </div>`;
   };
 
