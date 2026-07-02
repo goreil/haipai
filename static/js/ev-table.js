@@ -66,6 +66,12 @@ function renderWinFeatPill(w, oya) {
     case "ukeire":
       return featPill("pos", `+${w.magnitude} ukeire`,
         "Accepts more tiles than the other pick", "", c);
+    case "versatility_kept":
+      return featPill("pos", "+versatility",
+        "Same shanten, same ukeire — keeps the more versatile tile. Middle tiles "
+          + "(3-7) form protoruns with 4 neighbouring ranks (two ryanmen), 2/8 with "
+          + "3, 1/9 with 2 (never ryanmen), honors with none",
+        (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
     case "yakuhai_kept":
       return featPill("pos", "+yakuhai",
         "Keeps a yakuhai (value honor) the other pick discards",

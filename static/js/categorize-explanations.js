@@ -31,7 +31,7 @@
 // their dedicated text further down in generateExplanation — only the
 // dahai-vs-dahai branch is compositional.
 
-// Group → narration order. Group-internal prio (shanten>ukeire,
+// Group → narration order. Group-internal prio (shanten>ukeire>versatility_kept,
 // dora_kept>dora_acceptance) breaks ties within a group. In a defense scene
 // the safety win headlines the sentence, so Defense leads; otherwise the
 // reading order is Speed → Yaku → Dora → Defense.
@@ -54,6 +54,8 @@ function _winClause(w, seatWindFor) {
     }
     case "ukeire":
       return `accepts ${w.magnitude} more tile${w.magnitude === 1 ? "" : "s"}`;
+    case "versatility_kept":
+      return `keeps the more versatile ${tile(w.tiles[0])}`;
     case "dora_kept":
       return `keeps the ${tile(w.tiles[0])} dora`;
     case "dora_acceptance": {

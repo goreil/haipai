@@ -41,6 +41,7 @@
   var CONCEPT_META = {
     shanten:         { label: "Speed (shanten)" },
     ukeire:          { label: "Efficiency (ukeire)" },
+    versatility_kept:{ label: "Efficiency (versatility)" },
     yakuhai_kept:    { label: "Yakuhai" },
     tanyao_kept:     { label: "Tanyao" },
     honitsu_kept:    { label: "Honitsu" },

@@ -9,7 +9,9 @@
 // `compareDimensions(m)` returns the FULL win-vector — every dimension is
 // evaluated and emitted (nothing short-circuits), each tagged with its group:
 //
-//   Speed   — shanten, ukeire   (ukeire is GATED: only a real win at tied shanten)
+//   Speed   — shanten, ukeire, versatility_kept (ukeire is GATED: only a real
+//             win at tied shanten; versatility_kept is GATED: only a real win
+//             at tied shanten AND tied ukeire)
 //   Yaku    — yakuhai_kept, tanyao_kept, honitsu_kept, ittsu_kept
 //   Dora    — dora_kept, dora_acceptance
 //   Defense — deal_in           (a per-opponent vector, read off m.per_threat)
@@ -39,7 +41,7 @@
   // shanten/deal-in logic (the whole point of a shared comparator).
   const {
     findInStats, getShantenForTile, doraUkeireForTile, dealinFor,
-    tileIsDora, tileIsYakuhai, isValueTileMjai, tileBase,
+    tileIsDora, tileIsYakuhai, isValueTileMjai, isHonorMjai, tileBase,
   } = categorize;
 
   // tanyao_kept fires only on an already-simple-heavy hand — a realistic
@@ -67,6 +69,20 @@
     const b = t && tileBase(t);
     if (!b || "ESWNPFC".includes(b)) return 0;
     return parseInt(b[0], 10) || 0;
+  }
+
+  // Riichi Book 1's tile-versatility ranking: 3-7 > 2,8 > 1,9 > honor. A 3-7
+  // tile forms a protorun with 4 neighbouring ranks (two of the four are
+  // ryanmen); 2/8 with 3; 1/9 (terminals) with 2 (never ryanmen); honors with
+  // none. Higher tier = more versatile. Returns null for a tile we can't rank.
+  function tileVersatilityTier(t) {
+    if (!t) return null;
+    if (isHonorMjai(t)) return 1;
+    const r = tileRank(t);
+    if (!r) return null;
+    if (r === 1 || r === 9) return 2;
+    if (r === 2 || r === 8) return 3;
+    return 4;
   }
   const skillAreaForEntry = prepParse && prepParse.skill_area_for_entry;
 
@@ -184,6 +200,28 @@
         entry.suppressed = true;
       }
       wins.push(entry);
+    }
+
+    // --- Speed / versatility_kept — GATED: only when shanten AND raw ukeire
+    // tie (aNec === eNec above never fired a win, so this is the tile-
+    // efficiency signal a tied ukeire count hides). Some floaters are more
+    // likely to turn into a good wait than others; Riichi Book 1's ranking —
+    // 3-7 > 2,8 > 1,9 > honor — counts how many kinds of protorun a tile can
+    // form. Convention matches every other *_kept dim: "you" keep expectedTile
+    // (Mortal's candidate discard, still in your hand since you threw
+    // something else), "mortal" keeps actualTile.
+    if (actualStat && expectedStat && aSh != null && eSh != null && aSh === eSh
+        && aNec === eNec && actualTile && expectedTile && actualTile !== expectedTile) {
+      const aTier = tileVersatilityTier(actualTile);
+      const eTier = tileVersatilityTier(expectedTile);
+      if (aTier != null && eTier != null && aTier !== eTier) {
+        const winner = aTier > eTier ? "mortal" : "you";
+        wins.push({
+          dim: "versatility_kept", group: "Speed", prio: 3, winner,
+          magnitude: Math.abs(aTier - eTier),
+          tiles: [winner === "mortal" ? actualTile : expectedTile],
+        });
+      }
     }
 
     // --- Yaku / yakuhai_kept — the side that keeps a yakuhai the other drops. ---

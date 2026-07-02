@@ -25,7 +25,7 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 12;
+  const CATEGORIZER_VERSION = 13;
   const CATEGORIZER_CHANGELOG = {
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
     2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
@@ -39,6 +39,7 @@
     10: "New Yaku win-vector dimension `tanyao_kept` (compare-dimensions.js): on an already-simple-heavy hand (>=11 simples), the side that cuts a terminal/honor while the other keeps it wins a tanyao pill (+tanyao N/14). Suppressed when a called meld holds a terminal/honor (tanyao impossible). Adds the cyan Yaku pill in the EV table and, because it's a real win, can move an otherwise-`complex` dahai spot to `obvious`/`trade-off` in deriveShape — hence the version bump.",
     11: "Two more Yaku win-vector dimensions (compare-dimensions.js): `honitsu_kept` and `ittsu_kept`, both reusing the cyan Yaku pill + the 'wants to go <yaku>' clause. honitsu_kept mirrors tanyao — on a committed flush shape (>=10/14 tiles in the dominant suit or honors) the side cutting an off-suit tile wins +honitsu N/14; suppressed when a called meld holds an off-suit tile. ittsu_kept fires on a stretched suit (>=6/9 distinct ranks) when one pick throws a sole 1-9 rank the straight still needs and the other doesn't (+ittsu N/9); ranks locked in 234-style non-run melds don't count, and 2+ non-ittsu-run melds suppress it. Both pills carry a flush-suit colour indicator (a representative tile), and the ittsu pill renders the still-missing ranks with a live-count hover. New real wins can move `complex` dahai spots to `obvious`/`trade-off` in deriveShape — hence the bump.",
     12: "dora_acceptance (compare-dimensions.js) is now GATED on tied shanten, same as ukeire: a wider wait can intersect more live dora simply by being a slower shape, so a cross-shanten 'gain' is marked suppressed (context, not a winning pill) instead of firing +dora acceptance. Fixes #m19244 (a faster hand's tighter wait was losing a Value pill to a slower, wider one). Can move a `trade-off`/`obvious` dahai spot to `complex` in deriveShape — hence the bump.",
+    13: "New Speed win-vector dimension `versatility_kept` (compare-dimensions.js), GATED on tied shanten AND tied ukeire — a tied raw acceptance count can still hide a real efficiency edge, since not every floater is equally likely to become a good wait. Riichi Book 1's tile-versatility ranking (3-7 > 2,8 > 1,9 > honor, by how many kinds of protorun each can form) decides the winner. Fixes #R-206/#20996 (keeping 5m over 2m when both are excess floaters ties raw ukeire, but 5m is more versatile) and reframes #R-211/#21960 (reported as dora-chasing; it's plain versatility — 6p over 9m). Adds the blue Efficiency pill and can move a `complex` dahai spot to `obvious`/`trade-off` in deriveShape — hence the bump.",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
