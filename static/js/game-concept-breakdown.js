@@ -200,6 +200,125 @@
     return false;
   }
 
+  // --- Trade-off boxes (replace the old "Overvaluing these" ledger) ----------
+  //
+  // Instead of one flat "you over-prioritized these concepts" list, group every
+  // over-favoring mistake by the TRADE-OFF axis it got wrong. A mistake is a
+  // choice between two competing poles: your play favoured one, the better play
+  // the other. Each box is one axis and lists the individual mistakes on it,
+  // showing what you favoured (left) vs what the better play favoured (right).
+  //
+  // Assignment is priority-ordered so each mistake lands in exactly ONE box:
+  //   1. push_fold   — any Defense (deal_in) pole is present (over-pushed when
+  //                    Mortal won safety, over-folded when you did).
+  //   2. speed_value — Speed on one side and Value (Yaku or Dora) on the other.
+  //   3. other       — catch-all: yaku-vs-dora trades, single-pole over-favoring,
+  //                    and bad riichi/call/kan actions.
+  // Membership mirrors the old "you" ledger: a mistake must have at least one
+  // you-side win (or a bad-action pill) to be an over-favoring mistake at all.
+  var BOX_DEFS = [
+    { key: "push_fold",   title: "Push vs. Fold" },
+    { key: "speed_value", title: "Speed vs. Value" },
+    { key: "other",       title: "Other" },
+  ];
+
+  // Dealer seat (0-3) for a mistake, derived from (hero actor, hero seat wind)
+  // exactly as ev-table.js does — feeds renderWinFeatPill's per-seat deal-in
+  // wind label so the box pills match the table. null when unknown.
+  function computeOya(m) {
+    var WINDS = ["E", "S", "W", "N"];
+    var actor = m && m.actual && m.actual.actor;
+    var hw = m && m.board_state && m.board_state.seat_wind;
+    if (actor == null || !hw) return null;
+    var pw = WINDS.indexOf(hw);
+    if (pw < 0) return null;
+    return ((actor - pw) % 4 + 4) % 4;
+  }
+
+  // Which box a mistake belongs to, from the group sets present on each pole.
+  // `yg`/`bg` are {group->1} maps for the you / better sides (win-vector groups
+  // plus any action group). See BOX_DEFS.
+  function classifyBox(yg, bg) {
+    if (yg.Defense || bg.Defense) return "push_fold";
+    var youValue = yg.Yaku || yg.Dora, betValue = bg.Yaku || bg.Dora;
+    if ((yg.Speed && betValue) || (youValue && bg.Speed)) return "speed_value";
+    return "other";
+  }
+
+  // Walk every (visible) mistake and bucket the over-favoring ones into trade-off
+  // boxes. Returns an ordered array of non-empty boxes:
+  //   { key, title, ev, mistakes: [{
+  //       id, ev, tier,
+  //       youWins, betterWins,   // raw win-vector entries (winner you / mortal),
+  //                              // rendered with the SAME concrete pills as the
+  //                              // EV-table summary (renderWinFeatPill).
+  //       youAction, betterAction, // action group (Riichi/Meld/Kan) when the
+  //                              // mistake is a bad/missed call — no win pill.
+  //       youTile, betterTile,   // compared discards, shown when a pole has no
+  //                              // pills at all so the row is never blank.
+  //   }] }
+  // A mistake is "over-favoring" (and thus bucketed) iff it has ≥1 you-side win
+  // or a bad-action pill — mirrors the old "you" ledger. `comparedTiles`/`tier`
+  // are injected to stay decoupled.
+  function tradeoffBoxes(game, compareDimensions, comparedTiles, tier, predicate) {
+    var boxes = {};
+    for (var d = 0; d < BOX_DEFS.length; d++) {
+      boxes[BOX_DEFS[d].key] = { key: BOX_DEFS[d].key, title: BOX_DEFS[d].title, ev: 0, mistakes: [] };
+    }
+    var rounds = (game && game.rounds) || [];
+    for (var r = 0; r < rounds.length; r++) {
+      var mistakes = rounds[r].mistakes || [];
+      for (var i = 0; i < mistakes.length; i++) {
+        var m = mistakes[i];
+        if (predicate && !predicate(m)) continue;
+
+        var youWins = [], betterWins = [], yg = {}, bg = {};
+        if (typeof compareDimensions === "function") {
+          var wins = compareDimensions(m) || [];
+          for (var w = 0; w < wins.length; w++) {
+            var win = wins[w];
+            if (!win || win.suppressed) continue;
+            if (win.winner === "you") { youWins.push(win); yg[win.group || "Other"] = 1; }
+            else if (win.winner === "mortal") { betterWins.push(win); bg[win.group || "Other"] = 1; }
+          }
+        }
+        var cell = m && m.category && ACTION_CELL[m.category];
+        var youAction = null, betterAction = null;
+        if (cell) {
+          if (cell.side === "you") { youAction = cell.group; yg[cell.group] = 1; }
+          else { betterAction = cell.group; bg[cell.group] = 1; }
+        }
+
+        if (!youWins.length && !youAction) continue; // not an over-favoring mistake
+
+        var key = classifyBox(yg, bg);
+        var t = (typeof comparedTiles === "function" && comparedTiles(m)) || {};
+        var ev = m.ev_loss || 0;
+        boxes[key].mistakes.push({
+          id: m.id || null,
+          ev: ev,
+          tier: tier(m.ev_loss),
+          oya: computeOya(m),
+          youWins: youWins,
+          betterWins: betterWins,
+          youAction: youAction,
+          betterAction: betterAction,
+          youTile: t.actualTile || null,
+          betterTile: t.expectedTile || null,
+        });
+        boxes[key].ev += ev;
+      }
+    }
+    var out = [];
+    for (var b = 0; b < BOX_DEFS.length; b++) {
+      var box = boxes[BOX_DEFS[b].key];
+      if (!box.mistakes.length) continue;
+      box.mistakes.sort(function (a, c) { return c.ev - a.ev; });
+      out.push(box);
+    }
+    return out;
+  }
+
   // Does this mistake match a concept filter {side, group, dim}? A group-level
   // filter (dim null/falsy) checks the deduped cells; a sub-pill filter (dim
   // set, e.g. "tanyao_kept") requires a raw win-vector hit with that exact dim
@@ -214,5 +333,5 @@
     return false;
   }
 
-  return { CONCEPT_META, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, mistakeTouchesGroup, mistakeTouchesConcept };
+  return { CONCEPT_META, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, tradeoffBoxes, mistakeTouchesGroup, mistakeTouchesConcept };
 }));

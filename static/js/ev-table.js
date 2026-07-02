@@ -37,6 +37,78 @@ function shantenPillStyle(shanten) {
     + `border:1px solid rgba(${br},${bg},${bb},${lineA});`;
 }
 
+// Concrete "feature pill" for a single win-vector entry — the exact chip shown
+// in the EV-table summary (e.g. "+5 ukeire", "+dora 🀋", "-12.3% deal-in").
+// Shared so the game-detail trade-off boxes (game-render.js) render identical
+// pills to the table. `oya` (dealer seat 0-3) is optional: when known, a
+// per-seat deal-in pill carries the opponent's kyoku wind; otherwise it
+// degrades to a plain % / seat name. Returns "" for a dim it can't describe.
+function renderWinFeatPill(w, oya) {
+  const WINDS = ["E", "S", "W", "N"];
+  const _seatWind = (seat) => (oya == null) ? null : WINDS[(seat - oya + 4) % 4];
+  const seatWindShort = (seat) => _seatWind(seat)
+    || (typeof SEAT_NAMES !== "undefined" && SEAT_NAMES[seat] ? SEAT_NAMES[seat][0] : `${seat}`);
+  const seatWindFor = (seat) => (oya == null)
+    ? ((typeof SEAT_NAMES !== "undefined" && SEAT_NAMES[seat]) || `Seat ${seat}`)
+    : ((typeof WIND_DISPLAY !== "undefined" && WIND_DISPLAY[_seatWind(seat)]) || _seatWind(seat));
+  const groupColors = (typeof haipaiCompareDimensions !== "undefined"
+    && haipaiCompareDimensions.GROUP_META) || {};
+  const featPill = (kind, label, title, tilesHtml = "", grpColor = "") =>
+    `<span class="feat-pill ${grpColor ? "feat-pill-grp" : "feat-pill-" + kind}" title="${title}"${grpColor ? ` style="--feat-grp:${grpColor}"` : ""}>`
+    + `<span class="feat-pill-label">${label}</span>`
+    + (tilesHtml ? `<span class="feat-pill-tiles">${tilesHtml}</span>` : "")
+    + `</span>`;
+  const c = (groupColors[w.group] || {}).color || "";
+  switch (w.dim) {
+    case "shanten":
+      return featPill("pos", `-${w.magnitude} shanten`,
+        "Reaches tenpai sooner (lower shanten) than the other pick", "", c);
+    case "ukeire":
+      return w.suppressed
+        ? featPill("context", w.context || "wider, a step slower",
+            "Accepts more tiles, but at a worse shanten — a wide-but-slow shape, not a speed win")
+        : featPill("pos", `+${w.magnitude} ukeire`,
+            "Accepts more tiles than the other pick", "", c);
+    case "yakuhai_kept":
+      return featPill("pos", "+yakuhai",
+        "Keeps a yakuhai (value honor) the other pick discards",
+        (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
+    case "tanyao_kept":
+      return featPill("pos", `+tanyao ${w.magnitude}/14`,
+        `Cuts a terminal/honor to keep the hand all-simples — ${w.magnitude}/14 tiles toward tanyao; the other pick keeps a non-simple`, "", c);
+    case "honitsu_kept": {
+      const suitName = { m: "manzu", p: "pinzu", s: "souzu" }[w.suit] || "one suit";
+      return featPill("pos", `+honitsu ${w.magnitude}/14`,
+        `Cuts an off-suit tile to keep the hand ${suitName} plus honors — ${w.magnitude}/14 tiles toward the flush; the other pick keeps an off-suit tile`,
+        (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
+    }
+    case "ittsu_kept": {
+      const suitName = { m: "manzu", p: "pinzu", s: "souzu" }[w.suit] || "one suit";
+      const need = (w.missing || []).map(x => `${x.tile} (${x.left} left)`).join(", ");
+      return featPill("pos", `+ittsu ${w.magnitude}/9`,
+        `Keeps the straight alive — ${w.magnitude}/9 distinct ranks toward 123-456-789 in ${suitName}`
+          + (need ? `; still needs ${need}` : "")
+          + `. The other pick throws a rank the run still needs`,
+        (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
+    }
+    case "dora_kept":
+      return featPill("pos", "+dora", "Keeps a dora the other pick discards",
+        (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
+    case "dora_acceptance":
+      return featPill("pos", "+dora accept",
+        "Its wait accepts more live dora than the other pick",
+        (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
+    case "deal_in":
+      return w.seat != null
+        ? featPill("pos", `-${w.pct.toFixed(1)}% deal-in ${seatWindShort(w.seat)}`,
+            `Deals in ${w.pct.toFixed(1)}% less often than the other pick against ${seatWindFor(w.seat)}`, "", c)
+        : featPill("pos", `-${w.pct.toFixed(1)}% deal-in`,
+            `Deals in ${w.pct.toFixed(1)}% less often than the other pick`, "", c);
+    default:
+      return "";
+  }
+}
+
 function renderEvComparison(m, options) {
   options = options || {};
   // Deal-in defense always shows the combined picture: the aggregated deal-in %
@@ -411,66 +483,10 @@ function renderEvComparison(m, options) {
   // Defense=red). `grpColor` swaps the green `feat-pill-pos` chrome for the
   // group-tinted `feat-pill-grp` (driven by the `--feat-grp` custom property).
   // The suppressed context pill passes no colour and keeps its muted chrome.
-  const featPill = (kind, label, title, tilesHtml = "", grpColor = "") =>
-    `<span class="feat-pill ${grpColor ? "feat-pill-grp" : "feat-pill-" + kind}" title="${title}"${grpColor ? ` style="--feat-grp:${grpColor}"` : ""}>`
-    + `<span class="feat-pill-label">${label}</span>`
-    + (tilesHtml ? `<span class="feat-pill-tiles">${tilesHtml}</span>` : "")
-    + `</span>`;
-
-  const groupColors = (typeof haipaiCompareDimensions !== "undefined"
-    && haipaiCompareDimensions.GROUP_META) || {};
-
-  const renderWinPill = (w) => {
-    const c = (groupColors[w.group] || {}).color || "";
-    switch (w.dim) {
-      case "shanten":
-        return featPill("pos", `-${w.magnitude} shanten`,
-          "Reaches tenpai sooner (lower shanten) than the other pick", "", c);
-      case "ukeire":
-        return w.suppressed
-          ? featPill("context", w.context || "wider, a step slower",
-              "Accepts more tiles, but at a worse shanten — a wide-but-slow shape, not a speed win")
-          : featPill("pos", `+${w.magnitude} ukeire`,
-              "Accepts more tiles than the other pick", "", c);
-      case "yakuhai_kept":
-        return featPill("pos", "+yakuhai",
-          "Keeps a yakuhai (value honor) the other pick discards",
-          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
-      case "tanyao_kept":
-        return featPill("pos", `+tanyao ${w.magnitude}/14`,
-          `Cuts a terminal/honor to keep the hand all-simples — ${w.magnitude}/14 tiles toward tanyao; the other pick keeps a non-simple`, "", c);
-      case "honitsu_kept": {
-        const suitName = { m: "manzu", p: "pinzu", s: "souzu" }[w.suit] || "one suit";
-        return featPill("pos", `+honitsu ${w.magnitude}/14`,
-          `Cuts an off-suit tile to keep the hand ${suitName} plus honors — ${w.magnitude}/14 tiles toward the flush; the other pick keeps an off-suit tile`,
-          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
-      }
-      case "ittsu_kept": {
-        const suitName = { m: "manzu", p: "pinzu", s: "souzu" }[w.suit] || "one suit";
-        const need = (w.missing || []).map(x => `${x.tile} (${x.left} left)`).join(", ");
-        return featPill("pos", `+ittsu ${w.magnitude}/9`,
-          `Keeps the straight alive — ${w.magnitude}/9 distinct ranks toward 123-456-789 in ${suitName}`
-            + (need ? `; still needs ${need}` : "")
-            + `. The other pick throws a rank the run still needs`,
-          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
-      }
-      case "dora_kept":
-        return featPill("pos", "+dora", "Keeps a dora the other pick discards",
-          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
-      case "dora_acceptance":
-        return featPill("pos", "+dora accept",
-          "Its wait accepts more live dora than the other pick",
-          (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
-      case "deal_in":
-        return w.seat != null
-          ? featPill("pos", `-${w.pct.toFixed(1)}% deal-in ${seatWindShort(w.seat)}`,
-              `Deals in ${w.pct.toFixed(1)}% less often than the other pick against ${seatWindFor(w.seat)}`, "", c)
-          : featPill("pos", `-${w.pct.toFixed(1)}% deal-in`,
-              `Deals in ${w.pct.toFixed(1)}% less often than the other pick`, "", c);
-      default:
-        return "";
-    }
-  };
+  // Delegate to the shared renderer (top-level renderWinFeatPill) so the table
+  // and the trade-off boxes stay pixel-identical. `oya` supplies the per-seat
+  // deal-in wind label.
+  const renderWinPill = (w) => renderWinFeatPill(w, oya);
 
   const wins = (typeof haipaiCompareDimensions !== "undefined")
     ? haipaiCompareDimensions.compareDimensions(m) : [];

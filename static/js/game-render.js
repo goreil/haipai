@@ -99,7 +99,7 @@ function renderTopGroupStat(agg) {
 // flush-right so every EV lines up in one vertical column regardless of how many
 // severity chips a row has. Takes the precomputed aggregate so renderGame can reuse it for
 // the summary-bar headline.
-function renderConceptBreakdown(agg) {
+function renderConceptBreakdown(agg, boxes) {
   if (!agg || typeof haipaiCompareDimensions === "undefined") return "";
 
   const gm = conceptMetaMap();
@@ -163,11 +163,76 @@ function renderConceptBreakdown(agg) {
 
   const missed = ledgerHtml("Losing points here",
     "The better play held this edge — you’re under-using these", agg.groups.missed, "missed");
-  const over = ledgerHtml("Overvaluing these",
-    "You won this edge but the play still cost EV — you’re over-prioritizing these", agg.groups.you, "you");
-  if (!missed && !over) return "";
-  const note = `<div class="concept-note">A single mistake can carry more than one concept, so its EV is counted toward each — the columns don’t add up to the game’s total EV loss.</div>`;
-  return `<div class="concept-breakdown">${missed}${over}${note}</div>`;
+  const boxesHtml = renderTradeoffBoxes(boxes, gm);
+  if (!missed && !boxesHtml) return "";
+  const note = `<div class="concept-note">A single mistake can carry more than one concept, so its EV is counted toward each — these panels don’t add up to the game’s total EV loss.</div>`;
+  return `<div class="concept-breakdown">${missed}${boxesHtml}${note}</div>`;
+}
+
+// The trade-off boxes that replace the old "Overvaluing these" ledger. Each box
+// is one trade-off axis (Push vs. Fold / Speed vs. Value / Other) and lists the
+// individual over-favoring mistakes on it: what your play favoured (left) vs what
+// the better play favoured (right), the EV lost, and a jump-to-mistake button
+// (reuses the #m<id> deep-link router → switches to rounds view + scrolls). See
+// haipaiConceptBreakdown.tradeoffBoxes for the bucketing.
+function renderTradeoffBoxes(boxes, gm) {
+  if (!boxes || !boxes.length) return "";
+  gm = gm || conceptMetaMap();
+  const canPill = typeof renderWinFeatPill === "function";
+
+  // An action pill (bad/missed riichi·call·kan) — the action decisions don't
+  // appear in the win-vector, so they get a group-coloured chip that reads like
+  // a feat-pill. `side` is "you" (Bad …) or "better" (Missed …).
+  const ACT_WORD = { Riichi: "riichi", Meld: "call", Kan: "kan" };
+  const actionPill = (group, side) => {
+    const meta = gm[group] || { label: group, color: "var(--text)" };
+    const label = (side === "you" ? "Bad " : "Missed ") + (ACT_WORD[group] || meta.label.toLowerCase());
+    return `<span class="feat-pill feat-pill-grp" style="--feat-grp:${meta.color}">`
+      + `<span class="feat-pill-label">${label}</span></span>`;
+  };
+
+  // One pole of a mistake row: every concrete win pill for that side (identical
+  // to the EV-table summary), plus an action pill when relevant. When a pole has
+  // no pills at all it falls back to the compared tile, then a dash — so a row is
+  // never blank.
+  const poleHtml = (wins, action, tile, oya, side) => {
+    let pills = canPill ? wins.map((w) => renderWinFeatPill(w, oya)).join("") : "";
+    if (action) pills += actionPill(action, side);
+    if (!pills) pills = tile ? renderTile(tile, "tile-sm") : `<span class="to-pole-empty">—</span>`;
+    return `<span class="to-pole to-pole-${side}">${pills}</span>`;
+  };
+
+  // Mistake tier (severe/mistake/light/unsure) → the EV colour var.
+  const TIER_COLOR = {
+    severe: "var(--sev-major)", mistake: "var(--sev-medium)",
+    light: "var(--sev-light)", unsure: "var(--sev-minor)",
+  };
+
+  const boxHtml = (box) => {
+    const rows = box.mistakes.map((m) => {
+      const evStyle = TIER_COLOR[m.tier] ? ` style="color:${TIER_COLOR[m.tier]}"` : "";
+      const goto = m.id
+        ? `<a class="to-goto" href="#m${m.id}" data-action="openHash" title="Go to this mistake">→</a>`
+        : `<span class="to-goto to-goto-off" title="No detail to jump to">→</span>`;
+      return `<div class="tradeoff-row">
+        ${poleHtml(m.youWins, m.youAction, m.youTile, m.oya, "you")}
+        <span class="to-vs">vs</span>
+        ${poleHtml(m.betterWins, m.betterAction, m.betterTile, m.oya, "better")}
+        <span class="to-ev"${evStyle}>${m.ev.toFixed(2)}</span>
+        ${goto}
+      </div>`;
+    }).join("");
+    return `<div class="tradeoff-box">
+      <div class="tradeoff-box-head">
+        <span class="tradeoff-box-title">${box.title}</span>
+        <span class="tradeoff-box-ev">${box.ev.toFixed(2)} EV</span>
+      </div>
+      <div class="tradeoff-box-sub"><span class="to-legend-you">Your play</span> vs <span class="to-legend-better">better play</span></div>
+      ${rows}
+    </div>`;
+  };
+
+  return `<div class="tradeoff-boxes">${boxes.map(boxHtml).join("")}</div>`;
 }
 
 // Does a mistake clear the severity slider? Cumulative: shown when its tier rank
@@ -289,9 +354,14 @@ function renderGame() {
   // Concept aggregate, computed once over the slider-visible mistakes (so the
   // ledgers + summary headline track the slider too): the summary-bar headline
   // (top group) and the breakdown ledgers below both read it.
-  const conceptAgg = (typeof haipaiConceptBreakdown !== "undefined"
-      && typeof haipaiCompareDimensions !== "undefined")
+  const conceptReady = (typeof haipaiConceptBreakdown !== "undefined"
+      && typeof haipaiCompareDimensions !== "undefined");
+  const conceptAgg = conceptReady
     ? haipaiConceptBreakdown.aggregate(game, haipaiCompareDimensions.compareDimensions, sevTier, sliderVisible)
+    : null;
+  const tradeoffBoxes = conceptReady
+    ? haipaiConceptBreakdown.tradeoffBoxes(game, haipaiCompareDimensions.compareDimensions,
+        haipaiCompareDimensions.comparedTiles, sevTier, sliderVisible)
     : null;
 
   const dateObj = new Date(game.date + "T00:00:00");
@@ -319,7 +389,7 @@ function renderGame() {
   `;
 
   // Concept-level EV ledger, top of the game (under the summary bar).
-  html += renderConceptBreakdown(conceptAgg);
+  html += renderConceptBreakdown(conceptAgg, tradeoffBoxes);
 
   // JS prep banner. Categorization itself runs in JS at render time
   // (see recategorizeGameInPlace); the only progress worth showing is the
