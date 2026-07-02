@@ -98,12 +98,30 @@ function renderWinFeatPill(w, oya) {
       return featPill("pos", "+dora accept",
         "Its wait accepts more live dora than the other pick",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
-    case "deal_in":
+    case "deal_in": {
+      // Push/fold context (w.threat): what you'd be folding to — riichi vs open,
+      // dealer-ness, and open-hand han. This is the deciding info for the call,
+      // so it rides on the deal-in pill itself (both the EV table and the
+      // trade-off boxes). Dealer replaces the bare wind tag (E seat = dealer);
+      // non-dealers keep their kyoku wind so you still know which opponent.
+      const th = w.threat;
+      if (th) {
+        const dealer = oya != null && th.seat != null
+          && (((th.seat - oya + 4) % 4) === 0);
+        const windTag = (!dealer && th.seat != null) ? ` (${seatWindShort(th.seat)})` : "";
+        const kindWord = th.kind === "open"
+          ? (th.han ? `open ${th.han}han` : "open") : "riichi";
+        const ctx = `${dealer ? "dealer " : ""}${kindWord}${windTag}`;
+        return featPill("pos",
+          `-${w.pct.toFixed(1)}% deal-in<span class="feat-pill-ctx">${ctx}</span>`,
+          `Deals in ${w.pct.toFixed(1)}% less often than the other pick — you'd be folding to ${ctx}`, "", c);
+      }
       return w.seat != null
         ? featPill("pos", `-${w.pct.toFixed(1)}% deal-in ${seatWindShort(w.seat)}`,
             `Deals in ${w.pct.toFixed(1)}% less often than the other pick against ${seatWindFor(w.seat)}`, "", c)
         : featPill("pos", `-${w.pct.toFixed(1)}% deal-in`,
             `Deals in ${w.pct.toFixed(1)}% less often than the other pick`, "", c);
+    }
     default:
       return "";
   }

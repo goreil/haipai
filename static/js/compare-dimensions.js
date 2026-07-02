@@ -114,6 +114,21 @@
     return { riichiThreat, openOnlyThreat, hasDealin };
   }
 
+  // Push/fold context for a per_threat entry, attached to the deal_in win so the
+  // deal-in pill can spell out what you'd be folding to (ev-table.js). `seat`
+  // lets the renderer resolve the threat's kyoku wind / dealer-ness from oya;
+  // `han` is the guaranteed visible han for OPEN threats (a riichi's han is
+  // unknown pre-reveal → null).
+  function threatMeta(th) {
+    if (!th) return null;
+    const open = th.kind === "open";
+    return {
+      kind: open ? "open" : "riichi",
+      seat: th.seat,
+      han: open ? (th.guaranteed_han ?? null) : null,
+    };
+  }
+
   // Skill area for a mistake, via the unchanged scene classifier
   // (prep/parse.js::skill_area_for_entry) — never from a category code. detail
   // types aren't carried on a prepped mistake; actual/expected types cover
@@ -301,6 +316,10 @@
           dim: "deal_in", group: "Defense", prio: 1,
           winner: aR < eR ? "you" : "mortal",
           pct: Math.abs(aR - eR), seat: th.seat, kind: th.kind || "riichi",
+          // Push/fold context for the deal-in pill (ev-table.js): what you'd be
+          // folding to. `han` is the guaranteed visible han — open threats only;
+          // a riichi's han is unknown pre-reveal so it stays null.
+          threat: threatMeta(th),
         });
       }
     } else {
@@ -309,9 +328,13 @@
         const aR = dealinFor(actualTile, dealinRates);
         const eR = dealinFor(expectedTile, dealinRates);
         if (aR != null && eR != null && aR !== eR) {
+          // A lone threat collapses to one aggregate pill; still carry its
+          // push/fold context (riichi/open, dealer, han) off the single entry.
+          const lone = perThreat[0] || null;
           wins.push({
             dim: "deal_in", group: "Defense", prio: 1, aggregate: true,
             winner: aR < eR ? "you" : "mortal", pct: Math.abs(aR - eR),
+            threat: lone ? threatMeta(lone) : null,
           });
         }
       }

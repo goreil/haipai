@@ -113,12 +113,9 @@
    to a single column only when there's genuinely no room. */
 .concept-breakdown {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
   margin-bottom: 20px;
-}
-@media (max-width: 640px) {
-  .concept-breakdown { grid-template-columns: 1fr; }
 }
 .concept-ledger {
   background: var(--bg-card);
@@ -262,9 +259,10 @@
   color: var(--text-dim);
 }
 
-/* Trade-off boxes — the right column of .concept-breakdown, replacing the old
-   "Overvaluing these" ledger. One box per trade-off axis, stacked vertically;
-   each box lists individual mistakes as "your play vs better play" rows. */
+/* Trade-off boxes — stacked below the "Losing points here" ledger inside
+   .concept-breakdown, replacing the old "Overvaluing these" ledger. One box per
+   trade-off axis, stacked vertically; each box lists individual mistakes as
+   "your play vs better play" rows. */
 .tradeoff-boxes {
   display: flex;
   flex-direction: column;
@@ -2306,6 +2304,18 @@
   color: var(--feat-grp);
   background: color-mix(in srgb, var(--feat-grp) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--feat-grp) 40%, transparent);
+}
+/* Push/fold context clause on a deal-in pill ("· dealer riichi", "· open 3han").
+   Muted + lighter weight so it reads as a qualifier of the deal-in %, not a
+   second number. The leading middot is drawn here so it never shows without
+   context. */
+.feat-pill-ctx {
+  font-weight: 600;
+  opacity: 0.75;
+}
+.feat-pill-ctx::before {
+  content: " · ";
+  opacity: 0.6;
 }
 .feat-pill-tiles {
   display: inline-flex;
