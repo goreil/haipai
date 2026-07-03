@@ -5,14 +5,55 @@ import secrets
 
 # --- Users ---
 
-def create_user(conn, username, password_hash):
-    """Create a new user. Returns user_id or raises on duplicate."""
+def create_user(conn, username, password_hash, email=None, verify_token=None, verify_expires=None):
+    """Create a new user. Returns user_id or raises on duplicate username/email.
+
+    `email`/`verify_token`/`verify_expires` are only set for password-based
+    registrations going through email verification (routes/auth.py). OAuth
+    accounts (create_oauth_user) and callers that omit them leave `email`
+    NULL, which also means the email_verified login gate never applies to
+    those accounts.
+    """
     cur = conn.execute(
-        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-        (username, password_hash),
+        "INSERT INTO users (username, password_hash, email, email_verify_token, email_verify_expires) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (username, password_hash, email, verify_token, verify_expires),
     )
     conn.commit()
     return cur.lastrowid
+
+
+def get_user_by_email(conn, email):
+    """Get user row by email."""
+    return conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+
+
+def get_user_by_verify_token(conn, token):
+    """Get user row by pending email-verification token."""
+    if not token:
+        return None
+    return conn.execute(
+        "SELECT * FROM users WHERE email_verify_token = ?", (token,)
+    ).fetchone()
+
+
+def mark_email_verified(conn, user_id):
+    """Mark a user's email verified and clear the now-spent token."""
+    conn.execute(
+        "UPDATE users SET email_verified = 1, email_verify_token = NULL, "
+        "email_verify_expires = NULL WHERE id = ?",
+        (user_id,),
+    )
+    conn.commit()
+
+
+def set_verify_token(conn, user_id, token, expires):
+    """Replace a user's pending email-verification token (e.g. on resend)."""
+    conn.execute(
+        "UPDATE users SET email_verify_token = ?, email_verify_expires = ? WHERE id = ?",
+        (token, expires, user_id),
+    )
+    conn.commit()
 
 
 def get_user_by_username(conn, username):

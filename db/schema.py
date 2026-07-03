@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
     upload_token TEXT,
+    email TEXT,
+    email_verified INTEGER NOT NULL DEFAULT 0,
+    email_verify_token TEXT,
+    email_verify_expires TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -138,14 +142,32 @@ def migrate(conn):
     if not _has_column("games", "share_token"):
         conn.execute("ALTER TABLE games ADD COLUMN share_token TEXT")
         altered = True
-    # Index creation stays outside the _has_column gate (unlike upload_token's
-    # index above) so it also runs for fresh installs, where executescript(SCHEMA)
-    # already created the column and this branch is skipped — the top-level
-    # SCHEMA string deliberately omits this index, since on an existing prod DB
-    # it would run (via executescript) before the ALTER TABLE above ever does.
+    if not _has_column("users", "email"):
+        conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
+        conn.execute("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0")
+        conn.execute("ALTER TABLE users ADD COLUMN email_verify_token TEXT")
+        conn.execute("ALTER TABLE users ADD COLUMN email_verify_expires TIMESTAMP")
+        # Email verification postdates these accounts entirely — grandfather
+        # them in rather than locking every existing user out on next login.
+        conn.execute("UPDATE users SET email_verified = 1")
+        altered = True
+    # These three indexes stay outside their _has_column gates (unlike
+    # upload_token's index above) so they also run for fresh installs, where
+    # executescript(SCHEMA) already created the column and the gate is
+    # skipped — the top-level SCHEMA string deliberately omits them, since on
+    # an existing prod DB they'd run (via executescript) before the ALTER
+    # TABLE above ever does.
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_games_share_token "
         "ON games(share_token) WHERE share_token IS NOT NULL"
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email "
+        "ON users(email) WHERE email IS NOT NULL"
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_verify_token "
+        "ON users(email_verify_token) WHERE email_verify_token IS NOT NULL"
     )
     if not _has_column("category_reports", "kind"):
         conn.execute("ALTER TABLE category_reports ADD COLUMN kind TEXT")

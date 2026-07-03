@@ -10,6 +10,9 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - DEMO_GAME_ID=${DEMO_GAME_ID:-}
+      - MAILBOX_USERNAME=${MAILBOX_USERNAME:-}
+      - MAILBOX_PASSWORD=${MAILBOX_PASSWORD:-}
+      - MAIL_FROM=${MAIL_FROM:-}
     volumes:
       - app-data:/app/data
       - mortal-files:/app/mortal_analysis

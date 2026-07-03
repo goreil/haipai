@@ -82,6 +82,18 @@ button:hover{background:linear-gradient(135deg,#3a9ac3 0%,#4fc3f7 100%);box-shad
   padding:8px 12px;background:rgba(239,83,80,0.08);
   border-radius:6px;border:1px solid rgba(239,83,80,0.15);
 }
+.info{
+  color:#4fc3f7;font-size:13px;margin-bottom:14px;
+  padding:8px 12px;background:rgba(79,195,247,0.08);
+  border-radius:6px;border:1px solid rgba(79,195,247,0.15);
+}
+.resend-btn{
+  width:100%;padding:9px;border-radius:8px;
+  border:1px solid #1e2540;background:transparent;color:#4fc3f7;
+  font-size:13px;font-weight:500;cursor:pointer;
+  font-family:'DM Sans',sans-serif;margin-bottom:16px;
+}
+.resend-btn:hover{background:#141828}
 .link{text-align:center;margin-top:18px;font-size:13px;color:#5a6078}
 .link a{color:#4fc3f7;text-decoration:none;font-weight:500}
 .link a:hover{text-decoration:underline}
@@ -117,6 +129,15 @@ button:hover{background:linear-gradient(135deg,#3a9ac3 0%,#4fc3f7 100%);box-shad
 <div class="card">
 <h2>{{ title }}</h2>
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if info %}<div class="info">{{ info }}</div>{% endif %}
+{% if unverified_username %}
+<form method="POST" action="/resend-verification">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="username" value="{{ unverified_username }}">
+<button class="resend-btn">Resend verification email</button>
+</form>
+{% endif %}
+{% if not hide_form %}
 {% if has_discord or has_google %}
 <div class="oauth-buttons">
 {% if has_discord %}
@@ -137,10 +158,12 @@ Continue with Google
 <form method="POST">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <label>Username</label><input name="username" required autofocus autocomplete="username">
+{% if register %}<label>Email</label><input name="email" type="email" required autocomplete="email">{% endif %}
 <label>Password</label><input name="password" type="password" required autocomplete="{{ 'new-password' if register else 'current-password' }}">
 {% if not register %}<label class="remember-label"><input type="checkbox" name="remember" checked> Remember me</label>{% endif %}
 <button>{{ title }}</button>
 </form>
+{% endif %}
 {% if register %}
 <div class="link">Already have an account? <a href="/login">Login</a></div>
 {% else %}

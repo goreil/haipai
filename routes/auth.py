@@ -3,15 +3,30 @@
 
 import json
 import os
-from datetime import datetime, timezone
+import re
+import secrets
+import sys
+from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, Response, jsonify, redirect, render_template, request, session
+from flask import Blueprint, Response, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
+from lib.mail import send_verification_email
 
 auth_bp = Blueprint("auth", __name__)
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+VERIFY_TOKEN_LIFETIME = timedelta(hours=24)
+
+
+def _utc_now_str():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _new_verify_expiry():
+    return (datetime.now(timezone.utc) + VERIFY_TOKEN_LIFETIME).strftime("%Y-%m-%d %H:%M:%S")
 
 
 # --- Login / register / logout ---
@@ -23,6 +38,7 @@ def login():
     if current_user.is_authenticated:
         return redirect("/")
     error = None
+    unverified_username = None
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
@@ -32,11 +48,18 @@ def login():
         pw_hash = user_row["password_hash"] if user_row else "pbkdf2:sha256:dummy"
         valid = check_password_hash(pw_hash, password)
         if user_row and valid:
-            remember = bool(request.form.get("remember"))
-            login_user(User(user_row["id"], user_row["username"]), remember=remember)
-            return redirect("/")
-        error = "Invalid username or password"
+            # OAuth-created accounts have no email on file and are exempt.
+            if user_row["email"] and not user_row["email_verified"]:
+                error = "Please verify your email address before logging in."
+                unverified_username = username
+            else:
+                remember = bool(request.form.get("remember"))
+                login_user(User(user_row["id"], user_row["username"]), remember=remember)
+                return redirect("/")
+        else:
+            error = "Invalid username or password"
     return render_template("login.html", title="Login", error=error, register=False,
+                           unverified_username=unverified_username,
                            has_discord="discord" in oauth._clients,
                            has_google="google" in oauth._clients)
 
@@ -48,24 +71,78 @@ def register():
     if current_user.is_authenticated:
         return redirect("/")
     error = None
+    info = None
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
+        email = request.form.get("email", "").strip().lower()
         conn = get_conn()
 
-        if not username or not password:
-            error = "Username and password required"
+        if not username or not password or not email:
+            error = "Username, password, and email are required"
         elif len(password) < 8:
             error = "Password must be at least 8 characters"
+        elif not EMAIL_RE.match(email):
+            error = "Enter a valid email address"
         else:
             try:
                 pw_hash = generate_password_hash(password)
-                user_id = db.create_user(conn, username, pw_hash)
-                login_user(User(user_id, username))
-                return redirect("/")
+                token = secrets.token_urlsafe(32)
+                db.create_user(conn, username, pw_hash, email=email,
+                               verify_token=token, verify_expires=_new_verify_expiry())
             except Exception:
-                error = "Username already taken"
-    return render_template("login.html", title="Register", error=error, register=True,
+                error = "Username or email already in use"
+            else:
+                verify_url = url_for("auth.verify_email", token=token, _external=True)
+                if not send_verification_email(email, username, verify_url):
+                    print(f"Failed to send verification email to {email!r} for new user {username!r}",
+                          file=sys.stderr)
+                return render_template("login.html", title="Register", register=True, hide_form=True,
+                                       info="Account created! Check your email for a link to activate it.",
+                                       has_discord="discord" in oauth._clients,
+                                       has_google="google" in oauth._clients)
+    return render_template("login.html", title="Register", error=error, info=info, register=True,
+                           has_discord="discord" in oauth._clients,
+                           has_google="google" in oauth._clients)
+
+
+@auth_bp.route("/verify-email/<token>")
+def verify_email(token):
+    from app import User, get_conn, oauth
+
+    if current_user.is_authenticated:
+        return redirect("/")
+    conn = get_conn()
+    user_row = db.get_user_by_verify_token(conn, token)
+    error = None
+    if not user_row:
+        error = "Invalid or already-used verification link."
+    elif user_row["email_verify_expires"] and user_row["email_verify_expires"] < _utc_now_str():
+        error = "This verification link has expired. Log in and request a new one."
+    if error:
+        return render_template("login.html", title="Login", error=error, register=False,
+                               has_discord="discord" in oauth._clients,
+                               has_google="google" in oauth._clients)
+    db.mark_email_verified(conn, user_row["id"])
+    login_user(User(user_row["id"], user_row["username"]), remember=True)
+    return redirect("/")
+
+
+@auth_bp.route("/resend-verification", methods=["POST"])
+def resend_verification():
+    from app import get_conn, oauth
+
+    conn = get_conn()
+    username = request.form.get("username", "").strip()
+    user_row = db.get_user_by_username(conn, username)
+    if user_row and user_row["email"] and not user_row["email_verified"]:
+        token = secrets.token_urlsafe(32)
+        db.set_verify_token(conn, user_row["id"], token, _new_verify_expiry())
+        verify_url = url_for("auth.verify_email", token=token, _external=True)
+        send_verification_email(user_row["email"], user_row["username"], verify_url)
+    # Same response either way — don't reveal whether the account/email exists.
+    return render_template("login.html", title="Login", register=False,
+                           info="If that account needs verification, we've sent a new link.",
                            has_discord="discord" in oauth._clients,
                            has_google="google" in oauth._clients)
 

@@ -153,6 +153,8 @@ limiter.limit("10 per minute")(app.view_functions["auth.auth_discord"])
 limiter.limit("10 per minute")(app.view_functions["auth.auth_discord_callback"])
 limiter.limit("10 per minute")(app.view_functions["auth.auth_google"])
 limiter.limit("10 per minute")(app.view_functions["auth.auth_google_callback"])
+limiter.limit("10 per minute")(app.view_functions["auth.verify_email"])
+limiter.limit("5 per minute")(app.view_functions["auth.resend_verification"])
 
 # CSRF exemption for /api/me (read-only JSON returning the CSRF token itself).
 csrf.exempt(app.view_functions["auth.api_me"])
