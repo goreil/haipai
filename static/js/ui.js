@@ -125,6 +125,64 @@ async function submitAddGame() {
   }
 }
 
+// --- Share game modal ---
+
+async function showShareModal() {
+  if (!state.currentGame) return;
+  document.getElementById("share-modal").classList.add("show");
+  document.getElementById("share-error").textContent = "";
+  await loadShareUrl();
+}
+
+function hideShareModal() {
+  document.getElementById("share-modal").classList.remove("show");
+}
+
+async function loadShareUrl() {
+  const input = document.getElementById("share-url");
+  const errEl = document.getElementById("share-error");
+  input.value = "Loading…";
+  const res = await fetch(`/api/games/${state.currentGame}/share-token`);
+  if (!res.ok) {
+    input.value = "";
+    errEl.textContent = "Could not load share link";
+    return;
+  }
+  const { share_url } = await res.json();
+  input.value = share_url;
+}
+
+function copyShareUrl() {
+  const input = document.getElementById("share-url");
+  input.select();
+  navigator.clipboard?.writeText(input.value).catch(() => {});
+}
+
+async function regenerateShareLink() {
+  if (!state.currentGame) return;
+  if (!confirm("Regenerate this game's share link? The old link will stop working.")) return;
+  const errEl = document.getElementById("share-error");
+  const res = await apiPost(`/api/games/${state.currentGame}/share-token/regenerate`, {});
+  if (!res.ok) {
+    errEl.textContent = "Could not regenerate link";
+    return;
+  }
+  const { share_url } = await res.json();
+  document.getElementById("share-url").value = share_url;
+  errEl.textContent = "";
+}
+
+async function stopSharingGame() {
+  if (!state.currentGame) return;
+  if (!confirm("Stop sharing this game? Anyone with the current link will lose access.")) return;
+  const res = await apiDelete(`/api/games/${state.currentGame}/share-token`);
+  if (!res.ok) {
+    document.getElementById("share-error").textContent = "Could not stop sharing";
+    return;
+  }
+  hideShareModal();
+}
+
 // --- Keyboard shortcuts ---
 
 // Close toolbar dropdown when clicking outside

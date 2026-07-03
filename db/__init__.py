@@ -30,8 +30,12 @@ from db.games import (
     compute_summary_for_game,
     delete_game,
     get_game,
+    get_game_by_share_token,
+    get_or_create_share_token,
     get_trends,
     list_games,
+    regenerate_share_token,
+    revoke_share_token,
     update_game_stats,
 )
 from db.users import (
@@ -104,8 +108,12 @@ __all__ = [
     "compute_summary_for_game",
     "delete_game",
     "get_game",
+    "get_game_by_share_token",
+    "get_or_create_share_token",
     "get_trends",
     "list_games",
+    "regenerate_share_token",
+    "revoke_share_token",
     "update_game_stats",
     # users
     "create_oauth_user",

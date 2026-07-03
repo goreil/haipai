@@ -9,6 +9,7 @@ services:
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - DEMO_GAME_ID=${DEMO_GAME_ID:-}
     volumes:
       - app-data:/app/data
       - mortal-files:/app/mortal_analysis

@@ -286,7 +286,7 @@ function renderReportRow(m) {
 // admin / trends build their own non-interactive bubbles.
 function trainerBubbleHtml(m) {
   const explanation = generateExplanation(m);
-  const funnel = (m.shape === "complex" && m.id) ? renderComplexGapFunnel(m) : "";
+  const funnel = (!state.readOnly && m.shape === "complex" && m.id) ? renderComplexGapFunnel(m) : "";
   if (!explanation && !funnel) return "";
   return `<div class="mascot-speech">`
     + `<img src="/static/mascot.svg" class="mascot-avatar" alt="">`

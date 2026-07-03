@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Top-level pages + miscellaneous APIs: index, tile assets, health, trends."""
 
-from flask import Blueprint, jsonify, request, send_from_directory
+from flask import Blueprint, abort, current_app, jsonify, redirect, request, send_from_directory
 from flask_login import current_user, login_required
 from pathlib import Path
 
@@ -21,6 +21,31 @@ def index():
     if not current_user.is_authenticated:
         return send_from_directory("static", "landing.html")
     return send_from_directory("static", "index.html")
+
+
+@pages_bp.route("/shared/<token>")
+def shared_game(token):
+    """Public read-only game view. Always served regardless of auth state —
+    the token itself is resolved client-side against /api/shared/<token>, so
+    a bad/revoked token just renders a not-found state in-page."""
+    return send_from_directory("static", "shared.html")
+
+
+@pages_bp.route("/demo")
+def demo():
+    """Stable, bookmarkable demo link: redirects to whichever game
+    DEMO_GAME_ID designates, generating its share token on first visit.
+    Swapping the demo game is a one-line env change, no template edits."""
+    demo_game_id = current_app.config.get("DEMO_GAME_ID")
+    if not demo_game_id:
+        abort(404)
+    from app import get_conn
+    conn = get_conn()
+    row = conn.execute("SELECT user_id FROM games WHERE id = ?", (demo_game_id,)).fetchone()
+    if not row:
+        abort(404)
+    token = db.get_or_create_share_token(conn, demo_game_id, row["user_id"])
+    return redirect(f"/shared/{token}")
 
 
 @pages_bp.route("/impressum")

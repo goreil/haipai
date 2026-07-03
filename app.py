@@ -31,6 +31,10 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") != "development"
 app.config["REMEMBER_COOKIE_DURATION"] = 30 * 24 * 60 * 60  # 30 days
+# Game id shown at /demo for logged-out visitors, via a public share link
+# generated on first visit. Unset disables /demo (404).
+_demo_game_id = os.environ.get("DEMO_GAME_ID")
+app.config["DEMO_GAME_ID"] = int(_demo_game_id) if _demo_game_id else None
 
 csrf = CSRFProtect(app)
 

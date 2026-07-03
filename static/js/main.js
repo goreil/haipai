@@ -12,6 +12,10 @@ var state = {
   games: [],
   currentGame: null,
   currentGameData: null,
+  // True only on the public shared/demo view (see shared-view.js) — hides
+  // every write control (notes, reports, delete, share) and skips the
+  // sidebar re-render that assumes an authenticated shell.
+  readOnly: false,
   // Severity slider: a single cumulative threshold 0..3 over SEV_ORDER
   // (0 = severe only, 1 = +mistake, 2 = +light, 3 = +unsure). Set per game by
   // autoSetSeverityFilters; the summary bar + concept ledgers reflect it too.

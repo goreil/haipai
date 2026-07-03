@@ -74,6 +74,61 @@ def api_game_mortal(game_id):
     return resp
 
 
+@games_bp.route("/api/shared/<token>")
+def api_shared_game(token):
+    """Public, unauthenticated read-only game view for a share link. No
+    session/CSRF involved — the token itself is the credential, same model as
+    the upload-token bookmarklet auth (routes/game.py `api_upload`).
+
+    Returns the same shape /api/games/<id> + /api/games/<id>/mortal combine
+    into client-side, in one response, since the shared page has no per-user
+    cache concerns that would justify splitting them.
+    """
+    from app import get_conn
+    conn = get_conn()
+    game = db.get_game_by_share_token(conn, token)
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+    game["mortal_data"] = load_slim_mortal_data(game.get("mortal_file"))
+    return jsonify(game)
+
+
+@games_bp.route("/api/games/<int:game_id>/share-token", methods=["GET"])
+@login_required
+def api_get_share_token(game_id):
+    """Get-or-create the game's public share token."""
+    from app import get_conn
+    conn = get_conn()
+    token = db.get_or_create_share_token(conn, game_id, current_user.id)
+    if not token:
+        return jsonify({"error": "Game not found"}), 404
+    return jsonify({"share_token": token, "share_url": f"{request.url_root.rstrip('/')}/shared/{token}"})
+
+
+@games_bp.route("/api/games/<int:game_id>/share-token/regenerate", methods=["POST"])
+@login_required
+def api_regenerate_share_token(game_id):
+    """Rotate the game's share token, invalidating any previously shared link."""
+    from app import get_conn
+    conn = get_conn()
+    token = db.regenerate_share_token(conn, game_id, current_user.id)
+    if not token:
+        return jsonify({"error": "Game not found"}), 404
+    return jsonify({"share_token": token, "share_url": f"{request.url_root.rstrip('/')}/shared/{token}"})
+
+
+@games_bp.route("/api/games/<int:game_id>/share-token", methods=["DELETE"])
+@login_required
+def api_revoke_share_token(game_id):
+    """Turn off sharing for a game."""
+    from app import get_conn
+    conn = get_conn()
+    ok = db.revoke_share_token(conn, game_id, current_user.id)
+    if not ok:
+        return jsonify({"error": "Game not found"}), 404
+    return jsonify({"ok": True})
+
+
 def _read_mortal_json(mortal_file):
     """Load a Mortal analysis JSON by relative-to-DIR path, returning the raw
     dict or ``None`` (missing, outside DIR, or unreadable). Path is resolved +

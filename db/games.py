@@ -10,6 +10,7 @@ frontend consumes.
 """
 
 import json
+import secrets
 
 from db.mistakes import mistake_to_row, row_to_mistake
 
@@ -115,6 +116,70 @@ def get_game(conn, game_id, user_id=None):
         "rounds": rounds,
         "categorization_status": game_row["categorization_status"],
     }
+
+
+def get_or_create_share_token(conn, game_id, user_id):
+    """Return the game's public share token, generating one on first request.
+
+    Ownership-checked like get_game/delete_game. Returns None if the game
+    isn't owned by user_id.
+    """
+    row = conn.execute(
+        "SELECT share_token FROM games WHERE id = ? AND user_id = ?",
+        (game_id, user_id),
+    ).fetchone()
+    if not row:
+        return None
+    if row["share_token"]:
+        return row["share_token"]
+    token = secrets.token_urlsafe(24)
+    conn.execute("UPDATE games SET share_token = ? WHERE id = ?", (token, game_id))
+    conn.commit()
+    return token
+
+
+def regenerate_share_token(conn, game_id, user_id):
+    """Replace the game's share token, invalidating any existing link.
+
+    Returns the new token, or None if the game isn't owned by user_id.
+    """
+    cur = conn.execute("SELECT id FROM games WHERE id = ? AND user_id = ?", (game_id, user_id))
+    if not cur.fetchone():
+        return None
+    token = secrets.token_urlsafe(24)
+    conn.execute("UPDATE games SET share_token = ? WHERE id = ?", (token, game_id))
+    conn.commit()
+    return token
+
+
+def revoke_share_token(conn, game_id, user_id):
+    """Turn off sharing for a game. Returns True if a row matched."""
+    cur = conn.execute(
+        "UPDATE games SET share_token = NULL WHERE id = ? AND user_id = ?",
+        (game_id, user_id),
+    )
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def get_game_by_share_token(conn, token):
+    """Public read-only lookup: get full game data by its share token.
+
+    Same payload shape as get_game(), minus the owner's private per-mistake
+    notes (not meant for public viewers).
+    """
+    if not token:
+        return None
+    row = conn.execute("SELECT id FROM games WHERE share_token = ?", (token,)).fetchone()
+    if not row:
+        return None
+    game = get_game(conn, row["id"], user_id=None)
+    if game is None:
+        return None
+    for rnd in game["rounds"]:
+        for m in rnd["mistakes"]:
+            m.pop("note", None)
+    return game
 
 
 def add_game(conn, user_id, game_dict):

@@ -116,6 +116,26 @@
     </div>
   </div>
 
+  <!-- Share Game Modal -->
+  <div class="modal-overlay" id="share-modal" data-action="closeShareModalBackdrop">
+    <div class="modal">
+      <h3>Share this game</h3>
+      <p class="form-hint">Anyone with this link can view the game read-only — no account needed. They won't see your notes.</p>
+      <div class="form-group">
+        <div class="btn-row" style="gap:8px">
+          <input type="text" id="share-url" readonly style="flex:1">
+          <button class="btn" data-action="copyShareUrl">Copy</button>
+        </div>
+        <div class="error" id="share-error"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" data-action="regenerateShareLink">Regenerate link</button>
+        <button class="btn btn-delete" data-action="stopSharingGame">Stop sharing</button>
+        <button class="btn btn-primary" data-action="hideShareModal">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!--
     PR-5d: static/app.js (3839 LOC) was split into static/js/*.js. Load order
     matters because cross-file globals (state, csrfToken, etc.) are top-level

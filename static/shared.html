@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Haipai — Shared Game</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style-theme.css">
+  <link rel="stylesheet" href="/static/style-layout.css">
+  <link rel="stylesheet" href="/static/style-game-detail.css">
+  <link rel="stylesheet" href="/static/style-board-display.css">
+  <style>
+    /* This page has no sidebar, so .main takes the full .app width on its own. */
+    .shared-banner {
+      background: #103a4a;
+      color: #bfe8ff;
+      padding: 10px 20px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #2a7aa3;
+    }
+    .shared-banner .brand-mini {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      color: #fff;
+    }
+    .shared-banner .brand-mini img { width: 22px; height: 22px; }
+    .shared-banner .spacer { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="main">
+      <div class="shared-banner">
+        <span class="brand-mini"><img src="/static/mascot.svg" alt="">Haipai</span>
+        <span>You're viewing a shared game — read-only.</span>
+        <span class="spacer"></span>
+        <a class="btn btn-primary" href="/register">Sign up to analyze your own games</a>
+      </div>
+      <div class="content" id="content">
+        <div class="empty-state">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/actions.js"></script>
+  <script src="/static/js/tiles.js"></script>
+  <script src="/static/js/severity.js"></script>
+  <script src="/static/js/skill-areas.js"></script>
+  <script src="/static/js/defense-labels.js"></script>
+  <script src="/static/js/prep/tiles.js"></script>
+  <script src="/static/js/prep/parse.js"></script>
+  <script src="/static/js/prep/shanten.js"></script>
+  <script src="/static/js/prep/defense_kd.js"></script>
+  <script src="/static/js/prep/shanten_calc.js"></script>
+  <script src="/static/js/prep/furiten.js"></script>
+  <script src="/static/js/prep/prep-board-state.js"></script>
+  <script src="/static/js/prep/prep-board-yaku.js"></script>
+  <script src="/static/js/prep/defense.js"></script>
+  <script src="/static/js/prep/prep.js"></script>
+  <script type="module" src="/static/js/prep/wasm-bootstrap.js"></script>
+  <script src="/static/js/vendor/riichi/riichi-bundle.js"></script>
+  <script src="/static/js/categorize.js"></script>
+  <script src="/static/js/compare-dimensions.js"></script>
+  <script src="/static/js/categorize-metadata.js"></script>
+  <script src="/static/js/categorize-yaku.js"></script>
+  <script src="/static/js/categorize-explanations.js"></script>
+  <script src="/static/js/bad-riichi-bars.js"></script>
+  <script src="/static/js/board-melds.js"></script>
+  <script src="/static/js/board-yaku-panel.js"></script>
+  <script src="/static/js/board-discards.js"></script>
+  <script src="/static/js/ev-table.js"></script>
+  <script src="/static/js/mistake-card.js"></script>
+  <script src="/static/js/game-concept-breakdown.js"></script>
+  <script src="/static/js/game-render.js"></script>
+  <script src="/static/js/game-prep.js"></script>
+  <script src="/static/js/shared-view.js"></script>
+</body>
+</html>

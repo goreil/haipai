@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS games (
     stats_json TEXT,
     rounds_json TEXT,
     categorization_status TEXT NOT NULL DEFAULT 'done',
+    share_token TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
@@ -134,6 +135,18 @@ def migrate(conn):
             "ON users(upload_token) WHERE upload_token IS NOT NULL"
         )
         altered = True
+    if not _has_column("games", "share_token"):
+        conn.execute("ALTER TABLE games ADD COLUMN share_token TEXT")
+        altered = True
+    # Index creation stays outside the _has_column gate (unlike upload_token's
+    # index above) so it also runs for fresh installs, where executescript(SCHEMA)
+    # already created the column and this branch is skipped — the top-level
+    # SCHEMA string deliberately omits this index, since on an existing prod DB
+    # it would run (via executescript) before the ALTER TABLE above ever does.
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_games_share_token "
+        "ON games(share_token) WHERE share_token IS NOT NULL"
+    )
     if not _has_column("category_reports", "kind"):
         conn.execute("ALTER TABLE category_reports ADD COLUMN kind TEXT")
         # Backfill kind from legacy agree column: agree=1 -> 'agree',

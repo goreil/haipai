@@ -39,6 +39,12 @@ var HAIPAI_CLICK_ACTIONS = {
   preventDefault: (el, e) => e.preventDefault(),
   switchTutorial: (el) => switchTutorial(el, el.dataset.tutorialKey),
   regenerateUploadToken: (el, e) => { e.preventDefault(); regenerateUploadToken(); },
+  showShareModal: () => showShareModal(),
+  hideShareModal: () => hideShareModal(),
+  closeShareModalBackdrop: (el, e) => { if (e.target === el) hideShareModal(); },
+  copyShareUrl: () => copyShareUrl(),
+  regenerateShareLink: () => regenerateShareLink(),
+  stopSharingGame: () => stopSharingGame(),
 
   // --- game list / detail (game-render, game-fetch, mistake-card) ---
   fetchGame: (el) => fetchGame(+el.dataset.gameId),

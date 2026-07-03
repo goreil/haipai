@@ -374,7 +374,8 @@ function renderGame() {
   let html = `
     <div class="game-header">
       <h2>${displayDate}<a class="dev-id" href="#g${state.currentGame}" data-action="openHash" title="Deep-link to this game">#g${state.currentGame}</a>
-        <button class="btn btn-delete" data-action="deleteGame" title="Delete game">Delete</button>
+        ${state.readOnly ? "" : `<button class="btn" data-action="showShareModal" title="Get a shareable link to this game">Share</button>
+        <button class="btn btn-delete" data-action="deleteGame" title="Delete game">Delete</button>`}
       </h2>
       ${game.log_url ? `<div class="log-link"><a href="${game.log_url}" target="_blank">${game.log_url}</a></div>` : ""}
     </div>
@@ -585,18 +586,15 @@ function renderGame() {
       // complex-gap feedback funnel.
       html += trainerBubbleHtml(m);
 
-      // Note input (always visible)
-      {
+      // Note input + report row: owner-only writes, not shown on the
+      // read-only shared/demo view.
+      if (!state.readOnly) {
         html += `<div class="note-row">
           <input type="text" class="note-input" placeholder="Add a note..." value="${(m.note || "").replace(/"/g, "&quot;")}"
                  data-change-action="onAnnotate" ${dataAttrs}>
           <span class="save-indicator">Saved</span>
         </div>`;
-      }
-
-      // Category feedback (one-click agree / two disagreement kinds).
-      if (m.id) {
-        html += renderReportRow(m);
+        if (m.id) html += renderReportRow(m);
       }
 
       html += `</div>`; // .mistake
@@ -681,7 +679,7 @@ function renderGame() {
           const explSpan = trainerBubbleHtml(m);
           const loc = mistakeLoc.get(m) || {};
           const cardOpts = {
-            annotate: true,
+            annotate: !state.readOnly,
             gameId: state.currentGame,
             round: loc.round,
             index: loc.index,
@@ -698,8 +696,9 @@ function renderGame() {
 
   content.innerHTML = html;
 
-  // Re-highlight active game in sidebar
-  renderGameList();
+  // Re-highlight active game in sidebar. Not applicable on the read-only
+  // shared/demo page — there's no sidebar and state.games is never populated.
+  if (!state.readOnly) renderGameList();
 
   // Honour a pending scroll-to-mistake request from the #m<id>
   // deep-link router. Only scrolls in the rounds view — the summary view
