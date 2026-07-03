@@ -708,6 +708,29 @@ var WAIT_TYPE_TOOLTIP = {
   shanpon: "Dual pair wait (shanpon)",
 };
 
+// Human-readable "how was this % calculated" breakdown for one wait shape,
+// shown as the pill's hover title. Mirrors the KillerDucky algorithm
+// (killer_mortal_gui/README.md "Dealin Rate"): raw unseen-tile combinations,
+// times an ordered chain of likelihood/reading multipliers (wait.factors, set
+// in prep/defense_kd.js::calcCombos), giving the weighted combos that this
+// wait contributes; divided by the total weighted combos across every live
+// wait against this threat gives the %.
+function formatWaitTooltip(w) {
+  const lines = [WAIT_TYPE_TOOLTIP[w.type] || w.type];
+  const leftParts = (w.left || []).filter(n => n != null);
+  const rawNote = leftParts.length > 1 ? ` (${leftParts.join(" × ")} unseen)`
+    : (leftParts.length === 1 ? ` (${leftParts[0]} unseen)` : "");
+  const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2));
+  if (w.raw != null) lines.push(`${fmt(w.raw)} raw combos${rawNote}`);
+  for (const f of (w.factors || [])) {
+    lines.push(`× ${fmt(f.mult)}  ${f.label}`);
+  }
+  if (w.weighted != null) lines.push(`= ${fmt(w.weighted)} weighted combos`);
+  if (w.total != null) lines.push(`÷ ${fmt(w.total)} total combos (every live wait vs this threat)`);
+  lines.push(`= ${w.rate.toFixed(2)}% deal-in for this wait`);
+  return lines.join("\n");
+}
+
 // Read the backend's suji_partners lookup (CS-01): mjai tile -> list of
 // partner mjai tiles that appear in the relevant threat's genbutsu. One
 // partner for edge tiles (1-3, 7-9); up to two for middle tiles (4/5/6).
@@ -754,7 +777,7 @@ function renderWaitBreakdown(waits) {
     // tanki is a single number.
     const leftParts = (w.left || []).filter(n => n != null);
     const leftStr = leftParts.length ? leftParts.join("×") : "";
-    const tooltip = WAIT_TYPE_TOOLTIP[w.type] || w.type;
+    const tooltip = formatWaitTooltip(w);
     const isDead = w.rate < 0.1;
     const leftCls = isDead ? "waits-left waits-dead" : "waits-left";
     const rateCls = isDead ? "waits-rate waits-dead" : "waits-rate";

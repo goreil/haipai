@@ -129,6 +129,12 @@
       if (wait.type === WAIT_TYPE.shanpon) {
         w /= wait.tiles.length;
       }
+      // Raw combo count before any weighting — the "unseen tiles" half of the
+      // README's algorithm. Everything after this point is the "multiplier for
+      // wait-type likelihood / discard reading" half; `factors` records each
+      // multiplier applied so the UI can render the full equation on hover.
+      wait.rawCombos = w;
+      const factors = [];
 
       if (wait.type === WAIT_TYPE.ryanmen) {
         let ura = false;
@@ -150,33 +156,47 @@
             else matagiEarly = true;
           }
         }
+        factors.push({ label: "ryanmen", mult: weights.ryanmen });
         w *= weights.ryanmen;
-        if (ura) w *= weights.uraSuji;
-        if (matagiEarly) w *= weights.matagiSujiEarly;
-        if (matagiRiichi) w *= weights.matagiSujiRiichi;
+        if (ura) { factors.push({ label: "ura suji", mult: weights.uraSuji }); w *= weights.uraSuji; }
+        if (matagiEarly) { factors.push({ label: "matagi suji (early cut)", mult: weights.matagiSujiEarly }); w *= weights.matagiSujiEarly; }
+        if (matagiRiichi) { factors.push({ label: "matagi suji (riichi cut)", mult: weights.matagiSujiRiichi }); w *= weights.matagiSujiRiichi; }
       } else if (wait.type === WAIT_TYPE.tanki || wait.type === WAIT_TYPE.shanpon) {
-        if (wait.tiles[0] > 40) w *= weights.honorTankiShanpon;
-        else w *= weights.nonHonorTankiShanpon;
+        if (wait.tiles[0] > 40) {
+          factors.push({ label: "honor tanki/shanpon", mult: weights.honorTankiShanpon });
+          w *= weights.honorTankiShanpon;
+        } else {
+          factors.push({ label: "tanki/shanpon", mult: weights.nonHonorTankiShanpon });
+          w *= weights.nonHonorTankiShanpon;
+        }
       } else if (wait.type === WAIT_TYPE.kanchan) {
         const rm = riichiTile != null ? riichiTile % 10 : -1;
         if (riichiTile != null && rm >= 4 && rm <= 6
             && Math.abs(wait.waitsOn[0] - riichiTile) === 3) {
+          factors.push({ label: "suji-trap kanchan", mult: weights.kanchanRiichiSujiTrap });
           w *= weights.kanchanRiichiSujiTrap;
         } else {
+          factors.push({ label: "kanchan", mult: weights.kanchan });
           w *= weights.kanchan;
         }
+      } else if (wait.type === WAIT_TYPE.penchan) {
+        factors.push({ label: "penchan", mult: 1 }); // anchors at 1.0
       }
-      // penchan anchors at 1.0
 
       const involved = new Set([...wait.tiles, ...wait.waitsOn]);
       if (doraSet) {
         for (const t of involved) {
-          if (doraSet.has(t)) { w *= weights.doraGreed; break; }
+          if (doraSet.has(t)) {
+            factors.push({ label: "dora involved", mult: weights.doraGreed });
+            w *= weights.doraGreed;
+            break;
+          }
         }
       }
 
       for (const d of discardsToRiichi) {
         if (d > 50 && involved.has(normRedFive(d))) {
+          factors.push({ label: "red 5 discarded", mult: weights.akaDiscard });
           w *= weights.akaDiscard;
           break;
         }
@@ -184,8 +204,14 @@
 
       combos.all += w;
       if (wait.type === WAIT_TYPE.shanpon) {
+        // Applied after the denominator contribution above, so it's kept as
+        // its own logged factor rather than folded silently into `w` — the
+        // numerator (this specific tile's combos) counts both pair tiles,
+        // the grand total does not.
+        factors.push({ label: "shanpon (either pair tile can complete)", mult: 2 });
         w *= 2; // after denominator
       }
+      wait.factors = factors;
       wait.combos = w;
 
       for (const t of wait.waitsOn) {

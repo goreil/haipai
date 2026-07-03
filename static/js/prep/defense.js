@@ -320,6 +320,14 @@
         waits_on: wait.waitsOn.map(x => TENHOU_TO_MJAI[normRedFive(x)]),
         rate: Math.round(rate_pct * 100) / 100,
         left: (wait.numUnseen || []).slice(),
+        // Full equation for the "how was this %  calculated" hover detail
+        // (see ev-table.js formatWaitTooltip): raw unseen-combo count, the
+        // ordered multiplier chain applied, the resulting weighted combos,
+        // and the shared denominator (every live wait against this threat).
+        raw: wait.rawCombos,
+        factors: (wait.factors || []).slice(),
+        weighted: wait.combos,
+        total,
       });
     }
     out.sort((a, b) => b.rate - a.rate);
