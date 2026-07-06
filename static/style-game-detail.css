@@ -1901,6 +1901,15 @@
   margin-top: 6px;
 }
 
+/* Game-summary top-leak trainer tip: same bubble, own spacing since it sits
+   between the summary bar and the concept ledger, not inside a mistake card. */
+.trainer-tip {
+  margin: 4px 0 16px;
+}
+.trainer-tip .speech-bubble a {
+  color: var(--accent);
+}
+
 .mascot-speech .mascot-avatar {
   width: 32px;
   height: auto;

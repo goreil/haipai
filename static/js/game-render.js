@@ -90,6 +90,36 @@ function renderTopGroupStat(agg) {
   </div>`;
 }
 
+// One-line coaching tip per top-leak group, keyed by the internal group key
+// (compare-dimensions.GROUP_META keys Speed/Yaku/Dora/Defense, plus the
+// category/shape pill keys Riichi/Meld/Kan/Complex) — same keyspace
+// conceptTopGroup() resolves against. Efficiency gets external study links
+// per product decision; the rest are short in-house tips.
+const TRAINER_TIPS = {
+  Speed: `Your biggest leak this game was efficiency — hand speed and tile acceptance (ukeire). For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 2</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
+  Yaku: `Your biggest leak this game was yaku — you're missing or undervaluing ways to make your hand cheaply. Before you discard, check whether keeping a tile or two keeps a yaku alive that you're about to lose.`,
+  Dora: `Your biggest leak this game was hand value — dora tiles are worth holding onto. Weigh a dora's value against its acceptance before cutting it for shape.`,
+  Defense: `Your biggest leak this game was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand.`,
+  Riichi: `Your biggest leak this game was riichi timing — declare when your wait and value clearly justify the risk, and hold back when they don't.`,
+  Meld: `Your biggest leak this game was calling — only call a tile when it clearly speeds up your hand or secures a yaku, not just because it's available.`,
+  Kan: `Your biggest leak this game was kan calls — a kan reveals information and adds danger, so make sure the speed or value gain is worth it first.`,
+  Complex: `Your biggest leak this game was in complex shapes — these are the hands where the stats alone don't explain the right play, so review the flagged hands closely to build a feel for them.`,
+};
+
+// Trainer speech-bubble tip for the game's single biggest leak (see
+// conceptTopGroup), shown once under the summary bar. Reuses the same
+// mascot-speech/speech-bubble look as the per-mistake trainer bubbles
+// (mistake-card.js's trainerBubbleHtml) so it reads as the same character.
+function renderTrainerTip(agg) {
+  const tg = conceptTopGroup(agg);
+  const tip = tg && TRAINER_TIPS[tg.group];
+  if (!tip) return "";
+  return `<div class="mascot-speech trainer-tip">
+    <img src="/static/mascot.svg" class="mascot-avatar" alt="">
+    <div class="speech-bubble">${tip}</div>
+  </div>`;
+}
+
 // Concept-level EV ledger shown at the top of a game (see
 // game-concept-breakdown.js). Two columns: concepts the AI won (you under-used
 // them) and concepts you won on a losing play (you over-prioritized them). Rows
@@ -394,7 +424,9 @@ function renderGame() {
     </div>
   `;
 
-  // Concept-level EV ledger, top of the game (under the summary bar).
+  // Trainer tip for this game's single biggest leak, then the concept-level
+  // EV ledger — both under the summary bar.
+  html += renderTrainerTip(conceptAgg);
   html += renderConceptBreakdown(conceptAgg, tradeoffBoxes);
 
   // JS prep banner. Categorization itself runs in JS at render time
