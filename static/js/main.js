@@ -8,6 +8,25 @@
 
 var csrfToken = "";
 
+// Re-fetch /api/me (CSRF-exempt, @login_required) purely for a fresh
+// csrf_token. Used both as a periodic keep-alive and as csrfFetch's (api.js)
+// reactive retry on an expired-token 400. A 401 here means the *session*
+// itself expired, not just the CSRF token — that needs a real re-login.
+async function refreshCsrfToken() {
+  try {
+    const res = await fetch("/api/me");
+    if (res.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+    if (!res.ok) return;
+    const me = await res.json();
+    csrfToken = me.csrf_token || csrfToken;
+  } catch (e) {
+    // Network hiccup — leave the existing token; next action retries.
+  }
+}
+
 var state = {
   games: [],
   currentGame: null,
@@ -48,6 +67,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   renderImpersonateBanner(me);
   if (typeof mailboxInit === "function") mailboxInit();
+
+  // Proactively renew the CSRF token well inside its 1h expiry so an idle
+  // tab never hits it; csrfFetch (api.js) also refreshes+retries reactively
+  // as a fallback (e.g. the computer slept through the interval below).
+  setInterval(refreshCsrfToken, 20 * 60 * 1000);
 
   await fetchGames();
 

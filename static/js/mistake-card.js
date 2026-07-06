@@ -398,11 +398,8 @@ async function saveReport(mistakeId, kind, suggested, reason) {
   const status = row && row.querySelector(".report-status");
   if (status) { status.textContent = "Saving…"; status.className = "report-status saving"; }
   try {
-    const res = await fetch(`/api/mistakes/${mistakeId}/report`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
-      body: JSON.stringify({kind, suggested_category: suggested || null, reason: reason || null}),
-    });
+    const res = await apiPost(`/api/mistakes/${mistakeId}/report`,
+      {kind, suggested_category: suggested || null, reason: reason || null});
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
       if (status) { status.textContent = body.error || "Error"; status.className = "report-status err"; }
@@ -449,10 +446,7 @@ async function onReportClear(mid) {
   const status = row && row.querySelector(".report-status");
   if (status) { status.textContent = "Clearing…"; status.className = "report-status saving"; }
   try {
-    const res = await fetch(`/api/mistakes/${mid}/report`, {
-      method: "DELETE",
-      headers: {"X-CSRFToken": csrfToken},
-    });
+    const res = await apiDelete(`/api/mistakes/${mid}/report`);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       if (status) { status.textContent = body.error || "Error"; status.className = "report-status err"; }

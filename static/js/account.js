@@ -57,11 +57,7 @@ function showAccount() {
 }
 
 async function linkOAuth(provider) {
-  const res = await fetch("/api/me/link-oauth", {
-    method: "POST",
-    headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
-    body: JSON.stringify({provider}),
-  });
+  const res = await apiPost("/api/me/link-oauth", {provider});
   if (res.ok) {
     const data = await res.json();
     window.location.href = data.url;
@@ -69,11 +65,7 @@ async function linkOAuth(provider) {
 }
 
 async function unlinkOAuth(provider) {
-  const res = await fetch("/api/me/unlink-oauth", {
-    method: "POST",
-    headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken},
-    body: JSON.stringify({provider}),
-  });
+  const res = await apiPost("/api/me/unlink-oauth", {provider});
   if (res.ok) {
     // Refresh me data and re-render
     const meRes = await fetch("/api/me");
