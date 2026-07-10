@@ -63,38 +63,62 @@ function conceptMetaMap() {
   return Object.assign({}, gm, pm);
 }
 
-// The single biggest concept-GROUP leak across both ledgers — feeds the
-// summary-bar headline. Groups are deduped (Dora + Dora acceptance = one Value
-// hit), so this is the double-count-safe view the per-dim rows are not.
-function conceptTopGroup(agg) {
-  if (!agg) return null;
+// Colour for the top-leak headline when the leader is a trade-off box rather
+// than a "Losing points here" group (those resolve via GROUP_META/PILL_META).
+// Box titles come from the boxes themselves (haipaiConceptBreakdown.BOX_DEFS)
+// so there's one source of truth for the label text.
+const BOX_COLOR = {
+  push_fold: "#ff6b6b",    // matches Defense red — this box IS defense trades
+  speed_value: "#a78bfa",
+  other: "#94a3b8",
+};
+
+// The single biggest concept-group EV leak across everything actually shown
+// on the game page — feeds the summary-bar headline. Candidates are the
+// "Losing points here" ledger rows (missed side; under-using a concept) AND
+// the trade-off boxes (Push vs. Fold / Speed vs. Value / Other; over-favoring
+// mistakes, bucketed by axis — these replaced the old flat "you" ledger, so
+// the headline must read from them too or it drifts from what the boxes below
+// actually show). Groups/boxes are each already deduped internally.
+function conceptTopGroup(agg, boxes) {
   const gm = conceptMetaMap();
   let best = null;
-  for (const side of ["missed", "you"]) {
-    for (const g of Object.values(agg.groups[side])) {
-      if (!best || g.ev > best.ev) best = Object.assign({ side: side }, g);
+  if (agg) {
+    for (const g of Object.values(agg.groups.missed)) {
+      if (!best || g.ev > best.ev) best = Object.assign({ side: "missed" }, g);
+    }
+  }
+  if (boxes) {
+    for (const box of boxes) {
+      if (!best || box.ev > best.ev) best = { side: "box", group: box.key, ev: box.ev, label: box.title };
     }
   }
   if (!best) return null;
-  return Object.assign({}, best, { meta: gm[best.group] || { label: best.group, color: "var(--accent)" } });
+  const meta = best.side === "box"
+    ? { label: best.label, color: BOX_COLOR[best.group] || "var(--accent)" }
+    : (gm[best.group] || { label: best.group, color: "var(--accent)" });
+  return Object.assign({}, best, { meta });
 }
 
 // Summary-bar stat for the top concept group (only the single leader is shown).
-function renderTopGroupStat(agg) {
-  const tg = conceptTopGroup(agg);
+function renderTopGroupStat(agg, boxes) {
+  const tg = conceptTopGroup(agg, boxes);
   if (!tg) return "";
-  const word = tg.side === "missed" ? "under-using" : "over-valuing";
-  return `<div class="stat" title="Your biggest concept-group EV leak this game. Pills are rolled up by category and de-duplicated (Dora + Dora acceptance count once); you’re ${word} this group.">
+  const tip = tg.side === "missed"
+    ? "Your biggest concept-group EV leak this game. Pills are rolled up by category and de-duplicated (Dora + Dora acceptance count once); you’re under-using this group."
+    : "Your biggest concept-group EV leak this game — the trade-off axis where you most often favored the wrong side.";
+  return `<div class="stat" title="${tip}">
     <span class="value" style="color:${tg.meta.color}">${tg.meta.label}</span>
     <span class="label">Top leak &middot; ${tg.ev.toFixed(2)} EV</span>
   </div>`;
 }
 
 // One-line coaching tip per top-leak group, keyed by the internal group key
-// (compare-dimensions.GROUP_META keys Speed/Yaku/Dora/Defense, plus the
-// category/shape pill keys Riichi/Meld/Kan/Complex) — same keyspace
-// conceptTopGroup() resolves against. Efficiency gets external study links
-// per product decision; the rest are short in-house tips.
+// (compare-dimensions.GROUP_META keys Speed/Yaku/Dora/Defense, the
+// category/shape pill keys Riichi/Meld/Kan/Complex, plus the trade-off box
+// keys push_fold/speed_value/other) — same keyspace conceptTopGroup()
+// resolves against. Efficiency gets external study links per product
+// decision; the rest are short in-house tips.
 const TRAINER_TIPS = {
   Speed: `Your biggest leak this game was efficiency — hand speed and tile acceptance (ukeire). For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 2</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
   Yaku: `Your biggest leak this game was yaku — you're missing or undervaluing ways to make your hand cheaply. Before you discard, check whether keeping a tile or two keeps a yaku alive that you're about to lose.`,
@@ -104,14 +128,17 @@ const TRAINER_TIPS = {
   Meld: `Your biggest leak this game was calling — only call a tile when it clearly speeds up your hand or secures a yaku, not just because it's available.`,
   Kan: `Your biggest leak this game was kan calls — a kan reveals information and adds danger, so make sure the speed or value gain is worth it first.`,
   Complex: `Your biggest leak this game was in complex shapes — these are the hands where the stats alone don't explain the right play, so review the flagged hands closely to build a feel for them.`,
+  push_fold: `Your biggest leak this game was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand.`,
+  speed_value: `Your biggest leak this game was trading off speed against hand value — weigh what a dora or yaku is actually worth against the tile acceptance you're giving up to keep it.`,
+  other: `Your biggest leak this game was in mixed trade-offs — review the flagged hands below to see exactly which edge you gave up.`,
 };
 
 // Trainer speech-bubble tip for the game's single biggest leak (see
 // conceptTopGroup), shown once under the summary bar. Reuses the same
 // mascot-speech/speech-bubble look as the per-mistake trainer bubbles
 // (mistake-card.js's trainerBubbleHtml) so it reads as the same character.
-function renderTrainerTip(agg) {
-  const tg = conceptTopGroup(agg);
+function renderTrainerTip(agg, boxes) {
+  const tg = conceptTopGroup(agg, boxes);
   const tip = tg && TRAINER_TIPS[tg.group];
   if (!tip) return "";
   return `<div class="mascot-speech trainer-tip">
@@ -420,13 +447,13 @@ function renderGame() {
       <div class="stat" title="Average expected value lost per decision — lower is better."><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
       ${TIER_SLOTS.filter((_, rank) => rank <= state.sevLevel).map(([key, color, label, tip]) =>
         `<div class="stat" title="${tip}"><span class="value" style="color:${color}">${tierCounts[key]}</span><span class="label">${label}</span></div>`).join("")}
-      ${renderTopGroupStat(conceptAgg)}
+      ${renderTopGroupStat(conceptAgg, tradeoffBoxes)}
     </div>
   `;
 
   // Trainer tip for this game's single biggest leak, then the concept-level
   // EV ledger — both under the summary bar.
-  html += renderTrainerTip(conceptAgg);
+  html += renderTrainerTip(conceptAgg, tradeoffBoxes);
   html += renderConceptBreakdown(conceptAgg, tradeoffBoxes);
 
   // JS prep banner. Categorization itself runs in JS at render time
