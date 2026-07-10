@@ -117,18 +117,18 @@ function renderTopGroupStat(agg, boxes) {
 // (compare-dimensions.GROUP_META keys Speed/Yaku/Dora/Defense, the
 // category/shape pill keys Riichi/Meld/Kan/Complex, plus the trade-off box
 // keys push_fold/speed_value/other) — same keyspace conceptTopGroup()
-// resolves against. Efficiency gets external study links per product
-// decision; the rest are short in-house tips.
+// resolves against. Efficiency and defense get external study links per
+// product decision; the rest are short in-house tips.
 const TRAINER_TIPS = {
   Speed: `Your biggest leak this game was efficiency — hand speed and tile acceptance (ukeire). For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 2</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
-  Yaku: `Your biggest leak this game was yaku — you're missing or undervaluing ways to make your hand cheaply. Before you discard, check whether keeping a tile or two keeps a yaku alive that you're about to lose.`,
+  Yaku: `Your biggest leak this game was yaku — you're missing or undervaluing ways to make your hand cheaply. Before you discard, check whether keeping a tile or two keeps a yaku alive that you're about to lose. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 5 (Pursuing Yaku)</a>.`,
   Dora: `Your biggest leak this game was hand value — dora tiles are worth holding onto. Weigh a dora's value against its acceptance before cutting it for shape.`,
-  Defense: `Your biggest leak this game was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand.`,
+  Defense: `Your biggest leak this game was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 8</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/#defense" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
   Riichi: `Your biggest leak this game was riichi timing — declare when your wait and value clearly justify the risk, and hold back when they don't.`,
   Meld: `Your biggest leak this game was calling — only call a tile when it clearly speeds up your hand or secures a yaku, not just because it's available.`,
   Kan: `Your biggest leak this game was kan calls — a kan reveals information and adds danger, so make sure the speed or value gain is worth it first.`,
   Complex: `Your biggest leak this game was in complex shapes — these are the hands where the stats alone don't explain the right play, so review the flagged hands closely to build a feel for them.`,
-  push_fold: `Your biggest leak this game was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand.`,
+  push_fold: `Your biggest leak this game was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 8</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/#defense" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
   speed_value: `Your biggest leak this game was trading off speed against hand value — weigh what a dora or yaku is actually worth against the tile acceptance you're giving up to keep it.`,
   other: `Your biggest leak this game was in mixed trade-offs — review the flagged hands below to see exactly which edge you gave up.`,
 };
