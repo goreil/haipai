@@ -980,6 +980,52 @@
   color: var(--text);
 }
 
+.mau-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+.mau-headline-num {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.mau-headline-label {
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.mau-trend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mau-bar-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.mau-bar-label {
+  color: var(--text-dim);
+}
+.mau-bar-track {
+  background: var(--bg-input);
+  border-radius: 4px;
+  height: 10px;
+  overflow: hidden;
+}
+.mau-bar-fill {
+  background: var(--accent-dim);
+  height: 100%;
+  border-radius: 4px;
+}
+.mau-bar-value {
+  text-align: right;
+  color: var(--text);
+}
+
 /* --- Category-shape snapshot panel --- */
 .snapshot-note {
   font-size: 12.5px;

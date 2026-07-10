@@ -46,7 +46,11 @@ def api_admin_stats():
     from app import get_conn
     conn = get_conn()
     users = db.admin_user_stats(conn)
-    return jsonify({"users": users, "total_users": len(users)})
+    mau = db.admin_mau_stats(conn)
+    return jsonify({
+        "users": users, "total_users": len(users),
+        "mau": mau["mau"], "mau_trend": mau["trend"],
+    })
 
 
 @admin_bp.route("/api/admin/category-reports")

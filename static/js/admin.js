@@ -2,6 +2,7 @@
 // impersonation. Impersonate banner rendering also lives here.
 
 var adminState = { users: [], reports: [], reportKind: "", reportScope: "others", reportsLoading: false,
+                   mau: 0, mauTrend: [],
                    userSort: { col: "latest_game", dir: "desc" },
                    // Category-shape snapshot panel: history of saved runs, the
                    // last in-browser computed result, and live run status.
@@ -24,6 +25,8 @@ async function showAdmin() {
   }
   const stats = await statsRes.json();
   adminState.users = stats.users || [];
+  adminState.mau = stats.mau || 0;
+  adminState.mauTrend = stats.mau_trend || [];
   const reportPayload = reportsRes.ok ? await reportsRes.json() : { reports: [], mortal_data_by_game: {} };
   adminState.reports = reportPayload.reports || [];
   prepAndCategorizeReports(adminState.reports, reportPayload.mortal_data_by_game || {});
@@ -120,6 +123,33 @@ function adminSortUsers(col) {
   renderAdmin();
 }
 
+// Monthly active users: headline count (users who submitted >=1 game in the
+// trailing 30 days) plus a 6-calendar-month trend of the same "submitted a
+// game" activity. There's no login tracking, so game submission is the only
+// activity signal available.
+function mauMonthLabel(key) {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+}
+
+function renderMauPanel() {
+  const trend = adminState.mauTrend || [];
+  const maxActive = Math.max(1, ...trend.map(t => t.active_users));
+  const rows = trend.map(t => {
+    const pct = (t.active_users / maxActive * 100).toFixed(0);
+    return `<div class="mau-bar-row">
+        <span class="mau-bar-label">${mauMonthLabel(t.month)}</span>
+        <div class="mau-bar-track"><div class="mau-bar-fill" style="width:${pct}%"></div></div>
+        <span class="mau-bar-value">${t.active_users}</span>
+      </div>`;
+  }).join("");
+  return `<div class="admin-card" style="margin-bottom:16px">
+      <div class="admin-card-header"><b>Monthly active users</b> <span class="admin-meta">&middot; submitted &ge;1 game</span></div>
+      <div class="mau-headline"><span class="mau-headline-num">${adminState.mau || 0}</span><span class="mau-headline-label">active in the last 30 days</span></div>
+      <div class="mau-trend">${rows}</div>
+    </div>`;
+}
+
 function renderAdmin() {
   const content = document.getElementById("content");
 
@@ -127,6 +157,8 @@ function renderAdmin() {
   const totalGames = users.reduce((s, u) => s + u.game_count, 0);
 
   let html = `<div class="game-header"><h2>Admin Dashboard</h2></div>`;
+
+  html += renderMauPanel();
 
   // User stats (with View-as button for impersonation). Sortable by any
   // column — click a header to toggle; default is latest_game desc.
@@ -136,6 +168,7 @@ function renderAdmin() {
   const sortCols = [
     { key: "username", label: "User" },
     { key: "game_count", label: "Games" },
+    { key: "games_last_30d", label: "Games/day (30d)" },
     { key: "latest_game", label: "Latest game" },
     { key: "created_at", label: "Joined" },
   ];
@@ -160,7 +193,8 @@ function renderAdmin() {
         const deleteBtn = canActOn
           ? `<button class="btn btn-sm btn-delete" data-action="adminDeleteUser" data-user-id="${u.id}">Delete</button>`
           : "";
-        return `<tr><td>${escapeHtml(u.username)}</td><td>${u.game_count}</td><td>${latest}</td><td>${joined}</td><td>${viewBtn} ${deleteBtn}</td></tr>`;
+        const gamesPerDay = ((u.games_last_30d || 0) / 30).toFixed(2);
+        return `<tr><td>${escapeHtml(u.username)}</td><td>${u.game_count}</td><td title="${u.games_last_30d || 0} games in the last 30 days">${gamesPerDay}</td><td>${latest}</td><td>${joined}</td><td>${viewBtn} ${deleteBtn}</td></tr>`;
       }).join("")}
     </table>
   </div>`;

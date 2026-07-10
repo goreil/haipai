@@ -11,7 +11,7 @@ Submodule layout:
                    `get_trends`
 - `db.users`     — users, OAuth linking
 - `db.reports`   — category-report CRUD
-- `db.admin`     — `is_admin`, `admin_user_stats`
+- `db.admin`     — `is_admin`, `admin_user_stats`, `admin_mau_stats`
 """
 
 import os
@@ -61,7 +61,7 @@ from db.reports import (
     list_category_reports,
     submit_category_report,
 )
-from db.admin import admin_user_stats, is_admin
+from db.admin import admin_user_stats, admin_mau_stats, is_admin
 from db.snapshots import (
     insert_category_snapshot,
     insert_snapshot,
@@ -142,6 +142,7 @@ __all__ = [
     "submit_category_report",
     # admin
     "admin_user_stats",
+    "admin_mau_stats",
     "is_admin",
     # snapshots
     "insert_snapshot",
