@@ -239,11 +239,23 @@
   // Which box a mistake belongs to, from the group sets present on each pole.
   // `yg`/`bg` are {group->1} maps for the you / better sides (win-vector groups
   // plus any action group). See BOX_DEFS.
+  //
+  // A trade-off needs two poles: something you favoured AND something the
+  // better play favoured instead. If one side is empty (e.g. you won ukeire
+  // AND safety with nothing on the other side explaining the EV loss — the
+  // "complex" case), there's no opposing pole to trade against, so it can't
+  // be push/fold or speed/value; it falls to the single-pole "other" catch-all.
   function classifyBox(yg, bg) {
+    if (isEmptyGroupSet(yg) || isEmptyGroupSet(bg)) return "other";
     if (yg.Defense || bg.Defense) return "push_fold";
     var youValue = yg.Yaku || yg.Dora, betValue = bg.Yaku || bg.Dora;
     if ((yg.Speed && betValue) || (youValue && bg.Speed)) return "speed_value";
     return "other";
+  }
+
+  function isEmptyGroupSet(g) {
+    for (var k in g) { if (g.hasOwnProperty(k)) return false; }
+    return true;
   }
 
   // Walk every (visible) mistake and bucket the over-favoring ones into trade-off
