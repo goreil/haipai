@@ -461,13 +461,25 @@ function renderEvComparison(m, options) {
 
     const shantenVal = ca && ca.shanten != null ? ca.shanten : null;
 
-    // Riichi/dama pill role (5A/5B only). The reach side is "riichi"; the other
-    // side is "dama" — but only when it's genuinely tenpai, since a dahai that
-    // breaks tenpai isn't a dama option to weigh against riichi.
+    // Riichi/dama pill role. reachSide (5A/5B): the reach side is "riichi",
+    // the other tenpai side "dama" — but only when it's genuinely tenpai,
+    // since a dahai that breaks tenpai isn't a dama option to weigh against
+    // riichi. Outside that path — a plain dahai-vs-dahai pick where both
+    // candidates reach tenpai (e.g. "which wait to riichi on") — the riichi
+    // call itself never showed up as its own mistake entry when the player
+    // and Mortal agreed on it, so we fall back to ground truth from the mjai
+    // log: `m.riichi_decision` (prep.js) is set when the actual discard was
+    // itself made as a riichi declaration (a `reach` event immediately
+    // precedes it in the log). That means the reach-or-not fork was already
+    // resolved before this entry — every tenpai candidate here IS a riichi
+    // pick, with no live dama alternative to contrast it with, so both
+    // columns read "riichi" rather than splitting into riichi/dama.
     let reachRole = null;
     if (reachSide) {
       if (spec.side === reachSide) reachRole = "riichi";
       else if ((spec.side === "actual" || spec.side === "expected") && shantenVal === 0) reachRole = "dama";
+    } else if (m.riichi_decision && shantenVal === 0) {
+      reachRole = "riichi";
     }
 
     // Per-column point scoring for EVERY tenpai pick — not just reach

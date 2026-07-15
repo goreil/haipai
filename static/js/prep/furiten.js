@@ -141,6 +141,37 @@
     return own_discards;
   }
 
+  // Ground truth for plain dahai-vs-dahai mistakes (not 5A/5B, where the
+  // entry's own action type already says "reach"): was the actual discard at
+  // this decision itself made AS a riichi declaration? mjai emits a `reach`
+  // event immediately before the `dahai` that declares it — but Mortal's
+  // review entries record that dahai's type as plain "dahai" whenever the
+  // reach-or-not fork was already resolved by an earlier (non-mistake) node,
+  // leaving this entry to evaluate only which tile to riichi on (e.g. #m25060:
+  // both the actual "2s" and Mortal's suggested "5s" are candidates under an
+  // already-decided riichi, not a riichi-vs-dama choice). When true, EVERY
+  // tenpai candidate at this decision is a riichi pick — there is no live
+  // dama alternative to contrast it with, unlike 5A/5B.
+  // `target_junme` is 0-indexed (the player's Nth own tsumo, counting from 0)
+  // — one less than `mistake.turn`, which mirrors Mortal's 1-indexed junme
+  // (first discard cycle = junme 1).
+  function find_riichi_declared_at_turn(mjai_events, start_pos, end_pos, player_id, target_junme) {
+    let player_tsumo = -1;
+    for (let pos = start_pos + 1; pos < end_pos; pos++) {
+      const e = mjai_events[pos];
+      if (!e) continue;
+      if (e.type === "tsumo" && e.actor === player_id) {
+        player_tsumo += 1;
+        continue;
+      }
+      if (e.actor === player_id && e.type === "dahai" && player_tsumo === target_junme) {
+        const prev = mjai_events[pos - 1];
+        return !!(prev && prev.type === "reach" && prev.actor === player_id);
+      }
+    }
+    return false;
+  }
+
   function find_riichi_context(mjai_events, start_pos, end_pos, player_id) {
     const own_discards = [];
     for (let pos = start_pos + 1; pos < end_pos; pos++) {
@@ -171,5 +202,6 @@
     is_furiten,
     find_discard_history_for_turn,
     find_riichi_context,
+    find_riichi_declared_at_turn,
   };
 }));

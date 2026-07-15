@@ -38,7 +38,7 @@
   const { compute_yaku_panel } = boardYakuMod;
   const {
     tenpai_wait_tiles, is_furiten,
-    find_riichi_context, find_discard_history_for_turn,
+    find_riichi_context, find_discard_history_for_turn, find_riichi_declared_at_turn,
   } = furitenMod;
   const { calculate: jsCalcShanten } = shantenCalcMod;
 
@@ -317,6 +317,20 @@
     if (discard_stats.length) {
       patch.discard_stats = discard_stats;
       patch.best_discard = discard_stats[0].tile;
+    }
+
+    // Ground truth for the riichi pill + Value scoring on tenpai columns
+    // (see find_riichi_declared_at_turn): only meaningful when the actual
+    // discard itself reached tenpai and the hand is closed (riichi requires
+    // both). `mistake.turn` mirrors Mortal's 1-indexed junme; the detector
+    // wants a 0-indexed own-tsumo count.
+    if (defenseCtx && melds.length === 0 && actual.pai) {
+      const actualStat = discard_stats.find(s => s.tile === actual.pai);
+      if (actualStat && actualStat.shanten === 0
+          && find_riichi_declared_at_turn(defenseCtx.mjai_events, defenseCtx.start_pos,
+                                          defenseCtx.end_pos, defenseCtx.player_id, mistake.turn - 1)) {
+        patch.riichi_decision = true;
+      }
     }
 
     return patch;

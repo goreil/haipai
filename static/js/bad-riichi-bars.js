@@ -514,13 +514,16 @@ function renderBadRiichiBars(m) {
   </div>`;
 }
 
-// --- EV-table per-column scoring (5A/5B) -------------------------------------
+// --- EV-table per-column scoring (5A/5B + riichi_decision) -------------------
 // The riichi/dama point scoring, relocated into the 2-column EV table. Each
-// pick's column shows the value of ITS OWN call — the riichi column scores a
-// declared riichi, the dama column scores a silent dama — computed from that
+// pick's column shows the value of ITS OWN call — a riichi column scores a
+// declared riichi, a dama column scores a silent dama — computed from that
 // column's own discard tile and tenpai waits. A column that breaks tenpai
 // (shanten > 0) has no winning hand to score and is skipped, so only the
-// tenpai side(s) get a calc.
+// tenpai side(s) get a calc. Riichi-vs-dama role comes from either the 5A/5B
+// action type or, for a plain dahai-vs-dahai "which wait to riichi on" pick,
+// ground truth (`m.riichi_decision`, ev-table.js) — see there for how each
+// case decides riichi vs dama per column.
 
 // Score one discard's waits under a single mode. `discardTile` is dropped from
 // the 14-tile hand to form the tenpai hand; `waitEntries` are that hand's
