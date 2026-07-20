@@ -11,14 +11,6 @@
 // SPA session; refreshed after a fresh analysis auto-saves a new row.
 var trendsSnapshots = null;
 
-// Phase −1 of the mistake-model redesign (docs/backlogs/MISTAKE-DIMENSIONS-
-// REDESIGN.md): the weakness analysis is frozen while the categorizer version
-// churns and `shape` derivation lands, so users can't write half-migrated
-// snapshots tagged with throwaway versions. Blocks NEW runs only — saved
-// snapshot history (renderSnapshotsHistory) stays read-only visible. Flip back
-// to true in Phase 5.
-var WEAKNESS_ANALYSIS_ENABLED = false;
-
 async function fetchTrends() {
   const res = await fetch("/api/trends");
   return await res.json();
@@ -120,11 +112,12 @@ function renderTrends(games) {
     <div class="trend-chart">${renderStackedBarChart(games)}</div>
   </div>`;
 
-  // Chart 3: Personalized recommendation + per-skill-area breakdown. The
-  // per-game `by_category` rollup is computed client-side (the JS categorizer
-  // overrides on render), so the panel sits behind an opt-in button — see
-  // docs/backlogs/TRENDS-WEAKEST-CATEGORY.md. The button is replaced in place
-  // when analysis completes or is cancelled.
+  // Chart 3: personalized recommendation + concept-level ledger/trade-off
+  // breakdown (same shape as a single game's summary — see
+  // docs/backlogs/MISTAKE-DIMENSIONS-EXTRAS.md, EXTRAS-C). The per-game
+  // win-vector rollup is computed client-side (the JS categorizer overrides
+  // on render), so the panel sits behind an opt-in button. The button is
+  // replaced in place when analysis completes or is cancelled.
   html += renderWeaknessSection(games);
 
   // Past analyses (auto-saved server-side after each full run). Each row is
@@ -140,15 +133,6 @@ function renderTrends(games) {
 // A stale stash is still worth showing — the previous analysis is the
 // closest thing to current truth until the user opts to refresh.
 function renderWeaknessSection(games) {
-  // Frozen during the mistake-model redesign — see WEAKNESS_ANALYSIS_ENABLED.
-  // Show a static notice instead of the button / stale-banner / cached panels;
-  // the saved-analysis history below is unaffected.
-  if (!WEAKNESS_ANALYSIS_ENABLED) {
-    return `<div id="weakness-section" class="trend-chart-card">
-      <h3>Weakness analysis paused</h3>
-      <p style="font-size:13px;color:var(--text-dim);margin:4px 0 0">We're rebuilding the mistake model. Weakness analysis is paused for now — your saved analyses below are unchanged.</p>
-    </div>`;
-  }
   const ids = games.map(g => g.id);
   if (trendsStash) {
     const exactMatch = _idsMatch(trendsStash.gameIds, ids);
@@ -164,8 +148,8 @@ function renderWeaknessSection(games) {
     return `<div id="weakness-section">${staleBanner}${_renderAnalyzedPanels(trendsStash.games, null)}</div>`;
   }
   return `<div id="weakness-section" class="trend-chart-card">
-    <h3>Weakest Skill Area</h3>
-    <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Computes your weakest skill area across all games. Takes a few seconds.</p>
+    <h3>Weakest Concepts</h3>
+    <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Computes your biggest concept-level EV leaks across all games — the same breakdown as a single game's summary. Takes a few seconds.</p>
     <button class="btn btn-primary" data-action="startWeaknessAnalysis">Analyze my weak categories</button>
   </div>`;
 }
@@ -179,7 +163,7 @@ function _renderAnalyzedPanels(games, analyzedIds) {
   const renderGames = analyzedIds
     ? games.map(g => analyzedIds.has(g.id) ? g : { ...g, decision_counts: null })
     : games;
-  return renderTrendRecommendation(renderGames) + renderCategoryTrend(renderGames);
+  return renderConceptWeaknessPanels(renderGames) + renderSkillAreaChart(renderGames);
 }
 
 function _replaceWeaknessSection(games, analyzedIds) {

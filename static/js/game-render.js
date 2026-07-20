@@ -101,12 +101,15 @@ function conceptTopGroup(agg, boxes) {
 }
 
 // Summary-bar stat for the top concept group (only the single leader is shown).
-function renderTopGroupStat(agg, boxes) {
+// `scope` overrides the "this game" phrasing (e.g. for the trends cross-game
+// rollup, which reuses this unchanged).
+function renderTopGroupStat(agg, boxes, scope) {
   const tg = conceptTopGroup(agg, boxes);
   if (!tg) return "";
+  scope = scope || "this game";
   const tip = tg.side === "missed"
-    ? "Your biggest concept-group EV leak this game. Pills are rolled up by category and de-duplicated (Dora + Dora acceptance count once); you’re under-using this group."
-    : "Your biggest concept-group EV leak this game — the trade-off axis where you most often favored the wrong side.";
+    ? `Your biggest concept-group EV leak ${scope}. Pills are rolled up by category and de-duplicated (Dora + Dora acceptance count once); you’re under-using this group.`
+    : `Your biggest concept-group EV leak ${scope} — the trade-off axis where you most often favored the wrong side.`;
   return `<div class="stat" title="${tip}">
     <span class="value" style="color:${tg.meta.color}">${tg.meta.label}</span>
     <span class="label">Top leak &middot; ${tg.ev.toFixed(2)} EV</span>
@@ -119,28 +122,32 @@ function renderTopGroupStat(agg, boxes) {
 // keys push_fold/speed_value/other) — same keyspace conceptTopGroup()
 // resolves against. Efficiency and defense get external study links per
 // product decision; the rest are short in-house tips.
+// {{scope}} is substituted by renderTrainerTip — "this game" for the per-game
+// card, "across your games" for the trends cross-game rollup.
 const TRAINER_TIPS = {
-  Speed: `Your biggest leak this game was efficiency — hand speed and tile acceptance (ukeire). For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 2</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
-  Yaku: `Your biggest leak this game was yaku — you're missing or undervaluing ways to make your hand cheaply. Before you discard, check whether keeping a tile or two keeps a yaku alive that you're about to lose. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 5 (Pursuing Yaku)</a>.`,
-  Dora: `Your biggest leak this game was hand value — dora tiles are worth holding onto. Weigh a dora's value against its acceptance before cutting it for shape.`,
-  Defense: `Your biggest leak this game was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 8</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/#defense" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
-  Riichi: `Your biggest leak this game was riichi timing — declare when your wait and value clearly justify the risk, and hold back when they don't. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 7 (Riichi Judgement)</a>.`,
-  Meld: `Your biggest leak this game was calling — only call a tile when it clearly speeds up your hand or secures a yaku, not just because it's available. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 9 (Melding Judgement)</a>.`,
-  Kan: `Your biggest leak this game was kan calls — a kan reveals information and adds danger, so make sure the speed or value gain is worth it first.`,
-  Complex: `Your biggest leak this game was in complex shapes — these are the hands where the stats alone don't explain the right play, so review the flagged hands closely to build a feel for them.`,
-  push_fold: `Your biggest leak this game was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 8</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/#defense" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
-  speed_value: `Your biggest leak this game was trading off speed against hand value — weigh what a dora or yaku is actually worth against the tile acceptance you're giving up to keep it.`,
-  other: `Your biggest leak this game was in mixed trade-offs — review the flagged hands below to see exactly which edge you gave up.`,
+  Speed: `Your biggest leak {{scope}} was efficiency — hand speed and tile acceptance (ukeire). For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 2</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
+  Yaku: `Your biggest leak {{scope}} was yaku — you're missing or undervaluing ways to make your hand cheaply. Before you discard, check whether keeping a tile or two keeps a yaku alive that you're about to lose. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 5 (Pursuing Yaku)</a>.`,
+  Dora: `Your biggest leak {{scope}} was hand value — dora tiles are worth holding onto. Weigh a dora's value against its acceptance before cutting it for shape.`,
+  Defense: `Your biggest leak {{scope}} was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 8</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/#defense" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
+  Riichi: `Your biggest leak {{scope}} was riichi timing — declare when your wait and value clearly justify the risk, and hold back when they don't. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 7 (Riichi Judgement)</a>.`,
+  Meld: `Your biggest leak {{scope}} was calling — only call a tile when it clearly speeds up your hand or secures a yaku, not just because it's available. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 9 (Melding Judgement)</a>.`,
+  Kan: `Your biggest leak {{scope}} was kan calls — a kan reveals information and adds danger, so make sure the speed or value gain is worth it first.`,
+  Complex: `Your biggest leak {{scope}} was in complex shapes — these are the hands where the stats alone don't explain the right play, so review the flagged hands closely to build a feel for them.`,
+  push_fold: `Your biggest leak {{scope}} was push/fold judgment — before committing to a discard, check its danger against any live riichi or open hand. For theory, read <a href="https://ooyamaneko.net/en/download/download.php?file=/download/mahjong/riichi/Daina_Chiba_-_Riichi_Book_1_en.pdf" target="_blank" rel="noopener">Riichi Book 1, Chapter 8</a>. For practice, drill it at <a href="https://trainer-haipai.ylue.de/#defense" target="_blank" rel="noopener">trainer-haipai.ylue.de</a>.`,
+  speed_value: `Your biggest leak {{scope}} was trading off speed against hand value — weigh what a dora or yaku is actually worth against the tile acceptance you're giving up to keep it.`,
+  other: `Your biggest leak {{scope}} was in mixed trade-offs — review the flagged hands below to see exactly which edge you gave up.`,
 };
 
-// Trainer speech-bubble tip for the game's single biggest leak (see
-// conceptTopGroup), shown once under the summary bar. Reuses the same
-// mascot-speech/speech-bubble look as the per-mistake trainer bubbles
-// (mistake-card.js's trainerBubbleHtml) so it reads as the same character.
-function renderTrainerTip(agg, boxes) {
+// Trainer speech-bubble tip for the single biggest leak (see conceptTopGroup),
+// shown once under the summary bar. Reuses the same mascot-speech/speech-bubble
+// look as the per-mistake trainer bubbles (mistake-card.js's trainerBubbleHtml)
+// so it reads as the same character. `scope` overrides "this game" — see
+// renderTopGroupStat.
+function renderTrainerTip(agg, boxes, scope) {
   const tg = conceptTopGroup(agg, boxes);
-  const tip = tg && TRAINER_TIPS[tg.group];
-  if (!tip) return "";
+  const raw = tg && TRAINER_TIPS[tg.group];
+  if (!raw) return "";
+  const tip = raw.replace("{{scope}}", scope || "this game");
   return `<div class="mascot-speech trainer-tip">
     <img src="/static/mascot.svg" class="mascot-avatar" alt="">
     <div class="speech-bubble">${tip}</div>
@@ -791,15 +798,6 @@ function switchGameView(view) {
 
 function toggleGameMistakes(grpId) {
   const panel = document.getElementById(`game-mistakes-${grpId}`);
-  if (!panel) return;
-  panel.style.display = panel.style.display === "none" ? "" : "none";
-}
-
-// Trends drill-down: panel content is pre-rendered by renderCategoryTrend —
-// this is just a show/hide toggle. (`group` kept as arg for the onclick
-// signature used in trends-analysis.js even though it's unused here.)
-function toggleTrendMistakes(group, grpId) {
-  const panel = document.getElementById(grpId);
   if (!panel) return;
   panel.style.display = panel.style.display === "none" ? "" : "none";
 }

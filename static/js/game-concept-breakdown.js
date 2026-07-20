@@ -346,5 +346,91 @@
     return false;
   }
 
-  return { CONCEPT_META, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, tradeoffBoxes, mistakeTouchesGroup, mistakeTouchesConcept };
+  // --- Cross-game rollup (trends) ---------------------------------------
+  //
+  // aggregate()/tradeoffBoxes() already work off a single game's rounds. The
+  // trends page needs the same ledger + trade-off shape summed across every
+  // analyzed game, but the box list can't carry a full per-mistake row for
+  // every mistake in every game (could be thousands) — so trends only ever
+  // consumes box TOTALS, not the mistake rows. boxTotals() computes those for
+  // one game (discarding the per-mistake array immediately, so a caller
+  // merging many games never holds more than the small totals in memory);
+  // mergeAggregates()/mergeBoxTotals() then fold per-game results together.
+
+  // Same call signature as tradeoffBoxes(), but returns
+  // [{key, title, ev, count}] instead of full mistake lists.
+  function boxTotals(game, compareDimensions, comparedTiles, tier, predicate) {
+    var boxes = tradeoffBoxes(game, compareDimensions, comparedTiles, tier, predicate);
+    var out = [];
+    for (var i = 0; i < boxes.length; i++) {
+      out.push({ key: boxes[i].key, title: boxes[i].title, ev: boxes[i].ev, count: boxes[i].mistakes.length });
+    }
+    return out;
+  }
+
+  // Merge multiple per-game aggregate() results (nulls allowed — a game with
+  // no qualifying mistakes) into one {groups:{missed,you}} structure: count/ev/
+  // tiers sum per group, subs merge per dim. Returns null if every input was null.
+  function mergeAggregates(list) {
+    var out = { groups: { missed: {}, you: {} } };
+    var any = false;
+    var sides = ["missed", "you"];
+    for (var i = 0; i < list.length; i++) {
+      var agg = list[i];
+      if (!agg) continue;
+      any = true;
+      for (var s = 0; s < sides.length; s++) {
+        var side = sides[s];
+        for (var grp in agg.groups[side]) {
+          if (!agg.groups[side].hasOwnProperty(grp)) continue;
+          var src = agg.groups[side][grp];
+          var dst = out.groups[side][grp];
+          if (!dst) dst = out.groups[side][grp] = { group: grp, count: 0, ev: 0, tiers: emptyTiers(), subs: {} };
+          dst.count += src.count;
+          dst.ev += src.ev;
+          for (var tk in src.tiers) dst.tiers[tk] += src.tiers[tk];
+          for (var dim in src.subs) {
+            if (!src.subs.hasOwnProperty(dim)) continue;
+            var ss = src.subs[dim];
+            var ds = dst.subs[dim];
+            if (!ds) ds = dst.subs[dim] = { dim: ss.dim, label: ss.label, ev: 0, count: 0 };
+            ds.ev += ss.ev;
+            ds.count += ss.count;
+          }
+        }
+      }
+    }
+    return any ? out : null;
+  }
+
+  // Merge multiple per-game boxTotals() results into one ordered, non-empty
+  // list, sorted by EV desc (the trends "biggest leak first" framing — unlike
+  // the per-game boxes, which keep the fixed push_fold/speed_value/other order
+  // since that reads top-to-bottom as a page you're already scanning).
+  function mergeBoxTotals(list) {
+    var totals = {};
+    for (var d = 0; d < BOX_DEFS.length; d++) {
+      totals[BOX_DEFS[d].key] = { key: BOX_DEFS[d].key, title: BOX_DEFS[d].title, ev: 0, count: 0 };
+    }
+    for (var i = 0; i < list.length; i++) {
+      var arr = list[i] || [];
+      for (var b = 0; b < arr.length; b++) {
+        var t = totals[arr[b].key];
+        if (!t) continue;
+        t.ev += arr[b].ev;
+        t.count += arr[b].count;
+      }
+    }
+    var out = [];
+    for (var k = 0; k < BOX_DEFS.length; k++) {
+      if (totals[BOX_DEFS[k].key].count > 0) out.push(totals[BOX_DEFS[k].key]);
+    }
+    out.sort(function (a, b) { return b.ev - a.ev; });
+    return out;
+  }
+
+  return {
+    CONCEPT_META, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, tradeoffBoxes,
+    mistakeTouchesGroup, mistakeTouchesConcept, boxTotals, mergeAggregates, mergeBoxTotals,
+  };
 }));

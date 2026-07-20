@@ -88,7 +88,6 @@ var HAIPAI_CLICK_ACTIONS = {
   startWeaknessAnalysis: () => startWeaknessAnalysis(),
   cancelWeaknessAnalysis: () => cancelWeaknessAnalysis(),
   toggleSnapshotPanel: (el) => toggleSnapshotPanel(el.dataset.panelId),
-  toggleTrendMistakes: (el) => toggleTrendMistakes(el.dataset.saLabel, el.dataset.rowId),
 };
 
 // name -> fn(el, event), for the `change` event (selects, checkboxes).

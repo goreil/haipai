@@ -8,10 +8,12 @@
 // trends-charts.js; the orchestrator/view lives in trends-view.js.
 
 // In-memory cache of the last weakness analysis: { gameIds, games }, or null.
-// The `games` array carries `by_category` rolled up from JS-categorized
-// mistakes; renderCategoryTrend / renderTrendRecommendation consume it.
-// Stays alive across navigations within the SPA but is cleared on page reload
-// — see docs/backlogs/TRENDS-WEAKEST-CATEGORY.md.
+// Each entry in `games` carries `by_category`/`decision_counts` (feeds the
+// skill-area-per-game chart + saved snapshots) and `_conceptAgg`/
+// `_conceptBoxTotals` (the win-vector rollup — feeds renderConceptWeaknessPanels,
+// the same ledger/trade-off-totals shape as a single game's summary). Stays
+// alive across navigations within the SPA but is cleared on page reload — see
+// docs/backlogs/MISTAKE-DIMENSIONS-EXTRAS.md (EXTRAS-C).
 var trendsStash = null;
 // Bumped on cancel or new run. In-flight workers compare against this and
 // stop attaching results once they've been superseded.
@@ -30,10 +32,6 @@ function _idsMatch(a, b) {
 }
 
 async function startWeaknessAnalysis() {
-  // Defensive: the trigger button is removed while the analysis is frozen
-  // (Phase −1, see WEAKNESS_ANALYSIS_ENABLED in trends-view.js), but never run
-  // even if an action somehow fires.
-  if (typeof WEAKNESS_ANALYSIS_ENABLED !== "undefined" && !WEAKNESS_ANALYSIS_ENABLED) return;
   const trendsGames = await fetchTrends();
   const ids = trendsGames.map(g => g.id);
   const gen = ++trendsAnalysisGen;
@@ -43,8 +41,8 @@ async function startWeaknessAnalysis() {
   const section = document.getElementById("weakness-section");
   if (section) {
     section.innerHTML = `
-      <h3>Weakest Skill Area</h3>
-      <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Analyzing your games to find your weakest skill area…</p>
+      <h3>Weakest Concepts</h3>
+      <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Analyzing your games to find your biggest concept-level EV leaks…</p>
       <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
         <span id="weakness-progress-text">Analyzing 0/${trendsGames.length}…</span>
         <button class="btn" data-action="cancelWeaknessAnalysis">Cancel</button>
@@ -98,6 +96,16 @@ async function startWeaknessAnalysis() {
             const dc = haipaiPrepParse.decision_counts_for_game(full.mortal_data);
             if (dc) trendsEntry.decision_counts = dc;
           }
+          // Win-vector rollup for this game — same source as the single-game
+          // concept breakdown (game-concept-breakdown.js). boxTotals() collapses
+          // each box to {ev,count} immediately so the merge below never holds a
+          // per-mistake row per game across the whole analysis.
+          if (typeof haipaiConceptBreakdown !== "undefined" && typeof haipaiCompareDimensions !== "undefined") {
+            const cd = haipaiCompareDimensions.compareDimensions;
+            trendsEntry._conceptAgg = haipaiConceptBreakdown.aggregate(full, cd, sevTier, null);
+            trendsEntry._conceptBoxTotals = haipaiConceptBreakdown.boxTotals(
+              full, cd, haipaiCompareDimensions.comparedTiles, sevTier, null);
+          }
           analyzedIds.add(trendsEntry.id);
         }
       } catch (e) {
@@ -108,9 +116,19 @@ async function startWeaknessAnalysis() {
     }
   }
 
-  const concurrency = Math.min(3, trendsGames.length);
-  const workers = [];
-  for (let i = 0; i < concurrency; i++) workers.push(worker());
+  // Sequential (concurrency 1) — NOT a perf choice. Running games 2-3 at a time
+  // reliably corrupted the shanten/wall-tracking recursion in the prep pipeline
+  // for a subset of real games (repeated "Negative wall count, clamping"
+  // warnings escalating into an uncaught `RangeError: Maximum call stack size
+  // exceeded`), hanging the whole analysis partway through — reproduced on
+  // production data both with and without this feature's concept-agg additions,
+  // so it's pre-existing in prepGameAsync/recategorizeGameInPlace, not
+  // introduced here. Verified sequential processing gets through all 148 games
+  // on a real account with zero errors where concurrency 3 stalled at ~54.
+  // Root cause (something recursion-depth-sensitive that only misbehaves under
+  // concurrent async interleaving) is unfixed — revisit if this still needs to
+  // be faster than one game at a time.
+  const workers = [worker()];
   await Promise.all(workers);
 
   if (trendsAnalysisGen !== gen) return;  // cancelled while finishing up
@@ -199,23 +217,20 @@ function trendSkillAreaTotals(byCat, decCounts) {
   return out;
 }
 
-// --- U-02 personalized recommendation block ---
+// --- Concept-level weakness panels (EXTRAS-C) ---
+//
+// Same top-leak stat + trainer tip + ledger/trade-off-totals as a single
+// game's concept breakdown (game-render.js/game-concept-breakdown.js),
+// aggregated over every analyzed game via mergeAggregates()/mergeBoxTotals().
+// Trade-off boxes show TOTALS ONLY (no per-mistake rows) — across all games
+// that list could run into the hundreds, unlike the per-game view.
 
-function renderTrendRecommendation(games) {
-  const { byCat, decCounts } = trendAggregateAll(games);
-  if (!decCounts) return "";  // No decision_counts available — skip silently
+function renderConceptWeaknessPanels(games) {
+  if (typeof haipaiConceptBreakdown === "undefined") return "";
+  const agg = haipaiConceptBreakdown.mergeAggregates(games.map(g => g._conceptAgg || null));
+  const boxes = haipaiConceptBreakdown.mergeBoxTotals(games.map(g => g._conceptBoxTotals || []));
 
-  // Rank skill areas (not sub-categories) by aggregated EV/D. Ranking at
-  // the skill-area level keeps signal concentrated — sub-category ranking
-  // would dilute areas that happen to be split into more buckets.
-  const totals = trendSkillAreaTotals(byCat, decCounts);
-  const ranked = [];
-  for (const sa of TREND_SKILL_AREAS) {
-    const t = totals[sa.key];
-    if (t.decisions < TREND_MIN_DECISIONS) continue;
-    ranked.push({ sa, evPerD: t.ev / t.decisions, ev: t.ev, decisions: t.decisions });
-  }
-  if (ranked.length < 1) {
+  if (!agg && !boxes.length) {
     return `<div class="trend-chart-card"><h3>Haipai Trainer</h3>
       <div class="mascot-speech">
         <img src="/static/mascot.svg" class="mascot-avatar" alt="">
@@ -223,127 +238,90 @@ function renderTrendRecommendation(games) {
       </div>
     </div>`;
   }
-  ranked.sort((a, b) => b.evPerD - a.evPerD);
-  const w = ranked[0];
-  const sa = w.sa;
 
-  return `<div class="trend-chart-card"><h3>Haipai Trainer</h3>
-    <div class="mascot-speech">
-      <img src="/static/mascot.svg" class="mascot-avatar" alt="">
-      <div class="speech-bubble">
-        <span class="trigger-line">Your biggest weakness: <strong style="color:${sa.color}">${sa.label}</strong> at ${w.evPerD.toFixed(4)} EV/decision.</span>
-        ${sa.intro}
-        <div style="margin-top:6px;font-size:11.5px">Focus: ${sa.study}.</div>
-      </div>
-    </div>
+  let html = `<div class="trend-chart-card">
+    <h3>Haipai Trainer</h3>
+    <div class="summary-bar" style="margin:-4px 0 10px">${renderTopGroupStat(agg, boxes, "across your games")}</div>
+    ${renderTrainerTip(agg, boxes, "across your games")}
   </div>`;
+  html += renderConceptLedgers(agg, boxes);
+  return html;
 }
 
-// --- Skill-area bar chart with per-sub-category drill-down ---
+// The ledger + trade-off-totals cards themselves — same CSS classes and pill
+// styling as the per-game renderConceptBreakdown (static/style-game-detail.css
+// .concept-*), but non-interactive: trends has no rounds view underneath to
+// filter into, so pills are plain colour chips, not click targets.
+function renderConceptLedgers(agg, boxes) {
+  const gm = conceptMetaMap();
+  const TIER_CHIPS = [
+    ["severe", "sev-major", "Severe"],
+    ["mistake", "sev-medium", "Mistake"],
+    ["light", "sev-light", "Light"],
+    ["unsure", "sev-minor", "Unsure"],
+  ];
+  const tierChips = (t) => TIER_CHIPS
+    .filter(([k]) => t[k])
+    .map(([k, cls, lbl]) => `<span class="tier-count ${cls}" title="${lbl}">${t[k]}</span>`)
+    .join("");
 
-function renderCategoryTrend(games) {
-  const { byCat, decCounts, gamesIncluded, gamesTotal } = trendAggregateAll(games);
-  const totals = trendSkillAreaTotals(byCat, decCounts);
+  let missedHtml = "";
+  const missedRows = agg ? Object.values(agg.groups.missed).sort((a, b) => b.ev - a.ev) : [];
+  if (missedRows.length) {
+    missedHtml = `<div class="concept-ledger">
+      <div class="concept-ledger-head">
+        <span class="concept-ledger-title">Losing points here</span>
+        <span class="concept-ledger-sub">The better play held this edge — you’re under-using these, across all games</span>
+      </div>`;
+    for (const e of missedRows) {
+      const meta = gm[e.group] || { label: e.group, color: "var(--text)" };
+      const subs = Object.values(e.subs || {}).sort((a, b) => b.ev - a.ev);
+      const subsHtml = subs.map(s => `<span class="concept-sub" style="--grp:${meta.color}">
+        <span class="concept-sub-label">${s.label}</span><span class="concept-sub-ev">${s.ev.toFixed(2)}</span></span>`).join("");
+      missedHtml += `<div class="concept-row">
+        <span class="concept-row-left">
+          <span class="concept-pill" style="--grp:${meta.color}">${meta.label}</span>
+          ${subsHtml}
+        </span>
+        <span class="concept-tiers">${tierChips(e.tiers)}</span>
+        <span class="concept-ev">${e.ev.toFixed(2)} EV</span>
+      </div>`;
+    }
+    missedHtml += `</div>`;
+  }
 
-  // One row per skill area, ranked by EV/D desc (most critical first).
-  // Areas with no decisions sink to the bottom; areas with neither mistakes
-  // nor decisions drop out.
-  const rows = TREND_SKILL_AREAS
-    .map(sa => {
-      const t = totals[sa.key];
-      return {
-        sa,
-        ev: t.ev,
-        count: t.count,
-        decisions: t.decisions,
-        evPerD: t.decisions > 0 ? t.ev / t.decisions : null,
-      };
-    })
-    .filter(r => r.ev > 0 || r.count > 0 || r.decisions > 0)
-    .sort((a, b) => (b.evPerD ?? -1) - (a.evPerD ?? -1));
-  if (rows.length === 0) return "";
+  let boxesHtml = "";
+  if (boxes.length) {
+    boxesHtml = `<div class="concept-ledger">
+      <div class="concept-ledger-head">
+        <span class="concept-ledger-title">Where you're over-committing</span>
+        <span class="concept-ledger-sub">Trade-off axes where you favored the wrong side, across all games</span>
+      </div>`;
+    for (const box of boxes) {
+      const color = BOX_COLOR[box.key] || "var(--accent)";
+      boxesHtml += `<div class="concept-row">
+        <span class="concept-row-left"><span class="concept-pill" style="--grp:${color}">${box.title}</span></span>
+        <span class="concept-tiers"><span class="trend-bar-count">${box.count} mistake${box.count === 1 ? "" : "s"}</span></span>
+        <span class="concept-ev">${box.ev.toFixed(2)} EV</span>
+      </div>`;
+    }
+    boxesHtml += `</div>`;
+  }
 
-  const maxEvPerD = Math.max(...rows.map(r => r.evPerD || 0)) || 1;
+  if (!missedHtml && !boxesHtml) return "";
+  const note = `<div class="concept-note">Aggregated across all analyzed games — a single mistake can carry more than one concept, so its EV is counted toward each of these.</div>`;
+  return `<div class="concept-breakdown">${missedHtml}${boxesHtml}${note}</div>`;
+}
+
+// --- Skill-area-per-game chart ---
+
+function renderSkillAreaChart(games) {
+  const { gamesIncluded, gamesTotal } = trendAggregateAll(games);
   const coverage = (gamesIncluded != null && gamesIncluded < gamesTotal)
     ? ` <span style="color:var(--sev-medium)">Based on ${gamesIncluded}/${gamesTotal} games — older games need a decision-count backfill.</span>`
     : ` Based on ${gamesIncluded}/${gamesTotal} games.`;
-
-  let html = `<div class="trend-chart-card"><h3>EV Loss per Decision by Skill Area (All Games)</h3><p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">Sorted by most critical. Click a row for the per-category breakdown.${coverage}</p><div class="trend-bars">`;
-  for (const r of rows) {
-    const sa = r.sa;
-    const pct = r.evPerD != null ? (r.evPerD / maxEvPerD * 100).toFixed(0) : 0;
-    const rowId = "trend-" + sa.key;
-    const primary = r.evPerD != null ? `${r.evPerD.toFixed(4)} EV/D` : "—";
-    html += `<div class="trend-bar-row" data-action="toggleTrendMistakes" data-sa-label="${sa.label}" data-row-id="${rowId}" style="cursor:pointer">
-      <span class="trend-bar-label" style="color:${sa.color}">${sa.short || sa.label}</span>
-      <div class="trend-bar-track">
-        <div class="trend-bar-fill" style="width:${pct}%;background:${sa.color}"></div>
-      </div>
-      <span class="trend-bar-primary">${primary}</span>
-      <span class="trend-bar-breakdown">(${r.ev.toFixed(1)} EV · ${r.count} in ${r.decisions} decisions)</span>
-    </div>
-    <div id="${rowId}" class="trend-mistakes-panel" style="display:none">${renderTrendGroupBreakdown(sa.key, byCat, decCounts)}</div>`;
-  }
-  html += `</div></div>`;
-
-  html += `<div class="trend-chart-card"><h3>Skill Area per Game</h3><div class="trend-chart">`;
-  html += renderGroupStackedChart(games);
-  html += `</div></div>`;
-
-  return html;
-}
-
-// Drill-down for one skill area: lists sub-categories with EV, count, and
-// EV/D (using the skill-area denominator — same one as the parent row).
-function renderTrendGroupBreakdown(saKey, byCat, decCounts) {
-  const sa = trendSkillAreaInfo(saKey);
-  if (!sa) return "";
-  const denom = decCounts ? (decCounts[saKey] || 0) : 0;
-
-  // CORE Phase 3 stub: the category-code registry (CATEGORY_INFO) is gone, so
-  // the per-sub-category drill-down is rebuilt against {skill area} × {shape}
-  // in EXTRAS-C (when the weakness-analysis freeze lifts). Until then we list
-  // whatever facet keys are present in `byCat` for this skill area — historical
-  // snapshots carry the old P/D/OD codes; live data carries action codes.
-  const entries = [];
-  for (const [cat, data] of Object.entries(byCat)) {
-    if (trendSkillAreaFor(cat) !== saKey) continue;
-    if (!data || data.count === 0) continue;
-    entries.push({
-      cat,
-      label: cat,
-      desc: "",
-      study: sa.study,
-      ev: data.ev,
-      count: data.count,
-      evPerD: denom > 0 ? data.ev / denom : null,
-    });
-  }
-  entries.sort((a, b) => b.ev - a.ev);
-
-  const totalEv = entries.reduce((s, e) => s + e.ev, 0);
-  const evPerD = denom > 0 ? totalEv / denom : null;
-  const summary = evPerD != null
-    ? `You lose <strong style="color:${sa.color}">${evPerD.toFixed(4)} EV/Decision</strong> when ${sa.situation}. In total there were <strong>${denom}</strong> decisions and your total EV loss in these categories is <strong>${totalEv.toFixed(1)}</strong>.`
-    : `Not enough decisions recorded to compute EV/Decision when ${sa.situation}.`;
-
-  let html = `<div style="padding:10px 12px">`;
-  html += `<div class="mascot-speech" style="margin-bottom:14px">
-    <img src="/static/mascot.svg" class="mascot-avatar" alt="">
-    <div class="speech-bubble">${summary} <span style="opacity:0.75">Reference: ${sa.study}.</span></div>
+  return `<div class="trend-chart-card"><h3>Skill Area per Game</h3>
+    <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">${coverage}</p>
+    <div class="trend-chart">${renderGroupStackedChart(games)}</div>
   </div>`;
-  html += `<div class="trend-bars" style="gap:12px">`;
-  for (const e of entries) {
-    const primary = e.evPerD != null ? `${e.evPerD.toFixed(4)} EV/D` : "—";
-    const studyStr = e.study ? ` <span style="opacity:0.7">— ${e.study}</span>` : "";
-    html += `<div style="display:flex;flex-direction:column;gap:3px">
-      <div class="trend-bar-row">
-        <span class="trend-bar-label" style="color:${sa.color};min-width:140px">${e.label}</span>
-        <span class="trend-bar-value" style="flex:1">${primary} <span class="trend-bar-count">(${e.ev.toFixed(1)} EV · ${e.count})</span></span>
-      </div>
-      ${e.desc ? `<div style="color:var(--text-dim);font-size:11.5px;line-height:1.45;padding-left:4px">${e.desc}${studyStr}</div>` : ""}
-    </div>`;
-  }
-  html += `</div></div>`;
-  return html;
 }

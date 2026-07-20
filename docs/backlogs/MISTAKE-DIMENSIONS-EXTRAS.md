@@ -143,17 +143,39 @@ aggregatable.
 
 > Was Phase 5 in the original combined plan.
 
-- [ ] **C.1** Flip `WEAKNESS_ANALYSIS_ENABLED` back to `true` (CORE Phase −1) and
-  remove the paused notice in `renderWeaknessSection` (`trends-view.js`).
-- [ ] **C.2** Skill-area frequency counter ("situations you struggle in") —
-  aggregate the per-mistake win-vectors in the existing worker pool
-  (`trends-analysis.js`). Attack leads by frequency.
+- [x] **C.1** Flip `WEAKNESS_ANALYSIS_ENABLED` back to `true` (CORE Phase −1) and
+  remove the paused notice in `renderWeaknessSection` (`trends-view.js`). Went
+  further than "flip the flag": replaced the old skill-area bar chart +
+  drill-down (`renderCategoryTrend`/`renderTrendGroupBreakdown`, both deleted)
+  with the **same ledger + trade-off components the single-game summary
+  uses** (`renderConceptWeaknessPanels`/`renderConceptLedgers` in
+  `trends-analysis.js`), fed by per-game `aggregate()`/`boxTotals()` merged via
+  new `haipaiConceptBreakdown.mergeAggregates()`/`mergeBoxTotals()`
+  (`game-concept-breakdown.js`). The old per-skill-area "Weakest Skill Area"
+  mascot recommendation (`renderTrendRecommendation`) is replaced by
+  `renderTrainerTip`/`renderTopGroupStat` reused as-is from `game-render.js`
+  (now take an optional `scope` string — "across your games" here — instead of
+  the hardcoded "this game" wording). **Trade-off boxes are totals-only**
+  (title + EV + count, no per-mistake rows) — across every analyzed game the
+  per-mistake list could run into the hundreds, unlike the per-game view;
+  `boxTotals()` collapses each game's box to `{ev,count}` immediately so the
+  worker never retains a per-mistake array across the whole run. The "Skill
+  Area per Game" stacked chart is kept (`renderSkillAreaChart`, trimmed out of
+  the old `renderCategoryTrend`) since it's a genuinely different time-series
+  view with no per-game-summary analog.
+- [ ] **C.2** Skill-area frequency counter ("situations you struggle in") — not
+  done as a dedicated panel; the kept "Skill Area per Game" chart is the closest
+  existing analog.
 - [ ] **C.3** Per-dimension behavioral profiling (over-valued = your win-set,
-  under-valued = Mortal's), then top-3 best/worst dimensions.
+  under-valued = Mortal's), then top-3 best/worst dimensions. Not done — the new
+  ledger surfaces the *group*-level over/under split (via the two ledger cards),
+  not a ranked top-3.
 - [ ] **C.4** Admin-only complex-coverage % metric.
-- [ ] **Exit gate:** run a full weakness analysis end-to-end; snapshot saves with
-  the current `CATEGORIZER_VERSION`; the skill-area counter matches a hand-count on
-  a small sample.
+- [x] **Exit gate (C.1 only):** the concept ledger + trade-off totals render for
+  a real multi-game analysis; jump-to-mistake (`#m<id>`) works from the trends
+  page exactly as from a game page (global `/api/mistakes/<id>/locate`, no
+  per-game context needed); snapshot save/history (`by_category`/
+  `decision_counts`) is untouched. C.2–C.4 remain open.
 
 ---
 
