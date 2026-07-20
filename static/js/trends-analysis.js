@@ -80,10 +80,15 @@ async function startWeaknessAnalysis() {
           const byCat = {};
           for (const rnd of full.rounds || []) {
             for (const m of rnd.mistakes || []) {
-              if (!m.category) continue;
-              if (!byCat[m.category]) byCat[m.category] = { count: 0, ev: 0 };
-              byCat[m.category].count += 1;
-              byCat[m.category].ev += m.ev_loss || 0;
+              // category survives only for action decisions (meld/riichi/kan);
+              // dahai mistakes (attack/defense/open_defense) carry no category
+              // since Phase 3, so fall back to skillArea or they'd never be
+              // counted at all.
+              const key = m.category || m.skillArea;
+              if (!key) continue;
+              if (!byCat[key]) byCat[key] = { count: 0, ev: 0 };
+              byCat[key].count += 1;
+              byCat[key].ev += m.ev_loss || 0;
             }
           }
           if (trendsAnalysisGen !== gen) return;
@@ -180,7 +185,7 @@ function cancelWeaknessAnalysis() {
 // otherwise old games (parsed before U-04) contribute EV with no
 // matching denominator and inflate EV/D ~10x.
 function trendAggregateAll(games) {
-  const byCat = {};                 // facet key -> {count, ev} (historical snapshots: old codes; live: action codes)
+  const byCat = {};                 // facet key -> {count, ev} (historical snapshots: retired P/D/OD codes; live: action codes for meld/riichi/kan, skillArea for attack/defense/open_defense)
   const decCounts = { attack: 0, defense: 0, open_defense: 0, riichi: 0, meld: 0, kan: 0 };
   let gamesIncluded = 0;
   for (const g of games) {
