@@ -114,6 +114,17 @@ def api_trends_snapshot():
     if not isinstance(by_category, dict) or not isinstance(decision_counts, dict):
         return jsonify({"error": "by_category and decision_counts must be objects"}), 400
 
+    # Richer, already-merged breakdown (same shapes the live trends page
+    # renders from) — optional, so an older client that only ever sends
+    # by_category/decision_counts still works.
+    by_skill_facet = body.get("by_skill_facet") or {}
+    concept_agg = body.get("concept_agg")
+    concept_boxes = body.get("concept_boxes") or []
+    if not isinstance(by_skill_facet, dict) or not isinstance(concept_boxes, list):
+        return jsonify({"error": "by_skill_facet must be an object and concept_boxes a list"}), 400
+    if concept_agg is not None and not isinstance(concept_agg, dict):
+        return jsonify({"error": "concept_agg must be an object"}), 400
+
     # Confine game_ids to ones the caller actually owns. Silently filters
     # rather than 403s — the analysis runs over /api/trends, which is
     # already user-scoped, so a mismatch means stale local state, not abuse.
@@ -128,5 +139,6 @@ def api_trends_snapshot():
 
     snapshot_id = db.insert_snapshot(
         conn, current_user.id, version, game_ids, by_category, decision_counts,
+        by_skill_facet=by_skill_facet, concept_agg=concept_agg, concept_boxes=concept_boxes,
     )
     return jsonify({"ok": True, "snapshot_id": snapshot_id, "deduped": snapshot_id is None})

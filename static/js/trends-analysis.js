@@ -78,6 +78,12 @@ async function startWeaknessAnalysis() {
           await haipaiPrep.prepGameAsync(full, full.mortal_data);
           recategorizeGameInPlace(full);
           const byCat = {};
+          // Skill area -> facet (action code for meld/riichi/kan, shape for
+          // attack/defense/open_defense) -> totals. Same facet key as the
+          // per-game Summary tab (categorize-metadata.js::mistakeFacet), so
+          // the trends breakdown below can reuse its cat-group/cat-sub markup
+          // instead of the old bars-over-time chart.
+          const bySkillFacet = {};
           for (const rnd of full.rounds || []) {
             for (const m of rnd.mistakes || []) {
               // category survives only for action decisions (meld/riichi/kan);
@@ -89,10 +95,27 @@ async function startWeaknessAnalysis() {
               if (!byCat[key]) byCat[key] = { count: 0, ev: 0 };
               byCat[key].count += 1;
               byCat[key].ev += m.ev_loss || 0;
+
+              const sa = m.skillArea;
+              if (!sa) continue;
+              const facet = mistakeFacet(m);
+              const fkey = facet.key || "—";
+              if (!bySkillFacet[sa]) bySkillFacet[sa] = {};
+              if (!bySkillFacet[sa][fkey]) {
+                bySkillFacet[sa][fkey] = {
+                  label: facet.label || "Other", desc: facet.desc || "",
+                  count: 0, ev: 0, tiers: { severe: 0, mistake: 0, light: 0, unsure: 0 },
+                };
+              }
+              const sub = bySkillFacet[sa][fkey];
+              sub.count += 1;
+              sub.ev += m.ev_loss || 0;
+              sub.tiers[sevTier(m.ev_loss)] += 1;
             }
           }
           if (trendsAnalysisGen !== gen) return;
           trendsEntry.by_category = byCat;
+          trendsEntry.by_skill_facet = bySkillFacet;
           // Recompute per-skill-area denominators from mortal_data so the
           // trends panel is self-contained — no dependency on server-side
           // backfills of stats_json.decision_counts.
@@ -153,12 +176,25 @@ async function _saveSnapshotFromAnalysis(games, analyzedGameIds) {
   if (analyzed.length === 0) return;
   const { byCat, decCounts } = trendAggregateAll(analyzed);
   if (!decCounts) return;
+  const { bySkillFacet } = trendAggregateSkillFacets(analyzed);
+  // Same merged shapes the live "Haipai Trainer" panel renders from — saving
+  // them (not just by_category/decision_counts) so a past analysis can be
+  // re-rendered exactly as it looked live, not just as skill-area totals.
+  const conceptAgg = (typeof haipaiConceptBreakdown !== "undefined")
+    ? haipaiConceptBreakdown.mergeAggregates(analyzed.map(g => g._conceptAgg || null))
+    : null;
+  const conceptBoxes = (typeof haipaiConceptBreakdown !== "undefined")
+    ? haipaiConceptBreakdown.mergeBoxTotals(analyzed.map(g => g._conceptBoxTotals || []))
+    : [];
   try {
     const res = await apiPost("/api/trends/snapshot", {
       categorizer_version: haipaiCategorize.CATEGORIZER_VERSION,
       game_ids: analyzedGameIds,
       by_category: byCat,
       decision_counts: decCounts,
+      by_skill_facet: bySkillFacet,
+      concept_agg: conceptAgg,
+      concept_boxes: conceptBoxes,
     });
     if (!res.ok) return;
     trendsSnapshots = await fetchSnapshots();
@@ -204,6 +240,37 @@ function trendAggregateAll(games) {
     gamesIncluded,
     gamesTotal: games.length,
   };
+}
+
+// Same gating as trendAggregateAll (only games with decision_counts, so the
+// breakdown never mixes in games with no denominator), but merges the nested
+// skill-area -> facet tally (by_skill_facet) instead of the flat by_category
+// map — this is what feeds the cat-group/cat-sub "Skill Area Breakdown"
+// panel, which needs shape-level facets under attack/defense/open_defense,
+// not just the skill-area totals by_category collapses them to.
+function trendAggregateSkillFacets(games) {
+  const bySkillFacet = {};
+  let gamesIncluded = 0;
+  for (const g of games) {
+    if (!g.decision_counts) continue;
+    gamesIncluded++;
+    for (const [sa, facets] of Object.entries(g.by_skill_facet || {})) {
+      if (!bySkillFacet[sa]) bySkillFacet[sa] = {};
+      for (const [fkey, f] of Object.entries(facets)) {
+        if (!bySkillFacet[sa][fkey]) {
+          bySkillFacet[sa][fkey] = {
+            label: f.label, desc: f.desc, count: 0, ev: 0,
+            tiers: { severe: 0, mistake: 0, light: 0, unsure: 0 },
+          };
+        }
+        const dst = bySkillFacet[sa][fkey];
+        dst.count += f.count;
+        dst.ev += f.ev;
+        for (const tk of Object.keys(f.tiers || {})) dst.tiers[tk] += f.tiers[tk] || 0;
+      }
+    }
+  }
+  return { bySkillFacet, gamesIncluded, gamesTotal: games.length };
 }
 
 // Per skill area (attack/defense/meld/riichi/kan): total EV, mistake count,
@@ -318,15 +385,68 @@ function renderConceptLedgers(agg, boxes) {
   return `<div class="concept-breakdown">${missedHtml}${boxesHtml}${note}</div>`;
 }
 
-// --- Skill-area-per-game chart ---
+// --- Skill Area Breakdown ---
+//
+// cat-group/cat-sub cards — the SAME markup and classes as a single game's
+// Summary tab (game-render.js renderGame's `state.gameView === "summary"`
+// branch), just aggregated across every analyzed game instead of one. This
+// replaced an SVG stacked-bar-over-time chart that split EV across the 5
+// skill areas per game — accurate but hard to read at a glance and visually
+// inconsistent with the rest of the page. There's no per-mistake expand here
+// (unlike the per-game Summary tab): the analysis only keeps aggregated
+// facet totals, not every mistake object, across potentially hundreds of games.
 
-function renderSkillAreaChart(games) {
-  const { gamesIncluded, gamesTotal } = trendAggregateAll(games);
+// One cat-group per skill area (attack/defense/open_defense/meld/riichi/kan),
+// sorted by EV desc, each with its cat-sub facet rows (shape for dahai,
+// action label for meld/riichi/kan — see categorize-metadata.js::mistakeFacet)
+// also sorted by EV desc. Returns "" when there's nothing to show.
+function renderSkillAreaGroups(bySkillFacet) {
+  const groups = Object.entries(bySkillFacet || {})
+    .map(([sa, facets]) => {
+      const totals = Object.values(facets).reduce(
+        (acc, f) => ({ count: acc.count + f.count, ev: acc.ev + f.ev }), { count: 0, ev: 0 });
+      return { sa, facets, count: totals.count, ev: totals.ev };
+    })
+    .filter(g => g.count > 0)
+    .sort((a, b) => b.ev - a.ev);
+  if (!groups.length) return "";
+
+  let html = `<div class="category-groups">`;
+  for (const g of groups) {
+    const color = skillAreaColor(g.sa);
+    const name = skillAreaLabel(g.sa);
+    html += `<div class="cat-group" style="border-left: 3px solid ${color}">
+      <div class="cat-group-header">
+        <span class="cat-group-name" style="color:${color}">${name}</span>
+        <span class="cat-group-stat">${g.count} mistake${g.count === 1 ? "" : "s"} &middot; ${g.ev.toFixed(2)} EV</span>
+      </div>`;
+    const subs = Object.values(g.facets).filter(f => f.label).sort((a, b) => b.ev - a.ev);
+    for (const sub of subs) {
+      html += `<div class="cat-sub" title="${sub.desc || ""}">
+        <span class="cat-sub-label">${sub.label}</span>
+        <span class="cat-sub-count">${sub.count}</span>
+        <span class="cat-sub-ev">${sub.ev.toFixed(2)} EV</span>
+        <span class="tier-count sev-major" title="Severe">${sub.tiers.severe} Severe</span>
+        <span class="tier-count sev-medium" title="Mistake">${sub.tiers.mistake} Mistake</span>
+        <span class="tier-count sev-light" title="Light">${sub.tiers.light} Light</span>
+        <span class="tier-count sev-minor" title="Unsure">${sub.tiers.unsure} Unsure</span>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function renderSkillAreaBreakdown(games) {
+  const { bySkillFacet, gamesIncluded, gamesTotal } = trendAggregateSkillFacets(games);
+  const body = renderSkillAreaGroups(bySkillFacet);
+  if (!body) return "";
   const coverage = (gamesIncluded != null && gamesIncluded < gamesTotal)
     ? ` <span style="color:var(--sev-medium)">Based on ${gamesIncluded}/${gamesTotal} games — older games need a decision-count backfill.</span>`
     : ` Based on ${gamesIncluded}/${gamesTotal} games.`;
-  return `<div class="trend-chart-card"><h3>Skill Area per Game</h3>
+  return `<div class="trend-chart-card"><h3>Skill Area Breakdown</h3>
     <p style="font-size:12px;color:var(--text-dim);margin:-4px 0 10px">${coverage}</p>
-    <div class="trend-chart">${renderGroupStackedChart(games)}</div>
+    ${body}
   </div>`;
 }

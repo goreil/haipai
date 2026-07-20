@@ -163,7 +163,7 @@ function _renderAnalyzedPanels(games, analyzedIds) {
   const renderGames = analyzedIds
     ? games.map(g => analyzedIds.has(g.id) ? g : { ...g, decision_counts: null })
     : games;
-  return renderConceptWeaknessPanels(renderGames) + renderSkillAreaChart(renderGames);
+  return renderConceptWeaknessPanels(renderGames) + renderSkillAreaBreakdown(renderGames);
 }
 
 function _replaceWeaknessSection(games, analyzedIds) {
@@ -231,7 +231,42 @@ function toggleSnapshotPanel(panelId) {
   el.style.display = el.style.display === "none" ? "block" : "none";
 }
 
+// Snapshots saved after this feature landed carry the full analysis result
+// (concept_agg/concept_boxes — the Haipai Trainer ledger/trade-off panel —
+// plus by_skill_facet — the cat-group/cat-sub Skill Area Breakdown), the
+// same shapes the live trends page renders from, so a past analysis looks
+// exactly like it did live rather than just the flat skill-area totals.
+// Older rows only have by_category/decision_counts, so fall back to the
+// bar-row rendering for those.
 function renderSnapshotDetail(snapshot) {
+  const hasFullAnalysis = snapshot.concept_agg
+    || (snapshot.concept_boxes && snapshot.concept_boxes.length)
+    || (snapshot.by_skill_facet && Object.keys(snapshot.by_skill_facet).length);
+  if (hasFullAnalysis) return renderSnapshotFullDetail(snapshot);
+  return renderSnapshotLegacyDetail(snapshot);
+}
+
+function renderSnapshotFullDetail(snapshot) {
+  const changelogNote = (typeof haipaiCategorize !== "undefined" && haipaiCategorize.CATEGORIZER_CHANGELOG
+    && haipaiCategorize.CATEGORIZER_CHANGELOG[snapshot.categorizer_version]) || null;
+
+  let html = `<div style="padding:10px 12px">`;
+  if (changelogNote) {
+    html += `<div style="font-size:11.5px;color:var(--text-dim);margin-bottom:10px">v${snapshot.categorizer_version}: ${changelogNote}</div>`;
+  }
+  if (snapshot.concept_agg || (snapshot.concept_boxes && snapshot.concept_boxes.length)) {
+    html += `<div class="summary-bar" style="margin:0 0 10px">${renderTopGroupStat(snapshot.concept_agg, snapshot.concept_boxes, "in this analysis")}</div>`;
+    html += renderTrainerTip(snapshot.concept_agg, snapshot.concept_boxes, "in this analysis");
+    html += renderConceptLedgers(snapshot.concept_agg, snapshot.concept_boxes);
+  }
+  if (snapshot.by_skill_facet && Object.keys(snapshot.by_skill_facet).length) {
+    html += renderSkillAreaGroups(snapshot.by_skill_facet);
+  }
+  html += `</div>`;
+  return html;
+}
+
+function renderSnapshotLegacyDetail(snapshot) {
   const totals = _snapshotSkillAreaTotals(snapshot);
   const rows = TREND_SKILL_AREAS
     .map(sa => {

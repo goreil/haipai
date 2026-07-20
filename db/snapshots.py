@@ -2,21 +2,31 @@
 
 Each row stores the aggregated totals (by_category + decision_counts) for
 the games included in one analysis run, tagged with the categorizer
-version that produced them. The trends page lists past snapshots so the
-user can see how their weakness profile has shifted as they play more or
-as the categorizer logic evolves.
+version that produced them, plus the richer already-merged breakdown the
+live trends page renders from (by_skill_facet for the cat-group/cat-sub
+Skill Area Breakdown, concept_agg/concept_boxes for the Haipai Trainer
+ledger/trade-off panel) so a past snapshot can be re-rendered exactly as
+it looked live. The trends page lists past snapshots so the user can see
+how their weakness profile has shifted as they play more or as the
+categorizer logic evolves.
 """
 
 import json
 
 
 def insert_snapshot(conn, user_id, categorizer_version, game_ids,
-                    by_category, decision_counts):
+                    by_category, decision_counts,
+                    by_skill_facet=None, concept_agg=None, concept_boxes=None):
     """Insert a snapshot row, deduping against the most recent one.
 
     Skip the insert if the latest snapshot for this user has the same
     categorizer_version AND the same set of game_ids — re-opening the
     trends page without new games shouldn't pile up identical rows.
+
+    by_skill_facet/concept_agg/concept_boxes are the richer, already-merged
+    breakdown the live trends page renders from (skill-area facet cards +
+    the concept ledger/trade-off panel) — optional so older callers/rows
+    that only ever computed by_category still work.
 
     Returns the new snapshot id, or None if deduped.
     """
@@ -41,6 +51,9 @@ def insert_snapshot(conn, user_id, categorizer_version, game_ids,
         "game_ids": ids_sorted,
         "by_category": by_category or {},
         "decision_counts": decision_counts or {},
+        "by_skill_facet": by_skill_facet or {},
+        "concept_agg": concept_agg,
+        "concept_boxes": concept_boxes or [],
     }
     cur = conn.execute(
         "INSERT INTO weakness_snapshots "
@@ -77,6 +90,9 @@ def list_snapshots(conn, user_id):
             "by_category": summary.get("by_category") or {},
             "decision_counts": summary.get("decision_counts") or {},
             "game_ids": summary.get("game_ids") or [],
+            "by_skill_facet": summary.get("by_skill_facet") or {},
+            "concept_agg": summary.get("concept_agg"),
+            "concept_boxes": summary.get("concept_boxes") or [],
         })
     return out
 
