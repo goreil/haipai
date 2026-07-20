@@ -5,12 +5,24 @@
 // shanten, necessary_count, necessary_tiles}]} — using one native call
 // (full_discard_table) for the whole per-discard ukeire table.
 //
+// Open hands: melds_mjai (Haipai's fuuro objects — pon/chi/ankan/daiminkan/
+// kakan) are appended to the hand text as riichi-tools-rs meld brackets
+// (_meld_to_bracket) — see Hand::from_text/parse_chi/parse_pon/parse_kan in
+// wasm/haipai-shanten/src/lib.rs. The fast_shanten kernel reads melds off the
+// parsed Hand natively (both open shapes AND closed ankan), so this is a
+// faithful calculation, not the JS kernel's virtual-complete-meld-count trick.
+// Which specific opponent a meld was called from, and which tile within a
+// chi/pon was the physically-called one, don't affect shanten/ukeire — those
+// bracket fields are filled with fixed placeholders.
+//
 // Correctness fallback to the pure-JS kernel for the shapes where riichi
 // diverges (see scripts/wasm_ukeire_parity.mjs):
-//   - open hands (melds): WASM path is closed-hand only
 //   - concealed 4-of-a-kind: fast_shanten lookup tables misread a quad as not
 //     a triplet+tanki (the slow kernel is fine, but we use fast)
 //   - chiitoi 6-pairs-over-6-kinds: riichi reports tenpai; our JS is stricter
+//   - any meld shape _meld_to_bracket doesn't recognize
+//   - a second (or more) honor-tile meld, or any kakan on an honor tile —
+//     see _needs_js_fallback_for_melds for the confirmed upstream bug
 // The rare ukeire false-positive in dense multi-pair shapes has no clean
 // trigger and is left to the caller's correctness tolerance.
 
@@ -85,13 +97,103 @@
     return false;
   }
 
-  function calculate(hand_mjai, melds_mjai, wall) {
-    if (melds_mjai && melds_mjai.length) return jsCalc.calculate(hand_mjai, melds_mjai, wall);
+  const HONORS = new Set(["E", "S", "W", "N", "P", "F", "C"]);
 
+  // riichi-tools-rs's fast_shanten kernel shares ONE scalar state machine
+  // (ProgressiveHonorClassifier) across every honor tile in the hand — draws
+  // of DIFFERENT concealed honor kinds compose on it correctly (proven by the
+  // 1552-closed-hand GT run in docs/backlogs/WASM-SHANTEN.md), but its
+  // pon()/shouminkan() transitions (fired for pon/kakan/daiminkan on an honor
+  // — see HandCalculator::init in riichi-tools-rs) carry no notion of *which*
+  // honor value they're for, and corrupt that shared state once a SECOND
+  // distinct honor kind touches the hand alongside a honor meld — whether
+  // that second kind is another meld or just a concealed tile. Confirmed by
+  // direct repro against the Python `mahjong` ground truth (not a JS-encoding
+  // bug on our side):
+  //   - closed 666m + pon(E) + pon(S) (verifiably tenpai): fast kernel
+  //     reports shanten 2 instead of 0; kakan+ankan on different honors
+  //     returns outright nonsense (-1/8)
+  //   - ONE honor meld (e.g. pon(F)) + TWO distinct concealed honor kinds
+  //     (e.g. lone P and C): shanten stays right, but ukeire silently drops
+  //     one of them (misses C as an accepting tile)
+  //   - a lone kakan (added kan) on an honor tile is broken even by itself —
+  //     it's pon()+shouminkan() internally, two hits to the FSM in one meld
+  //   - ONE honor meld + at most ONE other distinct honor kind anywhere else
+  //     in the hand is fine (GT-verified) — that's the common single-yakuhai-
+  //     pon case, so it stays on the fast path
+  // Reported nowhere upstream; scoped fallback here rather than patching the
+  // vendored fork's opaque lookup-table FSM blind.
+  function _needs_js_fallback_for_melds(hand_mjai, melds_mjai) {
+    if (!melds_mjai || !melds_mjai.length) return false;
+    let hasHonorMeld = false;
+    const honorKinds = new Set();
+    for (const t of hand_mjai) if (HONORS.has(t)) honorKinds.add(t);
+    for (const m of melds_mjai) {
+      const tile = m.pai != null ? m.pai : (m.consumed && m.consumed[0]);
+      if (!HONORS.has(tile)) continue;
+      if (m.type === "kakan") return true;
+      hasHonorMeld = true;
+      honorKinds.add(tile);
+    }
+    return hasHonorMeld && honorKinds.size > 1;
+  }
+
+  // base id -> {num (1-9 suits, 1-7 honors), color (m/p/s/z)}, per Tile::from_id
+  // in riichi-tools-rs (1z..4z = E S W N, 5z..7z = P F C). Red fives collapse to
+  // their plain base id already (MJAI_TO_BASE), and red-ness never affects
+  // shanten/ukeire, so there's no "r" flag to thread through here.
+  function _num_color(mjai_tile) {
+    const b = MJAI_TO_BASE[mjai_tile];
+    if (b === undefined) throw new Error("Unknown tile: " + mjai_tile);
+    if (b < 27) return { num: (b % 9) + 1, color: SUIT_CH[Math.floor(b / 9)] };
+    return { num: b - 26, color: "z" };
+  }
+
+  // One Haipai fuuro object -> one riichi-tools-rs meld bracket. Player/called-
+  // index fields are fixed placeholders (1 / index 0) since they don't affect
+  // shanten or ukeire — only which tiles form the meld does.
+  function _meld_to_bracket(m) {
+    switch (m.type) {
+      case "pon": {
+        const { num, color } = _num_color(m.pai);
+        return `(p${num}${color}1)`;
+      }
+      case "chi": {
+        const called = _num_color(m.pai);
+        const sorted = [m.pai, ...m.consumed].map(_num_color).sort((a, b) => a.num - b.num);
+        const calledIdx = sorted.findIndex((t) => t.num === called.num);
+        return `(${sorted[0].num}${sorted[1].num}${sorted[2].num}${sorted[0].color}${calledIdx})`;
+      }
+      case "ankan": {
+        const { num, color } = _num_color(m.consumed[0]);
+        return `(k${num}${color})`;
+      }
+      case "daiminkan": {
+        const { num, color } = _num_color(m.pai);
+        return `(k${num}${color}1)`;
+      }
+      case "kakan": {
+        const { num, color } = _num_color(m.pai);
+        return `(s${num}${color}1)`;
+      }
+      default:
+        throw new Error("Unknown meld type: " + m.type);
+    }
+  }
+
+  function calculate(hand_mjai, melds_mjai, wall) {
     const { counts, red } = _counts_and_red(hand_mjai);
     if (_needs_js_fallback(counts)) return jsCalc.calculate(hand_mjai, melds_mjai, wall);
+    if (_needs_js_fallback_for_melds(hand_mjai, melds_mjai)) return jsCalc.calculate(hand_mjai, melds_mjai, wall);
 
-    const text = _counts_to_text(counts);
+    let text = _counts_to_text(counts);
+    if (melds_mjai && melds_mjai.length) {
+      try {
+        for (const m of melds_mjai) text += _meld_to_bracket(m);
+      } catch (e) {
+        return jsCalc.calculate(hand_mjai, melds_mjai, wall); // unrecognized meld shape guard
+      }
+    }
     if (wasm.shanten_from_text(text) === -1) {
       const err = new Error("hand is already in winning form");
       err.code = "winning";

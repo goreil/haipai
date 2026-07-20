@@ -6,6 +6,16 @@
  * shanten_calc.calculate produces (it lists ALL discards, not just the
  * shanten-preserving ones find_shanten_improving_tiles returns), so downstream
  * look-ups of the actual/expected discard still resolve.
+ *
+ * `text` may include called melds via Hand::from_text's bracket syntax
+ * (chi "(345p0)", pon "(p5m1)", open kan "(k5m1)", closed kan "(k5m)", added
+ * kan "(s5m1)") — only concealed tiles are ever candidate discards (melded/
+ * kanned tiles are excluded via get_34_array(true)), and each candidate's
+ * 13-tile sub-hand is built by cloning the full hand and removing one
+ * concealed tile so the meld shapes stay attached (Hand::remove_tile already
+ * refuses to touch is_open/is_kan tiles). get_shanten/find_shanten_improving_tiles
+ * (fast_shanten kernel) read melds off the Hand directly, so this stays
+ * correct for open hands without any virtual-triplet trick.
  *   {"stats": [{"discard": <id>, "shanten": <i>, "tiles": [[tileId, count], ...]}, ...]}
  * @param {string} text
  * @returns {string}
@@ -65,7 +75,7 @@ export function ukeire_from_text(text) {
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_throw_ea4887a5f8f9a9db: function(arg0, arg1) {
+        __wbg___wbindgen_throw_344f42d3211c4765: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
         __wbindgen_init_externref_table: function() {
