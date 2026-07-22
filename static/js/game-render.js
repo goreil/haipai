@@ -427,6 +427,60 @@ function renderFiltersPanel() {
   </div>`;
 }
 
+// Final scores for the game, straight off mjai_log — no backend field
+// carries them (routes/game.py's _slim_mortal_data forwards mjai_log
+// unslimmed for exactly this kind of read). Starts from the last kyoku's
+// `scores` and replays reach (-1000 to the declaring seat, since reach cost
+// isn't reflected in hora/ryuukyoku deltas) and hora/ryuukyoku deltas after
+// it to land on the true end-of-game total. Returns seats sorted by score
+// (descending), or null if mjai_log/scores aren't available.
+function computeFinalScores(mortalData) {
+  const log = mortalData && mortalData.mjai_log;
+  if (!log || !log.length || typeof haipaiPrepParse === "undefined") return null;
+  const events = haipaiPrepParse.flatten_mjai_log(log);
+  const startPositions = [];
+  for (let i = 0; i < events.length; i++) {
+    if (events[i].type === "start_kyoku") startPositions.push(i);
+  }
+  if (!startPositions.length) return null;
+  const firstStart = events[startPositions[0]];
+  const lastStartPos = startPositions[startPositions.length - 1];
+  const lastStart = events[lastStartPos];
+  const scores = (lastStart.scores || []).slice();
+  if (!scores.length) return null;
+  for (let i = lastStartPos + 1; i < events.length; i++) {
+    const e = events[i];
+    if (e.type === "reach" && e.actor != null) {
+      scores[e.actor] -= 1000;
+    } else if ((e.type === "hora" || e.type === "ryuukyoku") && e.deltas) {
+      for (let s = 0; s < scores.length; s++) scores[s] += e.deltas[s] || 0;
+    }
+  }
+  const WINDS = ["E", "S", "W", "N"];
+  const oya1 = firstStart.oya || 0;
+  const seats = scores.map((score, seat) => ({
+    seat,
+    score,
+    wind: WINDS[(seat - oya1 + 4) % 4],
+    you: seat === mortalData.player_id,
+  }));
+  seats.sort((a, b) => b.score - a.score);
+  return seats;
+}
+
+function renderFinalScores(mortalData) {
+  const seats = computeFinalScores(mortalData);
+  if (!seats) return "";
+  const PLACE = ["1st", "2nd", "3rd", "4th"];
+  const cells = seats.map((s, rank) => `
+    <span class="final-score-seat place-${rank + 1}${s.you ? " final-score-you" : ""}">
+      <span class="final-score-place">${PLACE[rank]}</span>
+      <span class="final-score-label">${s.you ? "You" : s.wind}</span>
+      <span class="final-score-pts">${s.score.toLocaleString()}</span>
+    </span>`).join("");
+  return `<div class="final-scores" title="Final scores for this game">${cells}</div>`;
+}
+
 function renderGame() {
   const game = state.currentGameData;
   if (!game) return;
@@ -476,6 +530,7 @@ function renderGame() {
         <button class="btn btn-delete" data-action="deleteGame" title="Delete game">Delete</button>`}
       </h2>
       ${game.log_url ? `<div class="log-link"><a href="${game.log_url}" target="_blank">${game.log_url}</a></div>` : ""}
+      ${renderFinalScores(game.mortal_data)}
     </div>
 
 
