@@ -15,6 +15,7 @@ var state = {
   sevLevel: 3,
   gameView: "rounds",
   conceptFilters: [],
+  conceptExpanded: [],
   readOnly: true,
 };
 

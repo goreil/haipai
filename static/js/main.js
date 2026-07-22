@@ -44,6 +44,9 @@ var state = {
   // {side:"missed"|"you", group, dim:null|<win-vector dim>}. Empty = no filter;
   // a mistake shows when it touches ANY selected pill.
   conceptFilters: [],
+  // Which ledger rows have their per-dim sub-pills expanded (see
+  // conceptExpandedActive). Array of {side, group}; collapsed by default.
+  conceptExpanded: [],
 };
 
 // --- Init ---

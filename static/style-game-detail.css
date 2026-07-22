@@ -250,6 +250,23 @@
 .concept-sub-dim:hover {
   opacity: 1;
 }
+/* Expand/collapse toggle for a row's sub-pills — separate control from the
+   group pill itself so clicking one never fires the other (pill filters,
+   toggle only reveals/hides). Neutral (not group-coloured) so it reads as
+   chrome, not another concept. */
+.concept-expand-toggle {
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 1px 5px;
+  border-radius: 8px;
+  user-select: none;
+}
+.concept-expand-toggle:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
 /* Disclaimer under the breakdown: one mistake can win pills in several concepts,
    so a row's EV is attributed to every concept it touches (columns don't sum to
    total EV). */

@@ -35,20 +35,36 @@
   }
 }(typeof self !== "undefined" ? self : this, function () {
 
-  // Pill dim → display label. Order is the fallback sort (ledgers sort by EV
+  // Pill dim → display label (+ a one-line `hint` explaining the jargon for the
+  // ledger sub-pill tooltip — user feedback flagged "Efficiency (versatility)"
+  // as unclear on its own). Order is the fallback sort (ledgers sort by EV
   // first); dims absent here (none today) are skipped so an unmapped future
   // pill never renders blank.
   var CONCEPT_META = {
-    shanten:         { label: "Speed (shanten)" },
-    ukeire:          { label: "Efficiency (ukeire)" },
-    versatility_kept:{ label: "Efficiency (versatility)" },
-    yakuhai_kept:    { label: "Yakuhai" },
-    tanyao_kept:     { label: "Tanyao" },
-    honitsu_kept:    { label: "Honitsu" },
-    ittsu_kept:      { label: "Ittsu" },
-    dora_kept:       { label: "Dora" },
-    dora_acceptance: { label: "Dora acceptance" },
-    deal_in:         { label: "Defense (deal-in)" },
+    shanten:         { label: "Speed (shanten)", hint: "Fewer tiles away from a complete hand." },
+    ukeire:          { label: "Efficiency (ukeire)", hint: "More tile types that complete or advance your hand." },
+    versatility_kept:{ label: "Efficiency (versatility)", hint: "Keeping a tile that can grow into more wait shapes later (3-7 > 2/8 > 1/9 > honor), even when raw ukeire ties." },
+    yakuhai_kept:    { label: "Yakuhai", hint: "Keeping a valuable honor tile that scores a yaku on its own." },
+    tanyao_kept:     { label: "Tanyao", hint: "Keeping the hand all-simples (no terminals/honors) for an easy yaku." },
+    honitsu_kept:    { label: "Honitsu", hint: "Keeping the hand committed to one suit plus honors." },
+    ittsu_kept:      { label: "Ittsu", hint: "Keeping a full 1-9 straight in one suit alive." },
+    dora_kept:       { label: "Dora", hint: "Keeping a dora tile for extra hand value." },
+    dora_acceptance: { label: "Dora acceptance", hint: "Keeping a wait that can still draw more dora tiles." },
+    deal_in:         { label: "Defense (deal-in)", hint: "Risk of dealing into an opponent's hand." },
+  };
+
+  // Group key → one-line hint for the ledger's group-level pill tooltip.
+  // Separate from compare-dimensions.GROUP_META (which only carries label/color
+  // and is shared with the EV-table pills) so this stays a ledger-only concern.
+  var GROUP_HINT = {
+    Speed:   "Hand speed and tile acceptance.",
+    Yaku:    "Ways to make your hand score at all (yaku).",
+    Dora:    "Bonus-tile hand value.",
+    Defense: "Risk of dealing into an opponent's hand.",
+    Riichi:  "Declaring (or holding back) riichi.",
+    Meld:    "Calling (or passing on) a tile.",
+    Kan:     "Declaring (or holding back) a kan.",
+    Complex: "The stats alone don't explain the read — a shape to study by hand.",
   };
 
   // Action-decision codes (categorize.js::categorizeByActionType) → the ledger
@@ -430,7 +446,7 @@
   }
 
   return {
-    CONCEPT_META, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, tradeoffBoxes,
+    CONCEPT_META, GROUP_HINT, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, tradeoffBoxes,
     mistakeTouchesGroup, mistakeTouchesConcept, boxTotals, mergeAggregates, mergeBoxTotals,
   };
 }));

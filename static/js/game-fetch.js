@@ -84,6 +84,7 @@ async function fetchGame(id) {
   if (mres.ok) state.currentGameData.mortal_data = await mres.json();
   state.currentGame = id;
   state.conceptFilters = []; // the breakdown is per-game; don't carry filters across games
+  state.conceptExpanded = []; // ditto for which ledger rows are expanded
   // Normalize the URL to the canonical game hash — unless we arrived via a
   // #m<id> mistake deep-link, in which case keep that hash so the URL stays
   // shareable and the back button rewinds to the mistake, not the game.

@@ -196,26 +196,40 @@ function renderConceptBreakdown(agg, boxes) {
       const isActive = conceptFilterActive(side, e.group, null);
       const cls = "concept-pill concept-pill-btn"
         + (isActive ? " concept-pill-active" : (filtering ? " concept-pill-dim" : ""));
+      const groupHint = groupHints[e.group];
+      const groupFilterMsg = isActive ? "Click to clear this filter" : `Show only rounds where you’re ${verb} ${meta.label}`;
+      const groupTitle = groupHint ? `${groupHint}\n\n${groupFilterMsg}` : groupFilterMsg;
       // Per-dim sub-pills (Yaku → Tanyao/Yakuhai…, Value → Dora/Dora acceptance),
       // each carrying its own EV and clickable as its own narrower filter. Group
       // colour, sorted by EV. Action/shape groups (Riichi/Meld/Kan/Complex) have
-      // no finer dims, so this stays empty for them.
+      // no finer dims, so this stays empty for them. Collapsed by default (see
+      // conceptExpandedActive) — clicking the group's expand toggle reveals them,
+      // so the row starts at one pill instead of a wall of sub-pills.
       const subs = Object.values(e.subs || {}).sort((a, b) => b.ev - a.ev);
-      const subsHtml = subs.map((s) => {
+      const expanded = conceptExpandedActive(side, e.group);
+      const subsHtml = !subs.length || !expanded ? "" : subs.map((s) => {
         const subActive = conceptFilterActive(side, e.group, s.dim);
         const subCls = "concept-sub concept-sub-btn"
           + (subActive ? " concept-sub-active" : (filtering ? " concept-sub-dim" : ""));
+        const subHint = (conceptHints[s.dim] || {}).hint;
+        const subFilterMsg = subActive ? "Click to clear this filter" : `Show only rounds ${verb} ${s.label}`;
+        const subTitle = subHint ? `${subHint}\n\n${subFilterMsg}` : subFilterMsg;
         return `<span class="${subCls}" style="--grp:${meta.color}" role="button" tabindex="0"`
-          + ` title="${subActive ? "Click to clear this filter" : `Show only rounds ${verb} ${s.label}`}"`
+          + ` title="${subTitle}"`
           + ` data-action="filterConcept" data-concept-side="${side}" data-concept-group="${e.group}" data-concept-dim="${s.dim}">`
           + `<span class="concept-sub-label">${s.label}</span>`
           + `<span class="concept-sub-ev">${s.ev.toFixed(2)}</span></span>`;
       }).join("");
+      const toggleHtml = !subs.length ? "" : `<span class="concept-expand-toggle" role="button" tabindex="0"
+            title="${expanded ? "Hide" : "Show"} the ${subs.length} finer breakdown${subs.length === 1 ? "" : "s"} behind ${meta.label}"
+            data-action="toggleConceptExpand" data-concept-side="${side}" data-concept-group="${e.group}"
+          >${expanded ? "▾" : "▸"} ${subs.length}</span>`;
       h += `<div class="concept-row">
         <span class="concept-row-left">
           <span class="${cls}" style="--grp:${meta.color}" role="button" tabindex="0"
-            title="${isActive ? "Click to clear this filter" : `Show only rounds where you’re ${verb} ${meta.label}`}"
+            title="${groupTitle}"
             data-action="filterConcept" data-concept-side="${side}" data-concept-group="${e.group}">${meta.label}</span>
+          ${toggleHtml}
           ${subsHtml}
         </span>
         <span class="concept-tiers">${tierChips(e.tiers)}</span>
@@ -224,6 +238,9 @@ function renderConceptBreakdown(agg, boxes) {
     }
     return h + `</div>`;
   };
+
+  const groupHints = (typeof haipaiConceptBreakdown !== "undefined" && haipaiConceptBreakdown.GROUP_HINT) || {};
+  const conceptHints = (typeof haipaiConceptBreakdown !== "undefined" && haipaiConceptBreakdown.CONCEPT_META) || {};
 
   const missed = ledgerHtml("Losing points here",
     "The better play held this edge — you’re under-using these", agg.groups.missed, "missed");
@@ -350,6 +367,23 @@ function toggleConceptFilter(side, group, dim) {
 
 function clearConceptFilters() {
   state.conceptFilters = [];
+  renderGame();
+}
+
+// True when this ledger row's sub-pills (the finer per-dim breakdown, e.g.
+// Yaku → Tanyao/Yakuhai) are expanded. Collapsed by default so a game with
+// many concepts opens as a scannable list of group pills, not a wall of
+// sub-pills — expanding is an explicit per-row choice, separate from (and not
+// triggered by) clicking the group pill itself, which filters instead.
+function conceptExpandedActive(side, group) {
+  return state.conceptExpanded.some(f => f.side === side && f.group === group);
+}
+
+function toggleConceptExpand(side, group) {
+  const exp = state.conceptExpanded;
+  const idx = exp.findIndex(f => f.side === side && f.group === group);
+  if (idx >= 0) exp.splice(idx, 1);
+  else exp.push({ side, group });
   renderGame();
 }
 
