@@ -195,9 +195,10 @@
             if (!seenSub[sk]) {
               seenSub[sk] = true;
               var s = e.subs[hits[c].dim];
-              if (!s) { s = e.subs[hits[c].dim] = { dim: hits[c].dim, label: hits[c].label, ev: 0, count: 0 }; }
+              if (!s) { s = e.subs[hits[c].dim] = { dim: hits[c].dim, label: hits[c].label, ev: 0, count: 0, tiers: emptyTiers() }; }
               s.ev += ev;
               s.count += 1;
+              s.tiers[t] += 1;
             }
           }
         }
@@ -409,9 +410,13 @@
             if (!src.subs.hasOwnProperty(dim)) continue;
             var ss = src.subs[dim];
             var ds = dst.subs[dim];
-            if (!ds) ds = dst.subs[dim] = { dim: ss.dim, label: ss.label, ev: 0, count: 0 };
+            if (!ds) ds = dst.subs[dim] = { dim: ss.dim, label: ss.label, ev: 0, count: 0, tiers: emptyTiers() };
             ds.ev += ss.ev;
             ds.count += ss.count;
+            // ss.tiers is absent on aggregates from before sub-level tier
+            // tracking existed (e.g. stale trends stash held across a deploy);
+            // skip rather than throw so an old cache doesn't hard-fail merge.
+            if (ss.tiers) { for (var stk in ss.tiers) ds.tiers[stk] += ss.tiers[stk]; }
           }
         }
       }

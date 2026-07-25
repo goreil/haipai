@@ -44,9 +44,13 @@ var state = {
   // {side:"missed"|"you", group, dim:null|<win-vector dim>}. Empty = no filter;
   // a mistake shows when it touches ANY selected pill.
   conceptFilters: [],
-  // Which ledger rows have their per-dim sub-pills expanded (see
-  // conceptExpandedActive). Array of {side, group}; collapsed by default.
-  conceptExpanded: [],
+  // Trends-only: which "Losing points here" ledger rows have their per-dim
+  // sub-pills expanded (see trendsConceptExpandedActive in trends-analysis.js).
+  // Array of {scope, side, group} — scope is "live" for the current weakness
+  // panel or "snap-<id>" for a past-analysis row, so expand state never leaks
+  // between them. Collapsed by default. The per-game view (game-render.js)
+  // shows sub-pills inline unconditionally and has no expand state of its own.
+  trendsConceptExpanded: [],
 };
 
 // --- Init ---

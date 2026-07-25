@@ -257,7 +257,7 @@ function renderSnapshotFullDetail(snapshot) {
   if (snapshot.concept_agg || (snapshot.concept_boxes && snapshot.concept_boxes.length)) {
     html += `<div class="summary-bar" style="margin:0 0 10px">${renderTopGroupStat(snapshot.concept_agg, snapshot.concept_boxes, "in this analysis")}</div>`;
     html += renderTrainerTip(snapshot.concept_agg, snapshot.concept_boxes, "in this analysis");
-    html += renderConceptLedgers(snapshot.concept_agg, snapshot.concept_boxes);
+    html += renderConceptLedgers(snapshot.concept_agg, snapshot.concept_boxes, `snap-${snapshot.id}`);
   }
   if (snapshot.by_skill_facet && Object.keys(snapshot.by_skill_facet).length) {
     html += renderSkillAreaGroups(snapshot.by_skill_facet);

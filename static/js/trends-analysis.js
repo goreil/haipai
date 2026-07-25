@@ -21,6 +21,11 @@ var trendsAnalysisGen = 0;
 // Active-run handle: { gen, games, analyzedIds } during analysis, null otherwise.
 // Cancel uses this to render the partial result.
 var trendsCurrentAnalysis = null;
+// { games, analyzedIds } from the most recent CANCELLED run, or null. A
+// cancelled run never populates trendsStash (that only happens on a full
+// completion), but its partial panel is still on screen and its expand
+// toggles still need something to re-render from — see _rerenderTrendsScope.
+var trendsLastPartial = null;
 
 // TREND_SKILL_AREAS / TREND_MIN_DECISIONS / trendSkillAreaFor /
 // trendSkillAreaInfo moved to static/js/skill-areas.js.
@@ -161,6 +166,7 @@ async function startWeaknessAnalysis() {
 
   if (trendsAnalysisGen !== gen) return;  // cancelled while finishing up
   trendsCurrentAnalysis = null;
+  trendsLastPartial = null;
   trendsStash = { gameIds: ids, games: trendsGames };
   _replaceWeaknessSection(trendsGames, null);
   // Auto-save the aggregated totals as a snapshot. Only save when at least
@@ -210,6 +216,7 @@ function cancelWeaknessAnalysis() {
   const { games, analyzedIds } = trendsCurrentAnalysis;
   trendsAnalysisGen += 1;  // supersede the in-flight workers
   trendsCurrentAnalysis = null;
+  trendsLastPartial = { games, analyzedIds };
   _replaceWeaknessSection(games, analyzedIds);
 }
 
@@ -316,15 +323,78 @@ function renderConceptWeaknessPanels(games) {
     <div class="summary-bar" style="margin:-4px 0 10px">${renderTopGroupStat(agg, boxes, "across your games")}</div>
     ${renderTrainerTip(agg, boxes, "across your games")}
   </div>`;
-  html += renderConceptLedgers(agg, boxes);
+  html += renderConceptLedgers(agg, boxes, "live");
   return html;
+}
+
+// True when this ledger row's sub-pills (the finer per-dim breakdown, e.g.
+// Yaku → Tanyao/Yakuhai) are expanded, into their own vertical rows with a
+// severity split. Collapsed by default so a many-game aggregate opens as a
+// scannable list of group pills, not a wall of sub-rows. `scope` namespaces
+// the expand state — "live" for the current weakness panel, "snap-<id>" for
+// a past-analysis row in the snapshot history — so expanding one never
+// affects the other. Unlike the per-game view (game-render.js, which always
+// shows sub-pills inline since a single game rarely has more than a handful),
+// trends aggregates can pile up many sub-dims across hundreds of games, so
+// this stays collapsed-by-default + explicit expand.
+function trendsConceptExpandedActive(scope, side, group) {
+  return state.trendsConceptExpanded.some(f => f.scope === scope && f.side === side && f.group === group);
+}
+
+function toggleTrendsConceptExpand(scope, side, group) {
+  const exp = state.trendsConceptExpanded;
+  const idx = exp.findIndex(f => f.scope === scope && f.side === side && f.group === group);
+  if (idx >= 0) exp.splice(idx, 1);
+  else exp.push({ scope, side, group });
+  _rerenderTrendsScope(scope);
+}
+
+// The ledger head's "Expand all" / "Collapse all" toggle — flips every group
+// in `groupsCsv` (the comma-joined list of groups that actually have sub-dims,
+// baked in at render time) to match whichever state isn't unanimous yet, so
+// one click clears an entire ledger instead of clicking each row's own toggle.
+function toggleTrendsConceptExpandAll(scope, side, groupsCsv) {
+  const groups = (groupsCsv || "").split(",").filter(Boolean);
+  const exp = state.trendsConceptExpanded;
+  const allExpanded = groups.length > 0 && groups.every(g => trendsConceptExpandedActive(scope, side, g));
+  if (allExpanded) {
+    state.trendsConceptExpanded = exp.filter(f => !(f.scope === scope && f.side === side && groups.includes(f.group)));
+  } else {
+    for (const g of groups) {
+      if (!trendsConceptExpandedActive(scope, side, g)) exp.push({ scope, side, group: g });
+    }
+  }
+  _rerenderTrendsScope(scope);
+}
+
+// Redraw just the panel a given expand toggle lives in, without recomputing
+// charts or re-fetching anything — "live" replaces the weakness section from
+// the already-analyzed trendsStash.games, "snap-<id>" re-renders that one
+// snapshot-history row from the already-fetched trendsSnapshots.
+function _rerenderTrendsScope(scope) {
+  if (scope === "live") {
+    if (trendsStash) _replaceWeaknessSection(trendsStash.games, null);
+    else if (trendsLastPartial) _replaceWeaknessSection(trendsLastPartial.games, trendsLastPartial.analyzedIds);
+    return;
+  }
+  const m = /^snap-(.+)$/.exec(scope);
+  if (m && typeof trendsSnapshots !== "undefined") {
+    const snap = (trendsSnapshots || []).find(s => String(s.id) === m[1]);
+    const el = document.getElementById(scope);
+    if (snap && el) el.innerHTML = renderSnapshotDetail(snap);
+  }
 }
 
 // The ledger + trade-off-totals cards themselves — same CSS classes and pill
 // styling as the per-game renderConceptBreakdown (static/style-game-detail.css
-// .concept-*), but non-interactive: trends has no rounds view underneath to
-// filter into, so pills are plain colour chips, not click targets.
-function renderConceptLedgers(agg, boxes) {
+// .concept-*). Group pills are plain colour chips (trends has no rounds view
+// underneath to filter into), but the "Losing points here" ledger's per-dim
+// sub-rows ARE interactive: each row expands independently, plus a ledger-wide
+// "Expand all" toggle, since an all-games aggregate can carry far more sub-dims
+// than a single game. `scope` namespaces that expand state — see
+// trendsConceptExpandedActive.
+function renderConceptLedgers(agg, boxes, scope) {
+  scope = scope || "live";
   const gm = conceptMetaMap();
   const TIER_CHIPS = [
     ["severe", "sev-major", "Severe"],
@@ -333,31 +403,54 @@ function renderConceptLedgers(agg, boxes) {
     ["unsure", "sev-minor", "Unsure"],
   ];
   const tierChips = (t) => TIER_CHIPS
-    .filter(([k]) => t[k])
+    .filter(([k]) => t && t[k])
     .map(([k, cls, lbl]) => `<span class="tier-count ${cls}" title="${lbl}">${t[k]}</span>`)
     .join("");
 
   let missedHtml = "";
   const missedRows = agg ? Object.values(agg.groups.missed).sort((a, b) => b.ev - a.ev) : [];
   if (missedRows.length) {
+    const groupsWithSubs = missedRows.filter(e => Object.keys(e.subs || {}).length).map(e => e.group);
+    const allExpanded = groupsWithSubs.length > 0
+      && groupsWithSubs.every(g => trendsConceptExpandedActive(scope, "missed", g));
+    const expandAllHtml = groupsWithSubs.length
+      ? `<span class="concept-expand-all" role="button" tabindex="0"
+           data-action="toggleTrendsExpandAll" data-scope="${scope}" data-side="missed"
+           data-groups="${groupsWithSubs.join(",")}">${allExpanded ? "Collapse all" : "Expand all"}</span>`
+      : "";
     missedHtml = `<div class="concept-ledger">
-      <div class="concept-ledger-head">
-        <span class="concept-ledger-title">Losing points here</span>
-        <span class="concept-ledger-sub">The better play held this edge — you’re under-using these, across all games</span>
+      <div class="concept-ledger-head-row">
+        <span class="concept-ledger-head-text">
+          <span class="concept-ledger-title">Losing points here</span>
+          <span class="concept-ledger-sub">The better play held this edge — you’re under-using these, across all games</span>
+        </span>
+        ${expandAllHtml}
       </div>`;
     for (const e of missedRows) {
       const meta = gm[e.group] || { label: e.group, color: "var(--text)" };
       const subs = Object.values(e.subs || {}).sort((a, b) => b.ev - a.ev);
-      const subsHtml = subs.map(s => `<span class="concept-sub" style="--grp:${meta.color}">
-        <span class="concept-sub-label">${s.label}</span><span class="concept-sub-ev">${s.ev.toFixed(2)}</span></span>`).join("");
+      const expanded = trendsConceptExpandedActive(scope, "missed", e.group);
+      const toggleHtml = !subs.length ? "" : `<span class="concept-expand-toggle" role="button" tabindex="0"
+            title="${expanded ? "Hide" : "Show"} the ${subs.length} finer breakdown${subs.length === 1 ? "" : "s"} behind ${meta.label}"
+            data-action="toggleTrendsConceptExpand" data-scope="${scope}" data-concept-side="missed" data-concept-group="${e.group}"
+          >${expanded ? "▾" : "▸"} ${subs.length}</span>`;
+      // Expanded sub-dims get their own vertical row (label, severity split,
+      // EV) instead of the per-game view's inline pills — an all-games total
+      // can have enough sub-dims that a wrapped pill strip stops scanning well.
+      const subRowsHtml = !subs.length || !expanded ? "" : `<div class="concept-subrows">` + subs.map(s => `
+        <div class="concept-subrow">
+          <span class="concept-subrow-label" style="--grp:${meta.color}">${s.label}</span>
+          <span class="concept-tiers">${tierChips(s.tiers)}</span>
+          <span class="concept-ev">${s.ev.toFixed(2)} EV</span>
+        </div>`).join("") + `</div>`;
       missedHtml += `<div class="concept-row">
         <span class="concept-row-left">
           <span class="concept-pill" style="--grp:${meta.color}">${meta.label}</span>
-          ${subsHtml}
+          ${toggleHtml}
         </span>
         <span class="concept-tiers">${tierChips(e.tiers)}</span>
         <span class="concept-ev">${e.ev.toFixed(2)} EV</span>
-      </div>`;
+      </div>${subRowsHtml}`;
     }
     missedHtml += `</div>`;
   }

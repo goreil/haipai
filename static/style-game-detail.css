@@ -283,10 +283,11 @@
 .concept-sub-dim:hover {
   opacity: 1;
 }
-/* Expand/collapse toggle for a row's sub-pills — separate control from the
-   group pill itself so clicking one never fires the other (pill filters,
-   toggle only reveals/hides). Neutral (not group-coloured) so it reads as
-   chrome, not another concept. */
+/* Trends-only: per-row expand/collapse toggle for a "Losing points here" row's
+   sub-dims — separate control from the group pill itself so clicking one never
+   fires the other (pill filters, toggle only reveals/hides). Neutral (not
+   group-coloured) so it reads as chrome, not another concept. The per-game
+   view shows sub-pills inline unconditionally and has no toggle of its own. */
 .concept-expand-toggle {
   cursor: pointer;
   font-size: 10.5px;
@@ -299,6 +300,60 @@
 .concept-expand-toggle:hover {
   color: var(--text);
   background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+/* Trends-only ledger head: title/sub on the left, an "Expand all" toggle
+   pinned right. Distinct from .concept-ledger-head (per-game view, no
+   button) so that one's simple column stack is untouched. */
+.concept-ledger-head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+.concept-ledger-head-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.concept-expand-all {
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  padding: 2px 9px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  user-select: none;
+}
+.concept-expand-all:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+/* Trends-only: a group row's expanded sub-dims, one per line (label, severity
+   split, EV) instead of the per-game view's inline pill strip — an all-games
+   aggregate can carry enough sub-dims that a wrapped strip stops scanning well. */
+.concept-subrows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 0 6px 14px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+.concept-subrow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.concept-subrow-label {
+  color: var(--grp, var(--text-dim));
+  font-weight: 600;
 }
 /* Disclaimer under the breakdown: one mistake can win pills in several concepts,
    so a row's EV is attributed to every concept it touches (columns don't sum to
