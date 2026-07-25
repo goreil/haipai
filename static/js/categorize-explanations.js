@@ -56,6 +56,14 @@ function _winClause(w, seatWindFor) {
       return `accepts ${w.magnitude} more tile${w.magnitude === 1 ? "" : "s"}`;
     case "versatility_kept":
       return `keeps the more versatile ${tile(w.tiles[0])}`;
+    case "safe_spare_kept":
+      return `keeps the safer ${tile(w.tiles[0])} to bail with later`;
+    case "furiten_avoided": {
+      const ts = (w.tiles || []).map(tile).join("");
+      return ts
+        ? `avoids a furiten wait on ${ts} (already in your own discards — no ron)`
+        : "avoids a furiten wait";
+    }
     case "dora_kept":
       return `keeps the ${tile(w.tiles[0])} dora`;
     case "dora_acceptance": {
@@ -79,6 +87,9 @@ function _yakuName(w) {
     case "tanyao_kept": return "tanyao";
     case "honitsu_kept": return "honitsu";
     case "ittsu_kept": return "ittsu";
+    case "toitoi_kept": return "toitoi";
+    case "chiitoi_kept": return "chiitoi";
+    case "chanta_kept": return "chanta";
     case "yakuhai_kept": return `yakuhai ${renderTile(w.tiles[0], "tile-sm")}`;
   }
   return null;

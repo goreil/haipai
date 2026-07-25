@@ -79,6 +79,15 @@ function renderWinFeatPill(w, oya) {
     case "tanyao_kept":
       return featPill("pos", `+tanyao ${w.magnitude}/14`,
         `Cuts a terminal/honor to keep the hand all-simples — ${w.magnitude}/14 tiles toward tanyao; the other pick keeps a non-simple`, "", c);
+    case "toitoi_kept":
+      return featPill("pos", `+toitoi ${w.magnitude} pairs`,
+        `Keeps every triplet candidate for the open toitoi — ${w.magnitude} kinds held as pairs or better; the other pick breaks a needed pair`, "", c);
+    case "chiitoi_kept":
+      return featPill("pos", `+chiitoi ${w.magnitude}/7`,
+        `Keeps all ${w.magnitude} pairs toward seven pairs; the other pick breaks one`, "", c);
+    case "chanta_kept":
+      return featPill("pos", `+chanta ${w.magnitude}/14`,
+        `Cuts a middle tile (4-6) to keep every block terminal-flavored — ${w.magnitude}/14 tiles toward chanta; the other pick keeps a tile no chanta block can use`, "", c);
     case "honitsu_kept": {
       const suitName = { m: "manzu", p: "pinzu", s: "souzu" }[w.suit] || "one suit";
       return featPill("pos", `+honitsu ${w.magnitude}/14`,
@@ -94,6 +103,17 @@ function renderWinFeatPill(w, oya) {
           + `. The other pick throws a rank the run still needs`,
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
     }
+    case "safe_spare_kept":
+      return featPill("pos", "+safe tile",
+        "Same shanten, same ukeire — keeps the safer spare to bail with later. "
+          + "Honors/terminals, and tiles with more copies already visible, are "
+          + "less likely to deal in when the hand has to fold",
+        (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
+    case "furiten_avoided":
+      return featPill("pos", "avoids furiten",
+        "The other pick's tenpai waits on a tile already in your own discards "
+          + "(furiten) — the hand could never ron. This pick keeps a wait that can",
+        (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
     case "dora_kept":
       return featPill("pos", "+dora", "Keeps a dora the other pick discards",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);

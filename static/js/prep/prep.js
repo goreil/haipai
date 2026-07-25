@@ -79,7 +79,7 @@
     const tiles_left = entry.tiles_left;
     if (tiles_left == null) return null;
     try {
-      const ctx = reconstruct_context(mortalData, kyokuIdx, tiles_left);
+      const ctx = reconstruct_context(mortalData, kyokuIdx, tiles_left, entry);
       const wall = subtract_hand_from_wall(ctx.wall, mistake.hand || []);
       return _clamp_wall(wall);
     } catch (e) {
@@ -108,7 +108,7 @@
     const tiles_left = entry ? entry.tiles_left : null;
     if (tiles_left == null) return [];
     try {
-      const ctx = reconstruct_context(mortalData, kyokuIdx, tiles_left);
+      const ctx = reconstruct_context(mortalData, kyokuIdx, tiles_left, entry);
       const wall = _clamp_wall(subtract_hand_from_wall(ctx.wall, hand));
       const response = calcShanten(hand, mistake.melds || [], wall);
       return response.stats || [];
@@ -213,7 +213,7 @@
     const tiles_left = entry.tiles_left;
     if (tiles_left == null) return null;
     try {
-      return extract_board_state(mortalData, kyokuIdx, tiles_left);
+      return extract_board_state(mortalData, kyokuIdx, tiles_left, entry);
     } catch (e) {
       _warn("board_state extract failed:", e);
       return null;
@@ -288,7 +288,7 @@
     const melds = mistake.melds || [];
     const tiles_left = entry.tiles_left;
 
-    const ctx = reconstruct_context(mortalData, kyokuIdx, tiles_left);
+    const ctx = reconstruct_context(mortalData, kyokuIdx, tiles_left, entry);
     let wall = subtract_hand_from_wall(ctx.wall, hand);
     wall = _clamp_wall(wall);
 

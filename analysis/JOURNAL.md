@@ -120,3 +120,76 @@ do this before writing anything custom.
   their job, which is a nice validation of the dimension-by-dimension
   strategy.
 - Wrote COMPLEX-ANATOMY.md and OVERLAP.md. Committing all five files.
+
+## 2026-07-25 — fix implemented for failure mode 5 (live-count bug)
+
+- Implemented the #1-ranked fix from FAILURE-MODES.md: both walks in
+  `static/js/prep/prep-board-state.js` (`reconstruct_context`,
+  `extract_board_state`) now stop at the decision's actual **trigger event**
+  instead of approximating with tiles_left + next-tsumo. New
+  `_decision_trigger(entry, player_id)` derives the trigger from the review
+  entry: player's chi/pon (`at_self_chi_pon`), opponent's kakan
+  (`at_opponent_kakan`), player's tsumo (`last_actor == player`), else the
+  opponent's dahai (`last_actor` + `tile`). Both functions take the entry as
+  an optional 4th arg (prep.js passes it everywhere); without it the legacy
+  behavior is preserved, and it remains the safety net if a trigger never
+  matches.
+- Verified against all three regression reports: #170 now F=3 left (was 0),
+  #207 N=2 (was 1), #208 W=2 (was 1) — each matching the reporting user's
+  own count. All three were post-pon discard decisions whose own discard +
+  a later call had been counted into the wall.
+- Side effect confirmed: bench prep warnings (negative-wall clamps) went
+  **146 → 0** on the 2035-mistake sample — the over-decrement was the source.
+  Board discard pools for post-call/call decisions now also include the
+  discard being reacted to / the called tile (extract_board_state previously
+  stopped one event too early there).
+- category_bench vs baseline: complex 506→501 (−5), obvious +3,
+  trade-off +2, n/a unchanged — small, as expected; the fix mainly corrects
+  "N left" hovers, dora_acceptance inputs, and board rendering.
+
+## 2026-07-25 — dimensions implemented for failure modes 4, 1, 6, 2 (ranks 2-5)
+
+Worked down the FAILURE-MODES ranking; categorizer bumped to v14 (see
+`CATEGORIZER_CHANGELOG[14]` for the precise gates). All in
+`compare-dimensions.js` + the four UI touchpoints (ev-table pill,
+explanation clause, concept-breakdown label, and for yaku dims the shared
+"wants to go …" clause via `_yakuName`).
+
+- **furiten_avoided** (mode 4, Speed): a pick landing on a tenpai whose wait
+  is in your own pond (pond rows + the candidate discard itself), when the
+  other pick avoids it — including by backing off tenpai. Uses shanten-0
+  `necessary_tiles` × the board pond, so no prep change. Fires 4×/2035 —
+  rare, matching the anatomy (FURITEN 0.8%). Verified on report #183.
+- **safe_spare_kept** (mode 1, Defense): tied shanten AND tied ukeire, NO
+  armed threat (deal_in owns armed scenes), junme >= 6, and a future-safety
+  score gap >= 2 (honor 4 / terminal 3 / 2,8 2 / middle 1, +1 per visible
+  copy capped at 3); the kept spare must itself be a non-middle kind
+  (middle-vs-middle visibility diffs are a liveness read, not the motif).
+  60 mortal / 18 you firings; most pair against `versatility_kept` in the
+  opposite direction — the speed-vs-safety trade rendered honestly.
+  Verified on report #195.
+- **wait quality** (mode 6): resolved as already-covered — `necessary_count`
+  is wall-weighted, so the ukeire dim IS live ukeire and the mode-5 wall fix
+  was the real payoff. The residual (opponent release probability, #87-style)
+  has no cheap data source; parked.
+- **toitoi_kept / chiitoi_kept / chanta_kept** (mode 2, Yaku): gates
+  tightened twice after benching — first cut fired 216× and flipped 45
+  obvious spots by dignifying junk hands. Final gates: toitoi = open pon
+  hand, no chi, >=5 kinds paired-or-better; chiitoi = closed, >=5 distinct
+  pairs (chiitoi 1-shanten); chanta = >=11/14 terminal-adjacent counting
+  honors only when paired, plus a 1/9/honor pair required (a 7p7p-pair hand
+  can't chanta). Verified on report #129 ("Mortal sees chanta opportunity"
+  → +chanta pill).
+
+Final bench vs pre-session baseline: **complex 506→463 (−8.5% rel., EV
+142.6→128.1)**, obvious −32, trade-off +75. The obvious→trade-off flips
+(41, 2%) are player-side pills naming what the player over-valued — they
+land in the trade-off boxes as over-favoring rows, which is the intended
+framing. Golden dimensions fixture re-frozen (v14); 162 pytest pass.
+
+Backlog reports still unexplained, with reasons: #204/#205 are *future*
+furiten (1-shanten, needs 2-step lookahead), #212 folds by giving up
+shanten (invisible to an equal-speed gate — a real fold detector is
+different work), #216 is the unarmed-late-open-threat gap (OD trigger
+scope), #219 is tatsu-break discard ordering, #148 sits below the
+safe-spare gates (junme 5, honor-vs-terminal diff 1).

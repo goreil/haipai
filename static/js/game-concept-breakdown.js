@@ -44,13 +44,18 @@
     shanten:         { label: "Speed (shanten)", hint: "Fewer tiles away from a complete hand." },
     ukeire:          { label: "Efficiency (ukeire)", hint: "More tile types that complete or advance your hand." },
     versatility_kept:{ label: "Efficiency (versatility)", hint: "Keeping a tile that can grow into more wait shapes later (3-7 > 2/8 > 1/9 > honor), even when raw ukeire ties." },
+    furiten_avoided: { label: "Furiten", hint: "Avoiding a tenpai whose wait is in your own discards — a furiten hand can never ron." },
     yakuhai_kept:    { label: "Yakuhai", hint: "Keeping a valuable honor tile that scores a yaku on its own." },
     tanyao_kept:     { label: "Tanyao", hint: "Keeping the hand all-simples (no terminals/honors) for an easy yaku." },
     honitsu_kept:    { label: "Honitsu", hint: "Keeping the hand committed to one suit plus honors." },
     ittsu_kept:      { label: "Ittsu", hint: "Keeping a full 1-9 straight in one suit alive." },
+    toitoi_kept:     { label: "Toitoi", hint: "Keeping every pair intact for an all-triplets hand." },
+    chiitoi_kept:    { label: "Chiitoi", hint: "Keeping all distinct pairs toward seven pairs." },
+    chanta_kept:     { label: "Chanta", hint: "Keeping every block terminal- or honor-flavored." },
     dora_kept:       { label: "Dora", hint: "Keeping a dora tile for extra hand value." },
     dora_acceptance: { label: "Dora acceptance", hint: "Keeping a wait that can still draw more dora tiles." },
     deal_in:         { label: "Defense (deal-in)", hint: "Risk of dealing into an opponent's hand." },
+    safe_spare_kept: { label: "Defense (safe tile)", hint: "Keeping a safer spare tile — at equal speed — to bail with when a threat appears later." },
   };
 
   // Group key → one-line hint for the ledger's group-level pill tooltip.

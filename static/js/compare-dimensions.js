@@ -9,12 +9,15 @@
 // `compareDimensions(m)` returns the FULL win-vector — every dimension is
 // evaluated and emitted (nothing short-circuits), each tagged with its group:
 //
-//   Speed   — shanten, ukeire, versatility_kept (ukeire is GATED: only a real
-//             win at tied shanten; versatility_kept is GATED: only a real win
-//             at tied shanten AND tied ukeire)
-//   Yaku    — yakuhai_kept, tanyao_kept, honitsu_kept, ittsu_kept
+//   Speed   — shanten, ukeire, versatility_kept, furiten_avoided (ukeire is
+//             GATED: only a real win at tied shanten; versatility_kept is
+//             GATED: only a real win at tied shanten AND tied ukeire)
+//   Yaku    — yakuhai_kept, tanyao_kept, honitsu_kept, ittsu_kept,
+//             toitoi_kept, chiitoi_kept, chanta_kept
 //   Dora    — dora_kept, dora_acceptance
-//   Defense — deal_in           (a per-opponent vector, read off m.per_threat)
+//   Defense — deal_in           (a per-opponent vector, read off m.per_threat),
+//             safe_spare_kept   (pre-threat safe-tile economy; only fires when
+//                                no threat is armed — deal_in owns armed scenes)
 //
 // Each entry: { dim, group, prio, winner: "you"|"mortal"|null, magnitude?,
 //   pct?, tiles?, suppressed?, context?, seat?, kind? }. "you" = the player's
@@ -55,6 +58,23 @@
   // ittsu_kept: one suit holds >= 6 of the 9 distinct ranks (1-9) needed for a
   // straight — a genuinely stretched suit, not an incidental run.
   const ITTSU_MIN_UNIQUE = 6;
+  // toitoi_kept: >= 5 tile kinds held as pairs-or-better (melds included) on a
+  // hand that has already pon'd — an open toitoi commitment. 4 kinds is too
+  // weak a signal: ordinary run-rich hands hold 4 incidental pairs all the time.
+  const TOITOI_MIN_PAIR_KINDS = 5;
+  // chiitoi_kept: closed hand holding >= 5 distinct pairs — chiitoi 1-shanten,
+  // a real commitment (4 pairs is routine in a normal run-based hand).
+  const CHIITOI_MIN_PAIRS = 5;
+  // chanta_kept: >= 11 of the 14 tiles are terminal-adjacent (1-3, 7-9, honors)
+  // — a genuinely outside shape, mirroring tanyao's 11-simples gate.
+  const CHANTA_MIN_INSHAPE = 11;
+  // safe_spare_kept fires only from mid-game on (junme >= 6) — before that,
+  // holding a safe spare is rarely why Mortal picks a discard, and the early
+  // honor-vs-middle floater tie is exactly the false positive the anatomy
+  // warned about — and only on a clear safety gap (score diff >= 2: at least
+  // terminal-vs-middle, not 2/8-vs-middle).
+  const SAFE_SPARE_MIN_TURN = 6;
+  const SAFE_SPARE_MIN_DIFF = 2;
 
   // mjai suit ("m"/"p"/"s" for numbers, "z" for honors) and rank (1-9, 0 for
   // honors). tileBase strips the red-five "r" so 5mr reads as 5m.
@@ -309,6 +329,73 @@
       }
     }
 
+    // --- Yaku / toitoi_kept — on an open all-triplets commitment (>= 1 pon,
+    // no chi, >= 4 kinds paired-or-better) the side that cuts a spare single
+    // keeps every triplet candidate; the other side breaks a needed pair. ---
+    // A hand-count of exactly 2 is a breakable pair; cutting from a concealed
+    // triplet (3 held) still leaves the pair, so it doesn't count as a break.
+    if (actualTile && expectedTile && hasPonMeld(m.melds) && !hasChiMeld(m.melds)) {
+      const pairKinds = countPairKinds(allHandTiles(m));
+      if (pairKinds >= TOITOI_MIN_PAIR_KINDS) {
+        const handCounts = baseCounts(hand);
+        const aBreak = (handCounts[tileBase(actualTile)] || 0) === 2;
+        const eBreak = (handCounts[tileBase(expectedTile)] || 0) === 2;
+        const winner = (eBreak && !aBreak) ? "you" : (aBreak && !eBreak) ? "mortal" : null;
+        if (winner) {
+          wins.push({ dim: "toitoi_kept", group: "Yaku", prio: 1, winner, magnitude: pairKinds });
+        }
+      }
+    }
+
+    // --- Yaku / chiitoi_kept — a closed hand holding >= 4 distinct pairs is a
+    // live chiitoi; the side that cuts a single (or a redundant 3rd copy)
+    // keeps all seven-pairs candidates, the other breaks one. --- Chiitoi
+    // needs seven DISTINCT pairs, so a 3rd copy is dead weight and cutting it
+    // is the yaku play — only a hand-count of exactly 2 is a real break.
+    if (actualTile && expectedTile && !(m.melds || []).length) {
+      const handCounts = baseCounts(hand);
+      const pairs = countPairKinds(hand);
+      if (pairs >= CHIITOI_MIN_PAIRS) {
+        const aBreak = (handCounts[tileBase(actualTile)] || 0) === 2;
+        const eBreak = (handCounts[tileBase(expectedTile)] || 0) === 2;
+        const winner = (eBreak && !aBreak) ? "you" : (aBreak && !eBreak) ? "mortal" : null;
+        if (winner) {
+          wins.push({ dim: "chiitoi_kept", group: "Yaku", prio: 1, winner, magnitude: pairs });
+        }
+      }
+    }
+
+    // --- Yaku / chanta_kept — on an outside-heavy shape (>= 11 of 14 tiles
+    // terminal-adjacent: 1-3 / 7-9 / honors) the side that cuts a middle
+    // (4-6) keeps every block terminal-flavored, while the other keeps a tile
+    // no chanta block can use. --- Mirrors tanyao with the polarity flipped;
+    // suppressed when any called meld holds no terminal/honor (a 456 chi or
+    // middle pon makes chanta impossible).
+    if (actualTile && expectedTile && !meldBlocksChanta(m.melds)) {
+      // Lone honors don't count toward the shape: a chanta block built on an
+      // honor needs the pair/triplet, and a fistful of single honors is a junk
+      // hand, not an outside commitment (the g90-style false positive).
+      const fullCounts = baseCounts(fullHand);
+      const inShape = fullHand.reduce((n, t) => {
+        if (!chantaViable(t)) return n;
+        if (isHonorMjai(t) && (fullCounts[tileBase(t)] || 0) < 2) return n;
+        return n + 1;
+      }, 0);
+      // The chanta PAIR must itself be outside — every set incl. the pair
+      // needs a terminal/honor, and a 7p7p/2s2s pair can only serve by
+      // breaking into a run. No 1/9/honor pair anywhere → not a chanta hand.
+      const hasOutsidePair = Object.entries(fullCounts).some(([b, n]) =>
+        n >= 2 && (isHonorMjai(b) || tileRank(b) === 1 || tileRank(b) === 9));
+      if (inShape >= CHANTA_MIN_INSHAPE && hasOutsidePair) {
+        const aMid = !chantaViable(actualTile);
+        const eMid = !chantaViable(expectedTile);
+        const winner = (aMid && !eMid) ? "you" : (eMid && !aMid) ? "mortal" : null;
+        if (winner) {
+          wins.push({ dim: "chanta_kept", group: "Yaku", prio: 1, winner, magnitude: inShape });
+        }
+      }
+    }
+
     // --- Dora / dora_kept — the side that keeps a dora the other drops. ---
     const aDora = tileIsDora(actualTile, doraTiles);
     const eDora = tileIsDora(expectedTile, doraTiles);
@@ -385,7 +472,137 @@
       }
     }
 
+    // --- Defense / safe_spare_kept — pre-threat safe-tile economy (the
+    // Complex bucket's single largest explainable cluster, COMPLEX-ANATOMY).
+    // At tied shanten AND tied ukeire, with NO armed threat (an armed threat's
+    // safety is deal_in's job, off real rates), the side keeping the safer
+    // spare — safer to bail with later — wins. Safety is a cheap future-safety
+    // score: intrinsic tier (honor > terminal > 2/8 > middle, the inverse of
+    // versatility) plus how many copies are already visible ("deader" tiles
+    // pair/complete less for opponents). Same *_kept convention: "you" keep
+    // expectedTile, "mortal" keeps actualTile. This is versatility_kept's
+    // deliberate counterpart — on many spots they fire in opposite directions
+    // and the spot correctly reads as a speed-vs-safety trade.
+    if (actualStat && expectedStat && aSh != null && eSh != null && aSh === eSh
+        && aNec === eNec && actualTile && expectedTile && actualTile !== expectedTile
+        && m.turn != null && m.turn >= SAFE_SPARE_MIN_TURN
+        && !threatScene(m).hasDealin) {
+      const vis = visibleCounts(m);
+      const aSafe = spareSafetyScore(actualTile, vis);
+      const eSafe = spareSafetyScore(expectedTile, vis);
+      if (aSafe != null && eSafe != null
+          && Math.abs(aSafe - eSafe) >= SAFE_SPARE_MIN_DIFF) {
+        const winner = aSafe > eSafe ? "mortal" : "you";
+        const kept = winner === "mortal" ? actualTile : expectedTile;
+        // The kept spare must itself be a safe KIND (honor/terminal/2-8). Two
+        // middle tiles differing only in visible copies is a liveness read,
+        // not the "hold the safe tile for later" motif.
+        if (tileVersatilityTier(kept) <= 3) {
+          wins.push({
+            dim: "safe_spare_kept", group: "Defense", prio: 2, winner,
+            magnitude: Math.abs(aSafe - eSafe),
+            tiles: [kept],
+          });
+        }
+      }
+    }
+
+    // --- Speed / furiten_avoided — one pick lands on a tenpai whose wait is
+    // furiten (a wait tile is already in your own discards, so the hand can
+    // never ron); the other pick avoids that. --- The furiten side's waits are
+    // the shanten-0 necessary_tiles; "your own discards" are the pond rows the
+    // board walk truncated at the decision, PLUS the candidate discard itself
+    // (throwing a tile your remaining hand waits on is the classic self-inflicted
+    // furiten the reports describe). Emitted whenever exactly one side's pick is
+    // a furiten tenpai — the other side "avoids furiten" whether it stays tenpai
+    // with a clean wait or backs off tenpai entirely (Mortal's known escape
+    // line, which otherwise reads as an unexplained shanten loss).
+    const aFur = furitenWaits(actualStat, actualTile, m);
+    const eFur = furitenWaits(expectedStat, expectedTile, m);
+    if (aFur.length && !eFur.length) {
+      wins.push({
+        dim: "furiten_avoided", group: "Speed", prio: 4, winner: "mortal",
+        tiles: aFur,
+      });
+    } else if (eFur.length && !aFur.length) {
+      wins.push({
+        dim: "furiten_avoided", group: "Speed", prio: 4, winner: "you",
+        tiles: eFur,
+      });
+    }
+
     return wins;
+  }
+
+  // Per-base tile counts of a tile list (red fives fold into their base).
+  function baseCounts(tiles) {
+    const c = {};
+    for (const t of (tiles || [])) {
+      const b = tileBase(t);
+      c[b] = (c[b] || 0) + 1;
+    }
+    return c;
+  }
+  // Distinct tile kinds held twice or more — triplet candidates for toitoi,
+  // pairs for chiitoi.
+  function countPairKinds(tiles) {
+    const c = baseCounts(tiles);
+    return Object.values(c).filter(n => n >= 2).length;
+  }
+  function hasPonMeld(melds) {
+    return (melds || []).some(meld => meld
+      && (meld.type === "pon" || meld.type === "daiminkan"
+        || meld.type === "ankan" || meld.type === "kakan"));
+  }
+  function hasChiMeld(melds) {
+    return (melds || []).some(meld => meld && meld.type === "chi");
+  }
+  // A tile a chanta block can contain: terminal-adjacent (1-3 / 7-9) or honor.
+  function chantaViable(t) {
+    if (!t) return false;
+    if (isHonorMjai(t)) return true;
+    const r = tileRank(t);
+    return r >= 1 && (r <= 3 || r >= 7);
+  }
+  // A called meld with no terminal/honor tile (e.g. a 456 chi, a middle pon)
+  // can never be a chanta block — the yaku is dead, chanta_kept must not fire.
+  function meldBlocksChanta(melds) {
+    for (const meld of (melds || [])) {
+      const tiles = meldTiles(meld);
+      if (!tiles.length) continue;
+      const ok = tiles.some(t => isHonorMjai(t) || tileRank(t) === 1 || tileRank(t) === 9);
+      if (!ok) return true;
+    }
+    return false;
+  }
+
+  // Future-safety of holding `t` as a spare, higher = safer: 5-versatilityTier
+  // gives honor 4 / terminal 3 / 2,8 2 / middle 1, plus one point per visible
+  // copy (capped at 3) — a tile with copies already in ponds/melds/indicators
+  // (or duplicated in hand) is deader, so cheaper to hold and safer to drop
+  // into a late threat. null for an unrankable tile.
+  function spareSafetyScore(t, vis) {
+    const tier = tileVersatilityTier(t);
+    if (tier == null) return null;
+    return (5 - tier) + Math.min(3, vis[tileBase(t)] || 0);
+  }
+
+  // The wait tiles that make `stat`'s tenpai furiten, or [] when the pick is
+  // not tenpai / not furiten / the pond is unknown. Furiten is per tile KIND —
+  // red fives compare by base — and covers dead waits too (a 0-left wait tile
+  // still locks the whole hand out of ron).
+  function furitenWaits(stat, discardTile, m) {
+    if (!stat || stat.shanten !== 0 || !discardTile) return [];
+    const waits = (stat.necessary_tiles || []).map(nt => nt.tile);
+    if (!waits.length) return [];
+    const board = m.board_state || {};
+    const actor = m.actual && m.actual.actor;
+    if (actor == null || !Array.isArray(board.all_discards)) return [];
+    const row = board.all_discards.find(d => d && d.seat === actor);
+    if (!row) return [];
+    const own = new Set((row.discards || []).map(x => tileBase(x.tile)));
+    own.add(tileBase(discardTile));
+    return waits.filter(t => own.has(tileBase(t)));
   }
 
   // A called meld containing any terminal/honor makes tanyao impossible no

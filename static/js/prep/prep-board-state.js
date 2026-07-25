@@ -35,7 +35,47 @@
     return out;
   }
 
-  function reconstruct_context(mortal_data, kyoku_idx, tiles_left_target) {
+  // Locate the exact decision event for a Mortal review entry so the walks
+  // stop there instead of at the next draw. tiles_left alone can't identify
+  // the decision: calls don't consume wall tiles, so several decisions share
+  // one tiles_left and the legacy stop-at-next-tsumo rule counted events that
+  // happen AFTER the decision (the player's own discard, later calls) into
+  // the visible wall — reports #170/#207/#208. A decision happens immediately
+  // after its trigger event:
+  //   - post-call discard (at_self_chi_pon): the player's own chi/pon
+  //   - chankan decision (at_opponent_kakan): that opponent's kakan
+  //   - own-draw decision (last_actor == player): the player's tsumo
+  //   - call/ron decision on a discard (last_actor != player): that dahai
+  // Returns a predicate over (event, tiles_left AFTER the event), or null
+  // when the entry is missing — callers then keep the legacy behavior. The
+  // tiles_left === target guard keeps lookalike events in other turns from
+  // matching; if the trigger somehow never fires the walks still stop at the
+  // legacy next-tsumo boundary.
+  function _decision_trigger(entry, player_id) {
+    if (!entry || entry.tiles_left == null || entry.last_actor == null) return null;
+    const target = entry.tiles_left;
+    const last_actor = entry.last_actor;
+    const tile = entry.tile;
+    if (entry.at_self_chi_pon) {
+      return (e, tiles_left) => tiles_left === target
+        && (e.type === "chi" || e.type === "pon") && e.actor === player_id
+        && (tile == null || e.pai === tile);
+    }
+    if (entry.at_opponent_kakan) {
+      return (e, tiles_left) => tiles_left === target
+        && e.type === "kakan" && e.actor === last_actor
+        && (tile == null || e.pai === tile);
+    }
+    if (last_actor === player_id) {
+      return (e, tiles_left) => tiles_left === target
+        && e.type === "tsumo" && e.actor === player_id;
+    }
+    return (e, tiles_left) => tiles_left === target
+      && e.type === "dahai" && e.actor === last_actor
+      && (tile == null || e.pai === tile);
+  }
+
+  function reconstruct_context(mortal_data, kyoku_idx, tiles_left_target, entry) {
     const player_id = mortal_data.player_id;
     const events = flatten_mjai_log(mortal_data.mjai_log);
     const start_positions = _findStartPositions(events);
@@ -59,16 +99,21 @@
       ? start_positions[kyoku_idx + 1]
       : events.length;
 
+    const trigger = _decision_trigger(entry, player_id);
+
     let pos = start_pos + 1;
     while (pos < next_start) {
       const e = events[pos];
       const etype = e && e.type;
 
+      // Draw after the decision window: with a trigger this is only a safety
+      // net (the trigger fires first); without one it is the legacy stop.
       if (etype === "tsumo" && tiles_left <= tiles_left_target) break;
 
       if (etype === "tsumo") {
         tiles_left -= 1;
-        if (e.actor === player_id && tiles_left <= tiles_left_target) break;
+        if (trigger ? trigger(e, tiles_left)
+                    : (e.actor === player_id && tiles_left <= tiles_left_target)) break;
       } else if (etype === "dahai") {
         visible.push(e.pai);
       } else if (etype === "chi" || etype === "pon") {
@@ -84,6 +129,10 @@
         dora_indicators.push(e.dora_marker);
       }
 
+      // Stop after processing the decision's trigger event — it (and nothing
+      // later) is visible at decision time.
+      if (trigger && etype !== "tsumo" && trigger(e, tiles_left)) break;
+
       pos += 1;
     }
 
@@ -93,7 +142,7 @@
     return { wall, round_wind_id, seat_wind_id, dora_ids, tiles_left };
   }
 
-  function extract_board_state(mortal_data, kyoku_idx, tiles_left_target) {
+  function extract_board_state(mortal_data, kyoku_idx, tiles_left_target, entry) {
     const player_id = mortal_data.player_id;
     const events = flatten_mjai_log(mortal_data.mjai_log);
     const start_positions = _findStartPositions(events);
@@ -122,10 +171,16 @@
       ? start_positions[kyoku_idx + 1]
       : events.length;
 
+    const trigger = _decision_trigger(entry, player_id);
+
     for (let pos = start_pos + 1; pos < next_start; pos++) {
       const e = events[pos];
       const etype = e && e.type;
       const actor = e && e.actor;
+
+      // Safety net when a trigger never fires: don't walk past the decision
+      // window into the next draw.
+      if (trigger && etype === "tsumo" && tiles_left <= tiles_left_target) break;
 
       if (etype === "tsumo") {
         tiles_left -= 1;
@@ -162,7 +217,10 @@
         dora_indicators.push(e.dora_marker);
       }
 
-      if (tiles_left <= tiles_left_target) break;
+      // With a trigger: stop right after the decision's trigger event, so a
+      // post-call/call-decision board includes the discard being reacted to
+      // (and the call itself) but nothing that happens after the decision.
+      if (trigger ? trigger(e, tiles_left) : (tiles_left <= tiles_left_target)) break;
     }
 
     const all_discards = [];
