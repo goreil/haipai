@@ -77,7 +77,6 @@ var HAIPAI_CLICK_ACTIONS = {
   // --- account ---
   linkOAuth: (el) => linkOAuth(el.dataset.provider),
   unlinkOAuth: (el) => unlinkOAuth(el.dataset.provider),
-  revokeExtensionToken: (el) => revokeExtensionToken(el.dataset.tokenId),
 
   // --- admin ---
   adminSortUsers: (el) => adminSortUsers(el.dataset.col),

@@ -1,14 +1,15 @@
 // MV3 service worker.
 //
-// Owns the account credential and performs the cross-origin POST to haipai.
-// Doing the POST here (under host_permissions) rather than in the content
-// script bypasses CORS entirely — the extension stays working regardless of
-// what haipai's CORS headers say — and keeps the credential out of page
-// context.
+// Performs the cross-origin POST to haipai. Doing it here (under
+// host_permissions) rather than in the content script bypasses CORS entirely —
+// the extension keeps working regardless of what haipai's CORS headers say.
 //
-// Auth is a per-install token obtained by signing in to haipai (see signIn()),
-// not a token the user copies by hand. It is never logged, never returned to
-// the content script, never put in a notification, and never placed in a URL.
+// Auth is haipai's ordinary session cookie: Chrome attaches a SameSite=Lax
+// cookie to fetches from a worker that holds host permissions for the target,
+// so "signed in" here means nothing more than "logged in to haipai in this
+// browser". The extension holds no credential of its own — nothing to store,
+// nothing to leak, nothing to revoke. Logging out of haipai logs out the
+// uploader with it.
 
 "use strict";
 
@@ -22,17 +23,9 @@ const NOTIFY_ICON =
 
 // ------------------------------------------------------------------ storage
 
-async function getSettings() {
-  const s = await chrome.storage.local.get(["haipaiBase", "authToken", "account", "uploadToken"]);
-  const base = String(s.haipaiBase || DEFAULT_BASE).trim().replace(/\/+$/, "");
-  // `uploadToken` is the pre-1.1 hand-pasted bookmarklet token. The upload
-  // endpoint still accepts it, so an existing install keeps working until the
-  // user signs in; new installs only ever have `authToken`.
-  return { base, token: s.authToken || s.uploadToken || "", account: s.account || "" };
-}
-
-async function clearAuth() {
-  await chrome.storage.local.remove(["authToken", "account", "uploadToken"]);
+async function getBase() {
+  const s = await chrome.storage.local.get("haipaiBase");
+  return String(s.haipaiBase || DEFAULT_BASE).trim().replace(/\/+$/, "");
 }
 
 // Returns the dedupe map with expired entries dropped (and persists the prune).
@@ -89,92 +82,40 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ------------------------------------------------------------------- login
 
-// Signs in by opening haipai's own authorize page in a browser window. The
-// user logs in there exactly as they normally would — password, Discord, or
-// Google — which is why the extension asks for no credentials of its own:
-// most haipai accounts are OAuth and have no password to type.
-//
-// launchWebAuthFlow only ever resolves to https://<extension-id>.chromiumapp.org/,
-// a URL nothing but this extension can receive, and the token arrives in the
-// fragment, so it never reaches a server log.
-async function signIn() {
-  const { base } = await getSettings();
-  const redirectUri = chrome.identity.getRedirectURL();
-  // Binds this response to this request — a stale or injected callback with
-  // the wrong state is discarded rather than stored.
-  const state = crypto.randomUUID();
-  const authUrl =
-    `${base}/extension/authorize` +
-    `?redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&state=${encodeURIComponent(state)}`;
-
-  let resultUrl;
+// Whether this browser has a live haipai session. /api/me is @login_required
+// and answers 401 when logged out, so it doubles as the session probe and the
+// source of the account name shown in the UI.
+async function whoami() {
+  const base = await getBase();
   try {
-    resultUrl = await chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true });
+    const res = await fetch(`${base}/api/me`, { credentials: "include" });
+    if (!res.ok) return { base, signedIn: false };
+    const me = await res.json().catch(() => ({}));
+    return { base, signedIn: true, account: (me && me.username) || "" };
   } catch (e) {
-    // Includes the user simply closing the window.
-    return { ok: false, error: "Sign-in was cancelled." };
+    return { base, signedIn: false, unreachable: true };
   }
-  if (!resultUrl) return { ok: false, error: "Sign-in was cancelled." };
-
-  let params;
-  try {
-    params = new URLSearchParams(new URL(resultUrl).hash.slice(1));
-  } catch {
-    return { ok: false, error: "Could not read the sign-in response." };
-  }
-
-  if (params.get("state") !== state) {
-    return { ok: false, error: "Sign-in response did not match the request. Try again." };
-  }
-  if (params.get("error")) {
-    return { ok: false, error: "Sign-in was declined." };
-  }
-  const token = params.get("token");
-  if (!token) return { ok: false, error: "Sign-in did not return a credential." };
-
-  const account = params.get("username") || "";
-  // Drop any legacy hand-pasted token so there is exactly one credential.
-  await chrome.storage.local.remove("uploadToken");
-  await chrome.storage.local.set({ authToken: token, account });
-  return { ok: true, account };
 }
 
-// Best-effort server-side revoke, then forget the credential locally. The
-// local clear happens regardless — a user who clicks Disconnect offline must
-// still end up disconnected.
-async function signOut() {
-  const { base, token } = await getSettings();
-  if (token) {
-    try {
-      await fetch(`${base}/api/extension/revoke`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-    } catch {
-      // Offline or unreachable — the local clear below still applies.
-    }
+// There is no extension-side sign-in: the user logs in to haipai itself, in a
+// normal tab, exactly as they always do — password, Discord, or Google. All we
+// do is open the page.
+async function openLogin() {
+  const base = await getBase();
+  try {
+    await chrome.tabs.create({ url: `${base}/login`, active: true });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: "Could not open the haipai login page." };
   }
-  await clearAuth();
-  return { ok: true };
 }
 
 // ------------------------------------------------------------------ upload
 
 // Resolves to a result object safe to hand back to the page's content script:
-// { ok, gameId } or { ok:false, error, retryable, needsOptions }.
+// { ok, gameId } or { ok:false, error, retryable, needsSignIn }.
 async function handleUpload(key, report, tabId) {
-  const { base, token } = await getSettings();
-
-  if (!token) {
-    notify("haipai upload", "Not signed in to haipai. Sign in to upload this review.");
-    return {
-      ok: false,
-      retryable: false,
-      needsSignIn: true,
-      error: "Not signed in to haipai.",
-    };
-  }
+  const base = await getBase();
 
   const seen = await getUploaded();
   if (seen[key]) {
@@ -190,10 +131,9 @@ async function handleUpload(key, report, tabId) {
     try {
       res = await fetch(`${base}/api/games/upload`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+        // The entire authentication story: send haipai's session cookie.
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body,
       });
     } catch (e) {
@@ -216,16 +156,14 @@ async function handleUpload(key, report, tabId) {
     }
 
     if (res.status === 401) {
-      // The credential was revoked (from Account, or by signing out in another
-      // browser). Drop it so the UI offers a fresh sign-in rather than
-      // retrying something the server has already rejected.
-      await clearAuth();
-      notify("haipai upload failed", "Your haipai connection expired — sign in again.");
+      // The haipai session expired, or the user logged out. Retrying is
+      // pointless until they log back in.
+      notify("haipai upload failed", "You're signed out of haipai — log in and retry.");
       return {
         ok: false,
         retryable: false,
         needsSignIn: true,
-        error: "Your haipai connection is no longer valid — sign in again.",
+        error: "You're not signed in to haipai.",
       };
     }
 
@@ -261,57 +199,38 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === "check") {
     (async () => {
-      const [{ base, token }, seen] = await Promise.all([getSettings(), getUploaded()]);
+      const [base, seen] = await Promise.all([getBase(), getUploaded()]);
       const hit = seen[msg.key];
       if (hit) {
         // Already uploaded: send the tab to the existing game, no refetch.
         await navigate(tabId, gameUrl(base, hit.gameId));
         sendResponse({ known: true, gameId: hit.gameId });
-      } else {
-        // `signedIn` is a boolean, never the token — it lets the content script
-        // prompt for sign-in without first fetching a ~330 KB report it can't use.
-        sendResponse({ known: false, signedIn: Boolean(token) });
-      }
-    })();
-    return true; // async response
-  }
-
-  if (msg.type === "signIn") {
-    (async () => {
-      try {
-        sendResponse(await signIn());
-      } catch (e) {
-        sendResponse({ ok: false, error: String((e && e.message) || e) });
-      }
-    })();
-    return true; // async response
-  }
-
-  if (msg.type === "signOut") {
-    (async () => sendResponse(await signOut()))();
-    return true; // async response
-  }
-
-  // Connection test for the options page. Runs here rather than there so the
-  // credential stays inside the worker; the page only sees status + body.
-  if (msg.type === "test") {
-    (async () => {
-      const { base, token } = await getSettings();
-      if (!token) {
-        sendResponse({ error: "Not connected — sign in first." });
         return;
       }
+      // Probe the session before fetching a ~330 KB report we couldn't send.
+      const { signedIn } = await whoami();
+      sendResponse({ known: false, signedIn });
+    })();
+    return true; // async response
+  }
+
+  if (msg.type === "openLogin") {
+    (async () => sendResponse(await openLogin()))();
+    return true; // async response
+  }
+
+  // Connection test for the options page.
+  if (msg.type === "test") {
+    (async () => {
+      const base = await getBase();
       try {
         const res = await fetch(`${base}/api/games/upload`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mortal_data: {} }),
         });
         const payload = await res.json().catch(() => ({}));
-        if (res.status === 401) await clearAuth();
         sendResponse({ status: res.status, body: (payload && payload.error) || "" });
       } catch (e) {
         sendResponse({ error: "Could not reach " + base + ": " + String((e && e.message) || e) });
@@ -321,10 +240,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "status") {
-    (async () => {
-      const { base, token, account } = await getSettings();
-      sendResponse({ base, signedIn: Boolean(token), account });
-    })();
+    (async () => sendResponse(await whoami()))();
     return true; // async response
   }
 

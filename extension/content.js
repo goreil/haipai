@@ -1,8 +1,8 @@
 // Content script for https://mjai.ekyu.moe/killerducky/*
 //
 // Resolves the ?data= report URL, fetches the report JSON same-origin, and
-// hands the parsed object to the service worker, which owns the upload token
-// and performs the cross-origin POST. This script never sees the token.
+// hands the parsed object to the service worker, which performs the
+// cross-origin POST to haipai under the user's haipai session cookie.
 //
 // It also never touches the mjai submit form: the only network request it
 // makes is the same-origin GET of the report JSON validated below.
@@ -127,9 +127,9 @@
     const known = await send({ type: "check", key });
     if (known && known.known) return;
 
-    // Not signed in — offer it here, before fetching a report we can't send.
+    // Not signed in — say so here, before fetching a report we can't send.
     if (known && known.signedIn === false) {
-      promptSignIn("Sign in to haipai to upload this review.");
+      promptSignIn("Log in to haipai to upload this review.");
       return;
     }
 
@@ -175,26 +175,56 @@
     toast(err, "err", actions);
   }
 
-  // The sign-in window is opened by the worker (only it has the identity API).
-  // On success we go straight on with the upload, so the user never has to
-  // reload the report page — which matters, because these pages expire.
+  // There is no extension-side sign-in: being logged in to haipai in this
+  // browser *is* the credential. So we open haipai's own login page in a new
+  // tab and then watch for the session to appear, and continue the upload
+  // ourselves — the user never has to come back and reload this page, which
+  // matters, because report pages expire.
+  let waitingForLogin = false;
+
   function promptSignIn(message) {
     toast(message, "err", [
       {
-        label: "Sign in to haipai",
+        label: "Log in to haipai",
         onClick: async () => {
-          toast("Waiting for sign-in…");
-          const res = await send({ type: "signIn" });
-          if (res && res.ok) {
-            toast(res.account ? `Signed in as ${res.account}.` : "Signed in.", "ok");
-            run();
-          } else {
-            promptSignIn((res && res.error) || "Sign-in failed.");
-          }
+          await send({ type: "openLogin" });
+          waitForLogin();
         },
       },
+      { label: "Retry", onClick: retry },
       { label: "Dismiss", onClick: hideToast },
     ]);
+  }
+
+  function stopWaiting() {
+    waitingForLogin = false;
+    hideToast();
+  }
+
+  // Polls the worker, which owns the cross-origin fetch to haipai; this script
+  // can't check the session itself.
+  async function waitForLogin() {
+    if (waitingForLogin) return;
+    waitingForLogin = true;
+    toast("Waiting for you to log in to haipai…", null,
+          [{ label: "Cancel", onClick: stopWaiting }]);
+
+    const deadline = Date.now() + 5 * 60 * 1000;
+    while (waitingForLogin && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 2000));
+      if (!waitingForLogin) return; // cancelled
+      const st = await send({ type: "status" });
+      if (st && st.signedIn) {
+        waitingForLogin = false;
+        toast(st.account ? `Signed in as ${st.account}.` : "Signed in.", "ok");
+        run();
+        return;
+      }
+    }
+    if (waitingForLogin) {
+      waitingForLogin = false;
+      promptSignIn("Still not signed in to haipai.");
+    }
   }
 
   function retry() {

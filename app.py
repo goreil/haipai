@@ -155,19 +155,23 @@ limiter.limit("10 per minute")(app.view_functions["auth.auth_google"])
 limiter.limit("10 per minute")(app.view_functions["auth.auth_google_callback"])
 limiter.limit("10 per minute")(app.view_functions["auth.verify_email"])
 limiter.limit("5 per minute")(app.view_functions["auth.resend_verification"])
-limiter.limit("10 per minute")(app.view_functions["auth.extension_authorize"])
 
 # CSRF exemption for /api/me (read-only JSON returning the CSRF token itself).
 csrf.exempt(app.view_functions["auth.api_me"])
 
-# CSRF exempt for the cross-origin bookmarklet upload — auth is by Bearer
-# token, not cookies, and CORS pins the origin to mjai.ekyu.moe.
+# CSRF exempt for the upload endpoint, which has two callers that cannot
+# produce a CSRF token: the bookmarklet (Bearer token, cross-origin from
+# mjai.ekyu.moe) and the browser extension's service worker (session cookie —
+# flask-wtf's WTF_CSRF_SSL_STRICT demands a Referer that an extension worker
+# is not allowed to send).
+#
+# Exempting a route that accepts a *cookie* is only safe because three things
+# hold together; see api_upload's docstring before touching any of them:
+#   - SESSION_COOKIE_SAMESITE = "Lax" keeps the cookie off cross-site POSTs,
+#   - _cors_headers() sends no Access-Control-Allow-Credentials,
+#   - api_upload refuses cookie auth from any non-extension foreign Origin.
 csrf.exempt(app.view_functions["games.api_upload"])
 csrf.exempt(app.view_functions["games.api_upload_preflight"])
-
-# Same reasoning for the extension's sign-out call: authenticated by the
-# Bearer token it is deleting, never by a cookie.
-csrf.exempt(app.view_functions["auth.api_extension_revoke"])
 
 
 # --- Init ---

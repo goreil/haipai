@@ -20,37 +20,12 @@ auth_bp = Blueprint("auth", __name__)
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 VERIFY_TOKEN_LIFETIME = timedelta(hours=24)
 
-# Where to land after a successful login, when something interrupted a flow to
-# send the user here (currently only /extension/authorize). Stashed in the
-# session rather than passed as a `next=` query param so it survives the OAuth
-# round-trip to Discord/Google unchanged.
-POST_LOGIN_KEY = "post_login_redirect"
-
-
 def _utc_now_str():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _new_verify_expiry():
     return (datetime.now(timezone.utc) + VERIFY_TOKEN_LIFETIME).strftime("%Y-%m-%d %H:%M:%S")
-
-
-def stash_post_login(path):
-    """Remember where to return after login. Only same-site paths are kept."""
-    if path.startswith("/") and not path.startswith("//"):
-        session[POST_LOGIN_KEY] = path
-
-
-def _post_login_target():
-    """Consume the stashed return path, defaulting to the app root.
-
-    Re-validated on the way out: a session cookie is signed, but this keeps
-    the open-redirect guarantee local to the one function that acts on it.
-    """
-    target = session.pop(POST_LOGIN_KEY, None)
-    if target and target.startswith("/") and not target.startswith("//"):
-        return target
-    return "/"
 
 
 # --- Login / register / logout ---
@@ -79,7 +54,7 @@ def login():
             else:
                 remember = bool(request.form.get("remember"))
                 login_user(User(user_row["id"], user_row["username"]), remember=remember)
-                return redirect(_post_login_target())
+                return redirect("/")
         else:
             error = "Invalid username or password"
     return render_template("login.html", title="Login", error=error, register=False,
@@ -149,7 +124,7 @@ def verify_email(token):
                                has_google="google" in oauth._clients)
     db.mark_email_verified(conn, user_row["id"])
     login_user(User(user_row["id"], user_row["username"]), remember=True)
-    return redirect(_post_login_target())
+    return redirect("/")
 
 
 @auth_bp.route("/resend-verification", methods=["POST"])
@@ -190,15 +165,15 @@ def _oauth_login_or_create(provider, oauth_id, display_name):
     user_row = db.get_user_by_oauth(conn, provider, oauth_id)
     if user_row:
         login_user(User(user_row["id"], user_row["username"]), remember=True)
-        return redirect(_post_login_target())
+        return redirect("/")
     # If logged in, link to existing account
     if current_user.is_authenticated:
         db.link_oauth(conn, current_user.id, provider, oauth_id)
-        return redirect(_post_login_target())
+        return redirect("/")
     # Create new account
     user_id, username = db.create_oauth_user(conn, provider, oauth_id, display_name)
     login_user(User(user_id, username), remember=True)
-    return redirect(_post_login_target())
+    return redirect("/")
 
 
 @auth_bp.route("/auth/discord")
@@ -247,140 +222,6 @@ def auth_google_callback():
     google_id = user_info["sub"]
     display_name = user_info.get("name") or user_info.get("given_name") or "player"
     return _oauth_login_or_create("google", google_id, display_name)
-
-
-# --- Browser-extension authorization ---
-#
-# The extension has no password to collect (Discord/Google accounts don't have
-# one at all), so it authenticates by opening this page in a real browser
-# window via chrome.identity.launchWebAuthFlow. The user logs in here the
-# normal way — password, Discord, or Google — approves once, and the extension
-# receives a per-install token it then sends as `Authorization: Bearer` to
-# /api/games/upload.
-#
-# Why a token and not the session cookie: Chrome does attach a SameSite=Lax
-# cookie to extension-worker requests that hold host permissions, but the POST
-# is then rejected by CSRF — flask-wtf's WTF_CSRF_SSL_STRICT requires a Referer
-# that an extension worker cannot send. Making cookies work would mean
-# CSRF-exempting a cookie-authenticated endpoint. A Bearer token carries no
-# ambient authority, so CSRF doesn't apply — the same reasoning that already
-# exempts api_upload for the bookmarklet (see app.py).
-
-# chrome.identity.launchWebAuthFlow only ever hands control back to
-# https://<extension-id>.chromiumapp.org/*, a URL no server can be hosted on
-# and only the originating extension can receive. Restricting the redirect to
-# that suffix is what keeps this from being an open redirect that leaks tokens.
-EXTENSION_REDIRECT_HOST_SUFFIX = ".chromiumapp.org"
-
-
-def _valid_extension_redirect(uri):
-    """True if `uri` is a Chrome extension auth-flow callback URL."""
-    from urllib.parse import urlsplit
-    try:
-        parts = urlsplit(uri)
-    except ValueError:
-        return False
-    return (
-        parts.scheme == "https"
-        and bool(parts.hostname)
-        and parts.hostname.endswith(EXTENSION_REDIRECT_HOST_SUFFIX)
-    )
-
-
-def _extension_label(redirect_uri):
-    """The extension id, for display on the consent screen."""
-    from urllib.parse import urlsplit
-    host = urlsplit(redirect_uri).hostname or ""
-    return host[: -len(EXTENSION_REDIRECT_HOST_SUFFIX)] or host
-
-
-def _extension_callback(redirect_uri, **params):
-    """Build the callback URL, passing results in the fragment.
-
-    The fragment is never sent to a server and never lands in a redirect log —
-    only the browser (and thus the extension) ever sees the token.
-    """
-    from urllib.parse import quote
-    frag = "&".join(f"{k}={quote(str(v), safe='')}" for k, v in params.items() if v is not None)
-    base = redirect_uri.split("#", 1)[0]
-    return f"{base}#{frag}"
-
-
-@auth_bp.route("/extension/authorize", methods=["GET", "POST"])
-def extension_authorize():
-    """Consent screen that issues a browser-extension token.
-
-    GET renders the prompt (bouncing through /login first when logged out);
-    POST mints the token and hands it back through the extension callback.
-    """
-    from app import get_conn
-
-    redirect_uri = request.values.get("redirect_uri", "")
-    state = request.values.get("state") or ""
-
-    if not _valid_extension_redirect(redirect_uri):
-        # Deliberately rendered here rather than redirected anywhere: an
-        # unrecognised redirect target is exactly what we must not send to.
-        return render_template("extension_authorize.html",
-                               error="Invalid redirect target. This link has to come "
-                                     "from the Haipai browser extension."), 400
-
-    if not current_user.is_authenticated:
-        # Come back here once they're in — survives the OAuth round-trip.
-        stash_post_login(request.full_path.rstrip("?"))
-        return redirect(url_for("auth.login"))
-
-    if request.method == "GET":
-        return render_template("extension_authorize.html",
-                               username=current_user.username,
-                               extension_id=_extension_label(redirect_uri),
-                               redirect_uri=redirect_uri,
-                               state=state)
-
-    if request.form.get("decision") != "approve":
-        return redirect(_extension_callback(redirect_uri, error="access_denied", state=state))
-
-    token = db.create_extension_token(get_conn(), current_user.id,
-                                      client=_extension_label(redirect_uri))
-    return redirect(_extension_callback(redirect_uri, token=token,
-                                        username=current_user.username, state=state))
-
-
-@auth_bp.route("/api/extension/revoke", methods=["POST"])
-def api_extension_revoke():
-    """Self-revoke, called by the extension when the user signs out there.
-
-    Bearer-authenticated like /api/games/upload — no cookie, so no CSRF (it is
-    exempted on app registration). Holding the token is the only authorization
-    needed: it can only ever delete its own row. Always reports ok so a
-    sign-out can't be used to probe which tokens exist.
-    """
-    from app import get_conn
-    auth = request.headers.get("Authorization", "")
-    token = auth[7:].strip() if auth.startswith("Bearer ") else ""
-    db.delete_extension_token_by_value(get_conn(), token)
-    return jsonify({"ok": True})
-
-
-@auth_bp.route("/api/me/extension-tokens", methods=["GET"])
-@login_required
-def api_list_extension_tokens():
-    """Connected extension installs, for the Account page. Never returns the
-    token itself — only enough to tell installs apart and revoke one."""
-    from app import get_conn
-    rows = db.list_extension_tokens(get_conn(), current_user.id)
-    return jsonify({"tokens": [dict(r) for r in rows]})
-
-
-@auth_bp.route("/api/me/extension-tokens/<int:token_id>", methods=["DELETE"])
-@login_required
-def api_delete_extension_token(token_id):
-    """Revoke one install. That browser has to sign in again to upload."""
-    from app import get_conn
-    removed = db.delete_extension_token(get_conn(), current_user.id, token_id)
-    if not removed:
-        return jsonify({"error": "Not found"}), 404
-    return jsonify({"ok": True})
 
 
 # --- /api/me + /api/me/* ---

@@ -15,6 +15,16 @@ games_bp = Blueprint("games", __name__)
 # Origin allowed to POST games via the bookmarklet upload endpoint.
 UPLOAD_ALLOWED_ORIGIN = "https://mjai.ekyu.moe"
 
+# Origin schemes allowed to use the *cookie* half of api_upload. A browser
+# extension's service worker sends its own extension origin (or, depending on
+# the browser, none at all); an ordinary web page always sends the page's
+# origin. So anything else is a cross-site caller.
+EXTENSION_ORIGIN_SCHEMES = (
+    "chrome-extension://",
+    "moz-extension://",
+    "safari-web-extension://",
+)
+
 
 @games_bp.route("/api/games")
 @login_required
@@ -390,6 +400,9 @@ def api_regenerate_upload_token():
 
 
 def _cors_headers():
+    # No Access-Control-Allow-Credentials, on purpose: adding it would let a
+    # page on the allowed origin make a *cookie*-authenticated upload, which is
+    # exactly what api_upload's CSRF exemption relies on being impossible.
     return {
         "Access-Control-Allow-Origin": UPLOAD_ALLOWED_ORIGIN,
         "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -410,34 +423,66 @@ def api_upload_preflight():
     return r
 
 
+def _cookie_origin_ok(origin):
+    """True if `origin` may authenticate by session cookie on api_upload.
+
+    Cross-site guard for the cookie path, which is CSRF-exempt (see app.py).
+    An absent Origin is allowed because extension workers may omit it; a real
+    web page never can, so a page on another site is always caught here.
+    """
+    if not origin:
+        return True
+    if origin.startswith(EXTENSION_ORIGIN_SCHEMES):
+        return True
+    from urllib.parse import urlsplit
+    return urlsplit(origin).netloc == request.host
+
+
 @games_bp.route("/api/games/upload", methods=["POST"])
 def api_upload():
-    """Token-authenticated game upload for the bookmarklet and the extension.
+    """Game upload for the bookmarklet and the browser extension.
 
-    Auth: `Authorization: Bearer <token>`, accepted from either credential —
-    the account's single `upload_token` (bookmarklet) or a per-install
-    extension token minted by /extension/authorize. Both are checked here so
-    the two clients share one endpoint; they stay separate secrets so
-    regenerating one doesn't break the other.
+    Two ways in:
 
-    Skips Flask-Login (sessions won't be sent cross-origin under SameSite=Lax)
-    and CSRF (exempted on app registration) — safe precisely because a Bearer
-    token is not an ambient credential the way a cookie is.
+    * `Authorization: Bearer <upload_token>` — the bookmarklet, which runs as a
+      page on mjai.ekyu.moe and so can never have a haipai session cookie.
+    * The ordinary haipai session cookie — the extension, whose service worker
+      *does* get SameSite=Lax cookies attached when it holds host permissions
+      for the target (measured; see docs/backlogs/Browser-extension-spec.md).
+      The extension therefore needs no credential of its own: being logged in
+      to haipai in that browser is the authorization.
 
-    CORS pins the browser-page caller to mjai.ekyu.moe. The extension's own
-    POST comes from its service worker under host permissions, which isn't
-    subject to CORS at all.
+    Flask-Login's @login_required is deliberately not used — a missing cookie
+    must fall through to the Bearer check rather than 401 immediately.
+
+    The cookie path is what makes this endpoint's CSRF exemption load-bearing,
+    so it carries its own cross-site guard (`_cookie_origin_ok`) instead. Two
+    further things keep a hostile page out, and both must stay true:
+
+    * `_cors_headers()` omits Access-Control-Allow-Credentials, so a
+      preflighted credentialed POST from any page is abandoned before it is
+      sent. Do not add that header.
+    * SESSION_COOKIE_SAMESITE = "Lax" keeps the cookie off cross-site POSTs,
+      which covers the preflight-free "simple request" shape as well.
     """
     from app import get_conn
+    conn = get_conn()
+
     auth = request.headers.get("Authorization", "")
     token = auth[7:].strip() if auth.startswith("Bearer ") else ""
-    if not token:
-        return _json_with_cors({"error": "Missing Bearer token"}, 401)
 
-    conn = get_conn()
-    user = db.get_user_by_upload_token(conn, token) or db.get_user_by_extension_token(conn, token)
-    if not user:
-        return _json_with_cors({"error": "Invalid upload token"}, 401)
+    if token:
+        user = db.get_user_by_upload_token(conn, token)
+        if not user:
+            return _json_with_cors({"error": "Invalid upload token"}, 401)
+    elif current_user.is_authenticated:
+        if not _cookie_origin_ok(request.headers.get("Origin")):
+            return _json_with_cors({"error": "Cross-site upload rejected"}, 403)
+        user = db.get_user_by_id(conn, current_user.id)
+        if not user:
+            return _json_with_cors({"error": "Not signed in"}, 401)
+    else:
+        return _json_with_cors({"error": "Not signed in"}, 401)
 
     body = request.get_json(silent=True) or {}
     status, payload = _ingest_mortal(conn, user["id"],

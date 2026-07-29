@@ -11,9 +11,8 @@ This replaces a bookmarklet the user currently runs by hand on the report page.
 - `https://mjai.ekyu.moe/` submits via a plain server-rendered form: `<form class="form" method="post" action="https://mjai.ekyu.moe/review">`. There is no XHR/fetch submit path. The site itself renders the "processing" page and then navigates to the report.
 - The report page URL shape is `https://mjai.ekyu.moe/killerducky/?data=/report/<16-hex-hash>.json`.
 - The report JSON for a real game: HTTP 200, `content-type: application/json`, ~330 KB. Top-level keys include `engine`, `game_length`, `loading_time`, `review_time`, `show_rating`, `version`, `review`, `player_id`, `split_logs`, `mjai_log`, `lang`. It is same-origin relative to the report page.
-- Upload endpoint: `POST https://haipai.ylue.de/api/games/upload`, `Content-Type: application/json`, `Authorization: Bearer <token>`, body `{"mortal_data": <report json>}`.
-- Endpoint auth behaviour, confirmed live: no header → `401 {"error":"Missing Bearer token"}`; bad token → `401 {"error":"Invalid upload token"}`. Success is expected to be 2xx with `{"game_id": ...}`.
-- The endpoint accepts **two** credentials: the account's single `upload_token` (bookmarklet) and per-install extension tokens (see "Authentication" below). They are independent — rotating one does not affect the other.
+- Upload endpoint: `POST https://haipai.ylue.de/api/games/upload`, `Content-Type: application/json`, body `{"mortal_data": <report json>}`. Success is 2xx with `{"game_id": ...}`.
+- The endpoint accepts **two** ways in, and they are independent: the haipai **session cookie** (the extension) and `Authorization: Bearer <upload_token>` (the bookmarklet, which runs as a page on mjai.ekyu.moe and so can never have the cookie). Unauthenticated → `401 {"error":"Not signed in"}`; bad Bearer token → `401 {"error":"Invalid upload token"}`; cookie presented from a foreign web origin → `403`.
 - The endpoint already sends permissive CORS headers and passes preflight for the `Authorization` header. Do not rely on this staying true — see architecture below.
 - mjai report pages are retained for only 15 days.
 
@@ -21,52 +20,61 @@ This replaces a bookmarklet the user currently runs by hand on the report page.
 
 - **Do not attempt to automate, solve, replay, or bypass the Cloudflare Turnstile challenge.** The token is single-use and short-lived. The extension must never construct its own `POST /review` request. The native form submit is the only submit path.
 - **Do not implement a custom waiting/processing page.** mjai already provides one. The extension waits by observing navigation.
-- The bearer token is a secret. Never hardcode it, never log it, never write it into the page DOM, never include it in a URL.
+- **Never expose the user's haipai session to page context.** The upload fetch belongs in the service worker; a content script must not be handed cookies, session data, or a way to POST to haipai on the user's behalf.
 
 ## Architecture
 
 MV3, three parts:
 
 1. **Content script** on `https://mjai.ekyu.moe/killerducky/*` — resolves the `data` param, fetches the report JSON same-origin, hands it to the service worker.
-2. **Service worker** — owns the token and performs the cross-origin POST. Cross-origin fetch from a content script is still subject to CORS in MV3; doing it in the worker under `host_permissions` bypasses CORS entirely and makes the extension immune to haipai's CORS config changing. It also keeps the token out of page context.
-3. **Options page** — lets the user set the haipai base URL and sign in / disconnect. Settings live in `chrome.storage.local`.
+2. **Service worker** — performs the cross-origin POST, authenticated by the user's haipai session cookie. Cross-origin fetch from a content script is still subject to CORS in MV3; doing it in the worker under `host_permissions` bypasses CORS entirely, makes the extension immune to haipai's CORS config changing, and is what gets the Lax cookie attached in the first place.
+3. **Options page** — lets the user set the haipai base URL and see whether this browser has a live haipai session. Settings live in `chrome.storage.local`.
 
-## Authentication (v1.1 — replaces the pasted token)
+## Authentication (v2.0 — the haipai session cookie)
 
-The user signs in instead of copying a token. `chrome.identity.launchWebAuthFlow`
-opens `GET /extension/authorize?redirect_uri=<chrome.identity.getRedirectURL()>&state=<nonce>`;
-the user logs in there the normal way (password, Discord, or Google) and approves
-a consent screen; the server mints a row in `extension_tokens` and redirects to
-`https://<extension-id>.chromiumapp.org/#token=…&username=…&state=…`.
+The extension holds no credential of its own. Its service worker POSTs with
+`credentials: 'include'`, and the upload endpoint accepts the resulting haipai
+session cookie. "Signed in" means nothing more than "logged in to haipai in this
+browser"; logging out of haipai stops uploads.
 
-Why not the session cookie, which would need no new credential at all — this was
-measured, not assumed:
+This works because of a measured fact — Chrome **does** attach a `SameSite=Lax`
+cookie to a fetch from an extension service worker holding host permissions for
+the target. Verified on Chromium 150 against production: `credentials:'include'`
+→ 200, `credentials:'omit'` → 401.
 
-- Chrome **does** attach a `SameSite=Lax` cookie to a fetch from an extension
-  service worker holding host permissions for the target. Verified on Chromium
-  150 against production: `credentials:'include'` → 200, `credentials:'omit'` →
-  401.
-- But the POST is then rejected by CSRF, twice: no `X-CSRFToken`, and — even
-  with one fetched from `/api/me` — `flask-wtf`'s `WTF_CSRF_SSL_STRICT` demands
-  a `Referer` that an extension worker cannot send (`Referer` is a forbidden
-  header in `fetch`; the `referrer:` init option falls back to the client origin
-  when cross-origin).
-- Making cookies work would therefore mean CSRF-exempting a *cookie*-authenticated
-  endpoint, leaving SameSite as the only barrier. A Bearer token carries no
-  ambient authority, so CSRF does not apply — the same reasoning that already
-  exempts `api_upload` for the bookmarklet.
+The blocker was never the cookie, it was CSRF: flask-wtf checks `Referer` before
+it checks the token when `WTF_CSRF_SSL_STRICT` is on (the default), and an
+extension worker cannot send one — `Referer` is a forbidden header in `fetch`,
+and the `referrer:` init option falls back to the client origin cross-origin. So
+`/api/games/upload` is CSRF-exempt and carries its own cross-site guards
+instead. **All three must hold together**; `api_upload`'s docstring in
+`routes/game.py` is the authority, and `tests/test_api_extension.py` pins them:
 
-Hard constraints on the flow:
+1. `SESSION_COOKIE_SAMESITE = "Lax"` keeps the cookie off cross-site POSTs,
+   including the preflight-free "simple request" shape.
+2. `_cors_headers()` sends **no** `Access-Control-Allow-Credentials`, so a
+   preflighted credentialed POST from a page is abandoned before it is sent.
+3. `_cookie_origin_ok()` accepts the cookie only when `Origin` is absent
+   (extension workers may omit it), an extension origin (`chrome-extension://`,
+   `moz-extension://`, `safari-web-extension://`), or haipai itself. Note this
+   refuses `https://mjai.ekyu.moe` on the cookie path even though CORS allows
+   that origin to *call* the endpoint — the bookmarklet must use its Bearer
+   token.
 
-- The server accepts a `redirect_uri` **only** on `https://*.chromiumapp.org`,
-  re-validated on the POST as well as the GET. Anything else is a 400 rendered
-  in place, never a redirect — otherwise this is an open redirect that leaks
-  credentials.
-- The token goes in the URL **fragment**, never the query string, so it stays
-  out of server logs.
-- `state` is echoed back and checked by the worker before the token is stored.
-- The credential is upload-only and per-install, listed and revocable at
-  haipai → Account, and self-revocable via `POST /api/extension/revoke`.
+An explicit `Authorization: Bearer` header is judged on its own and never falls
+back to the cookie, so a revoked bookmarklet token fails visibly for its owner
+rather than being silently rescued by a logged-in session.
+
+### What this replaced
+
+v1.1 minted a per-install token through an `/extension/authorize` consent page
+driven by `chrome.identity.launchWebAuthFlow`, stored in an `extension_tokens`
+table with an Account-page management panel and a self-revoke endpoint. All of
+it — table, CRUD, routes, consent template, panel, and the `identity`
+permission — was deleted in v2.0. The cost of the swap, accepted deliberately:
+the credential is no longer upload-only or per-install, and cookie auth depends
+on Chrome continuing to attach cookies to extension-worker fetches, whereas a
+Bearer token would not.
 
 ## File layout
 
@@ -85,7 +93,7 @@ options.js
   "manifest_version": 3,
   "name": "mjai → haipai uploader",
   "version": "1.0.0",
-  "permissions": ["storage", "tabs", "notifications", "identity"],
+  "permissions": ["storage", "tabs", "notifications"],
   "host_permissions": [
     "https://mjai.ekyu.moe/*",
     "https://haipai.ylue.de/*"
@@ -124,49 +132,45 @@ options.js
 
 Message handler for `{type:'upload'}`:
 
-- Load `{ haipaiBase, authToken }` from `chrome.storage.local`. Default `haipaiBase` to `https://haipai.ylue.de`. If not signed in, return `needsSignIn` so the content script can offer the sign-in button, and abort. (`uploadToken` from v1.0 is still honoured as a fallback until the user signs in.)
+- Load `{ haipaiBase }` from `chrome.storage.local`. Default it to `https://haipai.ylue.de`. There is no credential to load.
 - Check the dedupe store (`chrome.storage.local` key `uploaded`, a map of `key → { gameId, ts }`). If present, navigate straight to the existing game and return. Prune entries older than 15 days on each run.
 - POST:
   ```js
   const res = await fetch(`${haipaiBase}/api/games/upload`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${uploadToken}`
-    },
+    credentials: 'include',            // the entire authentication story
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ mortal_data: report })
   });
   const body = await res.json().catch(() => ({}));
   ```
 - On 2xx: record `key → body.game_id`, then `chrome.tabs.update(senderTabId, { url: haipaiBase + (body.game_id ? '#g' + body.game_id : '/') })`.
-- On 401: clear the stored credential and surface a sign-in prompt. Do not retry; retrying a rejected credential is pointless.
+- On 401: surface a log-in prompt. Do not retry; retrying without a session is pointless. Nothing to clear — there is no stored credential.
 - On 5xx or network error: retry up to 3 times with exponential backoff (1s, 4s, 10s), then report failure. Bear in mind the report JSON expires server-side after 15 days, so don't build a long-lived persistent retry queue.
 - Return a result object to the content script so it can update its toast. Remember to `return true` from the listener for the async response.
-- Never include the token in any error string, notification, or console output.
 
 Optionally add `chrome.notifications.create` for terminal failure, so the user still finds out if the tab was closed.
 
 ## options.html / options.js
 
-haipai base URL (default `https://haipai.ylue.de`) plus **Sign in to haipai** / **Disconnect** and a "Test connection" button that POSTs `{mortal_data:{}}` and reports the status code, so a live connection (400 `mortal_data is required`) is distinguishable from a revoked one (401). Persist the base URL to `chrome.storage.local`. The credential itself is never read into the options page — it asks the worker for a boolean and a username, and the worker runs both sign-in and the connection test.
+haipai base URL (default `https://haipai.ylue.de`), a session badge with **Open haipai login** / **Re-check**, and a "Test connection" button that POSTs `{mortal_data:{}}` and reports the status code, so a live session (400 `mortal_data is required`) is distinguishable from a logged-out one (401). Persist the base URL to `chrome.storage.local`. The page cannot reach haipai itself, so it asks the worker for both the session state (via `/api/me`) and the connection test.
 
 ## Acceptance criteria
 
-1. With no connection configured, loading a report page produces a clear sign-in prompt (with a working in-page **Sign in to haipai** button) and no upload call to haipai.
-2. With a valid token, submitting a game on mjai results in: user solves Turnstile → clicks the site's Submit → sees mjai's own processing page → lands on the report page → sees an "uploading" toast → is redirected to `https://haipai.ylue.de/#g<game_id>`.
+1. Logged out of haipai, loading a report page produces a clear log-in prompt (with a working in-page **Log in to haipai** button) and no upload call to haipai.
+2. Logged in to haipai, submitting a game on mjai results in: user solves Turnstile → clicks the site's Submit → sees mjai's own processing page → lands on the report page → sees an "uploading" toast → is redirected to `https://haipai.ylue.de/#g<game_id>`.
 3. Reloading a report page that was already uploaded navigates to the existing game without re-uploading.
 4. Visiting a `killerducky` URL with no `?data=` param, or with a `data` value pointing at another origin, does nothing and logs nothing sensitive.
-5. A 401 from haipai drops the stored credential, offers sign-in, and does not retry.
-6. The token never appears in the page DOM, the console, notification text, or any URL query string.
-8. `/extension/authorize` refuses any `redirect_uri` outside `https://*.chromiumapp.org`, on both GET and POST, and issues no token when denied.
-9. Reaching `/extension/authorize` while logged out returns to the consent screen after login — including via Discord/Google, which round-trip through an external provider.
-7. No code path in the extension issues a request to `https://mjai.ekyu.moe/review`.
+5. A 401 from haipai offers the log-in flow and does not retry; logging in in the opened tab resumes the upload without a reload of the report page.
+6. Logging out of haipai stops uploads from that browser.
+7. The upload endpoint refuses the session cookie when `Origin` is a foreign web origin (403), including the CORS-allowed `https://mjai.ekyu.moe`, and sends no `Access-Control-Allow-Credentials`.
+8. The bookmarklet's Bearer `upload_token` still authenticates, and a bad Bearer token is rejected even when a valid session cookie is present.
+9. No code path in the extension issues a request to `https://mjai.ekyu.moe/review`.
 
 ## Notes for the implementer
 
 - Test fixture: a real report is available at `https://mjai.ekyu.moe/report/759b76f0a535fad6.json` (may have expired — retention is 15 days; regenerate via the site if it 404s).
 - If haipai supports gzipped request bodies, `CompressionStream('gzip')` is a reasonable optimisation for the ~330 KB payload, but treat it as a follow-up, not part of v1.
 - The user has an existing bookmarklet with the token embedded in the bookmarklet URL. Mention in the README that this token should be rotated, since bookmarklet URLs leak into bookmark sync and browser history. Rotating it does not affect the extension.
-- Tests: `tests/test_api_extension.py` covers the server side. The browser side was verified end-to-end by driving Chromium over CDP (`--headless=new --load-extension=…`), including a real upload of a live mjai report through the unmodified extension: sign-in via `launchWebAuthFlow`, report fetch, POST, redirect to `#g<id>`, and dedupe on reload.
-- `chrome.identity.launchWebAuthFlow` **does** work under `--headless=new` (Chromium 150): it opens a normal, attachable target, so a test can drive the login + consent inside it. Confirmed 2026-07-29 — don't assume otherwise.
-- For a test that only needs the token without the auth window, the consent POST's redirect can be read off the wire instead (`Network.requestWillBeSent` → `urlFragment`); navigating to it directly fails, since nothing is hosted at `chromiumapp.org`.
+- Tests: `tests/test_api_extension.py` covers the server side — both auth paths plus the three cross-site guards. The browser side was verified end-to-end by driving Chromium over CDP (`--headless=new --load-extension=…`): logging in to haipai in a normal tab, then a real upload of a live mjai report through the unmodified extension — report fetch, cookie-authenticated POST, redirect to `#g<id>`, and dedupe on reload.
+- The cookie measurement is the load-bearing assumption of the whole design. If a Chrome change ever stops attaching cookies to extension-worker fetches, uploads break with a 401 loop and the fix is to reinstate a Bearer credential (git history has the v1.1 implementation).

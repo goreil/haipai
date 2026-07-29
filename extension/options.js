@@ -1,10 +1,9 @@
-// Options page. Stores { haipaiBase } plus the credential obtained by signing
-// in to haipai.
+// Options page. The only thing it stores is { haipaiBase }.
 //
-// The credential itself is owned by the service worker and is never read into
-// this page — the page only ever asks whether one exists and who it belongs
-// to. Sign-in is delegated to the worker too, since only it holds the identity
-// API.
+// There is no credential to manage: the extension uploads under the haipai
+// session cookie of whoever is logged in to haipai in this browser. The page
+// asks the worker for the session state, since only the worker can reach
+// haipai cross-origin.
 
 "use strict";
 
@@ -43,10 +42,9 @@ async function load() {
   const status = await send({ type: "status" });
   const signedIn = Boolean(status && status.signedIn);
   stateEl.textContent = signedIn
-    ? (status.account ? `connected as ${status.account}` : "connected")
-    : "not connected";
-  $("signin").textContent = signedIn ? "Sign in again" : "Sign in to haipai";
-  $("signout").hidden = !signedIn;
+    ? (status.account ? `logged in as ${status.account}` : "logged in")
+    : (status && status.unreachable ? "haipai unreachable" : "not logged in");
+  $("login").textContent = signedIn ? "Open haipai" : "Open haipai login";
 }
 
 $("save").addEventListener("click", async () => {
@@ -68,33 +66,24 @@ $("save").addEventListener("click", async () => {
   setStatus("Saved.", "ok");
 });
 
-$("signin").addEventListener("click", async () => {
-  setStatus("Waiting for sign-in…");
-  const res = await send({ type: "signIn" });
-  await load();
+$("login").addEventListener("click", async () => {
+  const res = await send({ type: "openLogin" });
   if (res && res.ok) {
-    setStatus(res.account ? `Connected as ${res.account}.` : "Connected.", "ok");
+    setStatus("Log in in the tab that just opened, then re-check here.");
   } else {
-    setStatus((res && res.error) || "Sign-in failed.", "err");
+    setStatus((res && res.error) || "Could not open haipai.", "err");
   }
 });
 
-$("signout").addEventListener("click", async () => {
-  await send({ type: "signOut" });
+$("recheck").addEventListener("click", async () => {
   await load();
-  setStatus("Disconnected. This browser can no longer upload.", "ok");
+  setStatus("");
 });
 
-// Sends a deliberately empty payload. A working connection gets past auth and
-// is then rejected by the endpoint's own validation (400) — that 400 is the
-// success signal here, and it distinguishes a live connection from a 401.
+// Sends a deliberately empty payload. A live session gets past auth and is
+// then rejected by the endpoint's own validation (400) — that 400 is the
+// success signal here, and it distinguishes a working session from a 401.
 $("test").addEventListener("click", async () => {
-  const status = await send({ type: "status" });
-  if (!status || !status.signedIn) {
-    setStatus("Not connected — sign in first.", "err");
-    return;
-  }
-
   setStatus("Testing…");
   const res = await send({ type: "test" });
   if (!res || res.error) {
@@ -103,13 +92,13 @@ $("test").addEventListener("click", async () => {
   }
   const detail = res.body ? ` — ${res.body}` : "";
   if (res.status === 401) {
-    setStatus(`HTTP 401${detail}. The connection was rejected — sign in again.`, "err");
+    setStatus(`HTTP 401${detail}. Not logged in to haipai in this browser.`, "err");
     await load();
   } else if (res.status === 400) {
-    setStatus(`HTTP 400${detail}. Connection accepted — the empty test payload is ` +
+    setStatus(`HTTP 400${detail}. Session accepted — the empty test payload is ` +
               `supposed to be rejected. You're good to go.`, "ok");
   } else if (res.status >= 200 && res.status < 300) {
-    setStatus(`HTTP ${res.status}. Connection accepted.`, "ok");
+    setStatus(`HTTP ${res.status}. Session accepted.`, "ok");
   } else {
     setStatus(`HTTP ${res.status}${detail}.`, "err");
   }

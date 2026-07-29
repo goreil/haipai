@@ -44,16 +44,6 @@ function showAccount() {
 
   html += `</div>`;
 
-  // Connected browser extensions — one row per install that signed in via
-  // /extension/authorize. Filled in async so the page renders immediately.
-  html += `<div class="account-section" style="margin-top:16px">
-    <div class="account-row" style="border-bottom:none;flex-direction:column;align-items:flex-start;gap:8px">
-      <span class="account-label" style="min-width:0">Connected browser extensions</span>
-      <p class="form-hint" style="margin:0">Browsers signed in through the Haipai uploader extension. Disconnecting one stops it uploading until it signs in again; it does not affect your bookmarklet.</p>
-      <div id="ext-tokens" style="width:100%">Loading…</div>
-    </div>
-  </div>`;
-
   // GDPR data export
   html += `<div class="account-section" style="margin-top:16px">
     <div class="account-row" style="border-bottom:none;flex-direction:column;align-items:flex-start;gap:8px">
@@ -64,44 +54,6 @@ function showAccount() {
   </div>`;
 
   content.innerHTML = html;
-  renderExtensionTokens();
-}
-
-async function renderExtensionTokens() {
-  const box = document.getElementById("ext-tokens");
-  if (!box) return;
-  let tokens;
-  try {
-    const res = await fetch("/api/me/extension-tokens");
-    if (!res.ok) throw new Error("failed");
-    tokens = (await res.json()).tokens || [];
-  } catch {
-    box.textContent = "Could not load connected extensions.";
-    return;
-  }
-  if (!tokens.length) {
-    box.innerHTML = `<p class="form-hint" style="margin:0">No extensions connected.</p>`;
-    return;
-  }
-  const fmt = (ts) => (ts ? String(ts).slice(0, 10) : "never");
-  box.innerHTML = tokens.map((t) => `
-    <div class="account-row" style="padding:6px 0">
-      <span style="flex:1">
-        <span style="font-family:monospace;font-size:12px">${t.client || "extension"}</span>
-        <span class="form-hint" style="margin-left:8px">connected ${fmt(t.created_at)} · last used ${fmt(t.last_used_at)}</span>
-      </span>
-      <button class="account-btn" data-action="revokeExtensionToken" data-token-id="${t.id}">Disconnect</button>
-    </div>`).join("");
-}
-
-async function revokeExtensionToken(id) {
-  if (!confirm("Disconnect this extension? That browser will have to sign in again to upload.")) return;
-  const res = await apiDelete(`/api/me/extension-tokens/${id}`);
-  if (res.ok) {
-    renderExtensionTokens();
-  } else {
-    alert("Could not disconnect that extension.");
-  }
 }
 
 async function linkOAuth(provider) {

@@ -17,8 +17,8 @@ Python requirements.
 | --- | --- |
 | `manifest.json` | MV3 manifest (permissions, content-script match, options page) |
 | `content.js` | Runs on `https://mjai.ekyu.moe/killerducky/*`: validates `?data=`, fetches the report JSON same-origin, shows the toast |
-| `background.js` | Service worker: owns the credential, runs sign-in, POSTs to haipai, dedupes, retries, navigates the tab |
-| `options.html` / `options.js` | Base URL, sign in / disconnect, "Test connection" |
+| `background.js` | Service worker: POSTs to haipai under the session cookie, dedupes, retries, navigates the tab |
+| `options.html` / `options.js` | Base URL, session state, "Test connection" |
 
 ## Install (load unpacked)
 
@@ -31,33 +31,34 @@ Python requirements.
 Reloading after an edit: hit the ↻ button on the extension's card. Content-script
 edits also need a reload of any open mjai tab.
 
-## First run — sign in
+## First run
+
+There is no sign-in, no token, and nothing to paste. **The extension uploads as
+whoever is logged in to haipai in that browser** — it borrows your existing
+haipai session cookie. Log in to haipai as you always do and uploads work; log
+out and they stop.
+
+Setup is therefore just the base URL:
 
 1. `chrome://extensions` → the extension's **Details** → **Extension options**
    (or right-click the toolbar icon → *Options*).
 2. **haipai base URL** — defaults to `https://haipai.ylue.de`. No trailing slash.
-3. Press **Sign in to haipai**. A haipai window opens; log in however you
-   normally do — password, Discord, or Google — then press **Connect** on the
-   consent screen. If you are already logged in to haipai in this browser, it is
-   just the one **Connect** click.
-4. The badge changes to *connected as \<your username\>*.
-5. Press **Test connection**. Expected results:
-   - `HTTP 400 … mortal_data is required` → **connection is good.** The test
-     sends an empty payload on purpose; getting past auth to the payload check
-     is the pass condition.
-   - `HTTP 401` → the connection was revoked; sign in again.
+   Press **Save base URL**.
+3. The badge shows *logged in as \<your username\>* if you have a live haipai
+   session in this browser, otherwise *not logged in* — **Open haipai login**
+   opens the login page, **Re-check** refreshes the badge afterwards.
+4. Press **Test connection**. Expected results:
+   - `HTTP 400 … mortal_data is required` → **session is good.** The test sends
+     an empty payload on purpose; getting past auth to the payload check is the
+     pass condition.
+   - `HTTP 401` → you are not logged in to haipai in this browser.
    - "Could not reach …" → base URL wrong, or the host is not in
      `host_permissions` (see below).
 
-There is no token to copy and paste. The extension never sees your password: it
-receives an upload-only credential scoped to this browser, which the service
-worker holds and the options page can never read back. **Disconnect** revokes it
-on the server and forgets it locally; you can also revoke it from haipai →
-Account → Connected browser extensions.
-
-You can sign in from the report page too — if you land on a review while not
-connected, the toast offers a **Sign in to haipai** button and continues the
-upload straight afterwards, without a reload.
+Why this works at all: Chrome attaches a `SameSite=Lax` cookie to fetches made
+by a service worker that holds host permissions for the target, so the worker's
+POST arrives authenticated without the extension ever holding — or being able to
+read — anything secret.
 
 ### Using a different haipai host
 
@@ -81,34 +82,35 @@ Reloading a report page you already uploaded jumps straight to the existing game
 `uploaded`, keyed by the report hash, and entries older than 15 days are pruned
 (mjai deletes reports after 15 days anyway).
 
-If you are not connected, the report page shows a toast with a **Sign in to
-haipai** button — and nothing is uploaded or even fetched until you do. After
-signing in the upload continues immediately; no reload needed.
+If you are logged out of haipai, the report page shows a toast with a **Log in
+to haipai** button — and nothing is uploaded or even fetched until you are. The
+button opens haipai's login page in a new tab; the report tab then watches for
+the session to appear (for up to 5 minutes) and continues the upload by itself,
+so you never have to come back and reload — which matters, because report pages
+expire after 15 days.
 
 If the upload fails, the toast stays with the error and a **Retry** button. On a
 5xx or network error the worker already retried three times (1s, 4s, 10s) before
-giving up. An auth error is never retried — instead the stored credential is
-dropped and the toast offers sign-in again. If you closed the tab, a desktop
-notification tells you it failed.
+giving up. A 401 is never retried — the toast offers the login flow instead. If
+you closed the tab, a desktop notification tells you it failed.
 
 ## Security notes
 
-- Sign-in goes through `chrome.identity.launchWebAuthFlow`, which only ever
-  hands control back to `https://<extension-id>.chromiumapp.org/` — a URL no
-  server can host and only this extension can receive. The server refuses any
-  other redirect target, which is what stops a crafted authorize link from
-  walking off with a credential. The token arrives in the URL *fragment*, so it
-  never reaches a server log.
-- The credential lives in `chrome.storage.local` and is read only by the service
-  worker. It is never injected into the page, never put in a URL, never logged,
-  and never included in toast, error, or notification text. The options page
-  cannot read it either — it asks the worker for a yes/no.
-- It is a separate secret from the bookmarklet's upload token: revoking one
-  leaves the other working, and it grants upload only — it cannot read your
-  games, notes, or account.
+- The extension stores no credential at all. It never sees your password, never
+  holds a token, and has nothing that could leak from `chrome.storage.local`,
+  a log line, a URL, or toast text. Its access is exactly your haipai session,
+  and it ends when that session does.
 - The cross-origin POST happens in the service worker under `host_permissions`,
   so it is not subject to the page's CORS rules and does not depend on haipai's
   CORS headers staying permissive.
+- Server side, `/api/games/upload` is CSRF-exempt (an extension worker cannot
+  send the `Referer` that flask-wtf's `WTF_CSRF_SSL_STRICT` demands), so it
+  carries its own cross-site guards instead: the session cookie is only accepted
+  when the request's `Origin` is haipai itself or an extension origin, the
+  session cookie is `SameSite=Lax`, and the endpoint's CORS headers deliberately
+  omit `Access-Control-Allow-Credentials`. All three are pinned by
+  `tests/test_api_extension.py`; see `api_upload`'s docstring before changing
+  any of them.
 - `content.js` resolves `?data=` against the page URL and refuses anything whose
   origin isn't `https://mjai.ekyu.moe` — a crafted link must not be able to make
   the extension fetch some other origin and ship the response to haipai.
@@ -123,13 +125,13 @@ the bookmarklet URL — and bookmark URLs sync between devices and land in brows
 history, so treat that token as exposed. Once the extension is working you no
 longer need the bookmarklet: rotate the token in haipai → Account (regenerate
 upload token) and drop the old bookmark. Rotating it does **not** affect the
-extension, which holds its own credential.
+extension, which uses no token at all.
 
-Upgrading from v1.0 of this extension: a previously pasted token keeps working
-until you sign in, at which point it is discarded in favour of the per-install
-credential.
+Upgrading from v1.x: the per-install extension tokens are gone, server side and
+all. Nothing to migrate and nothing to revoke — just reload the extension and
+make sure you are logged in to haipai in that browser.
 
-## Not in v1
+## Not implemented
 
 gzipped request bodies (`CompressionStream`), a persistent retry queue beyond the
 three in-flight attempts, Firefox/Safari ports, store publishing.

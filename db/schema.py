@@ -21,21 +21,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Per-install credentials handed to the browser extension by the
--- /extension/authorize consent flow. Deliberately separate from
--- users.upload_token (the bookmarklet's single shared secret): each install
--- gets its own row so it can be revoked on its own, and rotating the
--- bookmarklet token doesn't break installed extensions.
-CREATE TABLE IF NOT EXISTS extension_tokens (
-    id INTEGER PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    token TEXT NOT NULL UNIQUE,
-    client TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_used_at TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
 CREATE TABLE IF NOT EXISTS games (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -121,8 +106,6 @@ CREATE TABLE IF NOT EXISTS message_reads (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_upload_token
     ON users(upload_token) WHERE upload_token IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_extension_tokens_user
-    ON extension_tokens(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
 CREATE INDEX IF NOT EXISTS idx_mistakes_game_id ON mistakes(game_id);
 CREATE INDEX IF NOT EXISTS idx_category_reports_mistake ON category_reports(mistake_id);
