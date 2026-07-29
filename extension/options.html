@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>mjai → haipai uploader — options</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      max-width: 560px; margin: 24px auto; padding: 0 16px;
+    }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    p.sub { margin: 0 0 20px; opacity: .75; }
+    label { display: block; font-weight: 600; margin: 16px 0 4px; }
+    input[type=text], input[type=password] {
+      width: 100%; padding: 7px 9px; font: inherit; box-sizing: border-box;
+      border-radius: 6px; border: 1px solid #8888;
+      background: Canvas; color: CanvasText;
+    }
+    .hint { font-size: 12px; opacity: .7; margin-top: 4px; }
+    .row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+    button {
+      font: inherit; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      border: 1px solid #8888; background: #8881; color: CanvasText;
+    }
+    button:hover { background: #8883; }
+    .actions { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; }
+    #status { margin-top: 16px; min-height: 20px; }
+    #status.err { color: #c33; }
+    #status.ok { color: #2a7; }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 12px; border: 1px solid #8888;
+    }
+  </style>
+</head>
+<body>
+  <h1>mjai → haipai uploader</h1>
+  <p class="sub">Uploads the Mortal review from a mjai report page to your haipai instance.</p>
+
+  <label for="base">haipai base URL</label>
+  <input id="base" type="text" spellcheck="false" placeholder="https://haipai.ylue.de">
+  <div class="hint">
+    No trailing slash needed. The bundled manifest only grants access to
+    <code>https://haipai.ylue.de/*</code> — a different host also needs to be added to
+    <code>host_permissions</code> in <code>manifest.json</code>.
+  </div>
+
+  <label for="token">Upload token</label>
+  <input id="token" type="password" spellcheck="false" autocomplete="off" placeholder="paste token to set or replace">
+  <div class="row">
+    <button id="toggle" type="button">Show</button>
+    <span id="tokenState" class="badge">checking…</span>
+    <button id="clear" type="button">Clear stored token</button>
+  </div>
+  <div class="hint">
+    Get it from haipai → Account → upload token. Leave this field empty to keep the
+    stored token when saving. The stored token is never displayed back here.
+  </div>
+
+  <div class="actions">
+    <button id="save" type="button">Save</button>
+    <button id="test" type="button">Test connection</button>
+  </div>
+
+  <div id="status" role="status"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>

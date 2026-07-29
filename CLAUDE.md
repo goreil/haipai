@@ -99,6 +99,9 @@ grepping. If you change a concept that isn't listed, add it.
 - Backend category metadata reference (NOT the categorizer): `lib/categories.py`
 - App entry: `app.py`
 
+**Browser extension (outside the Flask app)**
+- Chrome MV3 auto-uploader (mjai report page → `POST /api/games/upload` → `#g<id>`): `extension/` (`manifest.json`, `background.js` = service worker owning the upload token + the cross-origin POST, `content.js` = report-page `?data=` guard + fetch + toast, `options.html`/`options.js`, `README.md`). Vanilla JS, no build step; not served by `static/`, not in the Docker image. Contract + hard constraints (never POST to mjai's `/review`, never expose the token to page context): `docs/backlogs/Browser-extension-spec.md`. Server side of the flow is `api_upload` in `routes/game.py`; the older bookmarklet it replaces is built in `static/js/ui.js`.
+
 ## Further context
 
 - Tile notation (mjai format vs. SVG filenames) → `.claude/skills/tile-notation/SKILL.md`
