@@ -127,13 +127,9 @@
     const known = await send({ type: "check", key });
     if (known && known.known) return;
 
-    // Nothing to upload with — say so before fetching a report we can't send.
-    if (known && known.hasToken === false) {
-      toast("No upload token configured — open the extension options and paste " +
-            "your haipai upload token, then reload this page.", "err", [
-        { label: "Open options", onClick: () => send({ type: "openOptions" }) },
-        { label: "Dismiss", onClick: hideToast },
-      ]);
+    // Not signed in — offer it here, before fetching a report we can't send.
+    if (known && known.signedIn === false) {
+      promptSignIn("Sign in to haipai to upload this review.");
       return;
     }
 
@@ -167,15 +163,38 @@
     }
 
     const err = (res && res.error) || "Upload failed.";
-    const actions = [];
-    if (res && res.needsOptions) {
-      actions.push({ label: "Open options", onClick: () => send({ type: "openOptions" }) });
+    if (res && res.needsSignIn) {
+      promptSignIn(err);
+      return;
     }
+    const actions = [];
     if (!res || res.retryable !== false) {
       actions.push({ label: "Retry", onClick: retry });
     }
     actions.push({ label: "Dismiss", onClick: hideToast });
     toast(err, "err", actions);
+  }
+
+  // The sign-in window is opened by the worker (only it has the identity API).
+  // On success we go straight on with the upload, so the user never has to
+  // reload the report page — which matters, because these pages expire.
+  function promptSignIn(message) {
+    toast(message, "err", [
+      {
+        label: "Sign in to haipai",
+        onClick: async () => {
+          toast("Waiting for sign-in…");
+          const res = await send({ type: "signIn" });
+          if (res && res.ok) {
+            toast(res.account ? `Signed in as ${res.account}.` : "Signed in.", "ok");
+            run();
+          } else {
+            promptSignIn((res && res.error) || "Sign-in failed.");
+          }
+        },
+      },
+      { label: "Dismiss", onClick: hideToast },
+    ]);
   }
 
   function retry() {

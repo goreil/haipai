@@ -412,11 +412,21 @@ def api_upload_preflight():
 
 @games_bp.route("/api/games/upload", methods=["POST"])
 def api_upload():
-    """Token-authenticated game upload for the cross-origin bookmarklet.
+    """Token-authenticated game upload for the bookmarklet and the extension.
 
-    Auth: `Authorization: Bearer <upload_token>`. Skips Flask-Login (sessions
-    won't be sent cross-origin under SameSite=Lax) and CSRF (CSRF is exempted
-    on app registration). Origin is locked to mjai.ekyu.moe via CORS.
+    Auth: `Authorization: Bearer <token>`, accepted from either credential —
+    the account's single `upload_token` (bookmarklet) or a per-install
+    extension token minted by /extension/authorize. Both are checked here so
+    the two clients share one endpoint; they stay separate secrets so
+    regenerating one doesn't break the other.
+
+    Skips Flask-Login (sessions won't be sent cross-origin under SameSite=Lax)
+    and CSRF (exempted on app registration) — safe precisely because a Bearer
+    token is not an ambient credential the way a cookie is.
+
+    CORS pins the browser-page caller to mjai.ekyu.moe. The extension's own
+    POST comes from its service worker under host permissions, which isn't
+    subject to CORS at all.
     """
     from app import get_conn
     auth = request.headers.get("Authorization", "")
@@ -425,7 +435,7 @@ def api_upload():
         return _json_with_cors({"error": "Missing Bearer token"}, 401)
 
     conn = get_conn()
-    user = db.get_user_by_upload_token(conn, token)
+    user = db.get_user_by_upload_token(conn, token) or db.get_user_by_extension_token(conn, token)
     if not user:
         return _json_with_cors({"error": "Invalid upload token"}, 401)
 

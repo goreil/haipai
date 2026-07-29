@@ -155,6 +155,7 @@ limiter.limit("10 per minute")(app.view_functions["auth.auth_google"])
 limiter.limit("10 per minute")(app.view_functions["auth.auth_google_callback"])
 limiter.limit("10 per minute")(app.view_functions["auth.verify_email"])
 limiter.limit("5 per minute")(app.view_functions["auth.resend_verification"])
+limiter.limit("10 per minute")(app.view_functions["auth.extension_authorize"])
 
 # CSRF exemption for /api/me (read-only JSON returning the CSRF token itself).
 csrf.exempt(app.view_functions["auth.api_me"])
@@ -163,6 +164,10 @@ csrf.exempt(app.view_functions["auth.api_me"])
 # token, not cookies, and CORS pins the origin to mjai.ekyu.moe.
 csrf.exempt(app.view_functions["games.api_upload"])
 csrf.exempt(app.view_functions["games.api_upload_preflight"])
+
+# Same reasoning for the extension's sign-out call: authenticated by the
+# Bearer token it is deleting, never by a cookie.
+csrf.exempt(app.view_functions["auth.api_extension_revoke"])
 
 
 # --- Init ---

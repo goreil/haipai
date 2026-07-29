@@ -46,20 +46,24 @@
     <code>host_permissions</code> in <code>manifest.json</code>.
   </div>
 
-  <label for="token">Upload token</label>
-  <input id="token" type="password" spellcheck="false" autocomplete="off" placeholder="paste token to set or replace">
+  <div class="actions">
+    <button id="save" type="button">Save base URL</button>
+  </div>
+
+  <label>Account</label>
   <div class="row">
-    <button id="toggle" type="button">Show</button>
-    <span id="tokenState" class="badge">checking…</span>
-    <button id="clear" type="button">Clear stored token</button>
+    <span id="authState" class="badge">checking…</span>
+    <button id="signin" type="button">Sign in to haipai</button>
+    <button id="signout" type="button" hidden>Disconnect</button>
   </div>
   <div class="hint">
-    Get it from haipai → Account → upload token. Leave this field empty to keep the
-    stored token when saving. The stored token is never displayed back here.
+    Signing in opens haipai in a window so you can log in the way you normally
+    do &mdash; password, Discord, or Google. This extension never sees your
+    password. It receives an upload-only credential for this browser, which you
+    can revoke here or from haipai &rarr; Account at any time.
   </div>
 
   <div class="actions">
-    <button id="save" type="button">Save</button>
     <button id="test" type="button">Test connection</button>
   </div>
 

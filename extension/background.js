@@ -1,12 +1,14 @@
 // MV3 service worker.
 //
-// Owns the upload token and performs the cross-origin POST to haipai. Doing
-// the POST here (under host_permissions) rather than in the content script
-// bypasses CORS entirely — the extension stays working regardless of what
-// haipai's CORS headers say — and keeps the token out of page context.
+// Owns the account credential and performs the cross-origin POST to haipai.
+// Doing the POST here (under host_permissions) rather than in the content
+// script bypasses CORS entirely — the extension stays working regardless of
+// what haipai's CORS headers say — and keeps the credential out of page
+// context.
 //
-// The token is never logged, never returned to the content script, never put
-// in a notification, and never placed in a URL.
+// Auth is a per-install token obtained by signing in to haipai (see signIn()),
+// not a token the user copies by hand. It is never logged, never returned to
+// the content script, never put in a notification, and never placed in a URL.
 
 "use strict";
 
@@ -21,9 +23,16 @@ const NOTIFY_ICON =
 // ------------------------------------------------------------------ storage
 
 async function getSettings() {
-  const s = await chrome.storage.local.get(["haipaiBase", "uploadToken"]);
+  const s = await chrome.storage.local.get(["haipaiBase", "authToken", "account", "uploadToken"]);
   const base = String(s.haipaiBase || DEFAULT_BASE).trim().replace(/\/+$/, "");
-  return { base, token: s.uploadToken || "" };
+  // `uploadToken` is the pre-1.1 hand-pasted bookmarklet token. The upload
+  // endpoint still accepts it, so an existing install keeps working until the
+  // user signs in; new installs only ever have `authToken`.
+  return { base, token: s.authToken || s.uploadToken || "", account: s.account || "" };
+}
+
+async function clearAuth() {
+  await chrome.storage.local.remove(["authToken", "account", "uploadToken"]);
 }
 
 // Returns the dedupe map with expired entries dropped (and persists the prune).
@@ -78,6 +87,78 @@ function notify(title, message) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// ------------------------------------------------------------------- login
+
+// Signs in by opening haipai's own authorize page in a browser window. The
+// user logs in there exactly as they normally would — password, Discord, or
+// Google — which is why the extension asks for no credentials of its own:
+// most haipai accounts are OAuth and have no password to type.
+//
+// launchWebAuthFlow only ever resolves to https://<extension-id>.chromiumapp.org/,
+// a URL nothing but this extension can receive, and the token arrives in the
+// fragment, so it never reaches a server log.
+async function signIn() {
+  const { base } = await getSettings();
+  const redirectUri = chrome.identity.getRedirectURL();
+  // Binds this response to this request — a stale or injected callback with
+  // the wrong state is discarded rather than stored.
+  const state = crypto.randomUUID();
+  const authUrl =
+    `${base}/extension/authorize` +
+    `?redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&state=${encodeURIComponent(state)}`;
+
+  let resultUrl;
+  try {
+    resultUrl = await chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true });
+  } catch (e) {
+    // Includes the user simply closing the window.
+    return { ok: false, error: "Sign-in was cancelled." };
+  }
+  if (!resultUrl) return { ok: false, error: "Sign-in was cancelled." };
+
+  let params;
+  try {
+    params = new URLSearchParams(new URL(resultUrl).hash.slice(1));
+  } catch {
+    return { ok: false, error: "Could not read the sign-in response." };
+  }
+
+  if (params.get("state") !== state) {
+    return { ok: false, error: "Sign-in response did not match the request. Try again." };
+  }
+  if (params.get("error")) {
+    return { ok: false, error: "Sign-in was declined." };
+  }
+  const token = params.get("token");
+  if (!token) return { ok: false, error: "Sign-in did not return a credential." };
+
+  const account = params.get("username") || "";
+  // Drop any legacy hand-pasted token so there is exactly one credential.
+  await chrome.storage.local.remove("uploadToken");
+  await chrome.storage.local.set({ authToken: token, account });
+  return { ok: true, account };
+}
+
+// Best-effort server-side revoke, then forget the credential locally. The
+// local clear happens regardless — a user who clicks Disconnect offline must
+// still end up disconnected.
+async function signOut() {
+  const { base, token } = await getSettings();
+  if (token) {
+    try {
+      await fetch(`${base}/api/extension/revoke`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+    } catch {
+      // Offline or unreachable — the local clear below still applies.
+    }
+  }
+  await clearAuth();
+  return { ok: true };
+}
+
 // ------------------------------------------------------------------ upload
 
 // Resolves to a result object safe to hand back to the page's content script:
@@ -86,12 +167,12 @@ async function handleUpload(key, report, tabId) {
   const { base, token } = await getSettings();
 
   if (!token) {
-    notify("haipai upload", "No upload token configured. Open the extension options to set one.");
+    notify("haipai upload", "Not signed in to haipai. Sign in to upload this review.");
     return {
       ok: false,
       retryable: false,
-      needsOptions: true,
-      error: "No upload token configured — open the extension options and paste your haipai upload token.",
+      needsSignIn: true,
+      error: "Not signed in to haipai.",
     };
   }
 
@@ -135,13 +216,16 @@ async function handleUpload(key, report, tabId) {
     }
 
     if (res.status === 401) {
-      // Retrying a rejected token is pointless.
-      notify("haipai upload failed", "Invalid or missing upload token — check the extension options.");
+      // The credential was revoked (from Account, or by signing out in another
+      // browser). Drop it so the UI offers a fresh sign-in rather than
+      // retrying something the server has already rejected.
+      await clearAuth();
+      notify("haipai upload failed", "Your haipai connection expired — sign in again.");
       return {
         ok: false,
         retryable: false,
-        needsOptions: true,
-        error: "Invalid or missing upload token — check extension options.",
+        needsSignIn: true,
+        error: "Your haipai connection is no longer valid — sign in again.",
       };
     }
 
@@ -184,10 +268,62 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         await navigate(tabId, gameUrl(base, hit.gameId));
         sendResponse({ known: true, gameId: hit.gameId });
       } else {
-        // `hasToken` is a boolean, never the token — it lets the content script
-        // prompt for setup without first fetching a ~330 KB report it can't use.
-        sendResponse({ known: false, hasToken: Boolean(token) });
+        // `signedIn` is a boolean, never the token — it lets the content script
+        // prompt for sign-in without first fetching a ~330 KB report it can't use.
+        sendResponse({ known: false, signedIn: Boolean(token) });
       }
+    })();
+    return true; // async response
+  }
+
+  if (msg.type === "signIn") {
+    (async () => {
+      try {
+        sendResponse(await signIn());
+      } catch (e) {
+        sendResponse({ ok: false, error: String((e && e.message) || e) });
+      }
+    })();
+    return true; // async response
+  }
+
+  if (msg.type === "signOut") {
+    (async () => sendResponse(await signOut()))();
+    return true; // async response
+  }
+
+  // Connection test for the options page. Runs here rather than there so the
+  // credential stays inside the worker; the page only sees status + body.
+  if (msg.type === "test") {
+    (async () => {
+      const { base, token } = await getSettings();
+      if (!token) {
+        sendResponse({ error: "Not connected — sign in first." });
+        return;
+      }
+      try {
+        const res = await fetch(`${base}/api/games/upload`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({ mortal_data: {} }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (res.status === 401) await clearAuth();
+        sendResponse({ status: res.status, body: (payload && payload.error) || "" });
+      } catch (e) {
+        sendResponse({ error: "Could not reach " + base + ": " + String((e && e.message) || e) });
+      }
+    })();
+    return true; // async response
+  }
+
+  if (msg.type === "status") {
+    (async () => {
+      const { base, token, account } = await getSettings();
+      sendResponse({ base, signedIn: Boolean(token), account });
     })();
     return true; // async response
   }

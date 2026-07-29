@@ -1,8 +1,10 @@
-// Options page. Stores { haipaiBase, uploadToken } in chrome.storage.local.
+// Options page. Stores { haipaiBase } plus the credential obtained by signing
+// in to haipai.
 //
-// The stored token is never written back into the DOM — the page only ever
-// shows whether one is set. The token input is write-only from the page's
-// point of view: what you type is what gets saved.
+// The credential itself is owned by the service worker and is never read into
+// this page — the page only ever asks whether one exists and who it belongs
+// to. Sign-in is delegated to the worker too, since only it holds the identity
+// API.
 
 "use strict";
 
@@ -10,8 +12,7 @@ const DEFAULT_BASE = "https://haipai.ylue.de";
 
 const $ = (id) => document.getElementById(id);
 const baseEl = $("base");
-const tokenEl = $("token");
-const stateEl = $("tokenState");
+const stateEl = $("authState");
 const statusEl = $("status");
 
 function setStatus(msg, kind) {
@@ -23,18 +24,30 @@ function normalizeBase(v) {
   return String(v || "").trim().replace(/\/+$/, "");
 }
 
-async function load() {
-  const s = await chrome.storage.local.get(["haipaiBase", "uploadToken"]);
-  baseEl.value = normalizeBase(s.haipaiBase) || DEFAULT_BASE;
-  // Deliberately not `tokenEl.value = s.uploadToken` — indicator only.
-  stateEl.textContent = s.uploadToken ? "token is set" : "no token saved";
+function send(msg) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(msg, (res) => {
+      if (chrome.runtime.lastError) {
+        resolve({ ok: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+      resolve(res || { ok: false, error: "No response from the extension." });
+    });
+  });
 }
 
-$("toggle").addEventListener("click", () => {
-  const showing = tokenEl.type === "text";
-  tokenEl.type = showing ? "password" : "text";
-  $("toggle").textContent = showing ? "Show" : "Hide";
-});
+async function load() {
+  const s = await chrome.storage.local.get("haipaiBase");
+  baseEl.value = normalizeBase(s.haipaiBase) || DEFAULT_BASE;
+
+  const status = await send({ type: "status" });
+  const signedIn = Boolean(status && status.signedIn);
+  stateEl.textContent = signedIn
+    ? (status.account ? `connected as ${status.account}` : "connected")
+    : "not connected";
+  $("signin").textContent = signedIn ? "Sign in again" : "Sign in to haipai";
+  $("signout").hidden = !signedIn;
+}
 
 $("save").addEventListener("click", async () => {
   const base = normalizeBase(baseEl.value) || DEFAULT_BASE;
@@ -50,63 +63,53 @@ $("save").addEventListener("click", async () => {
     return;
   }
 
-  const update = { haipaiBase: base };
-  const typed = tokenEl.value.trim();
-  if (typed) update.uploadToken = typed;
-
-  await chrome.storage.local.set(update);
-  tokenEl.value = "";
-  tokenEl.type = "password";
-  $("toggle").textContent = "Show";
+  await chrome.storage.local.set({ haipaiBase: base });
   await load();
-  setStatus(typed ? "Saved. Token updated." : "Saved. Existing token kept.", "ok");
+  setStatus("Saved.", "ok");
 });
 
-$("clear").addEventListener("click", async () => {
-  await chrome.storage.local.remove("uploadToken");
-  tokenEl.value = "";
+$("signin").addEventListener("click", async () => {
+  setStatus("Waiting for sign-in…");
+  const res = await send({ type: "signIn" });
   await load();
-  setStatus("Stored token cleared.", "ok");
+  if (res && res.ok) {
+    setStatus(res.account ? `Connected as ${res.account}.` : "Connected.", "ok");
+  } else {
+    setStatus((res && res.error) || "Sign-in failed.", "err");
+  }
 });
 
-// Sends a deliberately empty payload. A valid token gets past auth and is then
-// rejected by the endpoint's own validation (400) — that 400 is the success
-// signal here, and it distinguishes a good token from 401 "Invalid upload token".
+$("signout").addEventListener("click", async () => {
+  await send({ type: "signOut" });
+  await load();
+  setStatus("Disconnected. This browser can no longer upload.", "ok");
+});
+
+// Sends a deliberately empty payload. A working connection gets past auth and
+// is then rejected by the endpoint's own validation (400) — that 400 is the
+// success signal here, and it distinguishes a live connection from a 401.
 $("test").addEventListener("click", async () => {
-  const base = normalizeBase(baseEl.value) || DEFAULT_BASE;
-  const typed = tokenEl.value.trim();
-  const stored = (await chrome.storage.local.get("uploadToken")).uploadToken || "";
-  const token = typed || stored;
-  if (!token) {
-    setStatus("No token to test — paste one above (or save it first).", "err");
+  const status = await send({ type: "status" });
+  if (!status || !status.signedIn) {
+    setStatus("Not connected — sign in first.", "err");
     return;
   }
 
   setStatus("Testing…");
-  let res, payload;
-  try {
-    res = await fetch(`${base}/api/games/upload`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify({ mortal_data: {} }),
-    });
-  } catch (e) {
-    setStatus("Could not reach " + base + ": " + String((e && e.message) || e), "err");
+  const res = await send({ type: "test" });
+  if (!res || res.error) {
+    setStatus((res && res.error) || "Test failed.", "err");
     return;
   }
-  payload = await res.json().catch(() => ({}));
-  const detail = payload && payload.error ? ` — ${payload.error}` : "";
-
+  const detail = res.body ? ` — ${res.body}` : "";
   if (res.status === 401) {
-    setStatus(`HTTP 401${detail}. The token was rejected.`, "err");
+    setStatus(`HTTP 401${detail}. The connection was rejected — sign in again.`, "err");
+    await load();
   } else if (res.status === 400) {
-    setStatus(`HTTP 400${detail}. Token accepted — the empty test payload is ` +
+    setStatus(`HTTP 400${detail}. Connection accepted — the empty test payload is ` +
               `supposed to be rejected. You're good to go.`, "ok");
-  } else if (res.ok) {
-    setStatus(`HTTP ${res.status}. Token accepted.`, "ok");
+  } else if (res.status >= 200 && res.status < 300) {
+    setStatus(`HTTP ${res.status}. Connection accepted.`, "ok");
   } else {
     setStatus(`HTTP ${res.status}${detail}.`, "err");
   }
