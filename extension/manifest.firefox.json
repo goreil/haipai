@@ -9,7 +9,13 @@
     "https://haipai.ylue.de/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "scripts": ["background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "haipai-uploader@ylue.de",
+      "strict_min_version": "128.0"
+    }
   },
   "icons": {
     "16": "icons/icon-16.png",

@@ -124,6 +124,13 @@ Both are ~15 minutes with one real report URL. Do them first.
   Developer Program, review cycle, ongoing maintenance) for a user base we
   haven't sized. Park it unless MOB-03/04 measurably fail.
 
+  Since v2.1 the desktop extension already runs on Firefox from the same
+  directory as Chrome (`extension/`), so the **Firefox Android** half is no
+  longer a port — it is mostly a distribution problem (Firefox Android only
+  installs extensions from an AMO listing or a Nightly custom collection, so it
+  needs the unlisted-signing step in `extension/README.md`). The Safari half is
+  unchanged and still the expensive one.
+
 ---
 
 ## Recommended sequence

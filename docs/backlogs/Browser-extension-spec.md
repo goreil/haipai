@@ -1,4 +1,7 @@
-# Chrome Extension: mjai → haipai auto-upload
+# Browser Extension: mjai → haipai auto-upload
+
+Chrome and Firefox, from one source tree — see
+[Cross-browser (v2.1)](#cross-browser-v21).
 
 ## Goal
 
@@ -26,9 +29,9 @@ This replaces a bookmarklet the user currently runs by hand on the report page.
 
 MV3, three parts:
 
-1. **Content script** on `https://mjai.ekyu.moe/killerducky/*` — resolves the `data` param, fetches the report JSON same-origin, hands it to the service worker.
-2. **Service worker** — performs the cross-origin POST, authenticated by the user's haipai session cookie. Cross-origin fetch from a content script is still subject to CORS in MV3; doing it in the worker under `host_permissions` bypasses CORS entirely, makes the extension immune to haipai's CORS config changing, and is what gets the Lax cookie attached in the first place.
-3. **Options page** — lets the user set the haipai base URL and see whether this browser has a live haipai session. Settings live in `chrome.storage.local`.
+1. **Content script** on `https://mjai.ekyu.moe/killerducky/*` — resolves the `data` param, fetches the report JSON same-origin, hands it to the background context.
+2. **Background context** (Chrome: service worker; Firefox: event page) — performs the cross-origin POST, authenticated by the user's haipai session cookie. Cross-origin fetch from a content script is still subject to CORS in MV3; doing it in the background under `host_permissions` bypasses CORS entirely, makes the extension immune to haipai's CORS config changing, and is what gets the Lax cookie attached in the first place.
+3. **Options page** — lets the user set the haipai base URL, grant host access where the browser did not (Firefox), and see whether this browser has a live haipai session. Settings live in extension-local storage.
 
 ## Authentication (v2.0 — the haipai session cookie)
 
@@ -79,35 +82,38 @@ Bearer token would not.
 ## File layout
 
 ```
-manifest.json
-background.js
-content.js
-options.html
-options.js
+extension/                     <- source of truth; Chrome loads this directly
+  manifest.json                   Chrome manifest (background.service_worker)
+  manifest.firefox.json           Firefox manifest (background.scripts)
+  build-firefox.sh                generates ../extension-firefox/
+  background.js
+  content.js
+  options.html
+  options.js
+  icons/icon-{16,32,48,128}.png
+
+extension-firefox/             <- GENERATED, git-ignored; Firefox loads this
 ```
 
-## manifest.json
+`extension/README.md` is the operational doc (install per browser, first run,
+the cross-browser seams).
+
+## manifests
+
+See `extension/manifest.json` (Chrome) and `extension/manifest.firefox.json`
+(Firefox) for the live files; they are identical except for `background` and the
+Firefox-only `browser_specific_settings`, and `build-firefox.sh` enforces that.
+`options_ui` replaces `options_page` in both, since Firefox prefers it.
 
 ```json
-{
-  "manifest_version": 3,
-  "name": "mjai → haipai uploader",
-  "version": "1.0.0",
-  "permissions": ["storage", "tabs", "notifications"],
-  "host_permissions": [
-    "https://mjai.ekyu.moe/*",
-    "https://haipai.ylue.de/*"
-  ],
-  "background": { "service_worker": "background.js" },
-  "options_page": "options.html",
-  "content_scripts": [
-    {
-      "matches": ["https://mjai.ekyu.moe/killerducky/*"],
-      "js": ["content.js"],
-      "run_at": "document_idle"
-    }
-  ]
-}
+  // Chrome                          // Firefox
+  "background": {                    "background": {
+    "service_worker": "background.js"   "scripts": ["background.js"]
+  }                                  },
+                                     "browser_specific_settings": {
+                                       "gecko": {
+                                         "id": "haipai-uploader@ylue.de",
+                                         "strict_min_version": "128.0" } }
 ```
 
 ## content.js
@@ -154,6 +160,93 @@ Optionally add `chrome.notifications.create` for terminal failure, so the user s
 ## options.html / options.js
 
 haipai base URL (default `https://haipai.ylue.de`), a session badge with **Open haipai login** / **Re-check**, and a "Test connection" button that POSTs `{mortal_data:{}}` and reports the status code, so a live session (400 `mortal_data is required`) is distinguishable from a logged-out one (401). Persist the base URL to `chrome.storage.local`. The page cannot reach haipai itself, so it asks the worker for both the session state (via `/api/me`) and the connection test.
+
+## Cross-browser (v2.1)
+
+The shared code is ~500 lines of security-sensitive logic, so it exists **once**,
+in `extension/`. Chrome loads that directory directly; Firefox loads
+`extension-firefox/`, a generated, git-ignored copy produced by
+`extension/build-firefox.sh` (shared files verbatim + `manifest.firefox.json`
+renamed to `manifest.json`). Two seams differ:
+
+1. **Background context — the one that forces a second directory.** Chrome MV3
+   requires `background.service_worker` and rejects `background.scripts` as
+   MV2-only; Firefox rejects `background.service_worker` outright
+   (*"currently disabled. Add background.scripts."*). Two approaches were tried
+   and **both failed**, so do not re-attempt them:
+   - *One manifest carrying both keys.* Firefox 140 ESR accepts it (measured: no
+     errors, no warnings, background page runs), but current Firefox refuses the
+     install with the message above. Shipping it breaks real users.
+   - *A second directory of symlinks into `extension/`.* The add-on installs,
+     but Firefox will not read symlinked extension resources — navigating to the
+     options page times out, while the byte-identical directory with real files
+     loads in ~0.4s.
+
+   Hence real copies and a generate step. Because the two manifests are separate
+   files they can drift, so `build-firefox.sh` diffs every key except
+   `background` and `browser_specific_settings` and fails the build on
+   disagreement. **Constraint on `background.js`: never assume a
+   `ServiceWorkerGlobalScope`** — no `skipWaiting`, no `oninstall`, no `clients`.
+   Plain `fetch` and timers only.
+2. **API namespace.** Every file opens with
+   `const ext = globalThis.browser ?? globalThis.chrome;`. Firefox's `browser.*`
+   is promise-based and Chrome's MV3 `chrome.*` is too, so preferring `browser`
+   gives one awaitable code path with no callback shims and no
+   `webextension-polyfill` dependency. **A bare `chrome.*` anywhere breaks
+   Firefox's promise contract** — `rg '\bchrome\.' extension/` should match only
+   prose.
+
+**Server side needed no change**: `EXTENSION_ORIGIN_SCHEMES` in `routes/game.py`
+already accepted `moz-extension://`, and `tests/test_api_extension.py` already
+pinned it.
+
+Firefox-specific behaviour that Chrome does not have:
+
+- **Host permissions are revocable at any time from `about:addons`** — if
+  revoked, the content script stops injecting and the POST fails as an opaque
+  network error. Firefox ≥127 grants them at install, and this was **measured on
+  140 ESR to include a temporary `about:debugging` install** (`permissions
+  .contains` → true straight after `installTemporaryAddon`), contradicting older
+  write-ups such as web-ext#2980 — so the grant step is a fallback, not a
+  required install step. Handled by
+  `hasHostAccess()` in `background.js` (turns the opaque failure into a
+  `needsPermission` result), `promptPermission()` in `content.js`, and the
+  **Grant access** button on the options page. `permissions.request()` must be
+  called from an extension page synchronously inside a user-gesture handler —
+  awaiting first discards the gesture, and a content script cannot do it at all,
+  which is why the button lives on the options page and the toast only links
+  there.
+- **Notification icons must be packaged files**, not `data:` URLs (Firefox
+  refuses those) — hence `icons/`, which also gives both browsers a real add-on
+  icon.
+- **Permanent install needs signing.** Unlisted AMO signing yields a self-hosted
+  `.xpi`; otherwise Developer Edition/Nightly/ESR with
+  `xpinstall.signatures.required=false`. Release Firefox will not load it
+  unsigned.
+
+### The Firefox cookie measurement — done, PASS
+
+The cookie behaviour is the load-bearing assumption of the whole design, so it
+is measured on both engines against production, not inferred:
+
+| | Chromium 150 | Firefox 140 ESR |
+| --- | --- | --- |
+| background `credentials:'include'` | 200 | authenticated (400 `mortal_data is required` on the empty test payload) |
+| control | `credentials:'omit'` → 401 | logged out → 401 on the identical path |
+
+Firefox method (reproducible without geckodriver/web-ext, neither of which is
+installed here): drive Marionette directly over TCP — `firefox-esr --headless
+--marionette -remote-allow-system-access`, `Addon:Install {temporary:true}`,
+read the `moz-extension://` UUID from the `extensions.webextensions.uuids` pref,
+then log in in a normal tab and click the options page's **Test connection**.
+That button POSTs an *empty* payload, so the measurement stores nothing.
+
+So Firefox does treat an extension background request to a permitted host as
+same-site and attaches the `SameSite=Lax` session cookie. If a future browser
+change breaks this, the symptom is a 401 loop with host access granted and a
+live login, and the fallback is the Bearer `upload_token` path, which
+`/api/games/upload` still accepts and which does not depend on cookie behaviour
+(git history has the v1.1 per-install token implementation).
 
 ## Acceptance criteria
 

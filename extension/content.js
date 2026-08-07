@@ -10,6 +10,10 @@
 (() => {
   "use strict";
 
+  // Firefox exposes the promise-based `browser`; Chrome only `chrome`, whose
+  // MV3 APIs are promise-based too. One namespace, one code path, no shims.
+  const ext = globalThis.browser ?? globalThis.chrome;
+
   // ---------------------------------------------------------------- toast
 
   // Non-blocking status bubble. alert() is forbidden here: the tab is about
@@ -102,22 +106,14 @@
 
   // ------------------------------------------------------------- messaging
 
-  function send(msg) {
-    return new Promise((resolve) => {
-      let settled = false;
-      try {
-        chrome.runtime.sendMessage(msg, (res) => {
-          settled = true;
-          if (chrome.runtime.lastError) {
-            resolve({ ok: false, error: chrome.runtime.lastError.message });
-            return;
-          }
-          resolve(res || { ok: false, error: "No response from extension." });
-        });
-      } catch (e) {
-        if (!settled) resolve({ ok: false, error: String(e && e.message || e) });
-      }
-    });
+  async function send(msg) {
+    try {
+      const res = await ext.runtime.sendMessage(msg);
+      return res || { ok: false, error: "No response from extension." };
+    } catch (e) {
+      // Background context gone, or the listener threw before responding.
+      return { ok: false, error: String((e && e.message) || e) };
+    }
   }
 
   async function run() {
@@ -126,6 +122,12 @@
     // no second upload, no toast.
     const known = await send({ type: "check", key });
     if (known && known.known) return;
+
+    // Firefox: host access can be missing or revoked (see promptPermission).
+    if (known && known.needsPermission) {
+      promptPermission();
+      return;
+    }
 
     // Not signed in — say so here, before fetching a report we can't send.
     if (known && known.signedIn === false) {
@@ -163,6 +165,10 @@
     }
 
     const err = (res && res.error) || "Upload failed.";
+    if (res && res.needsPermission) {
+      promptPermission();
+      return;
+    }
     if (res && res.needsSignIn) {
       promptSignIn(err);
       return;
@@ -173,6 +179,20 @@
     }
     actions.push({ label: "Dismiss", onClick: hideToast });
     toast(err, "err", actions);
+  }
+
+  // Firefox MV3 treats host permissions as revocable, and an extension loaded
+  // temporarily via about:debugging starts with none granted — so the upload
+  // would fail as an opaque network error. `permissions.request()` has to come
+  // from an extension page on a real user gesture, which a content script is
+  // not, so the fix lives on the options page and we just point there.
+  function promptPermission() {
+    toast("The extension has no access to your haipai host yet. Grant it on " +
+          "the options page, then retry.", "err", [
+      { label: "Open options", onClick: () => send({ type: "openOptions" }) },
+      { label: "Retry", onClick: retry },
+      { label: "Dismiss", onClick: hideToast },
+    ]);
   }
 
   // There is no extension-side sign-in: being logged in to haipai in this

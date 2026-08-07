@@ -1,36 +1,47 @@
-// MV3 service worker.
+// Background script. One file, two browsers.
+//
+// Chrome MV3 runs this as a service worker (manifest `background.service_worker`);
+// Firefox MV3 has no service workers and runs it as a non-persistent event page
+// (`background.scripts`). Both keys are in the manifest and each browser ignores
+// the other's, so nothing here may assume a ServiceWorkerGlobalScope — no
+// `self.skipWaiting`, no `oninstall`, no `clients`. Plain fetch + timers only,
+// which is all this needs.
 //
 // Performs the cross-origin POST to haipai. Doing it here (under
 // host_permissions) rather than in the content script bypasses CORS entirely —
 // the extension keeps working regardless of what haipai's CORS headers say.
 //
-// Auth is haipai's ordinary session cookie: Chrome attaches a SameSite=Lax
-// cookie to fetches from a worker that holds host permissions for the target,
-// so "signed in" here means nothing more than "logged in to haipai in this
-// browser". The extension holds no credential of its own — nothing to store,
-// nothing to leak, nothing to revoke. Logging out of haipai logs out the
+// Auth is haipai's ordinary session cookie: the browser attaches a SameSite=Lax
+// cookie to fetches from a background context that holds host permissions for
+// the target, so "signed in" here means nothing more than "logged in to haipai
+// in this browser". The extension holds no credential of its own — nothing to
+// store, nothing to leak, nothing to revoke. Logging out of haipai logs out the
 // uploader with it.
 
 "use strict";
+
+// Firefox exposes the promise-based `browser`; Chrome only `chrome`, whose MV3
+// APIs are promise-based too. Preferring `browser` means every call below is
+// awaitable in both browsers, so there is one code path and no callback shims.
+const ext = globalThis.browser ?? globalThis.chrome;
 
 const DEFAULT_BASE = "https://haipai.ylue.de";
 const RETRY_DELAYS_MS = [1000, 4000, 10000]; // 3 retries after the first try
 const DEDUPE_TTL_MS = 15 * 24 * 60 * 60 * 1000; // mjai reports expire in 15 days
 
-// 48x48 solid square; inlined so the extension keeps the spec's file layout.
-const NOTIFY_ICON =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAQ0lEQVR42u3PMQ0AAAgDMBRhdKLBAi9JjwpodTKflYCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDA1QI751wt8YdmiQAAAABJRU5ErkJggg==";
+// A packaged file, not a data: URL — Firefox refuses data: notification icons.
+const NOTIFY_ICON = "icons/icon-48.png";
 
 // ------------------------------------------------------------------ storage
 
 async function getBase() {
-  const s = await chrome.storage.local.get("haipaiBase");
+  const s = await ext.storage.local.get("haipaiBase");
   return String(s.haipaiBase || DEFAULT_BASE).trim().replace(/\/+$/, "");
 }
 
 // Returns the dedupe map with expired entries dropped (and persists the prune).
 async function getUploaded() {
-  const { uploaded } = await chrome.storage.local.get("uploaded");
+  const { uploaded } = await ext.storage.local.get("uploaded");
   const map = (uploaded && typeof uploaded === "object") ? uploaded : {};
   const cutoff = Date.now() - DEDUPE_TTL_MS;
   let pruned = false;
@@ -40,14 +51,29 @@ async function getUploaded() {
       pruned = true;
     }
   }
-  if (pruned) await chrome.storage.local.set({ uploaded: map });
+  if (pruned) await ext.storage.local.set({ uploaded: map });
   return map;
 }
 
 async function rememberUpload(key, gameId) {
   const map = await getUploaded();
   map[key] = { gameId: gameId ?? null, ts: Date.now() };
-  await chrome.storage.local.set({ uploaded: map });
+  await ext.storage.local.set({ uploaded: map });
+}
+
+// -------------------------------------------------------------- permissions
+
+// Firefox MV3 treats host permissions as revocable, and a *temporarily* loaded
+// extension (about:debugging) starts with none granted at all — so the upload
+// fetch would fail as an opaque network error. Checking first lets the UI say
+// "grant access" instead of "could not reach haipai". Chrome grants
+// host_permissions at install and this is always true there.
+async function hasHostAccess(base) {
+  try {
+    return await ext.permissions.contains({ origins: [base + "/*"] });
+  } catch {
+    return true; // API unavailable — don't invent a blocker
+  }
 }
 
 // -------------------------------------------------------------- navigation
@@ -59,7 +85,7 @@ function gameUrl(base, gameId) {
 async function navigate(tabId, url) {
   if (typeof tabId !== "number") return;
   try {
-    await chrome.tabs.update(tabId, { url });
+    await ext.tabs.update(tabId, { url });
   } catch {
     // Tab closed while we were uploading — nothing to steer.
   }
@@ -67,12 +93,14 @@ async function navigate(tabId, url) {
 
 function notify(title, message) {
   try {
-    chrome.notifications.create({
+    const p = ext.notifications.create({
       type: "basic",
-      iconUrl: NOTIFY_ICON,
+      iconUrl: ext.runtime.getURL(NOTIFY_ICON),
       title,
       message, // callers pass fixed strings / HTTP status text only
-    }, () => void chrome.runtime.lastError);
+    });
+    // Firefox returns a promise; an unhandled rejection here must not surface.
+    if (p && typeof p.catch === "function") p.catch(() => {});
   } catch {
     // Notifications are best-effort; never fail an upload over them.
   }
@@ -87,6 +115,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // source of the account name shown in the UI.
 async function whoami() {
   const base = await getBase();
+  if (!(await hasHostAccess(base))) {
+    return { base, signedIn: false, needsPermission: true };
+  }
   try {
     const res = await fetch(`${base}/api/me`, { credentials: "include" });
     if (!res.ok) return { base, signedIn: false };
@@ -103,7 +134,7 @@ async function whoami() {
 async function openLogin() {
   const base = await getBase();
   try {
-    await chrome.tabs.create({ url: `${base}/login`, active: true });
+    await ext.tabs.create({ url: `${base}/login`, active: true });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: "Could not open the haipai login page." };
@@ -113,7 +144,7 @@ async function openLogin() {
 // ------------------------------------------------------------------ upload
 
 // Resolves to a result object safe to hand back to the page's content script:
-// { ok, gameId } or { ok:false, error, retryable, needsSignIn }.
+// { ok, gameId } or { ok:false, error, retryable, needsSignIn, needsPermission }.
 async function handleUpload(key, report, tabId) {
   const base = await getBase();
 
@@ -121,6 +152,15 @@ async function handleUpload(key, report, tabId) {
   if (seen[key]) {
     await navigate(tabId, gameUrl(base, seen[key].gameId));
     return { ok: true, gameId: seen[key].gameId, deduped: true };
+  }
+
+  if (!(await hasHostAccess(base))) {
+    return {
+      ok: false,
+      retryable: false,
+      needsPermission: true,
+      error: `The extension has no access to ${base} yet.`,
+    };
   }
 
   const body = JSON.stringify({ mortal_data: report });
@@ -192,7 +232,7 @@ async function handleUpload(key, report, tabId) {
 
 // ----------------------------------------------------------------- messages
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+ext.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const tabId = sender && sender.tab && sender.tab.id;
 
   if (!msg || typeof msg !== "object") return;
@@ -208,8 +248,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return;
       }
       // Probe the session before fetching a ~330 KB report we couldn't send.
-      const { signedIn } = await whoami();
-      sendResponse({ known: false, signedIn });
+      const { signedIn, needsPermission } = await whoami();
+      sendResponse({ known: false, signedIn, needsPermission });
     })();
     return true; // async response
   }
@@ -223,6 +263,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "test") {
     (async () => {
       const base = await getBase();
+      if (!(await hasHostAccess(base))) {
+        sendResponse({ needsPermission: true, base });
+        return;
+      }
       try {
         const res = await fetch(`${base}/api/games/upload`, {
           method: "POST",
@@ -256,7 +300,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "openOptions") {
-    chrome.runtime.openOptionsPage();
+    ext.runtime.openOptionsPage();
     sendResponse({ ok: true });
     return true;
   }

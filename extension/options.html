@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>mjai → haipai uploader — options</title>
+  <link rel="icon" href="icons/icon-32.png">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -48,6 +49,20 @@
 
   <div class="actions">
     <button id="save" type="button">Save base URL</button>
+  </div>
+
+  <label>Host access</label>
+  <div class="row">
+    <span id="permState" class="badge">checking…</span>
+    <button id="grant" type="button">Grant access</button>
+  </div>
+  <div class="hint">
+    Chrome grants this at install time, and so does Firefox for a normally
+    installed add-on. But an add-on loaded temporarily from
+    <code>about:debugging</code> starts with <em>no</em> host access, and Firefox
+    lets you revoke it at any time from <code>about:addons</code> — without it
+    the upload fails as a bare network error. Press
+    <strong>Grant access</strong> once if the badge says it is missing.
   </div>
 
   <label>Account</label>
