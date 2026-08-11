@@ -24,7 +24,9 @@ def send_email(to_addr, subject, body):
 
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = os.environ.get("MAIL_FROM", username)
+    # `or` not a get() default: docker-compose passes MAIL_FROM=${MAIL_FROM:-},
+    # so an unset var arrives as "" — present, but not a usable From.
+    msg["From"] = os.environ.get("MAIL_FROM") or username
     msg["To"] = to_addr
     msg.set_content(body)
 
