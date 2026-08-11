@@ -405,10 +405,26 @@ function renderFiltersPanel() {
 // Final scores for the game, straight off mjai_log — no backend field
 // carries them (routes/game.py's _slim_mortal_data forwards mjai_log
 // unslimmed for exactly this kind of read). Starts from the last kyoku's
-// `scores` and replays reach (-1000 to the declaring seat, since reach cost
-// isn't reflected in hora/ryuukyoku deltas) and hora/ryuukyoku deltas after
-// it to land on the true end-of-game total. Returns seats sorted by score
-// (descending), or null if mjai_log/scores aren't available.
+// `scores` and replays the riichi sticks (-1000 to the declaring seat, since
+// reach cost isn't reflected in the deltas) plus the hora/ryukyoku deltas
+// after it, to land on the true end-of-game total.
+//
+// Two spellings/edge cases this got wrong before, both re-verified by
+// replaying all 622 prod games against every `start_kyoku`'s own `scores`
+// (0 mismatches):
+//   - The mjai event is `ryukyoku`, ONE u. Spelling it `ryuukyoku` silently
+//     drops the deltas of any game ending in an exhaustive draw — that's how
+//     a below-zero noten payment left the panel showing pre-draw scores.
+//   - A riichi stick is paid when the declaration discard PASSES, so charging
+//     on `reach` overcounts (154/622 games) whenever the declaration tile is
+//     ronned, which cancels the riichi. But charging only on `reach_accepted`
+//     undercounts (2/622), because mjai emits no `reach_accepted` when the
+//     declaration discard is the hand's last and the kyoku ends in a draw —
+//     the riichi IS established there. Hence: hold the reach pending, and on
+//     the terminating hora/ryukyoku charge it unless a hora targets the
+//     declarer (i.e. the declaration tile was ronned).
+// Returns seats sorted by score (descending), or null if mjai_log/scores
+// aren't available.
 function computeFinalScores(mortalData) {
   const log = mortalData && mortalData.mjai_log;
   if (!log || !log.length || typeof haipaiPrepParse === "undefined") return null;
@@ -423,11 +439,23 @@ function computeFinalScores(mortalData) {
   const lastStart = events[lastStartPos];
   const scores = (lastStart.scores || []).slice();
   if (!scores.length) return null;
+  let pendingReach = null; // declared, not yet known to have passed
   for (let i = lastStartPos + 1; i < events.length; i++) {
     const e = events[i];
     if (e.type === "reach" && e.actor != null) {
+      pendingReach = e.actor;
+    } else if (e.type === "reach_accepted" && e.actor != null) {
       scores[e.actor] -= 1000;
-    } else if ((e.type === "hora" || e.type === "ryuukyoku") && e.deltas) {
+      pendingReach = null;
+    } else if ((e.type === "hora" || e.type === "ryukyoku") && e.deltas) {
+      if (pendingReach != null) {
+        // Ron on the declaration tile cancels the riichi; anything else
+        // (notably a draw on that discard) means the stick was paid.
+        if (!(e.type === "hora" && e.target === pendingReach)) {
+          scores[pendingReach] -= 1000;
+        }
+        pendingReach = null;
+      }
       for (let s = 0; s < scores.length; s++) scores[s] += e.deltas[s] || 0;
     }
   }
