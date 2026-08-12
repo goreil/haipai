@@ -11,9 +11,11 @@
 // hand-tuned reference values in the design at typical 1-3 han hands; it
 // roughly tracks "one extra han worth of value times the chance of getting
 // one." Rounded to the nearest 100 so the number reads cleanly.
-function _badRiichiBonusEv(riichiTen) {
-  if (!riichiTen) return 0;
-  return Math.round(riichiTen * 0.13 / 100) * 100;
+// A yakuman has no tail at all: ippatsu and uradora are han, and han doesn't
+// score a yakuman hand, so the bonus is 0 no matter how many ura flip.
+function _badRiichiBonusEv(score) {
+  if (!score || score.yakuman > 0 || !score.ten) return 0;
+  return Math.round(score.ten * 0.13 / 100) * 100;
 }
 
 // Compact "5z" / "5z6m"-style dora notation for the Riichi lib. Takes the
@@ -182,7 +184,10 @@ function _evalWaitScore(hand13, winTile, m, opts) {
   } catch (e) {
     return null;
   }
-  if (!result || !result.isAgari || !result.han) return null;
+  // A yakuman scores as `yakuman: <multiplier>` with han AND fu both left at 0
+  // (the lib skips the han/fu ladder entirely), so "no han" is NOT "no hand" —
+  // gate on han OR yakuman or every yakuman silently vanishes from the card.
+  if (!result || !result.isAgari || (!result.han && !result.yakuman)) return null;
 
   // The Riichi lib doesn't enforce the "must have a real yaku" rule — it
   // happily reports aka/dora-only "wins". Skip those: in real play you can't
@@ -208,7 +213,8 @@ function _evalWaitScore(hand13, winTile, m, opts) {
     yaku.push((_YAKU_LABEL && _YAKU_LABEL[jp]) || jp);
   }
   if (!hasRealYaku) return null;
-  return { han: result.han, fu: result.fu, ten: result.ten, yaku, dora, aka };
+  return { han: result.han, fu: result.fu, ten: result.ten, yaku, dora, aka,
+           yakuman: result.yakuman || 0 };
 }
 
 // Build the 13-tile tenpai hand for 5A/5B by dropping the actual discard
@@ -329,6 +335,19 @@ function _fmtPts(n) {
   return n.toLocaleString();
 }
 
+// The han/fu caption for one score. A yakuman has no han/fu ladder — the lib
+// reports han 0 / fu 0 and puts the multiplier in `yakuman` — so it reads as
+// "yakuman" / "double yakuman" rather than a nonsensical "0 han · 0 fu".
+function _fmtHanFu(s) {
+  if (!s) return "";
+  if (s.yakuman > 0) {
+    return s.yakuman === 1 ? "yakuman"
+      : s.yakuman === 2 ? "double yakuman"
+      : `${s.yakuman}× yakuman`;
+  }
+  return `${s.han} han · ${s.fu} fu`;
+}
+
 function _renderBarBlock(modeLabel, dama, riichi, bonus, scaleMax, isDaburi) {
   // No-yaku case: dama is impossible (e.g. ron with no yaku). Show riichi
   // value as the full bar — no comparison framing.
@@ -346,19 +365,19 @@ function _renderBarBlock(modeLabel, dama, riichi, bonus, scaleMax, isDaburi) {
   if (hasDama) {
     breakdown += `<span class="bd-item dama">
         <span class="bd-tag">Dama</span>
-        <span class="bd-hanfu">${dama.han} han · ${dama.fu} fu</span>
+        <span class="bd-hanfu">${_fmtHanFu(dama)}</span>
         <span class="bd-points">${_fmtPts(dama.ten)}</span>
       </span>
       <span class="bd-sep">+</span>
       <span class="bd-item riichi">
         <span class="bd-tag">${riichiTag}</span>
-        <span class="bd-hanfu">${riichi.han} han · ${riichi.fu} fu</span>
+        <span class="bd-hanfu">${_fmtHanFu(riichi)}</span>
         <span class="bd-points">+${_fmtPts(riichi.ten - dama.ten)}</span>
       </span>`;
   } else {
     breakdown += `<span class="bd-item riichi">
         <span class="bd-tag">${riichiTag}</span>
-        <span class="bd-hanfu">${riichi.han} han · ${riichi.fu} fu</span>
+        <span class="bd-hanfu">${_fmtHanFu(riichi)}</span>
         <span class="bd-points">${_fmtPts(riichi.ten)}</span>
       </span>`;
   }
@@ -391,8 +410,8 @@ function _renderBarBlock(modeLabel, dama, riichi, bonus, scaleMax, isDaburi) {
 }
 
 function _renderWaitRow(w, scaleMax, isDaburi) {
-  const ronBonus = w.ronRiichi ? _badRiichiBonusEv(w.ronRiichi.ten) : 0;
-  const tsumoBonus = w.tsumoRiichi ? _badRiichiBonusEv(w.tsumoRiichi.ten) : 0;
+  const ronBonus = _badRiichiBonusEv(w.ronRiichi);
+  const tsumoBonus = _badRiichiBonusEv(w.tsumoRiichi);
 
   // Yaku/dora chips. The "no yaku — riichi only" hint shows whenever no real
   // yaku is present, even when dora is — dora alone doesn't complete a hand,
@@ -475,7 +494,7 @@ function renderBadRiichiBars(m) {
     const candidates = [w.ronRiichi, w.tsumoRiichi];
     for (const c of candidates) {
       if (c && c.ten) {
-        const bonus = _badRiichiBonusEv(c.ten);
+        const bonus = _badRiichiBonusEv(c);
         if (c.ten + bonus > scaleMax) scaleMax = c.ten + bonus;
       }
     }
@@ -568,7 +587,7 @@ function evalDiscardScores(m, discardTile, waitEntries, riichi) {
     const anyEval = ron || tsumo;
     let yaku = (ron && ron.yaku) || (tsumo && tsumo.yaku) || [];
     yaku = yaku.filter(y => y && y !== "立直" && y !== "ダブル立直");
-    const bonus = useRiichi ? _badRiichiBonusEv((ron && ron.ten) || (tsumo && tsumo.ten)) : 0;
+    const bonus = useRiichi ? _badRiichiBonusEv(ron || tsumo) : 0;
     rows.push({
       tile: w.tile, count: w.count, furiten: w.furiten,
       ron, tsumo, bonus,
@@ -609,7 +628,7 @@ function renderRiichiScoreCell(groups, riichi) {
   const line = (label, s) => s
     ? `<span class="rsc-line"><span class="rsc-mode">${label}</span>`
       + `<span class="rsc-pts">${s.ten.toLocaleString()}</span>`
-      + `<span class="rsc-hanfu">(${s.han} han · ${s.fu} fu)</span></span>`
+      + `<span class="rsc-hanfu">(${_fmtHanFu(s)})</span></span>`
     : "";
   const blocks = groups.map(g => {
     // Wait tiles with their live count (×N) — how many of each winning tile is
