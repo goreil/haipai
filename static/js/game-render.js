@@ -423,8 +423,18 @@ function renderFiltersPanel() {
 //     the riichi IS established there. Hence: hold the reach pending, and on
 //     the terminating hora/ryukyoku charge it unless a hora targets the
 //     declarer (i.e. the declaration tile was ronned).
-// Returns seats sorted by score (descending), or null if mjai_log/scores
-// aren't available.
+//
+// Finally, riichi sticks still on the table when the game ends go to the
+// 1st-place player (Tenhou and MJS both). That only ever happens when the
+// game ends in a draw — a hora collects every stick, and its deltas already
+// include them. The count is the last kyoku's carried `kyotaku` plus the
+// riichi established in it; validated against the next `start_kyoku`'s own
+// `kyotaku` across the corpus. Without this the four scores sum to less than
+// the 100k they started with.
+//
+// Returns seats sorted by score (descending, ties to the seat closest to
+// starting East), each `{seat, score, wind, you, kyotakuBonus}`, or null if
+// mjai_log/scores aren't available.
 function computeFinalScores(mortalData) {
   const log = mortalData && mortalData.mjai_log;
   if (!log || !log.length || typeof haipaiPrepParse === "undefined") return null;
@@ -440,12 +450,14 @@ function computeFinalScores(mortalData) {
   const scores = (lastStart.scores || []).slice();
   if (!scores.length) return null;
   let pendingReach = null; // declared, not yet known to have passed
+  let sticks = lastStart.kyotaku || 0; // riichi sticks on the table
   for (let i = lastStartPos + 1; i < events.length; i++) {
     const e = events[i];
     if (e.type === "reach" && e.actor != null) {
       pendingReach = e.actor;
     } else if (e.type === "reach_accepted" && e.actor != null) {
       scores[e.actor] -= 1000;
+      sticks += 1;
       pendingReach = null;
     } else if ((e.type === "hora" || e.type === "ryukyoku") && e.deltas) {
       if (pendingReach != null) {
@@ -453,10 +465,13 @@ function computeFinalScores(mortalData) {
         // (notably a draw on that discard) means the stick was paid.
         if (!(e.type === "hora" && e.target === pendingReach)) {
           scores[pendingReach] -= 1000;
+          sticks += 1;
         }
         pendingReach = null;
       }
       for (let s = 0; s < scores.length; s++) scores[s] += e.deltas[s] || 0;
+      // The winner sweeps the table, and the deltas already paid it out.
+      if (e.type === "hora") sticks = 0;
     }
   }
   const WINDS = ["E", "S", "W", "N"];
@@ -465,9 +480,17 @@ function computeFinalScores(mortalData) {
     seat,
     score,
     wind: WINDS[(seat - oya1 + 4) % 4],
+    windIdx: (seat - oya1 + 4) % 4,
     you: seat === mortalData.player_id,
+    kyotakuBonus: 0,
   }));
-  seats.sort((a, b) => b.score - a.score);
+  // Ties go to the seat closest to starting East, so the wind index (already
+  // measured from the first oya) is the tiebreak.
+  seats.sort((a, b) => b.score - a.score || a.windIdx - b.windIdx);
+  if (sticks > 0) {
+    seats[0].kyotakuBonus = sticks * 1000;
+    seats[0].score += seats[0].kyotakuBonus;
+  }
   return seats;
 }
 
@@ -475,12 +498,19 @@ function renderFinalScores(mortalData) {
   const seats = computeFinalScores(mortalData);
   if (!seats) return "";
   const PLACE = ["1st", "2nd", "3rd", "4th"];
-  const cells = seats.map((s, rank) => `
-    <span class="final-score-seat place-${rank + 1}${s.you ? " final-score-you" : ""}">
+  const cells = seats.map((s, rank) => {
+    // Explain the leftover-riichi-stick award, otherwise 1st place just reads
+    // 1000 higher than the last hand's arithmetic suggests.
+    const bonus = s.kyotakuBonus
+      ? ` title="Includes +${s.kyotakuBonus.toLocaleString()} from ${s.kyotakuBonus / 1000} riichi stick${s.kyotakuBonus === 1000 ? "" : "s"} left on the table"`
+      : "";
+    return `
+    <span class="final-score-seat place-${rank + 1}${s.you ? " final-score-you" : ""}"${bonus}>
       <span class="final-score-place">${PLACE[rank]}</span>
       <span class="final-score-label">${s.you ? "You" : s.wind}</span>
       <span class="final-score-pts">${s.score.toLocaleString()}</span>
-    </span>`).join("");
+    </span>`;
+  }).join("");
   return `<div class="final-scores" title="Final scores for this game">${cells}</div>`;
 }
 
