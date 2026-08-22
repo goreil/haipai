@@ -12,6 +12,7 @@ Submodule layout:
 - `db.users`     — users, OAuth linking
 - `db.reports`   — category-report CRUD
 - `db.admin`     — `is_admin`, `admin_user_stats`, `admin_mau_stats`
+- `db.waits`     — Waits Trainer minigame scores + leaderboard
 """
 
 import os
@@ -67,6 +68,11 @@ from db.snapshots import (
     insert_snapshot,
     list_category_snapshots,
     list_snapshots,
+)
+from db.waits import (
+    get_user_waits_best,
+    get_waits_leaderboard,
+    submit_waits_score,
 )
 from db.messages import (
     create_message,
@@ -149,6 +155,10 @@ __all__ = [
     "list_snapshots",
     "insert_category_snapshot",
     "list_category_snapshots",
+    # waits trainer (minigame)
+    "get_user_waits_best",
+    "get_waits_leaderboard",
+    "submit_waits_score",
     # messages (mailbox)
     "create_message",
     "list_messages_for_user",

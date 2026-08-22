@@ -243,7 +243,13 @@
   backdrop-filter: blur(2px);
 }
 .wt-overlay.show { display: flex; }
-.wt-panel { max-width: 460px; text-align: center; }
+.wt-panel {
+  max-width: 460px;
+  width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: center;
+}
 .wt-panel h3 {
   font-family: 'Outfit', sans-serif;
   font-size: 22px;
@@ -260,6 +266,60 @@
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
+
+/* Leaderboard, shown on both the intro and game-over panels. */
+.wt-lb {
+  margin-top: 18px;
+  text-align: left;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.wt-lb-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.wt-lb-head span { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.wt-lb table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.wt-lb th {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  text-align: right;
+  padding-bottom: 3px;
+}
+.wt-lb th:nth-child(2) { text-align: left; }
+/* Match the body cells' gutter so the two right-hand headers don't collide. */
+.wt-lb th:nth-child(3),
+.wt-lb th:nth-child(4) { padding-left: 10px; }
+.wt-lb td { padding: 3px 0; color: var(--text-dim); }
+.wt-lb .wt-lb-rank { width: 2em; text-align: right; padding-right: 8px; font-variant-numeric: tabular-nums; }
+.wt-lb .wt-lb-name {
+  color: var(--text);
+  max-width: 0;          /* let the cell shrink so the ellipsis engages */
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wt-lb .wt-lb-combo,
+.wt-lb .wt-lb-score { text-align: right; padding-left: 10px; font-variant-numeric: tabular-nums; }
+.wt-lb .wt-lb-score { color: var(--text); font-weight: 700; }
+/* Your row, wherever it sits. */
+.wt-lb .wt-lb-you td { color: var(--accent); }
+.wt-lb .wt-lb-you .wt-lb-name,
+.wt-lb .wt-lb-you .wt-lb-score { color: var(--accent); }
+/* Your row when you're outside the top slice — divided off from the board. */
+.wt-lb .wt-lb-outside td { border-top: 1px dashed var(--border); padding-top: 6px; }
 
 /* --- Arsenal --- */
 

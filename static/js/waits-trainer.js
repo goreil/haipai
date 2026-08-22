@@ -217,6 +217,75 @@ function wtSaveBest(score) {
   }
 }
 
+// --- Leaderboard ------------------------------------------------------------
+
+// Last payload from /api/waits/leaderboard: {top, you, players}. Module-level
+// (not on `wt`) so it survives a restart, and so a slow fetch can land after
+// the player has already hit Play.
+var wtBoard = null;
+
+// Re-render whatever overlay is currently up. Both fetches below finish
+// asynchronously; if the player routed away (`wt` null) or is mid-game
+// (overlay hidden), this is a no-op.
+function wtBoardArrived(payload) {
+  if (payload) wtBoard = payload;
+  if (wt) wtRenderOverlay();
+}
+
+async function wtLoadLeaderboard() {
+  try {
+    const res = await fetch("/api/waits/leaderboard");
+    if (!res.ok) return;
+    wtBoardArrived(await res.json());
+  } catch (e) {
+    // Offline / server down — the panels simply render without a board.
+  }
+}
+
+// Submit a finished run. The response carries the updated board, so one
+// round-trip both records the score and refreshes the standings.
+async function wtReportRun(score, bestCombo, cleared) {
+  try {
+    const res = await apiPost("/api/waits/scores", {
+      score: score, best_combo: bestCombo, hands_cleared: cleared,
+    });
+    if (!res.ok) return;
+    const body = await res.json();
+    wtBoardArrived(body.leaderboard);
+  } catch (e) {
+    // The local result stays on screen; the run just isn't on the board.
+  }
+}
+
+function wtBoardRowHtml(r, extraClass) {
+  return `<tr class="${[r.is_you ? "wt-lb-you" : "", extraClass || ""].filter(Boolean).join(" ")}">
+    <td class="wt-lb-rank">${r.rank}</td>
+    <td class="wt-lb-name">${escapeHtml(r.username)}</td>
+    <td class="wt-lb-combo">${r.best_combo}</td>
+    <td class="wt-lb-score">${r.score}</td>
+  </tr>`;
+}
+
+// Each player's best run, best first. When the player is outside the top
+// slice their own row is appended below a divider, so "where do I stand" is
+// always answerable without paging.
+function wtBoardHtml() {
+  if (!wtBoard || !wtBoard.top || !wtBoard.top.length) return "";
+  let rows = wtBoard.top.map((r) => wtBoardRowHtml(r)).join("");
+  const you = wtBoard.you;
+  if (you && !wtBoard.top.some((r) => r.is_you)) {
+    rows += wtBoardRowHtml(you, "wt-lb-outside");
+  }
+  const n = wtBoard.players;
+  return `<div class="wt-lb">
+    <div class="wt-lb-head">Leaderboard <span>${n} player${n === 1 ? "" : "s"}</span></div>
+    <table>
+      <thead><tr><th></th><th>player</th><th>combo</th><th>score</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
 // --- View -------------------------------------------------------------------
 
 function showWaitsTrainer() {
@@ -232,6 +301,7 @@ function showWaitsTrainer() {
   wtNewGame();
   wt.phase = "intro";
   wtRenderOverlay();
+  wtLoadLeaderboard();
   wtRenderHud();
   wt.raf = requestAnimationFrame(wtLoop);
 }
@@ -573,6 +643,7 @@ function wtLoseLife() {
     wtSaveBest(wt.score);
     wtRenderHud();
     wtRenderOverlay();
+    wtReportRun(wt.score, wt.bestCombo, wt.cleared);
     return;
   }
   wt.phase = "cleared";
@@ -614,8 +685,8 @@ function wtRenderOverlay() {
         <div><span class="wt-result-n">${wt.bestCombo}</span><span>best combo</span></div>
         <div><span class="wt-result-n">${wt.cleared}</span><span>hands</span></div>
       </div>
-      <p class="wt-hint">Personal best: ${wtBestScore()}</p>
       <button class="btn btn-primary" data-action="wtStart" type="button">Play again</button>
+      ${wtBoardHtml()}
     </div>`;
     return;
   }
@@ -627,12 +698,16 @@ function wtRenderOverlay() {
     return;
   }
   // Title + Play, nothing else: shooting the tile a falling hand waits on
-  // explains itself faster than a rules list does.
+  // explains itself faster than a rules list does. The board carries the
+  // personal best on its highlighted row, so the local one is only a fallback
+  // for when the board hasn't loaded (or the player has never finished a run).
+  const board = wtBoardHtml();
   const best = wtBestScore();
   ov.innerHTML = `<div class="wt-panel">
     <h3>Waits Trainer</h3>
-    ${best ? `<p class="wt-hint">Personal best: ${best}</p>` : ""}
+    ${!board && best ? `<p class="wt-hint">Personal best: ${best}</p>` : ""}
     <button class="btn btn-primary" data-action="wtStart" type="button">Play</button>
+    ${board}
   </div>`;
 }
 

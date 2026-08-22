@@ -101,8 +101,20 @@ grepping. If you change a concept that isn't listed, add it.
   — no API, no DB, best score in localStorage; the rAF loop self-terminates
   when its stage element leaves the DOM, so routing away needs no teardown.
   Wired in via `TAB_ROUTES`/`parseTabHash` (`main.js`), the `wtShoot`/
-  `wtTarget`/`wtStart` entries in `actions.js`, and the dropdown button in
-  `static/index.html`. The mahjong logic (wait detection + random tenpai-hand
+  `wtTarget`/`wtStart` entries in `actions.js`, and the toolbar button in
+  `static/index.html`. The **leaderboard** (each player's best run, shown on
+  both the intro and game-over panels) is the one part with a backend:
+  `waits_scores` (`db/schema.py`, one row per finished run) via
+  `db/waits.py` (`submit_waits_score`/`get_waits_leaderboard`/
+  `get_user_waits_best`, the board relying on SQLite's bare-column-with-MAX()
+  behaviour so a row describes the run that produced the best score), served
+  by `routes/waits.py` (`POST /api/waits/scores`, `GET
+  /api/waits/leaderboard`, both `@login_required`). Scores are self-reported
+  by a client-side game, so `_validated_run` gates them on the game's own
+  points arithmetic (1/2/4 per hand → `hands_cleared <= score <= 4 *
+  hands_cleared`, combo ≤ hands) rather than pretending to verify them;
+  the reasoning is in that module's docstring. Pinned by
+  `tests/test_api_waits.py`. The mahjong logic (wait detection + random tenpai-hand
   generation, incl. the curated 5-sided shapes) is a JS port of the
   `riichi-mahjong-trainer/` submodule (djuretic, MIT, Elm) — **reference-only,
   never imported**, same arrangement as `killer_mortal_gui`; the porting map
