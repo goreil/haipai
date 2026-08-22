@@ -113,6 +113,9 @@
   will-change: transform;
 }
 .wt-hand-tiles { display: flex; gap: 1px; }
+/* --wt-tile-h is written on .wt-wrap by wtSyncTileSize() so a falling tile is
+   the same width as the arsenal tile that shoots it; the value here is only
+   the pre-mount fallback. */
 .wt-hand .tile.wt-tile {
   --tile-size: var(--wt-tile-h, 34px);
   border-width: 1px;
@@ -312,7 +315,6 @@ body:has(.wt-wrap) #bmc-wbtn { display: none !important; }
 /* --- Small screens --- */
 
 @media (max-width: 700px) {
-  .wt-wrap { --wt-tile-h: 26px; }
   .wt-score { font-size: 26px; }
 }
 @media (max-width: 640px) {
@@ -323,9 +325,6 @@ body:has(.wt-wrap) #bmc-wbtn { display: none !important; }
   .wt-ammo-key { display: none; }
 }
 @media (max-width: 420px) {
-  /* A 10-tile hand at 24px is ~205px wide — still comfortable inside a
-     320px-viewport stage, and the pin dots stay countable. */
-  .wt-wrap { --wt-tile-h: 24px; }
   .wt-hand { padding: 4px 5px 4px; }
   .wt-slot { height: 15px; min-width: 11px; }
   .wt-slot .tile.wt-slot-tile { --tile-size: 13px; }

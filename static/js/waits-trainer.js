@@ -30,15 +30,24 @@ var WT_HAND_TIERS = [
 ];
 
 var WT_LIVES = 3;
-var WT_MAX_HANDS = 5;        // concurrent hands on the stage
-var WT_STUN_SEC = 0.6;       // hitstun after a wrong shot
+// Two hands are always on the stage: clear the bottom one and the next is
+// already there, with a replacement spawning the same frame — so a fast
+// player is never left waiting on the spawn timer. The timer only adds
+// hands *beyond* the minimum, as the difficulty ramp.
+var WT_MIN_HANDS = 2;
+var WT_MAX_HANDS = 4;        // concurrent hands on the stage
+var WT_HAND_GAP = 10;        // px of clear air kept between stacked hands
+var WT_STUN_SEC = 0.9;       // hitstun after a wrong shot
 var WT_SHOT_COOLDOWN = 0.1;  // min gap between shots (anti-mash)
 var WT_CLEAR_SEC = 1.2;      // grace pause after a life is lost
 var WT_BEST_KEY = "haipai.waitsTrainer.best";
+var WT_TILE_RATIO = 0.75;    // tile SVG aspect (300x400 viewBox)
 
-// Difficulty ramp, driven by hands cleared this run.
-function wtFallSeconds(cleared) { return Math.max(4.5, 13 - cleared * 0.25); }
-function wtSpawnSeconds(cleared) { return Math.max(1.3, 3.6 - cleared * 0.07); }
+// Difficulty ramp, driven by hands cleared this run. Falls are slow — the
+// pressure comes from reading hands quickly enough to keep the queue moving,
+// not from the drop rate.
+function wtFallSeconds(cleared) { return Math.max(7, 18 - cleared * 0.3); }
+function wtSpawnSeconds(cleared) { return Math.max(2.2, 5.5 - cleared * 0.09); }
 // How many waits a hand may have. Two-sided only at the start, the curated
 // 5-sided shapes only once the player is deep into a run.
 function wtMaxWaits(cleared) { return cleared < 8 ? 2 : (cleared < 20 ? 3 : 5); }
@@ -225,6 +234,7 @@ function showWaitsTrainer() {
   setActiveDora([]);
 
   document.getElementById("content").innerHTML = wtShellHtml();
+  wtSyncTileSize();
   wtNewGame();
   wt.phase = "intro";
   wtRenderOverlay();
@@ -301,6 +311,49 @@ function wtPickTier(combo) {
   return open[0];
 }
 
+// Falling-hand tiles are drawn at the same width as the arsenal tiles below,
+// so a tile you're reading looks exactly like the tile you're about to fire.
+// The only cap is that a 10-tile hand still has to fit the stage — on a narrow
+// phone that's the binding constraint, everywhere else the arsenal is. Writes
+// `--wt-tile-h` on .wt-wrap; the stylesheet's value is only the pre-mount
+// fallback.
+function wtSyncTileSize() {
+  const wrap = document.querySelector(".wt-wrap");
+  const stage = document.getElementById("wt-stage");
+  const ammo = document.querySelector(".wt-ammo-tile");
+  if (!wrap || !stage || !ammo) return;
+  // Measure the arsenal tile's WIDTH, not its height: the img is `width:100%;
+  // height:auto`, so its width comes from the grid column and is correct even
+  // before the SVG has loaded, while its height is 0 until then.
+  const ammoW = ammo.getBoundingClientRect().width;
+  // 10 tiles + 9 gaps + the hand's own padding/border must fit the stage.
+  const perTile = (stage.clientWidth - 22 - 9) / 10;
+  const h = Math.max(18, Math.min(ammoW, perTile) / WT_TILE_RATIO);
+  wrap.style.setProperty("--wt-tile-h", h.toFixed(1) + "px");
+}
+
+// Re-measure every hand's box. Needed after the tile size changes (mount,
+// resize, orientation flip) since the fall math works off the measured height.
+function wtRemeasureHands() {
+  for (const h of wt.hands) { h.w = h.el.offsetWidth; h.h = h.el.offsetHeight; }
+}
+
+// Keep the stack from overlapping: walk the hands top-down and push any hand
+// that sits too close to the one above it further down. This is what makes
+// "clear the bottom hand, a new one appears at the top" readable — the
+// survivor slides clear of the newcomer instead of being drawn over it.
+// A push never goes past 0.92 of the drop, so a crowded stage can't shove a
+// hand straight through the floor.
+function wtSpaceHands() {
+  const sorted = [...wt.hands].sort((a, b) => a.prog - b.prog);
+  let minY = 0;
+  for (const h of sorted) {
+    const travel = Math.max(1, wt.stageH - h.h);
+    if (h.prog * travel < minY) h.prog = Math.min(0.92, minY / travel);
+    minY = h.prog * travel + h.h + WT_HAND_GAP;
+  }
+}
+
 function wtSpawnHand() {
   const tier = wtPickTier(wt.combo);
   const gen = wtGenerateHand(tier.size, wtMaxWaits(wt.cleared), wtCuratedChance(wt.cleared));
@@ -334,6 +387,7 @@ function wtSpawnHand() {
   h.w = el.offsetWidth;
   h.h = el.offsetHeight;
   wt.hands.push(h);
+  wtSpaceHands();
 }
 
 // The hand shots go to: the player's tapped pick while it lives, otherwise
@@ -475,6 +529,9 @@ function wtLoop(ts) {
   const stage = document.getElementById("wt-stage");
   if (!stage || !wt) { wt = null; return; }   // routed away — stop the loop
   wt.raf = requestAnimationFrame(wtLoop);
+  // Read the stage box once per frame, before anything spawns or positions.
+  wt.stageW = stage.clientWidth;
+  wt.stageH = stage.clientHeight;
 
   const dt = wt.lastTs ? Math.min(0.05, (ts - wt.lastTs) / 1000) : 0;
   wt.lastTs = ts;
@@ -492,8 +549,12 @@ function wtLoop(ts) {
       wt.spawnTimer = 0.4;
     }
   }
-  if (wt.phase !== "playing") { wtPositionHands(stage); return; }
+  if (wt.phase !== "playing") { wtPositionHands(); return; }
 
+  // Refill to the minimum with no delay — dissolving the bottom hand puts a
+  // fresh one on the stage the same frame. The timer only stacks hands on
+  // top of that floor.
+  while (wt.hands.length < WT_MIN_HANDS) wtSpawnHand();
   wt.spawnTimer -= dt;
   if (wt.spawnTimer <= 0 && wt.hands.length < WT_MAX_HANDS) {
     wtSpawnHand();
@@ -501,15 +562,13 @@ function wtLoop(ts) {
   }
 
   for (const h of wt.hands) h.prog += h.rate * dt;
-  wtPositionHands(stage);
+  wtPositionHands();
 
   const landed = wt.hands.find((h) => h.prog >= 1);
   if (landed) wtLoseLife();
 }
 
-function wtPositionHands(stage) {
-  wt.stageW = stage.clientWidth;
-  wt.stageH = stage.clientHeight;
+function wtPositionHands() {
   const target = wt.phase === "playing" ? wtTargetHand() : null;
   for (const h of wt.hands) {
     if (!h.w) { h.w = h.el.offsetWidth; h.h = h.el.offsetHeight; }
@@ -608,6 +667,8 @@ function wtStart() {
   const keep = wt.raf;
   wtNewGame();
   wt.raf = keep;
+  // Re-sync in case the arsenal only reached its final layout after mount.
+  wtSyncTileSize();
   wtRenderHud();
   wtRenderOverlay();
 }
@@ -622,6 +683,14 @@ function wtPause() {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) wtPause();
+});
+
+// Resize / orientation flip: the arsenal (and so the hand tiles) re-lays out,
+// which changes every hand's measured box.
+window.addEventListener("resize", () => {
+  if (!wt || !document.getElementById("wt-stage")) return;
+  wtSyncTileSize();
+  wtRemeasureHands();
 });
 
 document.addEventListener("keydown", (e) => {

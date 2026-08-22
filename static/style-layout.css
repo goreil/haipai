@@ -123,6 +123,13 @@
   flex-wrap: wrap;
 }
 
+/* Phone: Games + Trends + Waits + mailbox + menu only fit on one row with
+   tighter padding and gaps. Without this the row wraps and eats a second
+   toolbar's worth of vertical space on every page. */
+@media (max-width: 640px) {
+  .toolbar { padding: 10px 12px; gap: 8px; }
+}
+
 .toolbar label {
   font-size: 13px;
   color: var(--text-dim);
