@@ -89,12 +89,13 @@ grepping. If you change a concept that isn't listed, add it.
   be hit before it dissolves (a two-sided wait needs both tiles). Wrong tile →
   combo reset + hitstun; a hand reaching the floor → one of 3 lives and the
   stage is wiped. 4-tile hands score 1, 7-tile 2, 10-tile 4, the bigger sizes
-  unlocking at combo 5 / 10. Two pacing rules carry the feel: hand tiles are
-  drawn at the arsenal tile's width (`wtSyncTileSize` writes `--wt-tile-h`,
-  capped so a 10-tile hand still fits a phone stage), and `WT_MIN_HANDS`
-  hands are always on the stage — clearing the bottom one spawns a
-  replacement the same frame while `wtSpaceHands` pushes the survivor clear
-  of it, so a fast player never waits on the spawn timer. All of it lives in
+  unlocking at combo 5 / 10. Hand tiles are drawn at the arsenal tile's width
+  (`wtSyncTileSize` writes `--wt-tile-h`, capped so a 10-tile hand still fits
+  a phone stage); spawning is on a timer except that an empty stage refills
+  at once, so a fast player never waits. Every minigame tile carries an
+  explicit `aspect-ratio: 3 / 4` — the `.tile` base rule is `width: auto`,
+  which measures 0 until the SVG decodes, and `wtPositionHands` lays hands
+  out from a measured width. All of it lives in
   `static/js/waits-trainer.js`
   (`wt*` globals + the `wt` state object) and `static/style-waits-trainer.css`
   — no API, no DB, best score in localStorage; the rAF loop self-terminates

@@ -121,6 +121,15 @@
   border-width: 1px;
   border-radius: 2px;
 }
+
+/* Every tile in the minigame states its aspect (the SVGs are 300x400), so a
+   tile occupies its final box the instant it's in the DOM. Without this the
+   `.tile` base rule's `width: auto` measures 0 until the SVG decodes, and a
+   hand laid out from that measurement hangs off the edge of the stage. */
+.wt-hand .tile.wt-tile,
+.wt-slot .tile.wt-slot-tile,
+.wt-shot .tile.wt-shot-tile,
+.wt-ammo .tile.wt-ammo-tile { aspect-ratio: 3 / 4; }
 .wt-hand-foot {
   display: flex;
   align-items: center;
@@ -242,16 +251,6 @@
   margin-bottom: 10px;
 }
 .wt-panel .wt-hint { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
-.wt-panel .wt-rules {
-  list-style: none;
-  text-align: left;
-  font-size: 13px;
-  color: var(--text-dim);
-  margin: 0 auto 16px;
-  max-width: 380px;
-}
-.wt-panel .wt-rules li { padding-left: 14px; position: relative; margin-bottom: 5px; }
-.wt-panel .wt-rules li::before { content: "\2022"; position: absolute; left: 0; color: var(--accent); }
 .wt-result { display: flex; justify-content: center; gap: 22px; margin: 14px 0 6px; }
 .wt-result > div { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--text-dim); }
 .wt-result .wt-result-n {

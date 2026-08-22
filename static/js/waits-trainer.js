@@ -30,13 +30,7 @@ var WT_HAND_TIERS = [
 ];
 
 var WT_LIVES = 3;
-// Two hands are always on the stage: clear the bottom one and the next is
-// already there, with a replacement spawning the same frame — so a fast
-// player is never left waiting on the spawn timer. The timer only adds
-// hands *beyond* the minimum, as the difficulty ramp.
-var WT_MIN_HANDS = 2;
 var WT_MAX_HANDS = 4;        // concurrent hands on the stage
-var WT_HAND_GAP = 10;        // px of clear air kept between stacked hands
 var WT_STUN_SEC = 0.9;       // hitstun after a wrong shot
 var WT_SHOT_COOLDOWN = 0.1;  // min gap between shots (anti-mash)
 var WT_CLEAR_SEC = 1.2;      // grace pause after a life is lost
@@ -338,22 +332,6 @@ function wtRemeasureHands() {
   for (const h of wt.hands) { h.w = h.el.offsetWidth; h.h = h.el.offsetHeight; }
 }
 
-// Keep the stack from overlapping: walk the hands top-down and push any hand
-// that sits too close to the one above it further down. This is what makes
-// "clear the bottom hand, a new one appears at the top" readable — the
-// survivor slides clear of the newcomer instead of being drawn over it.
-// A push never goes past 0.92 of the drop, so a crowded stage can't shove a
-// hand straight through the floor.
-function wtSpaceHands() {
-  const sorted = [...wt.hands].sort((a, b) => a.prog - b.prog);
-  let minY = 0;
-  for (const h of sorted) {
-    const travel = Math.max(1, wt.stageH - h.h);
-    if (h.prog * travel < minY) h.prog = Math.min(0.92, minY / travel);
-    minY = h.prog * travel + h.h + WT_HAND_GAP;
-  }
-}
-
 function wtSpawnHand() {
   const tier = wtPickTier(wt.combo);
   const gen = wtGenerateHand(tier.size, wtMaxWaits(wt.cleared), wtCuratedChance(wt.cleared));
@@ -387,7 +365,6 @@ function wtSpawnHand() {
   h.w = el.offsetWidth;
   h.h = el.offsetHeight;
   wt.hands.push(h);
-  wtSpaceHands();
 }
 
 // The hand shots go to: the player's tapped pick while it lives, otherwise
@@ -551,12 +528,10 @@ function wtLoop(ts) {
   }
   if (wt.phase !== "playing") { wtPositionHands(); return; }
 
-  // Refill to the minimum with no delay — dissolving the bottom hand puts a
-  // fresh one on the stage the same frame. The timer only stacks hands on
-  // top of that floor.
-  while (wt.hands.length < WT_MIN_HANDS) wtSpawnHand();
+  // An empty stage never idles: clear the last hand and the next one is
+  // there at once, so a fast player is never left waiting on the timer.
   wt.spawnTimer -= dt;
-  if (wt.spawnTimer <= 0 && wt.hands.length < WT_MAX_HANDS) {
+  if (!wt.hands.length || (wt.spawnTimer <= 0 && wt.hands.length < WT_MAX_HANDS)) {
     wtSpawnHand();
     wt.spawnTimer = wtSpawnSeconds(wt.cleared);
   }
@@ -569,10 +544,17 @@ function wtLoop(ts) {
 }
 
 function wtPositionHands() {
+  if (!wt.stageW || !wt.stageH) return;
+  // Read pass before the write pass: measure every box first, so writing a
+  // transform can't invalidate the next hand's measurement. Re-measuring each
+  // frame (rather than caching at spawn) is what keeps a hand on screen — the
+  // tile SVGs decode asynchronously, so a hand measured at spawn time can
+  // still report a near-zero width.
+  for (const h of wt.hands) { h.w = h.el.offsetWidth; h.h = h.el.offsetHeight; }
   const target = wt.phase === "playing" ? wtTargetHand() : null;
   for (const h of wt.hands) {
-    if (!h.w) { h.w = h.el.offsetWidth; h.h = h.el.offsetHeight; }
-    const x = Math.max(2, Math.min(h.xFrac * (wt.stageW - h.w), wt.stageW - h.w - 2));
+    const maxX = Math.max(2, wt.stageW - h.w - 2);
+    const x = Math.min(Math.max(2, h.xFrac * (wt.stageW - h.w)), maxX);
     const y = Math.max(0, Math.min(1, h.prog)) * Math.max(0, wt.stageH - h.h);
     h.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     h.el.classList.toggle("wt-targeted", target === h);
@@ -644,16 +626,13 @@ function wtRenderOverlay() {
     </div>`;
     return;
   }
+  // Title + Play, nothing else: shooting the tile a falling hand waits on
+  // explains itself faster than a rules list does.
+  const best = wtBestScore();
   ov.innerHTML = `<div class="wt-panel">
     <h3>Waits Trainer</h3>
-    <p class="wt-hint">Tenpai hands fall from the top. Shoot the tile they're waiting on — a two-sided wait needs <b>both</b> tiles before the hand dissolves.</p>
-    <ul class="wt-rules">
-      <li>Tap a falling hand to aim at it; otherwise you shoot the lowest one.</li>
-      <li>A wrong tile breaks your combo and stuns you for a moment.</li>
-      <li>4-tile hands = 1 point. 7-tile at combo 5, 10-tile at combo 10, worth 2 and 4.</li>
-      <li>A hand reaching the floor costs a life and wipes the stage. You have 3.</li>
-    </ul>
-    <button class="btn btn-primary" data-action="wtStart" type="button">Start</button>
+    ${best ? `<p class="wt-hint">Personal best: ${best}</p>` : ""}
+    <button class="btn btn-primary" data-action="wtStart" type="button">Play</button>
   </div>`;
 }
 
