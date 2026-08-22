@@ -28,6 +28,7 @@ var HAIPAI_CLICK_ACTIONS = {
   toggleMenu: (el) => el.parentElement.classList.toggle("open"),
   showAccount: () => navTab("account"),
   showHelp: () => navTab("help"),
+  showWaitsTrainer: () => navTab("waits-trainer"),
   showAdmin: () => navTab("admin"),
   adminStopImpersonate: () => adminStopImpersonate(),
   openExternal: (el) => window.open(el.dataset.href, "_blank"),
@@ -85,6 +86,11 @@ var HAIPAI_CLICK_ACTIONS = {
   adminDeleteReport: (el) => adminDeleteReport(+el.dataset.reportId),
   computeCategorySnapshot: () => computeCategorySnapshot(),
   saveCategorySnapshot: () => saveCategorySnapshot(),
+
+  // --- waits trainer (minigame) ---
+  wtShoot: (el) => wtShoot(parseInt(el.dataset.tileIdx, 10)),
+  wtTarget: (el) => wtTarget(el),
+  wtStart: () => wtStart(),
 
   // --- trends ---
   startWeaknessAnalysis: () => startWeaknessAnalysis(),

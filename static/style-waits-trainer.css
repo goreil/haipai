@@ -1,0 +1,339 @@
+/* Waits Trainer minigame (#waits-trainer) — see static/js/waits-trainer.js.
+   Self-contained visual scope: a full-height stage of falling hands plus a
+   nine-tile arsenal, sized to work on a phone in portrait. */
+
+.wt-wrap {
+  height: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* --- HUD --- */
+
+.wt-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.wt-lives { display: flex; gap: 4px; font-size: 22px; line-height: 1; }
+.wt-heart { color: var(--sev-major); text-shadow: 0 0 8px rgba(239, 83, 80, 0.45); }
+.wt-heart.lost { color: var(--border); text-shadow: none; }
+
+.wt-score-box { text-align: center; }
+.wt-score {
+  font-family: 'Outfit', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.wt-score-box .wt-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+.wt-combo {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.wt-combo .wt-combo-n {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.wt-combo .wt-combo-l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+/* Lit from combo 5 — the threshold that unlocks the bigger hands. */
+.wt-combo.hot {
+  color: var(--sev-light);
+  border-color: var(--sev-light);
+  box-shadow: 0 0 12px rgba(253, 216, 53, 0.25);
+}
+
+/* --- Stage --- */
+
+.wt-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(79, 195, 247, 0.08), transparent 70%),
+    var(--bg-card);
+  touch-action: manipulation;
+}
+/* The floor: crossing it costs a life. */
+.wt-stage::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--sev-major), transparent);
+  opacity: 0.5;
+}
+
+.wt-hands, .wt-fx { position: absolute; inset: 0; }
+.wt-fx { pointer-events: none; }
+
+.wt-stage.wt-shake { animation: wt-shake 0.35s cubic-bezier(.36,.07,.19,.97); }
+@keyframes wt-shake {
+  10%, 90% { transform: translateX(-3px); }
+  20%, 80% { transform: translateX(5px); }
+  30%, 50%, 70% { transform: translateX(-7px); }
+  40%, 60% { transform: translateX(7px); }
+}
+/* Life lost — the stage is wiped and flashes red for the grace pause. */
+.wt-stage.wt-cleared { box-shadow: inset 0 0 60px rgba(239, 83, 80, 0.35); }
+
+/* --- Falling hands --- */
+
+.wt-hand {
+  position: absolute;
+  top: 0; left: 0;
+  padding: 6px 7px 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(15, 26, 46, 0.92);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  will-change: transform;
+}
+.wt-hand-tiles { display: flex; gap: 1px; }
+.wt-hand .tile.wt-tile {
+  --tile-size: var(--wt-tile-h, 34px);
+  border-width: 1px;
+  border-radius: 2px;
+}
+.wt-hand-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+.wt-hand-pts {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.wt-slots { display: flex; gap: 3px; align-items: center; }
+/* One slot per wait: how many tiles this hand still needs. Filled slots show
+   the wait you already landed. */
+.wt-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 13px;
+  height: 17px;
+  padding: 0 2px;
+  border: 1px dashed var(--text-dim);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.wt-slot.filled { border: 1px solid var(--success); border-style: solid; padding: 0; }
+.wt-slot .tile.wt-slot-tile { --tile-size: 15px; border: 0; border-radius: 2px; }
+
+/* The hand your shots go to. */
+.wt-hand.wt-targeted {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 16px rgba(79, 195, 247, 0.35);
+}
+/* 4+ waits — a shape worth slowing down for. */
+.wt-hand.wt-hand-multi { border-color: var(--sev-flag); }
+.wt-hand.wt-hand-multi .wt-hand-pts { color: var(--sev-flag); }
+
+.wt-hand.wt-flash-ok { animation: wt-flash-ok 0.3s ease-out; }
+@keyframes wt-flash-ok {
+  0% { box-shadow: 0 0 0 2px var(--success), 0 0 22px rgba(102, 187, 106, 0.6); }
+  100% { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35); }
+}
+
+.wt-hand.wt-dissolve {
+  animation: wt-dissolve 0.3s ease-in forwards;
+  pointer-events: none;
+}
+@keyframes wt-dissolve {
+  0% { opacity: 1; filter: none; }
+  100% { opacity: 0; filter: blur(4px); transform-origin: center; }
+}
+
+/* --- Effects --- */
+
+.wt-shot { position: absolute; top: 0; left: 0; will-change: transform; }
+.wt-shot .tile.wt-shot-tile {
+  --tile-size: 30px;
+  border-width: 1px;
+  box-shadow: 0 0 12px rgba(79, 195, 247, 0.6);
+}
+.wt-shot.bad .tile.wt-shot-tile { box-shadow: 0 0 12px rgba(239, 83, 80, 0.7); }
+
+.wt-float {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  animation: wt-float 0.85s ease-out forwards;
+}
+.wt-float-ok { color: var(--success); text-shadow: 0 0 10px rgba(102, 187, 106, 0.5); }
+@keyframes wt-float {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.8); }
+  100% { opacity: 0; transform: translate(-50%, -180%) scale(1.15); }
+}
+
+.wt-banner {
+  position: absolute;
+  left: 50%;
+  top: 14%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border: 1px solid var(--sev-light);
+  border-radius: 999px;
+  background: rgba(26, 26, 46, 0.9);
+  color: var(--sev-light);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: wt-banner 1.4s ease-out forwards;
+}
+@keyframes wt-banner {
+  0% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  15%, 75% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+}
+
+/* --- Overlay (intro / paused / game over) --- */
+
+.wt-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 14, 28, 0.86);
+  backdrop-filter: blur(2px);
+}
+.wt-overlay.show { display: flex; }
+.wt-panel { max-width: 460px; text-align: center; }
+.wt-panel h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.wt-panel .wt-hint { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+.wt-panel .wt-rules {
+  list-style: none;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0 auto 16px;
+  max-width: 380px;
+}
+.wt-panel .wt-rules li { padding-left: 14px; position: relative; margin-bottom: 5px; }
+.wt-panel .wt-rules li::before { content: "\2022"; position: absolute; left: 0; color: var(--accent); }
+.wt-result { display: flex; justify-content: center; gap: 22px; margin: 14px 0 6px; }
+.wt-result > div { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--text-dim); }
+.wt-result .wt-result-n {
+  font-family: 'Outfit', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Arsenal --- */
+
+.wt-arsenal {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 470px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 5px;
+  transition: opacity 0.1s, filter 0.1s;
+  touch-action: manipulation;
+}
+/* Hitstun: the arsenal is inert until the stun expires. */
+.wt-arsenal.wt-stunned {
+  opacity: 0.4;
+  filter: grayscale(1);
+  pointer-events: none;
+}
+
+.wt-ammo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 3px 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  cursor: pointer;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.wt-ammo:active { transform: translateY(1px); border-color: var(--accent); }
+@media (hover: hover) {
+  .wt-ammo:hover { border-color: var(--accent); background: var(--bg-card-hover); }
+}
+.wt-ammo .tile.wt-ammo-tile {
+  width: 100%;
+  height: auto;
+  border-width: 1px;
+  border-radius: 3px;
+}
+.wt-ammo-key { font-size: 9px; color: var(--text-dim); line-height: 1; }
+
+/* The Buy-me-a-coffee widget is fixed bottom-right, exactly where the 9p
+   button lands on a phone. Hide it while the minigame is mounted. */
+body:has(.wt-wrap) #bmc-wbtn { display: none !important; }
+
+/* --- Small screens --- */
+
+@media (max-width: 700px) {
+  .wt-wrap { --wt-tile-h: 26px; }
+  .wt-score { font-size: 26px; }
+}
+@media (max-width: 640px) {
+  /* Claw back the .content padding — the stage wants the whole viewport. */
+  .wt-wrap { margin: -10px -12px; }
+  .wt-arsenal { gap: 3px; }
+  .wt-ammo { padding: 4px 2px 2px; border-radius: 6px; }
+  .wt-ammo-key { display: none; }
+}
+@media (max-width: 420px) {
+  /* A 10-tile hand at 24px is ~205px wide — still comfortable inside a
+     320px-viewport stage, and the pin dots stay countable. */
+  .wt-wrap { --wt-tile-h: 24px; }
+  .wt-hand { padding: 4px 5px 4px; }
+  .wt-slot { height: 15px; min-width: 11px; }
+  .wt-slot .tile.wt-slot-tile { --tile-size: 13px; }
+}
+/* Landscape phone: the stage is short, so shed HUD height. */
+@media (max-height: 520px) {
+  .wt-wrap { gap: 6px; }
+  .wt-score { font-size: 22px; }
+  .wt-lives { font-size: 18px; }
+  .wt-stage { min-height: 140px; }
+}

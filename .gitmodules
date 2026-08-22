@@ -10,3 +10,6 @@
 [submodule "MahjongKit"]
 	path = MahjongKit
 	url = git@github.com:goreil/MahjongKit.git
+[submodule "riichi-mahjong-trainer"]
+	path = riichi-mahjong-trainer
+	url = https://github.com/djuretic/riichi-mahjong-trainer.git
