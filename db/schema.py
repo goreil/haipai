@@ -114,6 +114,16 @@ CREATE TABLE IF NOT EXISTS waits_scores (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS defense_scores (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    score INTEGER NOT NULL,
+    best_streak INTEGER NOT NULL DEFAULT 0,
+    steps_cleared INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_upload_token
     ON users(upload_token) WHERE upload_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);

@@ -101,14 +101,18 @@ grepping. If you change a concept that isn't listed, add it.
   — no API, no DB, best score in localStorage; the rAF loop self-terminates
   when its stage element leaves the DOM, so routing away needs no teardown.
   Wired in via `TAB_ROUTES`/`parseTabHash` (`main.js`), the `wtShoot`/
-  `wtTarget`/`wtStart`/`wtToggleMute` entries in `actions.js`, and the toolbar
+  `wtTarget`/`wtStart` (+ shared `mgToggleMute`) entries in `actions.js`, and the toolbar
   button in `static/index.html`. **Sound** is synthesized in-page with WebAudio
-  (`wtTone`/`wtNoise` + the `wtSfx*` cues in `waits-trainer.js`) — no audio
-  assets to ship or 404, and the context is built lazily on the first cue,
-  which always comes from a click/keypress, so autoplay policy needs no
-  separate opt-in. The HUD's speaker button (`wtToggleMute`, also the `m` key)
-  suspends the context and remembers the choice in localStorage
-  (`WT_MUTE_KEY`). The **leaderboard** (each player's best run, shown on
+  — the engine, the mute preference and the speaker button live in the shared
+  `static/js/minigame-audio.js` (`mgTone`/`mgNoise`/`mgToggleMute`/
+  `mgRenderMuteButtons`, key `MG_MUTE_KEY`, falling back once to the pre-split
+  `haipai.waitsTrainer.muted`), and only this trainer's own cues (`wtSfx*`)
+  stay in `waits-trainer.js`. No audio assets to ship or 404, and the context
+  is built lazily on the first cue, which always comes from a click/keypress,
+  so autoplay policy needs no separate opt-in. The HUD's speaker button (the
+  `m` key too) suspends the context; **mute is one preference across all the
+  minigames**, and any button carrying `data-mg-mute` re-renders on a toggle.
+  The **leaderboard** (each player's best run, shown on
   both the intro and game-over panels) is the one part with a backend:
   `waits_scores` (`db/schema.py`, one row per finished run) via
   `db/waits.py` (`submit_waits_score`/`get_waits_leaderboard`/
@@ -125,6 +129,43 @@ grepping. If you change a concept that isn't listed, add it.
   `riichi-mahjong-trainer/` submodule (djuretic, MIT, Elm) — **reference-only,
   never imported**, same arrangement as `killer_mortal_gui`; the porting map
   from `src/Group.elm` is in the file's header comment.
+- Defense Trainer (`#defense-trainer`, the toolbar's "Defense" button next to
+  Waits): a Simon-says memory game for **genbutsu**. One board is a real kyoku
+  cut at the moment an opponent declared riichi; its layout never changes and
+  every tile on it sits face down. The SAFE tiles turn up one at a time and
+  flip back, and the player then taps all of them out of a 34-tile arsenal
+  (order doesn't matter — it's a set, not a sequence). The sequence is ONE
+  growing list: the declarer's own pond left to right (genbutsu against them
+  whenever discarded), then every tile discarded since the declaration in
+  table order. Step k reveals the first k entries, so a board opens on a
+  single safe tile and grows by one per round — that ramp is the whole
+  difficulty curve. A tile that never turns up was never shown and is never
+  asked about (the other seats' pre-riichi discards stay down for the whole
+  board; their slots still show, because a pond's *length* is public at a real
+  table and its contents are not). Clearing a step scores its safe-tile count;
+  a wrong tap or a timeout costs one of 3 lives, reveals the answer marked
+  green (found) / amber (missed) / red (the tap that ended it), and moves to a
+  fresh board. Client-side in `static/js/defense-trainer.js` (`df*` globals +
+  the `df` state object) and `static/style-defense-trainer.css`; sound via the
+  shared `minigame-audio.js` (each tile has its own pentatonic note, so a
+  board always sounds the same). Wired in via `TAB_ROUTES`/`parseTabHash`
+  (`main.js`), the `dfPick`/`dfStart` entries in `actions.js`, and the toolbar
+  button in `static/index.html`. **Boards are a static pack**, not an API:
+  `scripts/mine_defense_puzzles.py` mines `mortal_analysis/` (run it in the
+  container — that's where the files live) into the committed, anonymized
+  `static/data/defense-puzzles.json` (~300 boards; seat winds, ponds, dora and
+  discard order only — no names, no game id, no user id). Selection is riichi
+  by the declarer's 5th discard, ≥10 discards after, and never the replay's
+  own riichi; seats are rotated so index 0 is the replay's player. Two
+  truncations keep "safe" honest and are pinned by `tests/test_defense_puzzles.py`
+  (which also asserts the shipped pack's invariants): a **ron** drops the
+  winning tile (it did not pass), and a **second riichi** ends the flow there.
+  The one server-side part is the leaderboard — `defense_scores`
+  (`db/schema.py`) via `db/defense.py`, served by `routes/defense.py` (`POST
+  /api/defense/scores`, `GET /api/defense/leaderboard`, both `@login_required`),
+  the exact shape of the Waits Trainer's, self-reported scores gated on the
+  game's own arithmetic (`steps_cleared <= score <= 34 * steps_cleared`).
+  Pinned by `tests/test_api_defense.py`.
 - Mailbox messages: `static/js/mailbox.js`
 - API client + shell: `static/js/api.js`, `static/js/main.js`, `static/js/ui.js`, `static/index.html`
 - Public game sharing (per-game share links + the `/demo` link on login/landing for logged-out visitors): one mechanism serves both — a nullable, unique `games.share_token` (`db/schema.py`), helpers in `db/games.py` (`get_or_create_share_token`/`regenerate_share_token`/`revoke_share_token`/`get_game_by_share_token`, the last stripping the owner's private per-mistake `note` before returning). Owner-facing CRUD (`GET`/`POST .../regenerate`/`DELETE` on `/api/games/<id>/share-token`, all `@login_required`) lives in `routes/game.py` next to the analogous `upload_token` routes; the public read is the unauthenticated `GET /api/shared/<token>` (same combined payload shape `fetchGame()` builds from two calls, in one). `GET /shared/<token>` (`routes/pages.py`) always serves the dedicated read-only page `static/shared.html` + `static/js/shared-view.js` — a deliberately separate, minimal shell (no sidebar/toolbar/mailbox/admin) reusing the same render pipeline (`game-render.js`/`mistake-card.js`/prep/categorize) rather than the full SPA in a degraded mode, so there's no write-control surface to accidentally leak. `state.readOnly` (set only by `shared-view.js`) is what `game-render.js`/`mistake-card.js` check to hide notes/reports/delete/share/the complex-gap funnel — see `main.js`'s `state` init for the flag's contract. `GET /demo` (`routes/pages.py`) redirects to the share link for `DEMO_GAME_ID` (env var, documented above), generating it on first hit — swapping the demo game is a one-line env change, not a template edit. Owner-side "Share" button + modal: `static/js/game-render.js` header, `static/js/ui.js` (`showShareModal` et al.), markup in `static/index.html`.
@@ -135,10 +176,11 @@ grepping. If you change a concept that isn't listed, add it.
 - `static/style-game-detail.css` — game header, round/mistake cards, EV table, yaku panels
 - `static/style-board-display.css` — board context, discards, threat pills, hand safety, melds
 - `static/style-waits-trainer.css` — the Waits Trainer minigame (stage, falling hands, arsenal); self-contained, only loaded by `index.html`
+- `static/style-defense-trainer.css` — the Defense Trainer minigame (face-down board, the reveal flash, 34-tile arsenal); self-contained, only loaded by `index.html`
 
 **Backend**
-- Routes (Flask blueprints): `routes/auth.py`, `routes/game.py`, `routes/pages.py`, `routes/admin.py`, `routes/mailbox.py`
-- DB layer (one file per table-group): `db/users.py`, `db/games.py`, `db/mistakes.py`, `db/reports.py`, `db/snapshots.py`, `db/messages.py`, `db/admin.py`, `db/schema.py`
+- Routes (Flask blueprints): `routes/auth.py`, `routes/game.py`, `routes/pages.py`, `routes/admin.py`, `routes/mailbox.py`, `routes/waits.py`, `routes/defense.py`
+- DB layer (one file per table-group): `db/users.py`, `db/games.py`, `db/mistakes.py`, `db/reports.py`, `db/snapshots.py`, `db/messages.py`, `db/admin.py`, `db/waits.py`, `db/defense.py`, `db/schema.py`
 - MJAI log parsing (round walking, action formatting, severity): `lib/parse.py`
 - Backend category metadata reference (NOT the categorizer): `lib/categories.py`
 - App entry: `app.py`

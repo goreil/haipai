@@ -1,0 +1,375 @@
+/* Defense Trainer minigame (#defense-trainer) — see static/js/defense-trainer.js.
+   Self-contained visual scope: a four-seat board whose safe tiles flash in
+   sequence, then flip face-down, plus the 34-tile arsenal you answer from.
+   Sized to work on a phone in portrait. */
+
+.df-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Every tile here declares its own aspect ratio: the shared `.tile` rule is
+   `width: auto`, which measures 0 until the SVG decodes — and these grids size
+   from the column, so a late-decoding tile would otherwise collapse its row. */
+.df-wrap .tile { aspect-ratio: 3 / 4; height: auto; }
+
+/* --- HUD --- */
+
+.df-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.df-lives { display: flex; gap: 4px; font-size: 22px; line-height: 1; }
+.df-heart { color: var(--sev-major); text-shadow: 0 0 8px rgba(239, 83, 80, 0.45); }
+.df-heart.lost { color: var(--border); text-shadow: none; }
+
+.df-score-box { text-align: center; }
+.df-score {
+  font-family: 'Outfit', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.df-score-box .df-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+.df-streak {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.df-streak .df-streak-n {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.df-streak .df-streak-l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.df-streak.hot {
+  color: var(--sev-minor);
+  border-color: var(--sev-minor);
+  box-shadow: 0 0 12px rgba(102, 187, 106, 0.25);
+}
+
+.df-hud-right { display: flex; align-items: center; gap: 8px; }
+
+/* Sound toggle — shared state with the Waits Trainer (minigame-audio.js). */
+.df-mute {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  line-height: 0;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.df-mute:hover { border-color: var(--text-dim); }
+.df-mute.muted { opacity: 0.45; }
+
+/* --- Stage / board --- */
+
+.df-stage {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(79, 195, 247, 0.06), transparent 60%),
+    var(--bg-card);
+  padding: 10px;
+  min-height: 300px;
+}
+
+.df-round {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 0 2px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.df-dora { display: flex; align-items: center; gap: 5px; }
+.df-dora .df-tile { width: 18px; }
+
+.df-seats { display: flex; flex-direction: column; gap: 7px; }
+
+.df-seat {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  align-items: start;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+/* The seat under threat. Red, matching the danger row on the game board. */
+.df-seat.is-riichi {
+  border-color: color-mix(in srgb, var(--threat-riichi) 35%, transparent);
+  background: color-mix(in srgb, var(--threat-riichi) 7%, transparent);
+}
+.df-seat.is-you { background: rgba(255, 255, 255, 0.03); }
+
+.df-seat-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding-top: 3px;
+}
+.df-wind {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+.df-seat.is-you .df-who { color: var(--accent); }
+.df-riichi-badge {
+  flex: 0 0 100%;
+  color: color-mix(in srgb, var(--threat-riichi) 70%, #fff);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+/* Twelve tiles to a row, wrapping after that — the widest pond a mined board
+   can reach. Fixing the count (rather than letting flex decide) keeps every
+   seat's tiles on the same grid, so a pond's length reads at a glance. */
+.df-pond {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.df-slot {
+  flex: 0 0 auto;
+  width: calc((100% - 11 * 3px) / 12);
+  max-width: 34px;
+  position: relative;
+  border-radius: 3px;
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+.df-slot .tile { width: 100%; display: block; }
+
+/* Riichi declaration tile: rotated in place, exactly as the game board draws
+   it. The img keeps its layout box, so the columns stay aligned. */
+.df-tile.df-riichi-tile {
+  transform: rotate(90deg);
+  border-color: var(--sev-major);
+  box-shadow: 0 0 4px rgba(239, 83, 80, 0.4);
+}
+
+/* Face-down is the board's resting state — only the tile being flashed is up.
+   Back.svg is a saturated red tile back, and a whole board of them reads as an
+   error, so it is knocked back to a muted slate that says "covered" instead
+   (and makes the one lit tile the only colour on screen). */
+.df-tile.df-back { filter: saturate(0.12) brightness(0.62) contrast(0.9); }
+
+/* --- The Simon flash --- */
+
+.df-slot.df-lit { transform: translateY(-3px) scale(1.08); z-index: 2; }
+/* The declarer's own pond (safe because it's theirs) reads red; the tiles that
+   have passed since read green. Two reasons a tile is safe, two colours. */
+.df-slot.df-lit-own {
+  box-shadow: 0 0 0 2px var(--threat-riichi), 0 0 14px 3px rgba(255, 107, 107, 0.6);
+}
+.df-slot.df-lit-flow {
+  box-shadow: 0 0 0 2px var(--sev-minor), 0 0 14px 3px rgba(102, 187, 106, 0.6);
+}
+
+/* --- The review, after a life is lost --- */
+
+.df-slot.df-was-found { box-shadow: 0 0 0 2px var(--sev-minor); }
+.df-slot.df-was-missed { box-shadow: 0 0 0 2px var(--sev-medium); }
+
+/* --- Prompt + clock --- */
+
+.df-prompt {
+  min-height: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.df-prompt-answer { color: var(--text); }
+.df-prompt-fail { color: var(--sev-medium); }
+.df-prompt-clear { color: var(--sev-minor); }
+.df-count {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.df-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg-input);
+  overflow: hidden;
+}
+.df-bar i { display: block; height: 100%; border-radius: 999px; transition: width 0.1s linear; }
+.df-bar-watch { background: var(--accent); }
+.df-bar-answer { background: var(--sev-minor); }
+.df-bar-urgent { background: var(--sev-major); }
+.df-bar-idle { background: transparent; }
+
+/* --- Arsenal --- */
+
+.df-arsenal {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+}
+.df-ammo {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  cursor: pointer;
+  line-height: 0;
+  transition: border-color 0.12s, background 0.12s, transform 0.08s, box-shadow 0.12s;
+}
+.df-ammo:hover { border-color: var(--accent-dim); }
+.df-ammo:active { transform: translateY(1px); }
+.df-ammo-tile { width: 100%; display: block; }
+
+/* Picked and correct — locked out for the rest of the step. */
+.df-ammo-found {
+  border-color: var(--sev-minor);
+  box-shadow: 0 0 8px rgba(102, 187, 106, 0.35);
+  cursor: default;
+}
+.df-ammo-found .df-ammo-tile { opacity: 0.55; }
+/* Review only: safe but never picked / the tile that ended the step. */
+.df-ammo-missed { border-color: var(--sev-medium); box-shadow: 0 0 8px rgba(255, 167, 38, 0.35); }
+.df-ammo-wrong { border-color: var(--sev-major); box-shadow: 0 0 10px rgba(239, 83, 80, 0.5); }
+
+/* --- Floating score --- */
+
+.df-float {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  font-family: 'Outfit', sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  pointer-events: none;
+  animation: df-rise 0.9s ease-out forwards;
+  z-index: 5;
+}
+.df-float-good { color: var(--sev-minor); text-shadow: 0 0 16px rgba(102, 187, 106, 0.6); }
+
+@keyframes df-rise {
+  from { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
+  25%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  to   { opacity: 0; transform: translate(-50%, -95%) scale(1); }
+}
+
+/* --- Overlay panels --- */
+
+.df-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 14, 26, 0.86);
+  border-radius: 12px;
+  overflow-y: auto;
+  z-index: 10;
+}
+.df-overlay.show { display: flex; }
+.df-panel {
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+}
+.df-panel h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+.df-panel .df-hint { font-size: 12.5px; color: var(--text-dim); margin: 0 0 14px; line-height: 1.5; }
+.df-panel .btn { margin-bottom: 14px; }
+
+.df-result { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+.df-result > div { display: flex; flex-direction: column; gap: 2px; }
+.df-result-n {
+  font-family: 'Outfit', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.df-result span:last-child { font-size: 11px; color: var(--text-dim); }
+
+/* --- Leaderboard --- */
+
+.df-lb { margin-top: 4px; text-align: left; }
+.df-lb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.df-lb table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.df-lb th {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  font-weight: 500;
+  text-align: right;
+  padding: 0 6px 4px;
+}
+.df-lb th:nth-child(2) { text-align: left; }
+.df-lb td { padding: 4px 6px; border-top: 1px solid var(--border); text-align: right; }
+.df-lb-rank { color: var(--text-dim); width: 24px; text-align: left; }
+.df-lb-name { text-align: left; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.df-lb-score { font-weight: 700; font-variant-numeric: tabular-nums; }
+.df-lb-streak { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.df-lb-you { color: var(--accent); }
+/* The player's own row when they're outside the top slice — set apart so it
+   doesn't read as rank 11. */
+.df-lb-outside td { border-top: 1px dashed var(--text-dim); }
+
+/* --- Narrow screens --- */
+
+@media (max-width: 560px) {
+  .df-seat { grid-template-columns: 52px 1fr; gap: 6px; }
+  .df-seat-label { font-size: 10px; }
+  .df-who { display: none; }
+  .df-riichi-badge { flex-basis: auto; }
+  .df-stage { padding: 8px 6px; }
+  .df-arsenal { gap: 3px; }
+}

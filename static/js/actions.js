@@ -29,6 +29,7 @@ var HAIPAI_CLICK_ACTIONS = {
   showAccount: () => navTab("account"),
   showHelp: () => navTab("help"),
   showWaitsTrainer: () => navTab("waits-trainer"),
+  showDefenseTrainer: () => navTab("defense-trainer"),
   showAdmin: () => navTab("admin"),
   adminStopImpersonate: () => adminStopImpersonate(),
   openExternal: (el) => window.open(el.dataset.href, "_blank"),
@@ -91,7 +92,9 @@ var HAIPAI_CLICK_ACTIONS = {
   wtShoot: (el) => wtShoot(parseInt(el.dataset.tileIdx, 10)),
   wtTarget: (el) => wtTarget(el),
   wtStart: () => wtStart(),
-  wtToggleMute: () => wtToggleMute(),
+  dfPick: (el) => dfPick(el),
+  dfStart: () => dfStart(),
+  mgToggleMute: () => mgToggleMute(),
 
   // --- trends ---
   startWeaknessAnalysis: () => startWeaknessAnalysis(),

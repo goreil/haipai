@@ -13,6 +13,7 @@ Submodule layout:
 - `db.reports`   — category-report CRUD
 - `db.admin`     — `is_admin`, `admin_user_stats`, `admin_mau_stats`
 - `db.waits`     — Waits Trainer minigame scores + leaderboard
+- `db.defense`   — Defense Trainer minigame scores + leaderboard
 """
 
 import os
@@ -73,6 +74,11 @@ from db.waits import (
     get_user_waits_best,
     get_waits_leaderboard,
     submit_waits_score,
+)
+from db.defense import (
+    get_defense_leaderboard,
+    get_user_defense_best,
+    submit_defense_score,
 )
 from db.messages import (
     create_message,
@@ -159,6 +165,10 @@ __all__ = [
     "get_user_waits_best",
     "get_waits_leaderboard",
     "submit_waits_score",
+    # defense trainer (minigame)
+    "get_defense_leaderboard",
+    "get_user_defense_best",
+    "submit_defense_score",
     # messages (mailbox)
     "create_message",
     "list_messages_for_user",

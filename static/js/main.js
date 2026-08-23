@@ -118,12 +118,13 @@ var TAB_ROUTES = {
   help: () => showHelp(),
   account: () => showAccount(),
   "waits-trainer": () => showWaitsTrainer(),
+  "defense-trainer": () => showDefenseTrainer(),
 };
 
 // Returns the tab slug from `#trends`/`#admin`/`#help`/`#account`/
-// `#waits-trainer`, or null.
+// `#waits-trainer`, `#defense-trainer`, or null.
 function parseTabHash() {
-  const m = (window.location.hash || "").match(/^#(trends|admin|help|account|waits-trainer)$/);
+  const m = (window.location.hash || "").match(/^#(trends|admin|help|account|waits-trainer|defense-trainer)$/);
   return m ? m[1] : null;
 }
 
