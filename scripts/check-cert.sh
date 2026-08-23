@@ -3,12 +3,15 @@
 # Usage: Run via cron, e.g.:
 #   0 8 * * * /opt/haipai/check-cert.sh >> /var/log/haipai-cert.log 2>&1
 #
+# Checks one domain per run; the legacy domain still terminates TLS, so run it
+# a second time with DOMAIN=haipai.ylue.de until that host is retired.
+#
 # Exits 0 if cert is valid for >WARN_DAYS, exits 1 otherwise.
 # Set WEBHOOK_URL to receive alerts (Discord, Slack, ntfy, etc.)
 
 set -eu
 
-DOMAIN="${DOMAIN:-haipai.ylue.de}"
+DOMAIN="${DOMAIN:-haipai-trainer.com}"
 WARN_DAYS="${WARN_DAYS:-14}"
 WEBHOOK_URL="${WEBHOOK_URL:-}"
 TIMESTAMP="$(date +%Y-%m-%d\ %H:%M:%S)"

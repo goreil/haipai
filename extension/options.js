@@ -15,7 +15,10 @@
 // APIs are promise-based too. One namespace, one code path, no shims.
 const ext = globalThis.browser ?? globalThis.chrome;
 
-const DEFAULT_BASE = "https://haipai.ylue.de";
+const DEFAULT_BASE = "https://haipai-trainer.com";
+// Kept in step with background.js: a stored base still pointing at the old
+// domain displays (and, on the next save, persists) as the canonical one.
+const LEGACY_BASE = "https://haipai.ylue.de";
 const MJAI_ORIGIN = "https://mjai.ekyu.moe/*";
 
 const $ = (id) => document.getElementById(id);
@@ -59,7 +62,8 @@ async function hasAllOrigins() {
 
 async function load() {
   const s = await ext.storage.local.get("haipaiBase");
-  baseEl.value = normalizeBase(s.haipaiBase) || DEFAULT_BASE;
+  const stored = normalizeBase(s.haipaiBase);
+  baseEl.value = (!stored || stored === LEGACY_BASE) ? DEFAULT_BASE : stored;
 
   const granted = await hasAllOrigins();
   permEl.textContent = granted ? "granted" : "not granted";

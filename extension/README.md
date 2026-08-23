@@ -104,8 +104,11 @@ out and they stop.
 Open the options page (Chrome: extension **Details** → **Extension options**;
 Firefox: `about:addons` → the add-on → **Preferences**), then:
 
-1. **haipai base URL** — defaults to `https://haipai.ylue.de`. No trailing slash.
-   Press **Save base URL**.
+1. **haipai base URL** — defaults to `https://haipai-trainer.com`. No trailing
+   slash. Press **Save base URL**. (Upgrading from an older version: a stored
+   base of `https://haipai.ylue.de` is rewritten to the new domain
+   automatically. The old host keeps answering `/api/*`, so an install you
+   never update goes on working either way.)
 2. **Host access** — should say *granted*. If it says *not granted* (Firefox
    temporary install, or you revoked it), press **Grant access**.
 3. **Account** shows *logged in as \<your username\>* if you have a live haipai
@@ -128,11 +131,11 @@ able to read — anything secret. Measured on Chromium; see
 
 ### Using a different haipai host
 
-`manifest.json` grants `https://haipai.ylue.de/*` only. If you point the base URL
-at another host, add that origin to `host_permissions` in `manifest.json` and
-reload the extension, otherwise the upload (and the connection test) will fail to
-reach it. **Grant access** can only request origins that the manifest already
-lists.
+`manifest.json` grants `https://haipai-trainer.com/*` and the legacy
+`https://haipai.ylue.de/*`. If you point the base URL at another host, add that
+origin to `host_permissions` in `manifest.json` and reload the extension,
+otherwise the upload (and the connection test) will fail to reach it. **Grant
+access** can only request origins that the manifest already lists.
 
 ## Normal flow
 
@@ -142,7 +145,7 @@ lists.
    `https://mjai.ekyu.moe/killerducky/?data=/report/<hash>.json`.
 3. A small toast appears bottom-right: *Fetching review from mjai…* →
    *Uploading review to haipai…*
-4. The tab is redirected to `https://haipai.ylue.de/#g<game_id>`.
+4. The tab is redirected to `https://haipai-trainer.com/#g<game_id>`.
 
 Reloading a report page you already uploaded jumps straight to the existing game
 — no toast, no second upload. That memory lives in extension-local storage under

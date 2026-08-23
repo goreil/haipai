@@ -1,6 +1,6 @@
 # Haipai Deployment Guide
 
-This documents the full deployment pipeline for haipai.ylue.de.
+This documents the full deployment pipeline for haipai-trainer.com.
 
 ## Architecture
 
@@ -12,8 +12,11 @@ GitHub (push to main)
 ```
 
 - **Server**: Hetzner CX22 (2 vCPU, 4 GB RAM), Debian 12
-- **Stack**: Docker Compose (Flask/gunicorn + nginx + certbot)
-- **Domain**: haipai.ylue.de (A record -> server IP)
+- **Stack**: Flask/gunicorn in Docker Compose, behind **host** nginx +
+  host certbot (nginx is not a compose service; it proxies to the published
+  127.0.0.1:5000)
+- **Domain**: haipai-trainer.com (A + AAAA -> server IP). The old
+  haipai.ylue.de still resolves here — see "Domain migration" below.
 - **HTTPS**: Let's Encrypt via certbot container
 - **Database**: SQLite in Docker volume (`app-data`)
 
@@ -99,7 +102,7 @@ cd haipai
 
 # 3. Configure
 cp nginx.conf.template nginx.conf
-# Edit nginx.conf: replace YOUR_DOMAIN with haipai.ylue.de
+# Edit nginx.conf: replace YOUR_DOMAIN with haipai-trainer.com
 
 # 4. Set secret key
 echo "SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_hex(32))')" > .env
@@ -119,11 +122,63 @@ conn.close()
 
 # 7. HTTPS (after DNS is set up)
 docker-compose run --rm --entrypoint "certbot" certbot certonly \
-  --webroot --webroot-path=/var/lib/letsencrypt -d haipai.ylue.de
+  --webroot --webroot-path=/var/lib/letsencrypt -d haipai-trainer.com
 
 # Then uncomment the HTTPS block in nginx.conf and restart:
 docker-compose restart nginx
 ```
+
+## Domain migration (2026-08)
+
+`haipai-trainer.com` is canonical. `haipai.ylue.de` is being phased out but is
+**not** switched off: its vhost still terminates TLS, still proxies `/api/*`,
+and 301s every browser-facing route to the new domain, path and query intact.
+
+Why `/api/*` stays: old bookmarklets (built against `window.location.origin` at
+the time the user saved them) and browser-extension installs that have not been
+updated still POST there. Most clients turn a 301 on a POST into a GET, which
+would silently drop the upload body — so that prefix must keep answering 200
+until those clients are gone.
+
+Live config is the host's `/etc/nginx/sites-available/haipai.conf`. The staging
+copy is `/opt/haipai/nginx.conf`, which is **gitignored** (per-server paths —
+see `nginx.conf.template`), so it does not arrive with a `git pull`: edit it in
+place on the server and diff before installing.
+
+Standing up the new domain (run as root on the server):
+
+```bash
+# 1. Cert (webroot — the port-80 catch-all already serves the ACME challenge)
+certbot certonly --webroot --webroot-path=/var/lib/letsencrypt \
+  -d haipai-trainer.com -d www.haipai-trainer.com
+
+# 2. Install the vhost (nginx.conf is server-local, not in git)
+cd /opt/haipai
+diff -u /etc/nginx/sites-available/haipai.conf nginx.conf   # review first
+cp /etc/nginx/sites-available/haipai.conf{,.bak-$(date +%F)}
+cp nginx.conf /etc/nginx/sites-available/haipai.conf
+nginx -t && systemctl reload nginx
+
+# 3. Verify
+curl -sI https://haipai-trainer.com/ | head -1                       # 200
+curl -sI https://www.haipai-trainer.com/ | grep -i location           # -> apex
+curl -sI https://haipai.ylue.de/ | head -1                            # 301
+curl -sI https://haipai.ylue.de/ | grep -i location                   # -> new
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  -H 'Content-Type: application/json' -d '{}' \
+  https://haipai.ylue.de/api/games/upload                             # 401, not 301
+```
+
+Also needs doing outside this repo, or logins break on the new host:
+
+- **Discord OAuth**: add `https://haipai-trainer.com/auth/discord/callback` to
+  the app's redirect URIs.
+- **Google OAuth**: add `https://haipai-trainer.com/auth/google/callback` to the
+  authorized redirect URIs (and the origin to the authorized JavaScript
+  origins).
+
+Sessions are per-host cookies, so everyone signs in once on the new domain. The
+browser extension ships the new default in v2.2 (`extension/README.md`).
 
 ## Backups
 

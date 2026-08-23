@@ -14,7 +14,7 @@ This replaces a bookmarklet the user currently runs by hand on the report page.
 - `https://mjai.ekyu.moe/` submits via a plain server-rendered form: `<form class="form" method="post" action="https://mjai.ekyu.moe/review">`. There is no XHR/fetch submit path. The site itself renders the "processing" page and then navigates to the report.
 - The report page URL shape is `https://mjai.ekyu.moe/killerducky/?data=/report/<16-hex-hash>.json`.
 - The report JSON for a real game: HTTP 200, `content-type: application/json`, ~330 KB. Top-level keys include `engine`, `game_length`, `loading_time`, `review_time`, `show_rating`, `version`, `review`, `player_id`, `split_logs`, `mjai_log`, `lang`. It is same-origin relative to the report page.
-- Upload endpoint: `POST https://haipai.ylue.de/api/games/upload`, `Content-Type: application/json`, body `{"mortal_data": <report json>}`. Success is 2xx with `{"game_id": ...}`.
+- Upload endpoint: `POST https://haipai-trainer.com/api/games/upload` (the legacy `https://haipai.ylue.de` host still serves `/api/*` for un-updated installs — see "Domain migration" below), `Content-Type: application/json`, body `{"mortal_data": <report json>}`. Success is 2xx with `{"game_id": ...}`.
 - The endpoint accepts **two** ways in, and they are independent: the haipai **session cookie** (the extension) and `Authorization: Bearer <upload_token>` (the bookmarklet, which runs as a page on mjai.ekyu.moe and so can never have the cookie). Unauthenticated → `401 {"error":"Not signed in"}`; bad Bearer token → `401 {"error":"Invalid upload token"}`; cookie presented from a foreign web origin → `403`.
 - The endpoint already sends permissive CORS headers and passes preflight for the `Authorization` header. Do not rely on this staying true — see architecture below.
 - mjai report pages are retained for only 15 days.
@@ -138,7 +138,7 @@ Firefox-only `browser_specific_settings`, and `build-firefox.sh` enforces that.
 
 Message handler for `{type:'upload'}`:
 
-- Load `{ haipaiBase }` from `chrome.storage.local`. Default it to `https://haipai.ylue.de`. There is no credential to load.
+- Load `{ haipaiBase }` from `chrome.storage.local`. Default it to `https://haipai-trainer.com`, rewriting a stored legacy `https://haipai.ylue.de` to it. There is no credential to load.
 - Check the dedupe store (`chrome.storage.local` key `uploaded`, a map of `key → { gameId, ts }`). If present, navigate straight to the existing game and return. Prune entries older than 15 days on each run.
 - POST:
   ```js
@@ -159,7 +159,7 @@ Optionally add `chrome.notifications.create` for terminal failure, so the user s
 
 ## options.html / options.js
 
-haipai base URL (default `https://haipai.ylue.de`), a session badge with **Open haipai login** / **Re-check**, and a "Test connection" button that POSTs `{mortal_data:{}}` and reports the status code, so a live session (400 `mortal_data is required`) is distinguishable from a logged-out one (401). Persist the base URL to `chrome.storage.local`. The page cannot reach haipai itself, so it asks the worker for both the session state (via `/api/me`) and the connection test.
+haipai base URL (default `https://haipai-trainer.com`), a session badge with **Open haipai login** / **Re-check**, and a "Test connection" button that POSTs `{mortal_data:{}}` and reports the status code, so a live session (400 `mortal_data is required`) is distinguishable from a logged-out one (401). Persist the base URL to `chrome.storage.local`. The page cannot reach haipai itself, so it asks the worker for both the session state (via `/api/me`) and the connection test.
 
 ## Cross-browser (v2.1)
 
@@ -248,10 +248,23 @@ live login, and the fallback is the Bearer `upload_token` path, which
 `/api/games/upload` still accepts and which does not depend on cookie behaviour
 (git history has the v1.1 per-install token implementation).
 
+## Domain migration (v2.2)
+
+`haipai-trainer.com` is the canonical host; `haipai.ylue.de` is being phased
+out. Both are in `host_permissions` (the old one stays so that an install
+carrying a hand-saved legacy base keeps working), the default base is the new
+domain, and `getBase()` rewrites a stored legacy base to it once.
+
+The server side is asymmetric on purpose and the extension depends on it: the
+legacy vhost still proxies `/api/*`, and 301-redirects everything else. It must
+never redirect `/api/*` — clients downgrade a 301'd POST to a GET, which would
+drop the upload body of every install that has not been updated. See
+`nginx.conf`.
+
 ## Acceptance criteria
 
 1. Logged out of haipai, loading a report page produces a clear log-in prompt (with a working in-page **Log in to haipai** button) and no upload call to haipai.
-2. Logged in to haipai, submitting a game on mjai results in: user solves Turnstile → clicks the site's Submit → sees mjai's own processing page → lands on the report page → sees an "uploading" toast → is redirected to `https://haipai.ylue.de/#g<game_id>`.
+2. Logged in to haipai, submitting a game on mjai results in: user solves Turnstile → clicks the site's Submit → sees mjai's own processing page → lands on the report page → sees an "uploading" toast → is redirected to `https://haipai-trainer.com/#g<game_id>`.
 3. Reloading a report page that was already uploaded navigates to the existing game without re-uploading.
 4. Visiting a `killerducky` URL with no `?data=` param, or with a `data` value pointing at another origin, does nothing and logs nothing sensitive.
 5. A 401 from haipai offers the log-in flow and does not retry; logging in in the opened tab resumes the upload without a reload of the report page.

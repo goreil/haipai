@@ -25,7 +25,12 @@
 // awaitable in both browsers, so there is one code path and no callback shims.
 const ext = globalThis.browser ?? globalThis.chrome;
 
-const DEFAULT_BASE = "https://haipai.ylue.de";
+const DEFAULT_BASE = "https://haipai-trainer.com";
+// The old domain is being phased out. Its /api/* still answers, so an install
+// that never got updated keeps uploading — but anything still carrying the old
+// default in storage is moved to the canonical domain once, here. A base the
+// user typed for a self-hosted instance is left alone.
+const LEGACY_BASE = "https://haipai.ylue.de";
 const RETRY_DELAYS_MS = [1000, 4000, 10000]; // 3 retries after the first try
 const DEDUPE_TTL_MS = 15 * 24 * 60 * 60 * 1000; // mjai reports expire in 15 days
 
@@ -36,7 +41,10 @@ const NOTIFY_ICON = "icons/icon-48.png";
 
 async function getBase() {
   const s = await ext.storage.local.get("haipaiBase");
-  return String(s.haipaiBase || DEFAULT_BASE).trim().replace(/\/+$/, "");
+  const base = String(s.haipaiBase || DEFAULT_BASE).trim().replace(/\/+$/, "");
+  if (base !== LEGACY_BASE) return base;
+  await ext.storage.local.set({ haipaiBase: DEFAULT_BASE });
+  return DEFAULT_BASE;
 }
 
 // Returns the dedupe map with expired entries dropped (and persists the prune).

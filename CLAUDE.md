@@ -33,6 +33,16 @@ docker-compose logs -f app
 - `SECRET_KEY` must be set via `.env` or environment variable. No insecure default is provided.
 - `DEMO_GAME_ID` (optional): game id shown at `/demo` for logged-out visitors (linked from the login/landing pages). Unset disables `/demo` (404). Swapping the demo game is a one-line env change — see the "Public game sharing" entry below.
 - Debug mode requires `FLASK_ENV=development` (off by default).
+- **Domains**: `haipai-trainer.com` is canonical; `haipai.ylue.de` is being
+  phased out — its vhost still proxies `/api/*` (old bookmarklets and
+  un-updated extension installs POST there, and a 301 on a POST loses the body)
+  and 301s every browser-facing route to the new domain. Nothing in the app
+  hardcodes a host: absolute URLs all come from the request (`url_for(...,
+  _external=True)`, `request.url_root`, `window.location.origin`), so the
+  migration lives entirely in `nginx.conf` (server-local and gitignored — the
+  tracked file is `nginx.conf.template`) + `extension/` + the docs. Procedure
+  and the out-of-repo OAuth redirect-URI updates: `docs/DEPLOY.md` "Domain
+  migration".
 - Frontend should handle most categorization logic, backend handles shanten/ukeire calc but that's subject to change.
 
 

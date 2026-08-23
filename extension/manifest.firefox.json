@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "mjai → haipai uploader",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Uploads a Mortal review from mjai.ekyu.moe to your haipai instance and opens the game there.",
   "permissions": ["storage", "tabs", "notifications"],
   "host_permissions": [
     "https://mjai.ekyu.moe/*",
+    "https://haipai-trainer.com/*",
     "https://haipai.ylue.de/*"
   ],
   "background": {
