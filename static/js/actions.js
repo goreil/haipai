@@ -91,6 +91,7 @@ var HAIPAI_CLICK_ACTIONS = {
   wtShoot: (el) => wtShoot(parseInt(el.dataset.tileIdx, 10)),
   wtTarget: (el) => wtTarget(el),
   wtStart: () => wtStart(),
+  wtToggleMute: () => wtToggleMute(),
 
   // --- trends ---
   startWeaknessAnalysis: () => startWeaknessAnalysis(),

@@ -62,6 +62,23 @@
   box-shadow: 0 0 12px rgba(253, 216, 53, 0.25);
 }
 
+.wt-hud-right { display: flex; align-items: center; gap: 8px; }
+
+/* Sound toggle. Muted state is remembered in localStorage, so it also
+   reflects a choice made in an earlier session. */
+.wt-mute {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  line-height: 0;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.wt-mute:hover { border-color: var(--text-dim); }
+.wt-mute.muted { opacity: 0.45; }
+
 /* --- Stage --- */
 
 .wt-stage {
@@ -393,5 +410,6 @@ body:has(.wt-wrap) #bmc-wbtn { display: none !important; }
   .wt-wrap { gap: 6px; }
   .wt-score { font-size: 22px; }
   .wt-lives { font-size: 18px; }
+  .wt-mute { padding: 4px 6px; }
   .wt-stage { min-height: 140px; }
 }

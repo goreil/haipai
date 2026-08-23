@@ -35,6 +35,7 @@ var WT_STUN_SEC = 0.9;       // hitstun after a wrong shot
 var WT_SHOT_COOLDOWN = 0.1;  // min gap between shots (anti-mash)
 var WT_CLEAR_SEC = 1.2;      // grace pause after a life is lost
 var WT_BEST_KEY = "haipai.waitsTrainer.best";
+var WT_MUTE_KEY = "haipai.waitsTrainer.muted";
 var WT_TILE_RATIO = 0.75;    // tile SVG aspect (300x400 viewBox)
 
 // Difficulty ramp, driven by hands cleared this run. Falls are slow — the
@@ -217,6 +218,167 @@ function wtSaveBest(score) {
   }
 }
 
+// --- Sound ------------------------------------------------------------------
+
+// Every effect is synthesized on the fly with WebAudio — no asset files, no
+// preloading, nothing to 404. The whole palette is a couple of enveloped
+// oscillators plus a noise burst, which is enough for arcade feedback and
+// keeps the trainer as self-contained as the rest of it.
+//
+// The context is created lazily on the first sound, which only ever happens
+// inside a click/keypress handler (Play, or a shot), so autoplay policy is
+// satisfied without a separate "enable audio" gesture.
+
+var wtAudio = null;   // { ctx, master } once built; { ctx: null } if unsupported
+var wtMuted = (function () {
+  try { return localStorage.getItem(WT_MUTE_KEY) === "1"; } catch (e) { return false; }
+})();
+
+function wtAudioOut() {
+  if (wtMuted) return null;
+  if (!wtAudio) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { wtAudio = { ctx: null }; return null; }
+    const ctx = new AC();
+    const master = ctx.createGain();
+    master.gain.value = 0.45;
+    master.connect(ctx.destination);
+    wtAudio = { ctx: ctx, master: master };
+  }
+  if (!wtAudio.ctx) return null;
+  // Browsers suspend the context when the tab is backgrounded (and Safari
+  // starts it suspended); resuming is a no-op when it's already running.
+  if (wtAudio.ctx.state === "suspended") wtAudio.ctx.resume();
+  return wtAudio;
+}
+
+// One enveloped oscillator. `to` sweeps the pitch across the note, `delay`
+// staggers notes into an arpeggio without needing a scheduler.
+function wtTone(o) {
+  const a = wtAudioOut();
+  if (!a) return;
+  const t = a.ctx.currentTime + (o.delay || 0);
+  const dur = o.dur || 0.12;
+  const peak = o.gain == null ? 0.22 : o.gain;
+  const osc = a.ctx.createOscillator();
+  osc.type = o.type || "triangle";
+  osc.frequency.setValueAtTime(o.freq, t);
+  if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+  const g = a.ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + Math.min(0.012, dur / 3));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g);
+  g.connect(a.master);
+  osc.start(t);
+  osc.stop(t + dur + 0.03);
+}
+
+// Filtered white noise — the percussive half of the palette (the miss thud,
+// the life-lost crash, the soft spawn whoosh).
+function wtNoise(o) {
+  const a = wtAudioOut();
+  if (!a) return;
+  const t = a.ctx.currentTime + (o.delay || 0);
+  const dur = o.dur || 0.15;
+  const buf = a.ctx.createBuffer(1, Math.ceil(a.ctx.sampleRate * dur), a.ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = a.ctx.createBufferSource();
+  src.buffer = buf;
+  const f = a.ctx.createBiquadFilter();
+  f.type = o.filter || "lowpass";
+  f.frequency.setValueAtTime(o.freq || 1200, t);
+  if (o.to) f.frequency.exponentialRampToValueAtTime(o.to, t + dur);
+  const g = a.ctx.createGain();
+  const peak = o.gain == null ? 0.18 : o.gain;
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f);
+  f.connect(g);
+  g.connect(a.master);
+  src.start(t);
+  src.stop(t + dur);
+}
+
+// A correct shot. The pitch climbs through the hand's waits, so a multi-sided
+// hand reads as one rising phrase and the last wait lands on the top note.
+function wtSfxHit(step, total) {
+  const rung = total > 1 ? step / (total - 1) : 1;
+  const semis = [0, 4, 7, 11, 14][Math.min(4, Math.round(rung * 4))];
+  wtTone({ freq: 587 * Math.pow(2, semis / 12), dur: 0.09, type: "triangle", gain: 0.2 });
+  wtTone({ freq: 1760, to: 2600, dur: 0.04, type: "sine", gain: 0.06 });
+}
+
+// A cleared hand: a major arpeggio, one note per point, so the 4-point hands
+// are audibly the big ones.
+function wtSfxClear(points, combo) {
+  const notes = [523.25, 659.25, 783.99, 1046.5];
+  const n = points >= 4 ? 4 : (points >= 2 ? 3 : 2);
+  const lift = Math.pow(2, Math.min(6, combo) / 48);   // a semitone or so as the combo builds
+  for (let i = 0; i < n; i++) {
+    wtTone({ freq: notes[i] * lift, dur: 0.13, delay: i * 0.055, type: "triangle", gain: 0.17 });
+  }
+}
+
+function wtSfxMiss() {
+  wtTone({ freq: 196, to: 70, dur: 0.28, type: "sawtooth", gain: 0.16 });
+  wtNoise({ freq: 900, to: 180, dur: 0.2, gain: 0.12 });
+}
+
+function wtSfxLife() {
+  wtNoise({ freq: 2400, to: 200, dur: 0.5, gain: 0.16 });
+  const notes = [440, 349.23, 261.63];
+  notes.forEach((f, i) => wtTone({ freq: f, dur: 0.26, delay: i * 0.11, type: "square", gain: 0.12 }));
+}
+
+function wtSfxOver() {
+  const notes = [440, 392, 329.63, 220];
+  notes.forEach((f, i) => wtTone({ freq: f, dur: 0.45, delay: i * 0.17, type: "triangle", gain: 0.18 }));
+}
+
+function wtSfxUnlock() {
+  [783.99, 1046.5, 1318.5].forEach((f, i) =>
+    wtTone({ freq: f, dur: 0.18, delay: i * 0.07, type: "sine", gain: 0.16 }));
+}
+
+function wtSfxStart() {
+  [523.25, 783.99].forEach((f, i) =>
+    wtTone({ freq: f, dur: 0.14, delay: i * 0.08, type: "triangle", gain: 0.18 }));
+}
+
+// Deliberately near-subliminal: a hand appears several times a second at a
+// high clear rate, so anything with a pitch would turn into a drum machine.
+function wtSfxSpawn() {
+  wtNoise({ freq: 700, to: 240, dur: 0.12, gain: 0.05 });
+}
+
+function wtToggleMute() {
+  wtMuted = !wtMuted;
+  try { localStorage.setItem(WT_MUTE_KEY, wtMuted ? "1" : "0"); } catch (e) { /* private mode */ }
+  if (wtMuted && wtAudio && wtAudio.ctx) wtAudio.ctx.suspend();
+  wtRenderMute();
+  if (!wtMuted) wtTone({ freq: 880, dur: 0.09, type: "sine", gain: 0.14 });
+}
+
+// An inline SVG speaker rather than the 🔊/🔇 emoji: the emoji is a colour
+// glyph that renders at a different size (or not at all) depending on the
+// platform's font, and this button sits next to the combo pill.
+function wtRenderMute() {
+  const btn = document.getElementById("wt-mute");
+  if (!btn) return;
+  const waves = wtMuted
+    ? `<path d="M11 6l4 4M15 6l-4 4" />`
+    : `<path d="M11 5.2a3.6 3.6 0 0 1 0 5.6" /><path d="M12.8 3.2a6.2 6.2 0 0 1 0 9.6" />`;
+  btn.classList.toggle("muted", wtMuted);
+  btn.innerHTML = `<svg viewBox="0 0 17 16" width="17" height="16" fill="none"
+      stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+      aria-hidden="true"><path d="M4.5 6h-2v4h2l3.5 3V3L4.5 6z" fill="currentColor" />${waves}</svg>`;
+  btn.setAttribute("aria-pressed", wtMuted ? "true" : "false");
+  btn.setAttribute("aria-label", wtMuted ? "Sound off" : "Sound on");
+  btn.title = wtMuted ? "Sound off (m)" : "Sound on (m)";
+}
+
 // --- Leaderboard ------------------------------------------------------------
 
 // Last payload from /api/waits/leaderboard: {top, you, players}. Module-level
@@ -303,6 +465,7 @@ function showWaitsTrainer() {
   wtRenderOverlay();
   wtLoadLeaderboard();
   wtRenderHud();
+  wtRenderMute();
   wt.raf = requestAnimationFrame(wtLoop);
 }
 
@@ -321,7 +484,10 @@ function wtShellHtml() {
         <div class="wt-score" id="wt-score">0</div>
         <div class="wt-sub">best <span id="wt-best">0</span></div>
       </div>
-      <div class="wt-combo" id="wt-combo"></div>
+      <div class="wt-hud-right">
+        <div class="wt-combo" id="wt-combo"></div>
+        <button type="button" class="wt-mute" id="wt-mute" data-action="wtToggleMute"></button>
+      </div>
     </div>
     <div class="wt-stage" id="wt-stage">
       <div class="wt-hands" id="wt-hands"></div>
@@ -435,6 +601,7 @@ function wtSpawnHand() {
   h.w = el.offsetWidth;
   h.h = el.offsetHeight;
   wt.hands.push(h);
+  wtSfxSpawn();
 }
 
 // The hand shots go to: the player's tapped pick while it lives, otherwise
@@ -485,10 +652,12 @@ function wtShoot(idx) {
     h.el.classList.remove("wt-flash-ok");
     void h.el.offsetWidth;
     h.el.classList.add("wt-flash-ok");
+    wtSfxHit(h.hit.size - 1, h.waits.length);
     if (h.hit.size === h.waits.length) wtClearHand(h);
   } else {
     wt.combo = 0;
     wt.stunUntil = wt.now + WT_STUN_SEC;
+    wtSfxMiss();
     const stage = document.getElementById("wt-stage");
     stage.classList.remove("wt-shake");
     void stage.offsetWidth;
@@ -504,9 +673,10 @@ function wtClearHand(h) {
   wt.bestCombo = Math.max(wt.bestCombo, wt.combo);
   wt.cleared += 1;
   wtFloat(`+${h.points}`, h, "ok");
+  wtSfxClear(h.points, wt.combo);
   // Announce a newly unlocked hand size the moment the combo reaches it.
   const unlocked = WT_HAND_TIERS.find((t) => t.unlockCombo === wt.combo);
-  if (unlocked) wtBanner(`${unlocked.size}-tile hands unlocked`);
+  if (unlocked) { wtBanner(`${unlocked.size}-tile hands unlocked`); wtSfxUnlock(); }
   wtRemoveHand(h);
   wtRenderHud();
 }
@@ -633,6 +803,7 @@ function wtPositionHands() {
 
 function wtLoseLife() {
   wt.lives -= 1;
+  wtSfxLife();
   wt.combo = 0;
   wt.targetId = null;
   // The whole stage is wiped, not just the hand that landed.
@@ -640,6 +811,7 @@ function wtLoseLife() {
   wtRenderHud();
   if (wt.lives <= 0) {
     wt.phase = "over";
+    wtSfxOver();
     wtSaveBest(wt.score);
     wtRenderHud();
     wtRenderOverlay();
@@ -715,6 +887,7 @@ function wtStart() {
   if (!wt) return;
   if (wt.phase === "paused") {
     wt.phase = "playing";
+    wtSfxStart();
     wtRenderOverlay();
     return;
   }
@@ -723,6 +896,7 @@ function wtStart() {
   wt.raf = keep;
   // Re-sync in case the arsenal only reached its final layout after mount.
   wtSyncTileSize();
+  wtSfxStart();
   wtRenderHud();
   wtRenderOverlay();
 }
@@ -760,5 +934,7 @@ document.addEventListener("keydown", (e) => {
     }
   } else if (e.key === "Escape") {
     wtPause();
+  } else if (e.key === "m" || e.key === "M") {
+    wtToggleMute();
   }
 });

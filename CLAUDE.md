@@ -101,8 +101,14 @@ grepping. If you change a concept that isn't listed, add it.
   — no API, no DB, best score in localStorage; the rAF loop self-terminates
   when its stage element leaves the DOM, so routing away needs no teardown.
   Wired in via `TAB_ROUTES`/`parseTabHash` (`main.js`), the `wtShoot`/
-  `wtTarget`/`wtStart` entries in `actions.js`, and the toolbar button in
-  `static/index.html`. The **leaderboard** (each player's best run, shown on
+  `wtTarget`/`wtStart`/`wtToggleMute` entries in `actions.js`, and the toolbar
+  button in `static/index.html`. **Sound** is synthesized in-page with WebAudio
+  (`wtTone`/`wtNoise` + the `wtSfx*` cues in `waits-trainer.js`) — no audio
+  assets to ship or 404, and the context is built lazily on the first cue,
+  which always comes from a click/keypress, so autoplay policy needs no
+  separate opt-in. The HUD's speaker button (`wtToggleMute`, also the `m` key)
+  suspends the context and remembers the choice in localStorage
+  (`WT_MUTE_KEY`). The **leaderboard** (each player's best run, shown on
   both the intro and game-over panels) is the one part with a backend:
   `waits_scores` (`db/schema.py`, one row per finished run) via
   `db/waits.py` (`submit_waits_score`/`get_waits_leaderboard`/
