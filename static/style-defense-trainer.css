@@ -233,7 +233,6 @@
 .df-bar i { display: block; height: 100%; border-radius: 999px; transition: width 0.1s linear; }
 .df-bar-watch { background: var(--accent); }
 .df-bar-answer { background: var(--sev-minor); }
-.df-bar-urgent { background: var(--sev-major); }
 .df-bar-idle { background: transparent; }
 
 /* --- Arsenal --- */
@@ -308,6 +307,13 @@
   text-align: center;
   max-width: 420px;
   width: 100%;
+  /* The overlay centers its child, so a panel taller than the stage would
+     overflow off BOTH edges and leave its heading unreachable — scrolling the
+     overlay can't recover the part above the top. Capping and scrolling the
+     panel itself is what .wt-panel does; a game-over panel carrying the
+     leaderboard and the guest sign-up CTA is tall enough to need it. */
+  max-height: 100%;
+  overflow-y: auto;
 }
 .df-panel h3 {
   font-family: 'Outfit', sans-serif;

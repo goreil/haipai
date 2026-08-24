@@ -97,8 +97,10 @@ grepping. If you change a concept that isn't listed, add it.
   arcade minigame — pin-only tenpai hands fall down a stage, the player taps
   tiles from a 9-tile arsenal to shoot the target hand, and **every** wait must
   be hit before it dissolves (a two-sided wait needs both tiles). Wrong tile →
-  combo reset + hitstun; a hand reaching the floor → one of 3 lives and the
-  stage is wiped. 4-tile hands score 1, 7-tile 2, 10-tile 4, the bigger sizes
+  combo reset + hitstun; a hand reaching the floor ends the run (**one life**,
+  `WT_LIVES`) and the game-over panel shows that hand — `wt.killer`, snapshotted
+  in `wtLoseLife` before the stage is wiped, rendered by `wtKillerHtml` with
+  each wait marked hit (green) or still open (red). 4-tile hands score 1, 7-tile 2, 10-tile 4, the bigger sizes
   unlocking at combo 5 / 10. Hand tiles are drawn at the arsenal tile's width
   (`wtSyncTileSize` writes `--wt-tile-h`, capped so a 10-tile hand still fits
   a phone stage); spawning is on a timer except that an empty stage refills
@@ -108,7 +110,9 @@ grepping. If you change a concept that isn't listed, add it.
   out from a measured width. All of it lives in
   `static/js/waits-trainer.js`
   (`wt*` globals + the `wt` state object) and `static/style-waits-trainer.css`
-  — no API, no DB, best score in localStorage; the rAF loop self-terminates
+  — no API, no DB, best score in localStorage (`WT_BEST_KEY`/`DF_BEST_KEY` both
+  carry a `.v2` suffix: the one-life rules invalidated every 3-life best, and the
+  server leaderboards were truncated at the same time); the rAF loop self-terminates
   when its stage element leaves the DOM, so routing away needs no teardown.
   Wired in via `TAB_ROUTES`/`parseTabHash` (`main.js`), the `wtShoot`/
   `wtTarget`/`wtStart` (+ shared `mgToggleMute`) entries in `actions.js`, and the toolbar
@@ -128,13 +132,15 @@ grepping. If you change a concept that isn't listed, add it.
   `db/waits.py` (`submit_waits_score`/`get_waits_leaderboard`/
   `get_user_waits_best`, the board relying on SQLite's bare-column-with-MAX()
   behaviour so a row describes the run that produced the best score), served
-  by `routes/waits.py` (`POST /api/waits/scores`, `GET
-  /api/waits/leaderboard`, both `@login_required`). Scores are self-reported
+  by `routes/waits.py` (`POST /api/waits/scores` `@login_required`, `GET
+  /api/waits/leaderboard` public — see the arcade entry). Scores are self-reported
   by a client-side game, so `_validated_run` gates them on the game's own
   points arithmetic (1/2/4 per hand → `hands_cleared <= score <= 4 *
   hands_cleared`, combo ≤ hands) rather than pretending to verify them;
   the reasoning is in that module's docstring. Pinned by
-  `tests/test_api_waits.py`. The mahjong logic (wait detection + random tenpai-hand
+  `tests/test_api_waits.py`. Playable **without an account** at `/play` —
+  see the "Public minigame arcade" entry for how a guest run reaches the
+  board. The mahjong logic (wait detection + random tenpai-hand
   generation, incl. the curated 5-sided shapes) is a JS port of the
   `riichi-mahjong-trainer/` submodule (djuretic, MIT, Elm) — **reference-only,
   never imported**, same arrangement as `killer_mortal_gui`; the porting map
@@ -153,9 +159,11 @@ grepping. If you change a concept that isn't listed, add it.
   asked about (the other seats' pre-riichi discards stay down for the whole
   board; their slots still show, because a pond's *length* is public at a real
   table and its contents are not). Clearing a step scores its safe-tile count;
-  a wrong tap or a timeout costs one of 3 lives, reveals the answer marked
-  green (found) / amber (missed) / red (the tap that ended it), and moves to a
-  fresh board. Client-side in `static/js/defense-trainer.js` (`df*` globals +
+  a wrong tap ends the run (**one life**, `DF_LIVES`) after a review beat that
+  reveals the answer marked green (found) / amber (missed) / red (the tap that
+  ended it). The answer phase has **no clock** (`dfBeginAnswer`) — the bar
+  becomes a found/total progress meter — and the reveal is deliberately
+  unhurried (`dfFlashSeconds`); the memory is the test, not the typing. Client-side in `static/js/defense-trainer.js` (`df*` globals +
   the `df` state object) and `static/style-defense-trainer.css`; sound via the
   shared `minigame-audio.js` (each tile has its own pentatonic note, so a
   board always sounds the same). Wired in via `TAB_ROUTES`/`parseTabHash`
@@ -172,12 +180,42 @@ grepping. If you change a concept that isn't listed, add it.
   winning tile (it did not pass), and a **second riichi** ends the flow there.
   The one server-side part is the leaderboard — `defense_scores`
   (`db/schema.py`) via `db/defense.py`, served by `routes/defense.py` (`POST
-  /api/defense/scores`, `GET /api/defense/leaderboard`, both `@login_required`),
+  /api/defense/scores` `@login_required`, `GET /api/defense/leaderboard`
+  public — see the arcade entry),
   the exact shape of the Waits Trainer's, self-reported scores gated on the
   game's own arithmetic (`steps_cleared <= score <= 34 * steps_cleared`).
-  Pinned by `tests/test_api_defense.py`.
+  Pinned by `tests/test_api_defense.py`. Playable **without an account** at
+  `/play` — see the "Public minigame arcade" entry.
+- Public minigame arcade (`/play`, the guest home of both trainers): the two
+  trainers are pure client-side games, so an account buys exactly one thing —
+  a row on the leaderboard. `GET /play` (`routes/pages.py`) serves
+  `static/play.html` + `static/js/play-view.js` to logged-out visitors and
+  **redirects everyone else to `/`** (browsers carry the fragment across a
+  redirect that has none of its own, so `/play#defense-trainer` lands on
+  `/#defense-trainer` and the SPA router picks the same trainer). Same call as
+  the shared-game page: a deliberately separate minimal shell (no sidebar,
+  toolbar, mailbox, admin, game list) reusing the trainers themselves rather
+  than the SPA in a degraded mode — pinned by `tests/test_pages_play.py`.
+  `play-view.js` supplies the handful of globals the trainers reach for
+  (`state`, a no-op `renderGameList`, `csrfToken`) plus a two-tab
+  `TAB_ROUTES`/`navTab`/`parseTabHash` router mirroring `main.js`'s contract,
+  so the toolbar buttons reuse the existing `showWaitsTrainer`/
+  `showDefenseTrainer` actions unchanged. What makes a run a *guest* run is
+  `mgGuest` (`static/js/minigame-shell.js`, the shared non-audio minigame
+  module): `play-view.js` sets it true, and `wtReportRun`/`dfReportRun` then
+  stash the run in localStorage (`mgStashRun`, best-per-game only) instead of
+  POSTing, with the game-over panel rendering `mgSignupCtaHtml`. On the next
+  visit *with* a session each trainer's `*LoadLeaderboard` calls
+  `mgFlushPendingRun` first, which submits the stashed run and reports it on
+  the intro panel ("Saved your guest run: N points.") — so the offer survives
+  the whole register -> verify-email -> log-in detour. Both
+  `GET /api/{waits,defense}/leaderboard` are **public** (an anonymous caller
+  gets `you: null`); only the score POSTs are `@login_required`. Styles
+  `static/style-minigame.css` (banner, footer, `.mg-cta`, `.mg-guest-note`),
+  loaded only by `play.html`. Entry points: the landing hero/bottom CTAs + the
+  third feature card (`static/landing.html`) and `templates/login.html`.
 - Mailbox messages: `static/js/mailbox.js`
-- API client + shell: `static/js/api.js`, `static/js/main.js`, `static/js/ui.js`, `static/index.html`
+- API client + shell: `static/js/api.js`, `static/js/main.js`, `static/js/ui.js`, `static/index.html`. `escapeHtml` lives on its own in `static/js/html-escape.js` — all three shells (`index.html`, `shared.html`, `play.html`) build HTML as strings, and only the first wants `ui.js`
 - Public game sharing (per-game share links + the `/demo` link on login/landing for logged-out visitors): one mechanism serves both — a nullable, unique `games.share_token` (`db/schema.py`), helpers in `db/games.py` (`get_or_create_share_token`/`regenerate_share_token`/`revoke_share_token`/`get_game_by_share_token`, the last stripping the owner's private per-mistake `note` before returning). Owner-facing CRUD (`GET`/`POST .../regenerate`/`DELETE` on `/api/games/<id>/share-token`, all `@login_required`) lives in `routes/game.py` next to the analogous `upload_token` routes; the public read is the unauthenticated `GET /api/shared/<token>` (same combined payload shape `fetchGame()` builds from two calls, in one). `GET /shared/<token>` (`routes/pages.py`) always serves the dedicated read-only page `static/shared.html` + `static/js/shared-view.js` — a deliberately separate, minimal shell (no sidebar/toolbar/mailbox/admin) reusing the same render pipeline (`game-render.js`/`mistake-card.js`/prep/categorize) rather than the full SPA in a degraded mode, so there's no write-control surface to accidentally leak. `state.readOnly` (set only by `shared-view.js`) is what `game-render.js`/`mistake-card.js` check to hide notes/reports/delete/share/the complex-gap funnel — see `main.js`'s `state` init for the flag's contract. `GET /demo` (`routes/pages.py`) redirects to the share link for `DEMO_GAME_ID` (env var, documented above), generating it on first hit — swapping the demo game is a one-line env change, not a template edit. Owner-side "Share" button + modal: `static/js/game-render.js` header, `static/js/ui.js` (`showShareModal` et al.), markup in `static/index.html`.
 
 **Frontend — CSS (split by visual scope, not by JS module)**
@@ -185,8 +223,9 @@ grepping. If you change a concept that isn't listed, add it.
 - `static/style-layout.css` — sidebar, toolbar, tabs, modals, forms
 - `static/style-game-detail.css` — game header, round/mistake cards, EV table, yaku panels
 - `static/style-board-display.css` — board context, discards, threat pills, hand safety, melds
-- `static/style-waits-trainer.css` — the Waits Trainer minigame (stage, falling hands, arsenal); self-contained, only loaded by `index.html`
-- `static/style-defense-trainer.css` — the Defense Trainer minigame (face-down board, the reveal flash, 34-tile arsenal); self-contained, only loaded by `index.html`
+- `static/style-waits-trainer.css` — the Waits Trainer minigame (stage, falling hands, arsenal); self-contained, loaded by `index.html` + `play.html`
+- `static/style-defense-trainer.css` — the Defense Trainer minigame (face-down board, the reveal flash, 34-tile arsenal); self-contained, loaded by `index.html` + `play.html`
+- `static/style-minigame.css` — the public arcade shell (`/play`): its banner/footer plus the guest sign-up CTA both trainers render on game over; only loaded by `play.html` (inside the SPA `mgGuest` is never true, so the CTA never renders there)
 
 **Backend**
 - Routes (Flask blueprints): `routes/auth.py`, `routes/game.py`, `routes/pages.py`, `routes/admin.py`, `routes/mailbox.py`, `routes/waits.py`, `routes/defense.py`

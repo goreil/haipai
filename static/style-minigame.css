@@ -1,0 +1,124 @@
+/* Shell chrome + the guest sign-up CTA shared by both minigames.
+
+   Only static/play.html loads this: the CTA renders when `mgGuest` is true
+   (static/js/minigame-shell.js), and inside the SPA it never is. The trainers'
+   own stylesheets stay untouched so neither of them grows an account concern.
+
+   The banner/footer deliberately reuse .btn / .content / .main from
+   style-layout.css — this file adds only what the arcade needs on top. */
+
+/* --- Banner ---------------------------------------------------------------
+   Same slot the toolbar occupies in the SPA and the same slot .shared-banner
+   occupies on a shared game: brand, the two trainers, then the way in. */
+
+.play-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.play-banner .brand-mini {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.play-banner .brand-mini img { width: 22px; height: 22px; }
+
+.play-tabs { display: flex; gap: 6px; margin-left: 8px; }
+
+/* The trainer you're on. Matches the SPA toolbar's idea of a current tab
+   rather than inventing a second one. */
+.play-tabs .btn.active {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.play-banner .btn-secondary {
+  background: transparent;
+  color: var(--text-dim);
+}
+.play-banner .btn-secondary:hover { color: var(--text); border-color: var(--accent-dim); }
+
+@media (max-width: 520px) {
+  /* A phone can't fit brand + both trainers + both account buttons on one
+     row, and a wrapped banner steals a whole line from the stage. The mascot
+     still links home, so only the wordmark goes. */
+  .play-banner { padding: 8px 10px; gap: 6px; flex-wrap: nowrap; }
+  .play-banner .brand-word { display: none; }
+  .play-tabs { margin-left: 0; gap: 4px; }
+  .play-banner .btn { padding: 5px 10px; font-size: 12px; }
+}
+
+/* --- Footer ---------------------------------------------------------------
+   Kept short on purpose: it sits below the stage, which is height-constrained
+   on a phone, so it must not eat the play area. */
+
+.play-footer {
+  flex: 0 0 auto;
+  padding: 8px 20px 10px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.play-footer p { margin: 2px 0; }
+.play-footer a { color: var(--text-dim); }
+.play-footer a:hover { color: var(--accent); }
+
+@media (max-height: 640px) {
+  /* Phone in portrait mid-game: the stage needs the pixels more than the
+     legal links do. They're still one tap away on the landing page. */
+  .play-footer { display: none; }
+}
+
+/* --- Guest sign-up CTA ----------------------------------------------------
+   Rendered into the game-over panel of both trainers (mgSignupCtaHtml), so it
+   has to sit inside .wt-panel / .df-panel without fighting their centering. */
+
+.mg-cta {
+  margin: 16px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 8px;
+  background: rgba(79, 195, 247, 0.07);
+  text-align: center;
+}
+
+.mg-cta-lead {
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.mg-cta-sub { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+
+.mg-cta-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mg-cta-row .btn { text-decoration: none; }
+.mg-cta-row .btn-secondary { background: transparent; color: var(--text-dim); }
+.mg-cta-row .btn-secondary:hover { color: var(--text); border-color: var(--accent-dim); }
+
+/* Intro-panel footnote — the same offer, stated once and quietly, before the
+   player has anything to lose yet. */
+.mg-guest-note {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.mg-guest-note a { color: var(--accent); }

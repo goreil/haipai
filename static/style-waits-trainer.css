@@ -146,6 +146,7 @@
 .wt-hand .tile.wt-tile,
 .wt-slot .tile.wt-slot-tile,
 .wt-shot .tile.wt-shot-tile,
+.wt-killer .tile.wt-killer-tile,
 .wt-ammo .tile.wt-ammo-tile { aspect-ratio: 3 / 4; }
 .wt-hand-foot {
   display: flex;
@@ -274,6 +275,55 @@
   margin-bottom: 10px;
 }
 .wt-panel .wt-hint { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+/* The hand that ended the run, on the game-over panel: the shape, then one
+   slot per wait — green for a wait that was already shot, red for one that
+   was still open when the hand hit the floor. */
+.wt-killer {
+  margin: 4px 0 2px;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(15, 26, 46, 0.7);
+}
+.wt-killer-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 7px;
+}
+.wt-killer-tiles {
+  display: flex;
+  justify-content: center;
+  gap: 1px;
+  flex-wrap: wrap;
+}
+.wt-killer .tile.wt-killer-tile {
+  --tile-size: 26px;
+  border-width: 1px;
+  border-radius: 2px;
+}
+.wt-killer-waits {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 9px;
+}
+.wt-killer-waits-l {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-right: 2px;
+}
+.wt-killer-wait {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.wt-killer-wait.hit { border-color: var(--success); }
+.wt-killer-wait.missed { border-color: var(--sev-major); box-shadow: 0 0 0 1px var(--sev-major); }
+
 .wt-result { display: flex; justify-content: center; gap: 22px; margin: 14px 0 6px; }
 .wt-result > div { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--text-dim); }
 .wt-result .wt-result-n {

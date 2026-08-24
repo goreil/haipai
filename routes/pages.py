@@ -23,6 +23,26 @@ def index():
     return send_from_directory("static", "index.html")
 
 
+@pages_bp.route("/play")
+def play():
+    """Public minigame arcade — the Waits and Defense trainers, no account.
+
+    Both trainers are pure client-side games; the only thing a session buys is
+    a row on the leaderboard, so there is no reason to gate playing on one.
+    `static/play.html` is a deliberately minimal shell (no sidebar, mailbox,
+    admin or game list) in the same spirit as `shared.html`: the guest view
+    reuses the trainers themselves rather than running the full SPA degraded.
+
+    A logged-in visitor is bounced to the real app instead, so they get the
+    trainer with their own leaderboard identity. Browsers carry the fragment
+    across a redirect that has none of its own, so `/play#defense-trainer`
+    lands on `/#defense-trainer` and the SPA router picks the same trainer.
+    """
+    if current_user.is_authenticated:
+        return redirect("/")
+    return send_from_directory("static", "play.html")
+
+
 @pages_bp.route("/shared/<token>")
 def shared_game(token):
     """Public read-only game view. Always served regardless of auth state —

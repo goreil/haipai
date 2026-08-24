@@ -4,7 +4,8 @@
 // tiles from a nine-tile arsenal to "shoot" the target hand. Every wait must
 // be hit (a two-sided wait needs both tiles) before the hand dissolves. A
 // wrong shot costs the combo and hitstuns the arsenal; a hand that reaches
-// the bottom costs a life and clears the stage.
+// the bottom ends the run — there is one life, and the game-over panel shows
+// the shape that got through.
 //
 // The mahjong logic (wait detection + random tenpai-hand generation, incl.
 // the curated multi-sided shapes) is a JS port of djuretic/riichi-mahjong-
@@ -29,12 +30,16 @@ var WT_HAND_TIERS = [
   { size: 10, points: 4, unlockCombo: 10, weight: 1 },
 ];
 
-var WT_LIVES = 3;
+// One life: a run ends the first time a hand reaches the floor. Short runs
+// keep the loop tight — the game-over panel shows the hand that got through.
+var WT_LIVES = 1;
 var WT_MAX_HANDS = 4;        // concurrent hands on the stage
 var WT_STUN_SEC = 0.9;       // hitstun after a wrong shot
 var WT_SHOT_COOLDOWN = 0.1;  // min gap between shots (anti-mash)
 var WT_CLEAR_SEC = 1.2;      // grace pause after a life is lost
-var WT_BEST_KEY = "haipai.waitsTrainer.best";
+// Bumped when the rules changed to one life — old bests were set under three
+// lives and aren't comparable.
+var WT_BEST_KEY = "haipai.waitsTrainer.best.v2";
 var WT_TILE_RATIO = 0.75;    // tile SVG aspect (300x400 viewBox)
 
 // Difficulty ramp, driven by hands cleared this run. Falls are slow — the
@@ -290,7 +295,18 @@ function wtBoardArrived(payload) {
   if (wt) wtRenderOverlay();
 }
 
+// A guest's run that is waiting for an account, submitted on the next visit
+// with a session (see wtLoadLeaderboard). Held so the intro panel can report
+// what it saved rather than silently pocketing it.
+var wtSavedPending = null;
+
+// The board is public, so guests see what they're playing for. When a
+// session IS present, anything the player scored as a guest goes up first —
+// that submit refreshes the board on its own, so this skips the extra GET.
 async function wtLoadLeaderboard() {
+  wtSavedPending = mgFlushPendingRun("waits", (r) =>
+    wtReportRun(r.score, r.best_combo, r.hands_cleared));
+  if (wtSavedPending) return;
   try {
     const res = await fetch("/api/waits/leaderboard");
     if (!res.ok) return;
@@ -302,11 +318,17 @@ async function wtLoadLeaderboard() {
 
 // Submit a finished run. The response carries the updated board, so one
 // round-trip both records the score and refreshes the standings.
+//
+// Guests have no board to land on, so their run goes to localStorage instead
+// (minigame-shell.js) and the game-over panel offers a sign-up.
 async function wtReportRun(score, bestCombo, cleared) {
+  const run = { score: score, best_combo: bestCombo, hands_cleared: cleared };
+  if (mgGuest) {
+    mgStashRun("waits", run);
+    return;
+  }
   try {
-    const res = await apiPost("/api/waits/scores", {
-      score: score, best_combo: bestCombo, hands_cleared: cleared,
-    });
+    const res = await apiPost("/api/waits/scores", run);
     if (!res.ok) return;
     const body = await res.json();
     wtBoardArrived(body.leaderboard);
@@ -414,6 +436,7 @@ function wtNewGame() {
     bestCombo: 0,
     cleared: 0,
     lives: WT_LIVES,
+    killer: null,        // the hand that ended the run (see wtLoseLife)
     spawnTimer: 0.6,
     clearTimer: 0,
     stunUntil: 0,
@@ -676,7 +699,7 @@ function wtLoop(ts) {
   wtPositionHands();
 
   const landed = wt.hands.find((h) => h.prog >= 1);
-  if (landed) wtLoseLife();
+  if (landed) wtLoseLife(landed);
 }
 
 function wtPositionHands() {
@@ -697,7 +720,17 @@ function wtPositionHands() {
   }
 }
 
-function wtLoseLife() {
+// `landed` is the hand that reached the floor. Snapshotted before the stage is
+// wiped so the game-over panel can show the shape that ended the run, with the
+// waits split into the ones you'd already shot and the ones you never found.
+function wtLoseLife(landed) {
+  if (landed) {
+    wt.killer = {
+      tiles: landed.tiles.slice(),
+      waits: landed.waits.slice(),
+      hit: new Set(landed.hit),
+    };
+  }
   wt.lives -= 1;
   wtSfxLife();
   wt.combo = 0;
@@ -736,6 +769,26 @@ function wtRenderHud() {
   combo.innerHTML = `<span class="wt-combo-n">${wt.combo}</span><span class="wt-combo-l">combo</span>`;
 }
 
+// The hand that reached the floor, shown on the game-over panel: its tiles,
+// then one slot per wait — green for a wait you'd already shot, red for the
+// one(s) still open when it landed.
+function wtKillerHtml() {
+  const k = wt.killer;
+  if (!k) return "";
+  const tiles = k.tiles.map((t) => renderTile(WT_TILES[t], "wt-killer-tile")).join("");
+  const waits = k.waits.map((w) => {
+    const got = k.hit.has(w);
+    return `<span class="wt-killer-wait${got ? " hit" : " missed"}">
+      ${renderTile(WT_TILES[w], "wt-killer-tile")}
+    </span>`;
+  }).join("");
+  return `<div class="wt-killer">
+    <div class="wt-killer-label">This hand got through</div>
+    <div class="wt-killer-tiles">${tiles}</div>
+    <div class="wt-killer-waits"><span class="wt-killer-waits-l">waits</span>${waits}</div>
+  </div>`;
+}
+
 function wtRenderOverlay() {
   const ov = document.getElementById("wt-overlay");
   if (!ov) return;
@@ -748,12 +801,14 @@ function wtRenderOverlay() {
   if (wt.phase === "over") {
     ov.innerHTML = `<div class="wt-panel">
       <h3>Game over</h3>
+      ${wtKillerHtml()}
       <div class="wt-result">
         <div><span class="wt-result-n">${wt.score}</span><span>score</span></div>
         <div><span class="wt-result-n">${wt.bestCombo}</span><span>best combo</span></div>
         <div><span class="wt-result-n">${wt.cleared}</span><span>hands</span></div>
       </div>
       <button class="btn btn-primary" data-action="wtStart" type="button">Play again</button>
+      ${mgGuest && wt.score > 0 ? mgSignupCtaHtml("run") : ""}
       ${wtBoardHtml()}
     </div>`;
     return;
@@ -774,8 +829,10 @@ function wtRenderOverlay() {
   ov.innerHTML = `<div class="wt-panel">
     <h3>Waits Trainer</h3>
     ${!board && best ? `<p class="wt-hint">Personal best: ${best}</p>` : ""}
+    ${wtSavedPending ? `<p class="wt-hint">Saved your guest run: ${wtSavedPending.score} points.</p>` : ""}
     <button class="btn btn-primary" data-action="wtStart" type="button">Play</button>
     ${board}
+    ${mgGuest ? mgGuestNoteHtml() : ""}
   </div>`;
 }
 

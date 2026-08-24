@@ -1,11 +1,9 @@
 // UI plumbing that doesn't belong to one feature: sidebar toggle, add-game
-// modal, severity-filter visibility, escapeHtml, keyboard shortcuts, and
-// tile hover-highlight (including riichi-genbutsu reveal on hover).
-
-function escapeHtml(s) {
-  if (!s) return "";
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
+// modal, severity-filter visibility, keyboard shortcuts, and tile
+// hover-highlight (including riichi-genbutsu reveal on hover).
+//
+// escapeHtml used to live here; it moved to html-escape.js when shells other
+// than index.html started needing it without the rest of this file.
 
 // --- Sidebar toggle ---
 

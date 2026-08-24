@@ -18,9 +18,10 @@
 // one the player just reproduced.
 //
 // The player then taps every safe tile out of the 34-tile arsenal. Order
-// doesn't matter (it's a set, not a sequence); getting them all clears the
-// step and the next tile joins the sequence. A wrong tap or a timeout costs
-// one of 3 lives, shows the answer, and moves to a fresh board.
+// doesn't matter (it's a set, not a sequence), and there is no clock on it —
+// the memory is the test, not the typing. Getting them all clears the step
+// and the next tile joins the sequence. A wrong tap ends the run (one life)
+// after showing the answer.
 //
 // A tile that never turns up was never shown, so it is never asked about —
 // the other seats' pre-riichi discards stay face down for the whole board.
@@ -33,20 +34,22 @@
 
 // --- Tuning knobs -----------------------------------------------------------
 
-var DF_LIVES = 3;
-var DF_BEST_KEY = "haipai.defenseTrainer.best";
+// One life: a wrong tap ends the run. Short runs keep the loop tight, and the
+// review beat still shows the answer before the game-over panel.
+var DF_LIVES = 1;
+// Bumped when the rules changed to one life — old bests aren't comparable.
+var DF_BEST_KEY = "haipai.defenseTrainer.best.v2";
 var DF_PACK_URL = "/static/data/defense-puzzles.json";
 
 // Playback pace. Each safe tile gets one flash; longer sequences step faster
-// so a 24-tile board still plays in a few seconds rather than dragging.
-function dfFlashSeconds(n) { return Math.max(0.16, 0.42 - n * 0.009); }
+// so a 24-tile board doesn't drag. Deliberately unhurried — a tile you didn't
+// get a proper look at is an unfair thing to be asked about later.
+function dfFlashSeconds(n) { return Math.max(0.34, 0.78 - n * 0.014); }
 // Beat between the riichi player's own pond and the tiles that followed it —
 // the two halves of the sequence mean different things, so they don't blur.
 var DF_GROUP_GAP = 0.45;
 // Beat after the last flash, before the board goes face-down.
 var DF_TAIL_GAP = 0.35;
-// Answer clock: generous, but it does run out. Scales with the set size.
-function dfAnswerSeconds(n) { return Math.min(45, 6 + 2.2 * n); }
 // How long the answer stays on screen after a life is lost.
 var DF_REVIEW_SEC = 3.6;
 // Beat between clearing a step and the next playback.
@@ -260,8 +263,7 @@ function dfNewGame() {
     deckPos: 0,
     playIdx: 0,          // sequence entries flashed so far
     playTimer: 0,
-    timer: 0,
-    timerTotal: 0,
+    timer: 0,          // review/next beat only — the answer phase has no clock
     score: 0,
     streak: 0,
     bestStreak: 0,
@@ -401,10 +403,10 @@ function dfFlashNext() {
   df.playTimer = flash + (seam ? DF_GROUP_GAP : 0) + (next ? 0 : DF_TAIL_GAP);
 }
 
+// No clock here: the answer phase runs until the player has tapped every safe
+// tile or tapped a wrong one. The bar becomes a progress meter instead.
 function dfBeginAnswer() {
   df.phase = "answer";
-  df.timerTotal = dfAnswerSeconds(df.board.safe.size);
-  df.timer = df.timerTotal;
   dfRenderBoard(false);   // clears any flash left mid-flip
   dfRenderPrompt();
 }
@@ -593,9 +595,7 @@ function dfLoop(ts) {
     }
     dfRenderBar(1 - df.playIdx / Math.max(1, df.board.seq.length), "watch");
   } else if (df.phase === "answer") {
-    df.timer -= dt;
-    dfRenderBar(df.timer / df.timerTotal, df.timer < 5 ? "urgent" : "answer");
-    if (df.timer <= 0) dfFail("Out of time");
+    dfRenderBar(df.found.size / Math.max(1, df.board.safe.size), "answer");
   } else if (df.phase === "review") {
     df.timer -= dt;
     dfRenderBar(0, "idle");
@@ -629,7 +629,18 @@ function dfBoardArrived(payload) {
   if (df) dfRenderOverlay();
 }
 
+// A guest's run that is waiting for an account, submitted on the next visit
+// with a session (see dfLoadLeaderboard). Held so the intro panel can report
+// what it saved rather than silently pocketing it.
+var dfSavedPending = null;
+
+// The board is public, so guests see what they're playing for. When a
+// session IS present, anything the player scored as a guest goes up first —
+// that submit refreshes the board on its own, so this skips the extra GET.
 async function dfLoadLeaderboard() {
+  dfSavedPending = mgFlushPendingRun("defense", (r) =>
+    dfReportRun(r.score, r.best_streak, r.steps_cleared));
+  if (dfSavedPending) return;
   try {
     const res = await fetch("/api/defense/leaderboard");
     if (!res.ok) return;
@@ -639,11 +650,16 @@ async function dfLoadLeaderboard() {
   }
 }
 
+// Guests have no board to land on, so their run goes to localStorage instead
+// (minigame-shell.js) and the game-over panel offers a sign-up.
 async function dfReportRun(score, bestStreak, steps) {
+  const run = { score: score, best_streak: bestStreak, steps_cleared: steps };
+  if (mgGuest) {
+    mgStashRun("defense", run);
+    return;
+  }
   try {
-    const res = await apiPost("/api/defense/scores", {
-      score: score, best_streak: bestStreak, steps_cleared: steps,
-    });
+    const res = await apiPost("/api/defense/scores", run);
     if (!res.ok) return;
     dfBoardArrived((await res.json()).leaderboard);
   } catch (e) {
@@ -697,6 +713,7 @@ function dfRenderOverlay() {
         <div><span class="df-result-n">${df.steps}</span><span>steps</span></div>
       </div>
       <button class="btn btn-primary" data-action="dfStart" type="button">Play again</button>
+      ${mgGuest && df.score > 0 ? mgSignupCtaHtml("run") : ""}
       ${dfBoardHtml()}
     </div>`;
     return;
@@ -725,9 +742,11 @@ function dfRenderOverlay() {
       adds one more — the riichi player's own pond left to right, then every tile that
       has passed since. Everything else on the table stays face down.</p>
     ${!board && best ? `<p class="df-hint">Personal best: ${best}</p>` : ""}
+    ${dfSavedPending ? `<p class="df-hint">Saved your guest run: ${dfSavedPending.score} points.</p>` : ""}
     <button class="btn btn-primary" data-action="dfStart" type="button" ${ready ? "" : "disabled"}>
       ${ready ? "Play" : "Loading boards…"}</button>
     ${board}
+    ${mgGuest ? mgGuestNoteHtml() : ""}
   </div>`;
 }
 

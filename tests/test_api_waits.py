@@ -34,8 +34,8 @@ def _submit(client, score, best_combo, hands_cleared):
 
 class TestSubmitScore:
     def test_requires_login(self, client):
+        """Playing needs no account; putting a run on the board does."""
         assert _submit(client, 10, 5, 5).status_code == 401
-        assert client.get("/api/waits/leaderboard").status_code == 401
 
     def test_records_a_run(self, client):
         _login(client)
@@ -124,6 +124,24 @@ class TestLeaderboard:
         assert board["you"]["rank"] == 12
         assert board["you"]["score"] == 1
         assert board["you"]["username"] == "testuser"
+
+    def test_is_public_so_guests_see_what_they_are_playing_for(self, client):
+        """The minigame is playable logged-out (/play), so the board is too.
+
+        An anonymous caller gets the same top slice and no `you` row — there
+        is no user to report a rank for, and nothing user-scoped leaks.
+        """
+        _login(client)
+        _submit(client, 12, 6, 8)
+        client.get("/logout")
+
+        res = client.get("/api/waits/leaderboard")
+        assert res.status_code == 200
+        board = res.get_json()
+        assert [r["username"] for r in board["top"]] == ["testuser"]
+        assert all(not r["is_you"] for r in board["top"])
+        assert board["you"] is None
+        assert board["players"] == 1
 
     def test_never_played_has_no_you_row(self, client):
         _login(client)

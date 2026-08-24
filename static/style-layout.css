@@ -838,6 +838,16 @@
   line-height: 1.55;
 }
 
+/* Inline links inside a feature card (e.g. "Play now"). The landing page's
+   other links are all buttons, so an unstyled <a> here picks up the browser
+   default blue against a dark card. */
+.landing-feature p a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(79, 195, 247, 0.35);
+}
+.landing-feature p a:hover { border-bottom-color: var(--accent); }
+
 /* Screenshot mock */
 .landing-screenshots {
   margin-bottom: 56px;

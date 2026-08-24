@@ -70,10 +70,17 @@ def submit_score():
 
 
 @waits_bp.route("/api/waits/leaderboard")
-@login_required
 def leaderboard():
-    """Top runs plus the caller's own best, so the UI needs a single call."""
+    """Top runs plus the caller's own best, so the UI needs a single call.
+
+    Deliberately public: the minigame itself is playable without an account
+    (`/play`), and a guest who can see what the board looks like has a reason
+    to want a row on it. For an anonymous caller `you` comes back None — the
+    user-scoped lookups match no rows — and no per-user data leaks either way,
+    since a leaderboard is public information by construction.
+    """
     from app import get_conn
     conn = get_conn()
-    return jsonify(db.get_waits_leaderboard(conn, current_user.id,
+    uid = current_user.id if current_user.is_authenticated else None
+    return jsonify(db.get_waits_leaderboard(conn, uid,
                                             LEADERBOARD_LIMIT))
