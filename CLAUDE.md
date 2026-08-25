@@ -22,9 +22,9 @@ FLASK_ENV=development .venv/bin/python app.py       # http://localhost:5000
 # Source dirs (static/, templates/, app.py, db/, lib/, routes/, scripts/) are
 # bind-mounted and gunicorn runs --reload, so code/static/template edits go live
 # on the next request — no restart needed. Rebuild only when deps/image change.
-docker-compose up -d --build      # after requirements/Dockerfile/compose changes
-docker-compose restart app        # rarely needed; only to force a clean reload
-docker-compose logs -f app
+docker compose up -d --build      # after requirements/Dockerfile/compose changes
+docker compose restart app        # rarely needed; only to force a clean reload
+docker compose logs -f app
 ```
 
 ## Important notes
@@ -92,150 +92,29 @@ grepping. If you change a concept that isn't listed, add it.
 - Extension auth (how the browser extension authenticates — **the haipai session cookie, no credential of its own**; the bookmarklet's `users.upload_token` is untouched and still works): the extension's service worker POSTs to `/api/games/upload` with `credentials:'include'`, and `api_upload` (`routes/game.py`) accepts either the session cookie or a Bearer `upload_token`. Chrome attaches the `SameSite=Lax` cookie to fetches from a worker holding host permissions (measured), so "signed in" just means "logged in to haipai in this browser". The endpoint is CSRF-exempt (`app.py`) because flask-wtf's `WTF_CSRF_SSL_STRICT` checks `Referer` before the token and an extension worker cannot send one — so **exempting a cookie-accepting route is load-bearing** and three guards replace CSRF, all pinned by `tests/test_api_extension.py` and documented in `api_upload`'s docstring: `SESSION_COOKIE_SAMESITE="Lax"`, no `Access-Control-Allow-Credentials` in `_cors_headers()`, and `_cookie_origin_ok()` (cookie accepted only from an absent/extension/same origin — `https://mjai.ekyu.moe` is refused on the cookie path even though CORS allows it to call the endpoint). Don't relax any of the three. An explicit Bearer header never falls back to the cookie. Rationale + the measurements: `docs/backlogs/Browser-extension-spec.md` "Authentication". (Superseded v1.1: per-install `extension_tokens` + `/extension/authorize` consent page + `launchWebAuthFlow` + Account-page panel — all deleted; git history has it if the cookie assumption ever breaks.)
 - Email verification (password-based registration only — Discord/Google logins have no `email` on file and skip this entirely): `users.email`/`email_verified`/`email_verify_token`/`email_verify_expires` (`db/schema.py`; existing pre-feature accounts were backfilled `email_verified=1` in the same migration, so the gate only ever applies going forward). CRUD in `db/users.py` (`create_user` now takes optional `email`/`verify_token`/`verify_expires`; `get_user_by_email`, `get_user_by_verify_token`, `mark_email_verified`, `set_verify_token`). Registration (`routes/auth.py` `register()`) requires an email, creates the account unverified, and does NOT log the user in — it sends a 24h-expiry link via `lib/mail.send_verification_email` (plain `smtplib` over mailbox.org SMTP, `MAILBOX_USERNAME`/`MAILBOX_PASSWORD`/optional `MAIL_FROM` env vars — must be listed in `docker-compose.yml`'s `environment:` block, not just `.env`, or the container never sees them). `login()` hard-blocks password accounts with an unverified `email` and renders a "Resend verification email" button (`unverified_username` in `templates/login.html`) posting to `/resend-verification`; `GET /verify-email/<token>` marks verified and logs the user in. To test SMTP by hand there's `scripts/send_mail.py` — stdlib-only and deliberately free of haipai imports so it can be copied to any host with python3.
 - Category snapshot (admin dashboard panel tracking the global mistake **shape** distribution — obvious / trade-off / complex / n/a — with `complex` as the headline bucket to drive down): the categorizer is client-side only and the container has no Node, so the admin browser runs the same prep + categorize the games view uses (`prepGameAsync` + `recategorizeGameInPlace`) over every game and tallies by shape. Panel + compute loop `snapshotPanelHtml`/`computeCategorySnapshot`/`saveCategorySnapshot` (`static/js/admin.js`), actions in `static/js/actions.js`, styles `.snapshot-*` (`static/style-layout.css`). Cross-user data endpoints `/api/admin/snapshot/game-ids` + `/api/admin/snapshot/game/<id>` and save/list `/api/admin/category-snapshots` (`routes/admin.py`); persisted in the global (no user_id) `category_snapshots` table (`db/schema.py`) via `insert_category_snapshot`/`list_category_snapshots` (`db/snapshots.py`). Mirrors the offline `scripts/category_stats.mjs` headline (same `categorize.js`). NB: distinct from the per-user `weakness_snapshots` (`insert_snapshot`).
-- Waits Trainer (`#waits-trainer`, the toolbar's "Waits" button next to Trends): a self-contained
-  arcade minigame — pin-only tenpai hands fall down a stage, the player taps
-  tiles from a 9-tile arsenal to shoot the target hand, and **every** wait must
-  be hit before it dissolves (a two-sided wait needs both tiles). Wrong tile →
-  combo reset + hitstun; a hand reaching the floor ends the run (**one life**,
-  `WT_LIVES`) and the game-over panel shows that hand — `wt.killer`, snapshotted
-  in `wtLoseLife` before the stage is wiped, rendered by `wtKillerHtml` with
-  each wait marked hit (green) or still open (red). 4-tile hands score 1, 7-tile 2, 10-tile 4, the bigger sizes
-  unlocking at combo 5 / 10. Hand tiles are drawn at the arsenal tile's width
-  (`wtSyncTileSize` writes `--wt-tile-h`, capped so a 10-tile hand still fits
-  a phone stage); spawning is on a timer except that an empty stage refills
-  at once, so a fast player never waits. Every minigame tile carries an
-  explicit `aspect-ratio: 3 / 4` — the `.tile` base rule is `width: auto`,
-  which measures 0 until the SVG decodes, and `wtPositionHands` lays hands
-  out from a measured width. All of it lives in
-  `static/js/waits-trainer.js`
-  (`wt*` globals + the `wt` state object) and `static/style-waits-trainer.css`
-  — no API, no DB, best score in localStorage (`WT_BEST_KEY`/`DF_BEST_KEY` both
-  carry a `.v2` suffix: the one-life rules invalidated every 3-life best, and the
-  server leaderboards were truncated at the same time); the rAF loop self-terminates
-  when its stage element leaves the DOM, so routing away needs no teardown.
-  Wired in via `TAB_ROUTES`/`parseTabHash` (`main.js`), the `wtShoot`/
-  `wtTarget`/`wtStart` (+ shared `mgToggleMute`) entries in `actions.js`, and the toolbar
-  button in `static/index.html`. **Sound** is synthesized in-page with WebAudio
-  — the engine, the mute preference and the speaker button live in the shared
-  `static/js/minigame-audio.js` (`mgTone`/`mgNoise`/`mgToggleMute`/
-  `mgRenderMuteButtons`, key `MG_MUTE_KEY`, falling back once to the pre-split
-  `haipai.waitsTrainer.muted`), and only this trainer's own cues (`wtSfx*`)
-  stay in `waits-trainer.js`. No audio assets to ship or 404, and the context
-  is built lazily on the first cue, which always comes from a click/keypress,
-  so autoplay policy needs no separate opt-in. The HUD's speaker button (the
-  `m` key too) suspends the context; **mute is one preference across all the
-  minigames**, and any button carrying `data-mg-mute` re-renders on a toggle.
-  The **leaderboard** (each player's best run, shown on
-  both the intro and game-over panels) is the one part with a backend:
-  `waits_scores` (`db/schema.py`, one row per finished run) via
-  `db/waits.py` (`submit_waits_score`/`get_waits_leaderboard`/
-  `get_user_waits_best`, the board relying on SQLite's bare-column-with-MAX()
-  behaviour so a row describes the run that produced the best score), served
-  by `routes/waits.py` (`POST /api/waits/scores` `@login_required`, `GET
-  /api/waits/leaderboard` public — see the arcade entry). Scores are self-reported
-  by a client-side game, so `_validated_run` gates them on the game's own
-  points arithmetic (1/2/4 per hand → `hands_cleared <= score <= 4 *
-  hands_cleared`, combo ≤ hands) rather than pretending to verify them;
-  the reasoning is in that module's docstring. Pinned by
-  `tests/test_api_waits.py`. Playable **without an account** at `/play` —
-  see the "Public minigame arcade" entry for how a guest run reaches the
-  board. The mahjong logic (wait detection + random tenpai-hand
-  generation, incl. the curated 5-sided shapes) is a JS port of the
-  `riichi-mahjong-trainer/` submodule (djuretic, MIT, Elm) — **reference-only,
-  never imported**, same arrangement as `killer_mortal_gui`; the porting map
-  from `src/Group.elm` is in the file's header comment.
-- Defense Trainer (`#defense-trainer`, the toolbar's "Defense" button next to
-  Waits): a Simon-says memory game for **genbutsu**. One board is a real kyoku
-  cut at the moment an opponent declared riichi; its layout never changes and
-  every tile on it sits face down. The SAFE tiles turn up one at a time and
-  flip back, and the player then taps all of them out of a 34-tile arsenal
-  (order doesn't matter — it's a set, not a sequence). The sequence is ONE
-  growing list: the declarer's own pond left to right (genbutsu against them
-  whenever discarded), then every tile discarded since the declaration in
-  table order. Step k reveals the first k entries, so a board opens on a
-  single safe tile and grows by one per round — that ramp is the whole
-  difficulty curve. A tile that never turns up was never shown and is never
-  asked about (the other seats' pre-riichi discards stay down for the whole
-  board; their slots still show, because a pond's *length* is public at a real
-  table and its contents are not). Clearing a step scores its safe-tile count;
-  a wrong tap ends the run (**one life**, `DF_LIVES`) after a review beat that
-  reveals the answer marked green (found) / amber (missed) / red (the tap that
-  ended it). The answer phase has **no clock** (`dfBeginAnswer`) — the bar
-  becomes a found/total progress meter — and the reveal is deliberately
-  unhurried (`dfFlashSeconds`); the memory is the test, not the typing. Client-side in `static/js/defense-trainer.js` (`df*` globals +
-  the `df` state object) and `static/style-defense-trainer.css`; sound via the
-  shared `minigame-audio.js` (each tile has its own pentatonic note, so a
-  board always sounds the same). Wired in via `TAB_ROUTES`/`parseTabHash`
-  (`main.js`), the `dfPick`/`dfStart` entries in `actions.js`, and the toolbar
-  button in `static/index.html`. **Boards are a static pack**, not an API:
-  `scripts/mine_defense_puzzles.py` mines `mortal_analysis/` (run it in the
-  container — that's where the files live) into the committed, anonymized
-  `static/data/defense-puzzles.json` (~300 boards; seat winds, ponds, dora and
-  discard order only — no names, no game id, no user id). Selection is riichi
-  by the declarer's 5th discard, ≥10 discards after, and never the replay's
-  own riichi; seats are rotated so index 0 is the replay's player. Two
-  truncations keep "safe" honest and are pinned by `tests/test_defense_puzzles.py`
-  (which also asserts the shipped pack's invariants): a **ron** drops the
-  winning tile (it did not pass), and a **second riichi** ends the flow there.
-  The one server-side part is the leaderboard — `defense_scores`
-  (`db/schema.py`) via `db/defense.py`, served by `routes/defense.py` (`POST
-  /api/defense/scores` `@login_required`, `GET /api/defense/leaderboard`
-  public — see the arcade entry),
-  the exact shape of the Waits Trainer's, self-reported scores gated on the
-  game's own arithmetic (`steps_cleared <= score <= 34 * steps_cleared`).
-  Pinned by `tests/test_api_defense.py`. Playable **without an account** at
-  `/play` — see the "Public minigame arcade" entry.
-- Public minigame arcade (`/play`, the guest home of both trainers): the two
-  trainers are pure client-side games, so an account buys exactly one thing —
-  a row on the leaderboard. `GET /play` (`routes/pages.py`) serves
-  `static/play.html` + `static/js/play-view.js` to logged-out visitors and
-  **redirects everyone else to `/`** (browsers carry the fragment across a
-  redirect that has none of its own, so `/play#defense-trainer` lands on
-  `/#defense-trainer` and the SPA router picks the same trainer). Same call as
-  the shared-game page: a deliberately separate minimal shell (no sidebar,
-  toolbar, mailbox, admin, game list) reusing the trainers themselves rather
-  than the SPA in a degraded mode — pinned by `tests/test_pages_play.py`.
-  `play-view.js` supplies the handful of globals the trainers reach for
-  (`state`, a no-op `renderGameList`, `csrfToken`) plus a two-tab
-  `TAB_ROUTES`/`navTab`/`parseTabHash` router mirroring `main.js`'s contract,
-  so the toolbar buttons reuse the existing `showWaitsTrainer`/
-  `showDefenseTrainer` actions unchanged. What makes a run a *guest* run is
-  `mgGuest` (`static/js/minigame-shell.js`, the shared non-audio minigame
-  module): `play-view.js` sets it true, and `wtReportRun`/`dfReportRun` then
-  stash the run in localStorage (`mgStashRun`, best-per-game only) instead of
-  POSTing, with the game-over panel rendering `mgSignupCtaHtml`. On the next
-  visit *with* a session each trainer's `*LoadLeaderboard` calls
-  `mgFlushPendingRun` first, which submits the stashed run and reports it on
-  the intro panel ("Saved your guest run: N points.") — so the offer survives
-  the whole register -> verify-email -> log-in detour. Both
-  `GET /api/{waits,defense}/leaderboard` are **public** (an anonymous caller
-  gets `you: null`); only the score POSTs are `@login_required`. Styles
-  `static/style-minigame.css` (banner, footer, `.mg-cta`, `.mg-guest-note`),
-  loaded only by `play.html`. Entry points: the landing hero/bottom CTAs + the
-  third feature card (`static/landing.html`) and `templates/login.html`.
+- Minigames — Waits Trainer (`#waits-trainer`), Defense Trainer (`#defense-trainer`),
+  and the public guest arcade at `/play`: self-contained client-side games sharing
+  `minigame-audio.js` / `minigame-shell.js`, with server-side leaderboards only.
+  Full detail → `.claude/skills/minigames/SKILL.md` (skill `minigames`).
 - Mailbox messages: `static/js/mailbox.js`
 - API client + shell: `static/js/api.js`, `static/js/main.js`, `static/js/ui.js`, `static/index.html`. `escapeHtml` lives on its own in `static/js/html-escape.js` — all three shells (`index.html`, `shared.html`, `play.html`) build HTML as strings, and only the first wants `ui.js`
 - Public game sharing (per-game share links + the `/demo` link on login/landing for logged-out visitors): one mechanism serves both — a nullable, unique `games.share_token` (`db/schema.py`), helpers in `db/games.py` (`get_or_create_share_token`/`regenerate_share_token`/`revoke_share_token`/`get_game_by_share_token`, the last stripping the owner's private per-mistake `note` before returning). Owner-facing CRUD (`GET`/`POST .../regenerate`/`DELETE` on `/api/games/<id>/share-token`, all `@login_required`) lives in `routes/game.py` next to the analogous `upload_token` routes; the public read is the unauthenticated `GET /api/shared/<token>` (same combined payload shape `fetchGame()` builds from two calls, in one). `GET /shared/<token>` (`routes/pages.py`) always serves the dedicated read-only page `static/shared.html` + `static/js/shared-view.js` — a deliberately separate, minimal shell (no sidebar/toolbar/mailbox/admin) reusing the same render pipeline (`game-render.js`/`mistake-card.js`/prep/categorize) rather than the full SPA in a degraded mode, so there's no write-control surface to accidentally leak. `state.readOnly` (set only by `shared-view.js`) is what `game-render.js`/`mistake-card.js` check to hide notes/reports/delete/share/the complex-gap funnel — see `main.js`'s `state` init for the flag's contract. `GET /demo` (`routes/pages.py`) redirects to the share link for `DEMO_GAME_ID` (env var, documented above), generating it on first hit — swapping the demo game is a one-line env change, not a template edit. Owner-side "Share" button + modal: `static/js/game-render.js` header, `static/js/ui.js` (`showShareModal` et al.), markup in `static/index.html`.
 
-**Frontend — CSS (split by visual scope, not by JS module)**
-- `static/style-theme.css` — vars, typography, dark theme
-- `static/style-layout.css` — sidebar, toolbar, tabs, modals, forms
-- `static/style-game-detail.css` — game header, round/mistake cards, EV table, yaku panels
-- `static/style-board-display.css` — board context, discards, threat pills, hand safety, melds
-- `static/style-waits-trainer.css` — the Waits Trainer minigame (stage, falling hands, arsenal); self-contained, loaded by `index.html` + `play.html`
-- `static/style-defense-trainer.css` — the Defense Trainer minigame (face-down board, the reveal flash, 34-tile arsenal); self-contained, loaded by `index.html` + `play.html`
-- `static/style-minigame.css` — the public arcade shell (`/play`): its banner/footer plus the guest sign-up CTA both trainers render on game over; only loaded by `play.html` (inside the SPA `mgGuest` is never true, so the CTA never renders there)
+**Frontend — CSS**
+- Stylesheets are split by visual **scope**, not by JS module — see `static/style-*.css`,
+  whose names give the scope. The minigame sheets are documented with the minigames skill.
 
 **Backend**
-- Routes (Flask blueprints): `routes/auth.py`, `routes/game.py`, `routes/pages.py`, `routes/admin.py`, `routes/mailbox.py`, `routes/waits.py`, `routes/defense.py`
-- DB layer (one file per table-group): `db/users.py`, `db/games.py`, `db/mistakes.py`, `db/reports.py`, `db/snapshots.py`, `db/messages.py`, `db/admin.py`, `db/waits.py`, `db/defense.py`, `db/schema.py`
+- Routes are Flask blueprints, one per area, in `routes/`; the DB layer is one file
+  per table-group in `db/` (schema in `db/schema.py`). App entry `app.py`.
 - MJAI log parsing (round walking, action formatting, severity): `lib/parse.py`
 - Backend category metadata reference (NOT the categorizer): `lib/categories.py`
-- App entry: `app.py`
 
 **Browser extension (outside the Flask app)**
-- MV3 auto-uploader, **Chrome + Firefox** (mjai report page → `POST /api/games/upload` → `#g<id>`): `extension/` is the single source of truth (`manifest.json` = Chrome, `manifest.firefox.json` = Firefox, `build-firefox.sh`, `background.js` = the background context doing the cookie-authenticated cross-origin POST + dedupe/retry/navigate, `content.js` = report-page `?data=` guard + fetch + toast + log-in prompt with session polling, `options.html`/`options.js`, `icons/`, `README.md`). Chrome loads `extension/` directly; Firefox loads `extension-firefox/`, which `build-firefox.sh` **generates** (git-ignored — never edit it, never commit it). Vanilla JS, no bundler; not served by `static/`, not in the Docker image. Contract + hard constraints (never POST to mjai's `/review`, never expose the session to page context): `docs/backlogs/Browser-extension-spec.md`. Server side of the flow is `api_upload` in `routes/game.py`; the older bookmarklet it coexists with is built in `static/js/ui.js`. Auth is the session cookie (see "Extension auth" above), NOT a pasted upload token.
-- Extension cross-browser rules. **Two dead ends — don't re-attempt either** (both measured): a single manifest carrying *both* `background.service_worker` and `background.scripts` (FF140 ESR accepts it, current Firefox refuses the install: *"background.service_worker is currently disabled"*), and a Firefox dir of **symlinks** into `extension/` (installs, but Firefox won't read symlinked resources — the options page never loads; real files load in ~0.4s). Hence the generate step. `background.js` runs as a Chrome service worker *and* a Firefox event page, so it must never assume a `ServiceWorkerGlobalScope` (no `skipWaiting`/`oninstall`/`clients`); `build-firefox.sh` fails the build if the two manifests drift on any key besides `background`/`browser_specific_settings`. Every extension file opens with `const ext = globalThis.browser ?? globalThis.chrome;` — both namespaces are promise-based, so preferring `browser` gives one awaitable path with no polyfill; **a bare `chrome.*` breaks Firefox**, so `rg '\bchrome\.' extension/` should only ever match prose. Firefox-only: host permissions are revocable from `about:addons` (though FF140 grants them even on a temporary install — measured), handled by `hasHostAccess()` (`background.js`) → `promptPermission()` (`content.js`) → the **Grant access** button (`options.js`, which must call `permissions.request()` synchronously in the click handler — awaiting first kills the gesture, and content scripts can't request at all); notification icons must be packaged files, not `data:` URLs. Server side needed nothing: `EXTENSION_ORIGIN_SCHEMES` (`routes/game.py`) already allowed `moz-extension://`. The load-bearing cookie behaviour is **measured on both** Chromium 150 and Firefox 140 ESR (PASS; method + control table in the spec) — if it ever breaks, the symptom is a 401 loop with host access granted and the fallback is the Bearer `upload_token` path. Details: `docs/backlogs/Browser-extension-spec.md` "Cross-browser (v2.1)".
+- MV3 auto-uploader for Chrome + Firefox (mjai report page → `POST /api/games/upload`).
+  Lives entirely in `extension/` — full contract, auth model, and the two measured
+  cross-browser dead ends are in `extension/CLAUDE.md` (loads when you work there).
+  Server side of the flow is `api_upload` in `routes/game.py`.
 
 ## Further context
 
