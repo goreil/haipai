@@ -178,6 +178,8 @@ activemq-data/
 
 # Environments
 .env
+# Env backup
+.env.* 
 .envrc
 .venv
 env/

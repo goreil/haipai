@@ -43,7 +43,6 @@ docker-compose logs -f app
   tracked file is `nginx.conf.template`) + `extension/` + the docs. Procedure
   and the out-of-repo OAuth redirect-URI updates: `docs/DEPLOY.md` "Domain
   migration".
-- Frontend should handle most categorization logic, backend handles shanten/ukeire calc but that's subject to change.
 
 
 ## Data storage
