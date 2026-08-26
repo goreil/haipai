@@ -325,6 +325,19 @@
   background: var(--bg-main); color: var(--text); border: 1px solid var(--border);
 }
 .account-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* Display name: label above, input + Save on their own line. */
+.account-row-stack { flex-direction: column; align-items: flex-start; gap: 8px; }
+.account-row-stack .account-label { min-width: 0; }
+.account-field { display: flex; align-items: center; gap: 8px; width: 100%; }
+.account-input {
+  flex: 1; min-width: 0; font-size: 13px; padding: 5px 8px; border-radius: 4px;
+  background: var(--bg-main); color: var(--text); border: 1px solid var(--border);
+}
+.account-input:focus { outline: none; border-color: var(--accent); }
+.account-msg { margin: 0; font-size: 12px; color: var(--text-dim); }
+.account-msg:empty { display: none; }
+.account-msg.ok { color: var(--success); }
+.account-msg.error { color: var(--sev-major); }
 
 /* Modal */
 .modal-overlay {

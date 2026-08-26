@@ -101,6 +101,9 @@ they share. The only server-side parts are the two leaderboards.
   game's own arithmetic (`steps_cleared <= score <= 34 * steps_cleared`).
   Pinned by `tests/test_api_defense.py`. Playable **without an account** at
   `/play` — see the "Public minigame arcade" entry.
+- Leaderboard names are **not** usernames: both boards print
+  `COALESCE(u.display_name, u.username)`, the nickname users set on the Account
+  page. See CLAUDE.md's "Leaderboard nickname" entry.
 - Public minigame arcade (`/play`, the guest home of both trainers): the two
   trainers are pure client-side games, so an account buys exactly one thing —
   a row on the leaderboard. `GET /play` (`routes/pages.py`) serves

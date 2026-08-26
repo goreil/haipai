@@ -41,6 +41,8 @@ from db.games import (
     update_game_stats,
 )
 from db.users import (
+    DISPLAY_NAME_MAX,
+    DISPLAY_NAME_MIN,
     create_oauth_user,
     create_user,
     delete_user_cascade,
@@ -54,7 +56,9 @@ from db.users import (
     link_oauth,
     mark_email_verified,
     regenerate_upload_token,
+    set_display_name,
     set_verify_token,
+    validate_display_name,
 )
 from db.reports import (
     REPORT_KINDS,
@@ -132,6 +136,8 @@ __all__ = [
     "revoke_share_token",
     "update_game_stats",
     # users
+    "DISPLAY_NAME_MAX",
+    "DISPLAY_NAME_MIN",
     "create_oauth_user",
     "create_user",
     "delete_user_cascade",
@@ -145,7 +151,9 @@ __all__ = [
     "link_oauth",
     "mark_email_verified",
     "regenerate_upload_token",
+    "set_display_name",
     "set_verify_token",
+    "validate_display_name",
     # reports
     "REPORT_KINDS",
     "delete_category_report",

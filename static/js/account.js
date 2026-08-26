@@ -16,7 +16,20 @@ function showAccount() {
 
   let html = `<div class="game-header"><h2>Account</h2></div>`;
   html += `<div class="account-section">`;
-  html += `<div class="account-row"><span class="account-label">Username</span><span>${me.username || "—"}</span></div>`;
+  html += `<div class="account-row"><span class="account-label">Username</span><span>${escapeHtml(me.username || "—")}</span></div>`;
+
+  // Display name: leaderboard label only — login still uses the username.
+  html += `<div class="account-row account-row-stack">
+    <span class="account-label">Display name</span>
+    <div class="account-field">
+      <input id="display-name-input" type="text" maxlength="24" class="account-input"
+             value="${escapeHtml(me.display_name || "")}"
+             placeholder="${escapeHtml(me.username || "")}">
+      <button class="account-btn" data-action="saveDisplayName">Save</button>
+    </div>
+    <p class="form-hint" style="margin:0">Shown on the minigame leaderboards. Leave empty to use your username. Your login is unaffected.</p>
+    <p class="account-msg" id="display-name-msg"></p>
+  </div>`;
 
   // Discord
   html += `<div class="account-row"><span class="account-label">Discord</span>`;
@@ -54,6 +67,29 @@ function showAccount() {
   </div>`;
 
   content.innerHTML = html;
+}
+
+async function saveDisplayName() {
+  const input = document.getElementById("display-name-input");
+  const msg = document.getElementById("display-name-msg");
+  if (!input || !msg) return;
+  msg.className = "account-msg";
+  msg.textContent = "Saving\u2026";
+  const res = await apiPost("/api/me/display-name", {display_name: input.value});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    msg.className = "account-msg error";
+    msg.textContent = data.error || "Could not save display name";
+    return;
+  }
+  // Keep the cached /api/me in sync so re-rendering the page (or any other
+  // view reading window._meData) doesn't show the pre-save value.
+  if (window._meData) window._meData.display_name = data.display_name;
+  input.value = data.display_name || "";
+  msg.className = "account-msg ok";
+  msg.textContent = data.display_name
+    ? `Leaderboards now show \u201c${data.display_name}\u201d.`
+    : "Leaderboards now show your username.";
 }
 
 async function linkOAuth(provider) {

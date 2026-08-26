@@ -31,7 +31,8 @@ def _best_run_rows(conn, limit=None):
     best_combo/hands_cleared/created_at describe *that* run and not some
     other one by the same player.
     """
-    sql = """SELECT s.user_id AS user_id, u.username AS username,
+    sql = """SELECT s.user_id AS user_id,
+                    COALESCE(u.display_name, u.username) AS username,
                     MAX(s.score) AS score, s.best_combo AS best_combo,
                     s.hands_cleared AS hands_cleared, s.created_at AS created_at,
                     COUNT(*) AS runs
@@ -91,8 +92,9 @@ def get_user_waits_best(conn, user_id):
     ).fetchone()["n"]
     best["rank"] = ahead + 1
     best["is_you"] = True
-    username = conn.execute(
-        "SELECT username FROM users WHERE id = ?", (user_id,)
+    name = conn.execute(
+        "SELECT COALESCE(display_name, username) AS name FROM users WHERE id = ?",
+        (user_id,),
     ).fetchone()
-    best["username"] = username["username"] if username else "you"
+    best["username"] = name["name"] if name else "you"
     return best

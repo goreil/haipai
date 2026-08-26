@@ -11,6 +11,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
+    display_name TEXT,
     password_hash TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 0,
     upload_token TEXT,
@@ -172,6 +173,11 @@ def migrate(conn):
         # them in rather than locking every existing user out on next login.
         conn.execute("UPDATE users SET email_verified = 1")
         altered = True
+    # Leaderboard nickname. NULL means "use the username" — the boards read
+    # COALESCE(display_name, username), so nothing needs backfilling.
+    if not _has_column("users", "display_name"):
+        conn.execute("ALTER TABLE users ADD COLUMN display_name TEXT")
+        altered = True
     # These three indexes stay outside their _has_column gates (unlike
     # upload_token's index above) so they also run for fresh installs, where
     # executescript(SCHEMA) already created the column and the gate is
@@ -189,6 +195,13 @@ def migrate(conn):
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_verify_token "
         "ON users(email_verify_token) WHERE email_verify_token IS NOT NULL"
+    )
+    # Case-insensitive: two players called "Kanata" would make the board
+    # unreadable, so a nickname is claimed exactly once (usernames are checked
+    # in db.users.set_display_name, which SQLite can't express as an index).
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_display_name "
+        "ON users(lower(display_name)) WHERE display_name IS NOT NULL"
     )
     if not _has_column("category_reports", "kind"):
         conn.execute("ALTER TABLE category_reports ADD COLUMN kind TEXT")

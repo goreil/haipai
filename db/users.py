@@ -1,6 +1,8 @@
 """Users + OAuth linking."""
 
 import secrets
+import sqlite3
+import unicodedata
 
 
 # --- Users ---
@@ -64,6 +66,68 @@ def get_user_by_username(conn, username):
 def get_user_by_id(conn, user_id):
     """Get user row by id."""
     return conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+
+
+# Leaderboard nickname. Deliberately narrow: the username still owns login,
+# uniqueness and every admin view — this is only the label the minigame boards
+# print (`COALESCE(display_name, username)` in db/waits.py + db/defense.py).
+DISPLAY_NAME_MAX = 24
+DISPLAY_NAME_MIN = 2
+
+
+def validate_display_name(name):
+    """Normalize a submitted nickname. Returns (value, error).
+
+    `value` is None for "clear it" (empty input → fall back to the username).
+    """
+    name = (name or "").strip()
+    if not name:
+        return None, None
+    if len(name) < DISPLAY_NAME_MIN:
+        return None, f"Display name must be at least {DISPLAY_NAME_MIN} characters"
+    if len(name) > DISPLAY_NAME_MAX:
+        return None, f"Display name must be at most {DISPLAY_NAME_MAX} characters"
+    # Control characters (and the bidi/zero-width formatting ones) would let a
+    # nickname scramble the rest of the board row.
+    if any(unicodedata.category(ch) in ("Cc", "Cf", "Co", "Cs") for ch in name):
+        return None, "Display name contains invalid characters"
+    return name, None
+
+
+def set_display_name(conn, user_id, name):
+    """Set (or clear, with None) a user's leaderboard nickname.
+
+    Returns (value, error). Taken names are refused case-insensitively against
+    both other users' nicknames and *every* username, so a nickname can never
+    impersonate someone else's account name. Reclaiming your own username as a
+    nickname is a no-op that stores NULL.
+    """
+    if name is None:
+        conn.execute("UPDATE users SET display_name = NULL WHERE id = ?", (user_id,))
+        conn.commit()
+        return None, None
+
+    row = conn.execute(
+        "SELECT id FROM users WHERE lower(username) = lower(?) "
+        "OR lower(display_name) = lower(?)",
+        (name, name),
+    ).fetchall()
+    if any(r["id"] != user_id for r in row):
+        return None, "That name is already taken"
+    # It's their own username — storing it would just pin the fallback.
+    own = conn.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone()
+    if own and own["username"].lower() == name.lower():
+        conn.execute("UPDATE users SET display_name = NULL WHERE id = ?", (user_id,))
+        conn.commit()
+        return None, None
+    try:
+        conn.execute("UPDATE users SET display_name = ? WHERE id = ?", (name, user_id))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        # Lost the race against the unique index between check and write.
+        conn.rollback()
+        return None, "That name is already taken"
+    return name, None
 
 
 def get_user_by_oauth(conn, provider, oauth_id):

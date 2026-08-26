@@ -77,6 +77,7 @@ var HAIPAI_CLICK_ACTIONS = {
   toggleShared: (el) => toggleShared(el),
 
   // --- account ---
+  saveDisplayName: () => saveDisplayName(),
   linkOAuth: (el) => linkOAuth(el.dataset.provider),
   unlinkOAuth: (el) => unlinkOAuth(el.dataset.provider),
 

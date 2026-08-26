@@ -258,11 +258,34 @@ def api_me():
         "id": current_user.id,
         "is_admin": is_admin,
         "impersonating": impersonating,
+        "display_name": (user_row["display_name"] if user_row else None),
         "has_password": bool(user_row["password_hash"]) if user_row else False,
         "discord_linked": bool(user_row["discord_id"]) if user_row else False,
         "google_linked": bool(user_row["google_id"]) if user_row else False,
         "csrf_token": generate_csrf(),
     })
+
+
+@auth_bp.route("/api/me/display-name", methods=["POST"])
+@login_required
+def api_set_display_name():
+    """Set the nickname the minigame leaderboards print for this user.
+
+    Login is unaffected: `username` stays the account name everywhere else
+    (login form, admin views, uniqueness). An empty value clears the nickname
+    and the boards fall back to the username — see db.users.set_display_name.
+    """
+    from app import get_conn
+    body = request.json or {}
+    name, err = db.validate_display_name(body.get("display_name"))
+    if err:
+        return jsonify({"error": err}), 400
+    conn = get_conn()
+    name, err = db.set_display_name(conn, current_user.id, name)
+    if err:
+        return jsonify({"error": err}), 409
+    return jsonify({"ok": True, "display_name": name,
+                    "leaderboard_name": name or current_user.username})
 
 
 @auth_bp.route("/api/me/link-oauth", methods=["POST"])
@@ -312,6 +335,7 @@ def api_me_export():
     account = {
         "id": user_row["id"],
         "username": username,
+        "display_name": user_row["display_name"],
         "is_admin": bool(user_row["is_admin"]),
         "created_at": user_row["created_at"],
         "discord_id": user_row["discord_id"],
