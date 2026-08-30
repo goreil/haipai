@@ -25,22 +25,22 @@ var state = {
 
 function renderGameList() {}
 
-var TAB_ROUTES = {
-  "waits-trainer": () => showWaitsTrainer(),
-  "defense-trainer": () => showDefenseTrainer(),
-};
+// Every minigame, and nothing else — this page IS the minigames category.
+var TAB_ROUTES = mgTabRoutes();
 
-var PLAY_DEFAULT_TAB = "waits-trainer";
+var PLAY_DEFAULT_TAB = MG_GAMES[0].slug;
+
+var TAB_HASH_RE = new RegExp(`^#(${mgSlugPattern()})$`);
 
 function parseTabHash() {
-  const m = (window.location.hash || "").match(/^#(waits-trainer|defense-trainer)$/);
+  const m = (window.location.hash || "").match(TAB_HASH_RE);
   return m ? m[1] : null;
 }
 
 // Same contract as main.js's: assigning the hash fires hashchange (→ render);
 // re-assigning the current one fires nothing, so re-render directly. Shared so
-// the toolbar buttons can use the existing showWaitsTrainer/showDefenseTrainer
-// actions unchanged.
+// the tab strip can use the same `navMinigame` action the SPA's Minigames
+// dropdown does.
 function navTab(slug) {
   if (parseTabHash() === slug) TAB_ROUTES[slug]();
   else window.location.hash = slug;
@@ -54,6 +54,10 @@ function applyPlayRoute() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Built from the roster, same as the SPA's dropdown, so the arcade always
+  // offers exactly the games that exist.
+  const tabs = document.getElementById("play-tabs");
+  if (tabs) tabs.innerHTML = mgPlayTabsHtml();
   applyPlayRoute();
   window.addEventListener("hashchange", applyPlayRoute);
 });

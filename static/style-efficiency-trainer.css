@@ -1,0 +1,485 @@
+/* Efficiency Trainer minigame (#efficiency-trainer) — see
+   static/js/efficiency-trainer.js. Self-contained visual scope: a stage with a
+   drifting 13-tile hand along the top and a plane on a rail along the bottom,
+   plus the fire/re-roll controls. Sized to work on a phone in portrait. */
+
+.ef-wrap {
+  height: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Pre-mount fallbacks; efSyncLayout() overwrites both from the measured
+     stage width so the row always spans ~80% of it. */
+  --ef-tile-w: 30px;
+  --ef-tile-gap: 3px;
+}
+
+/* Every tile here declares its own aspect ratio: the shared `.tile` rule is
+   `width: auto`, which measures 0 until the SVG decodes — and this game
+   positions from tile *width*, so a late-decoding tile would misplace the row. */
+.ef-wrap .tile { aspect-ratio: 3 / 4; height: auto; }
+
+/* --- HUD --- */
+
+.ef-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.ef-fuel { display: flex; align-items: center; gap: 7px; min-width: 130px; }
+.ef-fuel-l {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+}
+.ef-fuel-bar {
+  width: 74px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.ef-fuel-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition: width 0.25s ease, background 0.25s;
+}
+.ef-fuel-n {
+  font-family: 'Outfit', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.6em;
+}
+/* Running dry: the one moment the HUD shouts. */
+.ef-fuel.low .ef-fuel-fill { background: linear-gradient(90deg, #a33, var(--sev-major)); }
+.ef-fuel.low .ef-fuel-n { color: var(--sev-major); }
+.ef-fuel.low .ef-fuel-l { color: var(--sev-major); }
+
+.ef-score-box { text-align: center; }
+.ef-score {
+  font-family: 'Outfit', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.ef-score-box .ef-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+.ef-hud-right { display: flex; align-items: center; gap: 8px; }
+
+.ef-par {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+}
+/* One pip per shanten the hand started at; they go out as you close the gap. */
+.ef-pips { display: flex; gap: 3px; }
+.ef-pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sev-medium);
+  box-shadow: 0 0 6px rgba(255, 167, 38, 0.5);
+}
+.ef-pip.done { background: var(--border); box-shadow: none; }
+.ef-par-n {
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.ef-par-n span { font-size: 11px; font-weight: 400; color: var(--text-dim); }
+.ef-par-n.over { color: var(--sev-major); }
+
+.ef-mute {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  line-height: 0;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.ef-mute:hover { border-color: var(--text-dim); }
+.ef-mute.muted { opacity: 0.45; }
+
+/* --- Stage --- */
+
+.ef-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 260px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background:
+    radial-gradient(110% 70% at 50% 100%, rgba(79, 195, 247, 0.09), transparent 70%),
+    var(--bg-card);
+  touch-action: manipulation;
+}
+/* Tank dry — the stage cools out for the game-over panel. */
+.ef-stage.ef-dry { box-shadow: inset 0 0 60px rgba(239, 83, 80, 0.32); }
+
+/* --- The hand --- */
+
+.ef-hand {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  display: flex;
+  gap: var(--ef-tile-gap);
+  will-change: transform;
+}
+.ef-slot {
+  position: relative;
+  display: block;
+  border-radius: 3px;
+  transition: box-shadow 0.12s, transform 0.12s;
+}
+.ef-wrap .tile.ef-tile { width: var(--ef-tile-w); display: block; }
+
+/* The slot the tracer is currently over. */
+.ef-slot.ef-aimed {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 14px rgba(79, 195, 247, 0.55);
+  transform: translateY(2px);
+}
+
+/* Impact feedback, one shot's worth: did that swap bring the hand closer to
+   tenpai, leave it where it was, or set it back? Runs once and is thrown away
+   with the next efRenderHand(). */
+.ef-slot.ef-better { animation: ef-pop-better 0.5s ease-out; }
+.ef-slot.ef-same { animation: ef-pop-same 0.4s ease-out; }
+.ef-slot.ef-worse { animation: ef-pop-worse 0.5s ease-out; }
+@keyframes ef-pop-better {
+  0% { box-shadow: 0 0 0 3px var(--success), 0 0 22px rgba(102, 187, 106, 0.8); transform: translateY(-6px) scale(1.14); }
+  100% { box-shadow: 0 0 0 0 rgba(102, 187, 106, 0); transform: none; }
+}
+@keyframes ef-pop-same {
+  0% { box-shadow: 0 0 0 3px var(--text-dim); transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 0 rgba(136, 146, 164, 0); transform: none; }
+}
+@keyframes ef-pop-worse {
+  0% { box-shadow: 0 0 0 3px var(--sev-major), 0 0 22px rgba(239, 83, 80, 0.8); transform: translateY(4px) scale(0.9); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 83, 80, 0); transform: none; }
+}
+
+/* --- Plane, tracer, shot --- */
+
+.ef-plane {
+  position: absolute;
+  left: 0;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  will-change: transform;
+  pointer-events: none;
+}
+.ef-plane-glyph {
+  width: 34px;
+  height: 29px;
+  fill: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(79, 195, 247, 0.5));
+  transition: transform 0.14s ease-out;
+}
+/* A touch of roll, purely so held movement reads as flying. */
+.ef-plane.ef-banking-l .ef-plane-glyph { transform: rotate(-13deg) scaleX(0.9); }
+.ef-plane.ef-banking-r .ef-plane-glyph { transform: rotate(13deg) scaleX(0.9); }
+
+/* The loaded tile rides under the plane — it is both the ammo readout and the
+   thing you are about to put in the hand, so it is never anywhere else. */
+.ef-ammo {
+  padding: 3px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 5px;
+  background: var(--bg-input);
+  line-height: 0;
+  min-width: calc(var(--ef-tile-w) + 8px);
+  min-height: calc(var(--ef-tile-w) / 0.75 + 8px);
+  box-sizing: border-box;
+}
+.ef-wrap .tile.ef-ammo-tile { width: var(--ef-tile-w); display: block; }
+.ef-ammo.empty {
+  border-style: dashed;
+  border-color: var(--border);
+  background: transparent;
+}
+.ef-ammo.ef-swap { animation: ef-swap 0.24s ease-out; }
+@keyframes ef-swap {
+  0% { transform: rotateY(90deg) scale(0.8); opacity: 0.2; }
+  100% { transform: none; opacity: 1; }
+}
+
+/* Aim line from the plane up to the hand. Fades out whenever the plane has no
+   tile loaded (mid-flight, or during the tenpai flourish). */
+.ef-tracer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 60px;
+  width: 1px;
+  margin-left: -0.5px;
+  background: linear-gradient(180deg, rgba(79, 195, 247, 0.05), rgba(79, 195, 247, 0.45));
+  pointer-events: none;
+  transition: opacity 0.15s;
+  will-change: transform;
+}
+
+.ef-fx { position: absolute; inset: 0; pointer-events: none; }
+
+.ef-shot { position: absolute; left: 0; top: 0; will-change: transform; }
+.ef-wrap .tile.ef-shot-tile {
+  width: var(--ef-tile-w);
+  display: block;
+  filter: drop-shadow(0 0 8px rgba(79, 195, 247, 0.75));
+}
+
+.ef-float {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  animation: ef-float 0.8s ease-out forwards;
+}
+.ef-float-bad { color: var(--sev-major); }
+@keyframes ef-float {
+  0% { opacity: 0; transform: translate(-50%, -20%); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -160%); }
+}
+
+/* --- Tenpai flourish --- */
+
+.ef-tenpai {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  padding: 12px 20px;
+  border: 1px solid var(--success);
+  border-radius: 12px;
+  background: rgba(22, 33, 62, 0.94);
+  box-shadow: 0 0 30px rgba(102, 187, 106, 0.3);
+  animation: ef-tenpai-in 0.3s cubic-bezier(.2,.9,.3,1.3);
+}
+@keyframes ef-tenpai-in {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.ef-tenpai-l {
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--success);
+}
+.ef-tenpai-waits {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 8px 0 6px;
+}
+.ef-wrap .tile.ef-wait-tile { width: 26px; display: block; }
+.ef-tenpai-pts {
+  font-family: 'Outfit', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+.ef-tenpai-pts span { font-size: 11px; font-weight: 400; color: var(--text-dim); }
+
+/* --- Controls --- */
+
+.ef-controls {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+  align-items: stretch;
+}
+.ef-btn {
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, transform 0.06s;
+  touch-action: manipulation;
+}
+.ef-btn:active { transform: translateY(1px); border-color: var(--accent); }
+@media (hover: hover) {
+  .ef-btn:hover { border-color: var(--accent); background: var(--bg-card-hover); }
+}
+.ef-btn-move { flex: 0 0 22%; font-size: 17px; color: var(--text-dim); }
+.ef-btn-fire { flex: 1 1 auto; color: var(--accent); border-color: var(--accent-dim); }
+.ef-btn-reroll { flex: 1 1 auto; }
+.ef-key {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
+/* --- Overlay panels --- */
+
+.ef-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: rgba(15, 26, 46, 0.9);
+  overflow-y: auto;
+}
+.ef-overlay.show { display: flex; }
+.ef-panel {
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+}
+.ef-panel h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 21px;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.ef-panel .ef-hint {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.ef-panel .ef-hint b { color: var(--text); font-weight: 500; }
+
+.ef-keys {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  list-style: none;
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.ef-keys .ef-key { margin-left: 0; margin-right: 5px; }
+
+.ef-stuck { margin: 4px 0 12px; }
+.ef-stuck-l { font-size: 12px; color: var(--sev-major); margin-bottom: 6px; }
+.ef-stuck-tiles { display: flex; justify-content: center; flex-wrap: wrap; gap: 2px; }
+.ef-wrap .tile.ef-stuck-tile { width: 22px; display: block; }
+
+.ef-result { display: flex; justify-content: center; gap: 22px; margin: 14px 0 12px; }
+.ef-result > div { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--text-dim); }
+.ef-result .ef-result-n {
+  font-family: 'Outfit', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Leaderboard (same shape as the other two trainers') --- */
+
+.ef-lb {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+.ef-lb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.ef-lb-head span { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.ef-lb table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ef-lb th {
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  text-align: right;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.ef-lb th:nth-child(2) { text-align: left; }
+.ef-lb th:nth-child(3),
+.ef-lb th:nth-child(4) { padding-left: 10px; }
+.ef-lb td { padding: 3px 0; color: var(--text-dim); }
+.ef-lb .ef-lb-rank { width: 2em; text-align: right; padding-right: 8px; font-variant-numeric: tabular-nums; }
+.ef-lb .ef-lb-name {
+  text-align: left;
+  color: var(--text);
+  max-width: 0;
+  width: 99%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ef-lb .ef-lb-hands,
+.ef-lb .ef-lb-score { text-align: right; padding-left: 10px; font-variant-numeric: tabular-nums; }
+.ef-lb .ef-lb-score { color: var(--text); font-weight: 700; }
+.ef-lb .ef-lb-you td { color: var(--accent); }
+.ef-lb .ef-lb-you .ef-lb-name,
+.ef-lb .ef-lb-you .ef-lb-score { color: var(--accent); }
+.ef-lb .ef-lb-outside td { border-top: 1px dashed var(--border); padding-top: 6px; }
+
+/* --- Narrow screens --- */
+
+@media (max-width: 560px) {
+  .ef-hud { gap: 6px; }
+  .ef-fuel { min-width: 0; }
+  .ef-fuel-l { display: none; }
+  .ef-fuel-bar { width: 46px; }
+  .ef-score { font-size: 24px; }
+  .ef-par { padding: 4px 7px; gap: 5px; }
+  .ef-btn { padding: 14px 6px; font-size: 13px; }
+  .ef-btn .ef-key { display: none; }
+  .ef-plane-glyph { width: 28px; height: 24px; }
+}

@@ -125,6 +125,16 @@ CREATE TABLE IF NOT EXISTS defense_scores (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS efficiency_scores (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    score INTEGER NOT NULL,
+    best_streak INTEGER NOT NULL DEFAULT 0,
+    hands_cleared INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_upload_token
     ON users(upload_token) WHERE upload_token IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_games_user_id ON games(user_id);
@@ -134,6 +144,7 @@ CREATE INDEX IF NOT EXISTS idx_weakness_snapshots_user ON weakness_snapshots(use
 CREATE INDEX IF NOT EXISTS idx_category_snapshots_created ON category_snapshots(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_audience ON messages(audience_user_id);
 CREATE INDEX IF NOT EXISTS idx_waits_scores_user ON waits_scores(user_id, score DESC);
+CREATE INDEX IF NOT EXISTS idx_efficiency_scores_user ON efficiency_scores(user_id, score DESC);
 """
 
 

@@ -72,6 +72,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const adminBtn = document.getElementById("admin-btn");
   if (adminBtn && me.is_admin) adminBtn.style.display = "";
 
+  // The Minigames dropdown is built from the roster rather than written out in
+  // index.html, so the toolbar can't list a different set of games than the
+  // router knows about.
+  const mgMenu = document.getElementById("minigames-dropdown");
+  if (mgMenu) mgMenu.innerHTML = mgMenuHtml();
+
   renderImpersonateBanner(me);
   if (typeof mailboxInit === "function") mailboxInit();
 
@@ -112,19 +118,20 @@ function parseMistakeHash() {
 
 // Top-level views that own a hash (game/mistake hashes are handled separately
 // above). Maps the hash slug to the function that renders the view.
-var TAB_ROUTES = {
+var TAB_ROUTES = Object.assign({
   trends: () => showTrends(),
   admin: () => showAdmin(),
   help: () => showHelp(),
   account: () => showAccount(),
-  "waits-trainer": () => showWaitsTrainer(),
-  "defense-trainer": () => showDefenseTrainer(),
-};
+}, mgTabRoutes());   // the minigame roster — see minigame-shell.js
 
-// Returns the tab slug from `#trends`/`#admin`/`#help`/`#account`/
-// `#waits-trainer`, `#defense-trainer`, or null.
+// Returns the tab slug from `#trends`/`#admin`/`#help`/`#account` or any
+// minigame slug, or null. The minigame half of the pattern comes from the
+// roster so a new trainer is routable the moment it is listed there.
+var TAB_HASH_RE = new RegExp(`^#(trends|admin|help|account|${mgSlugPattern()})$`);
+
 function parseTabHash() {
-  const m = (window.location.hash || "").match(/^#(trends|admin|help|account|waits-trainer|defense-trainer)$/);
+  const m = (window.location.hash || "").match(TAB_HASH_RE);
   return m ? m[1] : null;
 }
 
@@ -132,6 +139,10 @@ function parseTabHash() {
 // and fires hashchange (→ applyHashRoute → render). Re-assigning the current
 // hash fires no event, so re-render directly in that case.
 function navTab(slug) {
+  // Nav swaps the whole content area, so any toolbar dropdown the click came
+  // from has done its job — the outside-click closer in ui.js never fires for
+  // a click *inside* the menu.
+  document.querySelectorAll(".toolbar-menu.open").forEach((m) => m.classList.remove("open"));
   if (parseTabHash() === slug) TAB_ROUTES[slug]();
   else window.location.hash = slug;
 }

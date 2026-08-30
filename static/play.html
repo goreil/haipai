@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Haipai — Mahjong Trainers</title>
-  <meta name="description" content="Two free mahjong drills: read waits at speed, and remember which tiles are safe against a riichi. No account needed.">
+  <meta name="description" content="Three free mahjong drills: read waits at speed, remember which tiles are safe against a riichi, and shoot a hand into tenpai. No account needed.">
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/static/style-minigame.css">
   <link rel="stylesheet" href="/static/style-waits-trainer.css">
   <link rel="stylesheet" href="/static/style-defense-trainer.css">
+  <link rel="stylesheet" href="/static/style-efficiency-trainer.css">
 </head>
 <body>
   <!--
@@ -27,10 +28,8 @@
     <div class="main">
       <div class="play-banner">
         <a class="brand-mini" href="/"><img src="/static/mascot.svg" alt=""><span class="brand-word">Haipai</span></a>
-        <div class="play-tabs">
-          <button type="button" class="btn" data-play-tab="waits-trainer" data-action="showWaitsTrainer">Waits</button>
-          <button type="button" class="btn" data-play-tab="defense-trainer" data-action="showDefenseTrainer">Defense</button>
-        </div>
+        <!-- Filled from the minigame roster by play-view.js (minigame-shell.js). -->
+        <div class="play-tabs" id="play-tabs"></div>
         <span class="spacer"></span>
         <a class="btn btn-secondary" href="/login">Log in</a>
         <a class="btn btn-primary" href="/register">Sign up</a>
@@ -46,17 +45,22 @@
   </div>
 
   <!-- Same non-module, load-order-matters arrangement as index.html, cut down
-       to what the two trainers actually reach for: the action registry, tile
+       to what the trainers actually reach for: the action registry, tile
        rendering, escapeHtml, the API client (for apiPost, unused here but
        referenced), and the shared minigame modules. -->
   <script src="/static/js/actions.js"></script>
   <script src="/static/js/html-escape.js"></script>
   <script src="/static/js/tiles.js"></script>
+  <!-- Only the Efficiency Trainer needs this: it asks the app's real
+       shanten solver whether a hand has reached tenpai. Standalone UMD,
+       no other prep module required. -->
+  <script src="/static/js/prep/shanten.js"></script>
   <script src="/static/js/api.js"></script>
   <script src="/static/js/minigame-shell.js"></script>
   <script src="/static/js/minigame-audio.js"></script>
   <script src="/static/js/waits-trainer.js"></script>
   <script src="/static/js/defense-trainer.js"></script>
+  <script src="/static/js/efficiency-trainer.js"></script>
   <script src="/static/js/play-view.js"></script>
 </body>
 </html>

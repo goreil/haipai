@@ -14,6 +14,7 @@ Submodule layout:
 - `db.admin`     — `is_admin`, `admin_user_stats`, `admin_mau_stats`
 - `db.waits`     — Waits Trainer minigame scores + leaderboard
 - `db.defense`   — Defense Trainer minigame scores + leaderboard
+- `db.efficiency` — Efficiency Trainer minigame scores + leaderboard
 """
 
 import os
@@ -83,6 +84,11 @@ from db.defense import (
     get_defense_leaderboard,
     get_user_defense_best,
     submit_defense_score,
+)
+from db.efficiency import (
+    get_efficiency_leaderboard,
+    get_user_efficiency_best,
+    submit_efficiency_score,
 )
 from db.messages import (
     create_message,
@@ -177,6 +183,10 @@ __all__ = [
     "get_defense_leaderboard",
     "get_user_defense_best",
     "submit_defense_score",
+    # efficiency trainer (minigame)
+    "get_efficiency_leaderboard",
+    "get_user_efficiency_best",
+    "submit_efficiency_score",
     # messages (mailbox)
     "create_message",
     "list_messages_for_user",

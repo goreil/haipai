@@ -2,7 +2,7 @@
 // (index.html) and the public arcade shell (static/play.html, served at
 // /play).
 //
-// Guests can play both trainers in full. The only thing an account buys is
+// Guests can play every trainer in full. The only thing an account buys is
 // the leaderboard — so rather than hiding the board or silently dropping the
 // run, a finished guest run is stashed in localStorage and the game-over
 // panel offers a sign-up. The next time that browser opens the trainer while
@@ -16,6 +16,68 @@
 // True only on the public arcade shell — play-view.js sets it. The SPA never
 // touches it, so `false` (this default) means "there is a session".
 var mgGuest = false;
+
+// --- The minigame roster ---------------------------------------------------
+//
+// The one place that knows which minigames exist. Adding a fourth trainer
+// means adding a row here: both shells' hash routers (main.js, play-view.js),
+// the SPA's "Minigames" toolbar dropdown and the arcade's tab strip are all
+// built from this list, so none of them can fall out of step with another.
+//
+// `show` is an arrow rather than a direct reference because this file loads
+// BEFORE the trainers do — the name is resolved when the tab is opened, not
+// now. Same lazy-resolution trick the action registry uses (actions.js).
+var MG_GAMES = [
+  {
+    slug: "waits-trainer",
+    label: "Waits",
+    title: "Waits Trainer",
+    blurb: "Read every wait before the hand hits the floor",
+    show: () => showWaitsTrainer(),
+  },
+  {
+    slug: "defense-trainer",
+    label: "Defense",
+    title: "Defense Trainer",
+    blurb: "Remember which tiles are safe against a riichi",
+    show: () => showDefenseTrainer(),
+  },
+  {
+    slug: "efficiency-trainer",
+    label: "Efficiency",
+    title: "Efficiency Trainer",
+    blurb: "Shoot tiles into a hand until it reaches tenpai",
+    show: () => showEfficiencyTrainer(),
+  },
+];
+
+// The roster as TAB_ROUTES entries, to be spread into each shell's own table.
+function mgTabRoutes() {
+  const routes = {};
+  for (const g of MG_GAMES) routes[g.slug] = g.show;
+  return routes;
+}
+
+// The roster as a regex alternation, for the shells' parseTabHash().
+function mgSlugPattern() {
+  return MG_GAMES.map((g) => g.slug).join("|");
+}
+
+// The SPA's "Minigames" toolbar dropdown. One category button instead of one
+// button per trainer — the toolbar does not grow every time a game is added.
+function mgMenuHtml() {
+  return MG_GAMES.map((g) =>
+    `<button data-action="navMinigame" data-mg-slug="${g.slug}" title="${g.blurb}">${g.title}</button>`
+  ).join("");
+}
+
+// The public arcade's tab strip. `data-play-tab` is what applyPlayRoute()
+// marks active.
+function mgPlayTabsHtml() {
+  return MG_GAMES.map((g) =>
+    `<button type="button" class="btn" data-play-tab="${g.slug}" data-action="navMinigame" data-mg-slug="${g.slug}" title="${g.blurb}">${g.label}</button>`
+  ).join("");
+}
 
 var MG_PENDING_KEY = "haipai.minigame.pendingRun";
 

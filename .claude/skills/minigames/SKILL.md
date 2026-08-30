@@ -1,14 +1,30 @@
 ---
 name: minigames
-description: The Haipai arcade minigames — Waits Trainer (`#waits-trainer`), Defense Trainer (`#defense-trainer`), and the public guest arcade at `/play`. Use when touching static/js/waits-trainer.js, defense-trainer.js, minigame-audio.js, minigame-shell.js, play-view.js, static/data/defense-puzzles.json, routes/waits.py, routes/defense.py, db/waits.py, db/defense.py, or the leaderboards, guest-run stashing, and score validation behind them.
+description: The Haipai arcade minigames — Waits Trainer (`#waits-trainer`), Defense Trainer (`#defense-trainer`), Efficiency Trainer (`#efficiency-trainer`), and the public guest arcade at `/play`. Use when touching static/js/waits-trainer.js, defense-trainer.js, efficiency-trainer.js, minigame-audio.js, minigame-shell.js, play-view.js, static/data/defense-puzzles.json, routes/waits.py, routes/defense.py, routes/efficiency.py, db/waits.py, db/defense.py, db/efficiency.py, or the leaderboards, guest-run stashing, and score validation behind them.
 ---
 
 # Haipai minigames
 
-Two self-contained, client-side arcade trainers plus the public `/play` shell
-they share. The only server-side parts are the two leaderboards.
+Three self-contained, client-side arcade trainers plus the public `/play` shell
+they share. The only server-side parts are the three leaderboards.
 
-- Waits Trainer (`#waits-trainer`, the toolbar's "Waits" button next to Trends): a self-contained
+- **The roster** (`MG_GAMES`, `static/js/minigame-shell.js`) is the one list of
+  which minigames exist — slug, toolbar label, full title, blurb, and a lazy
+  `show` arrow (the file loads before the trainers, so the name resolves when
+  the tab opens). Everything that has to enumerate the games is generated from
+  it: `mgTabRoutes()` feeds both shells' `TAB_ROUTES`, `mgSlugPattern()` builds
+  their `parseTabHash` regex, `mgMenuHtml()` fills the SPA's **"Minigames"**
+  toolbar dropdown (`#minigames-dropdown`, populated in `main.js`'s init) and
+  `mgPlayTabsHtml()` fills the arcade's tab strip (`#play-tabs`, populated in
+  `play-view.js`). A single `navMinigame` action (`actions.js`) serves both —
+  the button carries `data-mg-slug`. So **adding a trainer is one row in
+  `MG_GAMES` plus its own js/css/routes/db/tests**; no shell markup to touch.
+  The SPA groups them behind one category button rather than one button per
+  game so the toolbar stops growing; `navTab` (`main.js`) closes any open
+  `.toolbar-menu` on nav, since ui.js's outside-click closer never fires for a
+  click inside the menu.
+
+- Waits Trainer (`#waits-trainer`, the Minigames menu's "Waits Trainer"): a self-contained
   arcade minigame — pin-only tenpai hands fall down a stage, the player taps
   tiles from a 9-tile arsenal to shoot the target hand, and **every** wait must
   be hit before it dissolves (a two-sided wait needs both tiles). Wrong tile →
@@ -29,9 +45,8 @@ they share. The only server-side parts are the two leaderboards.
   carry a `.v2` suffix: the one-life rules invalidated every 3-life best, and the
   server leaderboards were truncated at the same time); the rAF loop self-terminates
   when its stage element leaves the DOM, so routing away needs no teardown.
-  Wired in via `TAB_ROUTES`/`parseTabHash` (`main.js`), the `wtShoot`/
-  `wtTarget`/`wtStart` (+ shared `mgToggleMute`) entries in `actions.js`, and the toolbar
-  button in `static/index.html`. **Sound** is synthesized in-page with WebAudio
+  Wired in via the roster above, plus the `wtShoot`/`wtTarget`/`wtStart`
+  (+ shared `mgToggleMute`) entries in `actions.js`. **Sound** is synthesized in-page with WebAudio
   — the engine, the mute preference and the speaker button live in the shared
   `static/js/minigame-audio.js` (`mgTone`/`mgNoise`/`mgToggleMute`/
   `mgRenderMuteButtons`, key `MG_MUTE_KEY`, falling back once to the pre-split
@@ -60,8 +75,8 @@ they share. The only server-side parts are the two leaderboards.
   `riichi-mahjong-trainer/` submodule (djuretic, MIT, Elm) — **reference-only,
   never imported**, same arrangement as `killer_mortal_gui`; the porting map
   from `src/Group.elm` is in the file's header comment.
-- Defense Trainer (`#defense-trainer`, the toolbar's "Defense" button next to
-  Waits): a Simon-says memory game for **genbutsu**. One board is a real kyoku
+- Defense Trainer (`#defense-trainer`, the Minigames menu's "Defense
+  Trainer"): a Simon-says memory game for **genbutsu**. One board is a real kyoku
   cut at the moment an opponent declared riichi; its layout never changes and
   every tile on it sits face down. The SAFE tiles turn up one at a time and
   flip back, and the player then taps all of them out of a 34-tile arsenal
@@ -81,9 +96,8 @@ they share. The only server-side parts are the two leaderboards.
   unhurried (`dfFlashSeconds`); the memory is the test, not the typing. Client-side in `static/js/defense-trainer.js` (`df*` globals +
   the `df` state object) and `static/style-defense-trainer.css`; sound via the
   shared `minigame-audio.js` (each tile has its own pentatonic note, so a
-  board always sounds the same). Wired in via `TAB_ROUTES`/`parseTabHash`
-  (`main.js`), the `dfPick`/`dfStart` entries in `actions.js`, and the toolbar
-  button in `static/index.html`. **Boards are a static pack**, not an API:
+  board always sounds the same). Wired in via the roster above, plus the
+  `dfPick`/`dfStart` entries in `actions.js`. **Boards are a static pack**, not an API:
   `scripts/mine_defense_puzzles.py` mines `mortal_analysis/` (run it in the
   container — that's where the files live) into the committed, anonymized
   `static/data/defense-puzzles.json` (~300 boards; seat winds, ponds, dora and
@@ -101,10 +115,52 @@ they share. The only server-side parts are the two leaderboards.
   game's own arithmetic (`steps_cleared <= score <= 34 * steps_cleared`).
   Pinned by `tests/test_api_defense.py`. Playable **without an account** at
   `/play` — see the "Public minigame arcade" entry.
+- Efficiency Trainer (`#efficiency-trainer`, the Minigames menu's "Efficiency
+  Trainer"): an airplane shooter that is really a tile-efficiency drill.
+  A 13-tile hand drifts along the top of the stage; the player flies a plane
+  along the bottom carrying exactly ONE tile of ammo, fires it straight up
+  (`x`), and the tile **replaces** whichever hand tile it hits — a draw and a
+  discard in one shot, which is the whole reason aiming exists instead of a
+  tile list. `c` re-rolls the loaded tile (a tsumogiri, in effect). The hand
+  clears the moment it reaches **tenpai**. Deliberately **no clock** (same call
+  as the Defense Trainer's answer phase): reading the shape is the test, not
+  typing speed — the ramp is difficulty (starting shanten), not speed.
+  **The economy is the scoring**: a shot and a re-roll each cost 1 fuel, and
+  clearing refunds that hand's `par`, so par is break-even and a run lasts
+  exactly as long as the player is efficient; running dry short of tenpai ends
+  it (game-over panel shows the hand it died on, `ef.stuck`). Points per hand =
+  `5 * starting shanten` + `5` per action saved under par → **5 min, 45 max**,
+  which is the bound `routes/efficiency.py` validates against. Three tiers
+  (shanten 1/2/3, par 5/7/9, unlocking at 0/3/8 hands cleared); the `par`
+  numbers are the simulated median of a greedy player (4.3 / 6.3 / 8.7), not
+  guesses. The board's second stat is `best_streak` — consecutive hands cleared
+  at or under par.
+  **Two suits + the three dragons (21 kinds), not the full 34**: measured, with
+  the whole wall in play only ~10% of random ammo can advance a 1-shanten hand,
+  which turns every hand's last step into a re-roll grind; at 21 kinds it's
+  ~21% and every efficiency decision that matters is still on the table.
+  Uniquely among the trainers it **reuses app logic instead of porting it** —
+  `haipaiShanten.calculateMinimumShanten` from `static/js/prep/shanten.js`
+  decides tenpai, so "tenpai" here means what it means on a game-detail page.
+  That is why `play.html` loads `prep/shanten.js` (standalone UMD, no other
+  prep module needed) — pinned by `tests/test_pages_play.py`.
+  Client-side in `static/js/efficiency-trainer.js` (`ef*` globals + the `ef`
+  state object) and `static/style-efficiency-trainer.css`; sound via the shared
+  `minigame-audio.js`. Wired in via the roster above, plus the
+  `efFire`/`efReroll`/`efStart` entries in `actions.js`. The **movement** buttons are
+  the one control that can't live in `actions.js` — they are press-and-hold, so
+  `efficiency-trainer.js` registers its own delegated `pointerdown`/`pointerup`
+  listeners on `[data-ef-move]` (plus a `window` `blur` release, since a
+  pointer that leaves the window never reports `pointerup`). Leaderboard:
+  `efficiency_scores` (`db/schema.py`) via `db/efficiency.py`, served by
+  `routes/efficiency.py` (`POST /api/efficiency/scores` `@login_required`, `GET
+  /api/efficiency/leaderboard` public), the exact shape of the other two.
+  Pinned by `tests/test_api_efficiency.py`. Playable **without an account** at
+  `/play`.
 - Leaderboard names are **not** usernames: both boards print
   `COALESCE(u.display_name, u.username)`, the nickname users set on the Account
   page. See CLAUDE.md's "Leaderboard nickname" entry.
-- Public minigame arcade (`/play`, the guest home of both trainers): the two
+- Public minigame arcade (`/play`, the guest home of all three trainers): the
   trainers are pure client-side games, so an account buys exactly one thing —
   a row on the leaderboard. `GET /play` (`routes/pages.py`) serves
   `static/play.html` + `static/js/play-view.js` to logged-out visitors and
@@ -115,19 +171,19 @@ they share. The only server-side parts are the two leaderboards.
   toolbar, mailbox, admin, game list) reusing the trainers themselves rather
   than the SPA in a degraded mode — pinned by `tests/test_pages_play.py`.
   `play-view.js` supplies the handful of globals the trainers reach for
-  (`state`, a no-op `renderGameList`, `csrfToken`) plus a two-tab
+  (`state`, a no-op `renderGameList`, `csrfToken`) plus a
   `TAB_ROUTES`/`navTab`/`parseTabHash` router mirroring `main.js`'s contract,
-  so the toolbar buttons reuse the existing `showWaitsTrainer`/
-  `showDefenseTrainer` actions unchanged. What makes a run a *guest* run is
+  both built from the roster, so its tab strip uses the same `navMinigame`
+  action the SPA's dropdown does. What makes a run a *guest* run is
   `mgGuest` (`static/js/minigame-shell.js`, the shared non-audio minigame
-  module): `play-view.js` sets it true, and `wtReportRun`/`dfReportRun` then
+  module): `play-view.js` sets it true, and `wtReportRun`/`dfReportRun`/`efReportRun` then
   stash the run in localStorage (`mgStashRun`, best-per-game only) instead of
   POSTing, with the game-over panel rendering `mgSignupCtaHtml`. On the next
   visit *with* a session each trainer's `*LoadLeaderboard` calls
   `mgFlushPendingRun` first, which submits the stashed run and reports it on
   the intro panel ("Saved your guest run: N points.") — so the offer survives
-  the whole register -> verify-email -> log-in detour. Both
-  `GET /api/{waits,defense}/leaderboard` are **public** (an anonymous caller
+  the whole register -> verify-email -> log-in detour. All
+  `GET /api/{waits,defense,efficiency}/leaderboard` are **public** (an anonymous caller
   gets `you: null`); only the score POSTs are `@login_required`. Styles
   `static/style-minigame.css` (banner, footer, `.mg-cta`, `.mg-guest-note`),
   loaded only by `play.html`. Entry points: the landing hero/bottom CTAs + the
@@ -136,4 +192,5 @@ they share. The only server-side parts are the two leaderboards.
 **CSS** (each self-contained, loaded per the shells named):
 - `static/style-waits-trainer.css` — the Waits Trainer minigame (stage, falling hands, arsenal); self-contained, loaded by `index.html` + `play.html`
 - `static/style-defense-trainer.css` — the Defense Trainer minigame (face-down board, the reveal flash, 34-tile arsenal); self-contained, loaded by `index.html` + `play.html`
-- `static/style-minigame.css` — the public arcade shell (`/play`): its banner/footer plus the guest sign-up CTA both trainers render on game over; only loaded by `play.html` (inside the SPA `mgGuest` is never true, so the CTA never renders there)
+- `static/style-efficiency-trainer.css` — the Efficiency Trainer minigame (drifting hand row, the plane and its aim tracer, fire/re-roll controls); self-contained, loaded by `index.html` + `play.html`
+- `static/style-minigame.css` — the public arcade shell (`/play`): its banner/footer plus the guest sign-up CTA every trainer renders on game over; only loaded by `play.html` (inside the SPA `mgGuest` is never true, so the CTA never renders there)

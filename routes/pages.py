@@ -25,9 +25,9 @@ def index():
 
 @pages_bp.route("/play")
 def play():
-    """Public minigame arcade — the Waits and Defense trainers, no account.
+    """Public minigame arcade — the Waits, Defense and Efficiency trainers.
 
-    Both trainers are pure client-side games; the only thing a session buys is
+    All three are pure client-side games; the only thing a session buys is
     a row on the leaderboard, so there is no reason to gate playing on one.
     `static/play.html` is a deliberately minimal shell (no sidebar, mailbox,
     admin or game list) in the same spirit as `shared.html`: the guest view

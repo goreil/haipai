@@ -28,8 +28,9 @@ var HAIPAI_CLICK_ACTIONS = {
   toggleMenu: (el) => el.parentElement.classList.toggle("open"),
   showAccount: () => navTab("account"),
   showHelp: () => navTab("help"),
-  showWaitsTrainer: () => navTab("waits-trainer"),
-  showDefenseTrainer: () => navTab("defense-trainer"),
+  // One action for the whole Minigames category: the button carries the slug,
+  // so adding a trainer to the roster (minigame-shell.js) needs nothing here.
+  navMinigame: (el) => navTab(el.dataset.mgSlug),
   showAdmin: () => navTab("admin"),
   adminStopImpersonate: () => adminStopImpersonate(),
   openExternal: (el) => window.open(el.dataset.href, "_blank"),
@@ -95,6 +96,11 @@ var HAIPAI_CLICK_ACTIONS = {
   wtStart: () => wtStart(),
   dfPick: (el) => dfPick(el),
   dfStart: () => dfStart(),
+  // The Efficiency Trainer's movement buttons are press-and-hold and so can't
+  // live here — they get their own pointer listeners in efficiency-trainer.js.
+  efFire: () => efFire(),
+  efReroll: () => efReroll(),
+  efStart: () => efStart(),
   mgToggleMute: () => mgToggleMute(),
 
   // --- trends ---
