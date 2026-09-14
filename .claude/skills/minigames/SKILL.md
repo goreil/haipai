@@ -19,6 +19,13 @@ they share. The only server-side parts are the three leaderboards.
   `play-view.js`). A single `navMinigame` action (`actions.js`) serves both —
   the button carries `data-mg-slug`. So **adding a trainer is one row in
   `MG_GAMES` plus its own js/css/routes/db/tests**; no shell markup to touch.
+  A row may carry **`hidden: true`**, which drops it from `mgVisibleGames()`
+  and so from both menus (dropdown + tab strip) while leaving it loaded and
+  routable by hash — an unpolished trainer stays demoable at
+  `/#defense-trainer` or `/play#efficiency-trainer` without being advertised,
+  and `PLAY_DEFAULT_TAB` skips it. **The Defense and Efficiency trainers are
+  currently hidden this way** (2026-08-30, "not polished yet"); delete the flag
+  to ship either one.
   The SPA groups them behind one category button rather than one button per
   game so the toolbar stops growing; `navTab` (`main.js`) closes any open
   `.toolbar-menu` on nav, since ui.js's outside-click closer never fires for a
@@ -75,8 +82,8 @@ they share. The only server-side parts are the three leaderboards.
   `riichi-mahjong-trainer/` submodule (djuretic, MIT, Elm) — **reference-only,
   never imported**, same arrangement as `killer_mortal_gui`; the porting map
   from `src/Group.elm` is in the file's header comment.
-- Defense Trainer (`#defense-trainer`, the Minigames menu's "Defense
-  Trainer"): a Simon-says memory game for **genbutsu**. One board is a real kyoku
+- Defense Trainer (`#defense-trainer`, **currently `hidden` — not in the
+  Minigames menu, reachable only by hash**): a Simon-says memory game for **genbutsu**. One board is a real kyoku
   cut at the moment an opponent declared riichi; its layout never changes and
   every tile on it sits face down. The SAFE tiles turn up one at a time and
   flip back, and the player then taps all of them out of a 34-tile arsenal
@@ -115,14 +122,21 @@ they share. The only server-side parts are the three leaderboards.
   game's own arithmetic (`steps_cleared <= score <= 34 * steps_cleared`).
   Pinned by `tests/test_api_defense.py`. Playable **without an account** at
   `/play` — see the "Public minigame arcade" entry.
-- Efficiency Trainer (`#efficiency-trainer`, the Minigames menu's "Efficiency
-  Trainer"): an airplane shooter that is really a tile-efficiency drill.
-  A 13-tile hand drifts along the top of the stage; the player flies a plane
-  along the bottom carrying exactly ONE tile of ammo, fires it straight up
-  (`x`), and the tile **replaces** whichever hand tile it hits — a draw and a
+- Efficiency Trainer (`#efficiency-trainer`, **currently `hidden` — not in the
+  Minigames menu, reachable only by hash**): an airplane shooter that is really a tile-efficiency drill.
+  A 13-tile hand sits along the top of the stage; the player flies a plane
+  along the bottom carrying exactly ONE tile of ammo, fires it straight up,
+  and the tile **replaces** whichever hand tile it hits — a draw and a
   discard in one shot, which is the whole reason aiming exists instead of a
   tile list. `c` re-rolls the loaded tile (a tsumogiri, in effect). The hand
-  clears the moment it reaches **tenpai**. Deliberately **no clock** (same call
+  clears the moment it reaches **tenpai**.
+  **Aiming is pointing, not timing**: the hand is STATIC and the plane follows
+  the pointer (the stage is the aim surface — mouse hover on desktop, drag on
+  touch), so the slot the tracer highlights is the slot the shot lands in, and
+  the only question the game asks is which tile to replace. Both halves used to
+  be otherwise — a drifting row and a plane on a held-key/held-button rail —
+  which made lining up a skill of its own on top of the efficiency read; don't
+  reintroduce either. Deliberately **no clock** (same call
   as the Defense Trainer's answer phase): reading the shape is the test, not
   typing speed — the ramp is difficulty (starting shanten), not speed.
   **The economy is the scoring**: a shot and a re-roll each cost 1 fuel, and
@@ -147,11 +161,20 @@ they share. The only server-side parts are the three leaderboards.
   Client-side in `static/js/efficiency-trainer.js` (`ef*` globals + the `ef`
   state object) and `static/style-efficiency-trainer.css`; sound via the shared
   `minigame-audio.js`. Wired in via the roster above, plus the
-  `efFire`/`efReroll`/`efStart` entries in `actions.js`. The **movement** buttons are
-  the one control that can't live in `actions.js` — they are press-and-hold, so
-  `efficiency-trainer.js` registers its own delegated `pointerdown`/`pointerup`
-  listeners on `[data-ef-move]` (plus a `window` `blur` release, since a
-  pointer that leaves the window never reports `pointerup`). Leaderboard:
+  `efFire`/`efReroll`/`efStart` entries in `actions.js` (the Fire and Re-roll
+  buttons, and the `x`/`c` keys). **Aiming is the one control that can't live in
+  `actions.js`** — a hover and a drag aren't clicks — so `efficiency-trainer.js`
+  registers its own delegated `pointerdown`/`pointermove`/`pointerup` listeners
+  and derives both idioms from them: a move sets `ef.aimX` (the plane eases to
+  it, `EF_PLANE_FOLLOW`), and a press released within `EF_TAP_SLOP` px is a
+  **tap → fire there** (`efFireAt` snaps the plane first, so easing can never
+  put a shot where the player didn't point), while anything further is a
+  drag-to-aim that must NOT fire. `pointercancel` + a `window` `blur` disarm the
+  pending tap, since a pointer leaving the window never reports `pointerup`.
+  `.ef-stage` therefore needs `touch-action: none` (a finger dragging it is
+  steering, not scrolling), and `efSyncLayout` measures `ef.stageW` as well as
+  the loop does — a pointer can arrive before the first frame of a new run, and
+  an unmeasured rail would aim every such event at the stage centre. Leaderboard:
   `efficiency_scores` (`db/schema.py`) via `db/efficiency.py`, served by
   `routes/efficiency.py` (`POST /api/efficiency/scores` `@login_required`, `GET
   /api/efficiency/leaderboard` public), the exact shape of the other two.
@@ -192,5 +215,5 @@ they share. The only server-side parts are the three leaderboards.
 **CSS** (each self-contained, loaded per the shells named):
 - `static/style-waits-trainer.css` — the Waits Trainer minigame (stage, falling hands, arsenal); self-contained, loaded by `index.html` + `play.html`
 - `static/style-defense-trainer.css` — the Defense Trainer minigame (face-down board, the reveal flash, 34-tile arsenal); self-contained, loaded by `index.html` + `play.html`
-- `static/style-efficiency-trainer.css` — the Efficiency Trainer minigame (drifting hand row, the plane and its aim tracer, fire/re-roll controls); self-contained, loaded by `index.html` + `play.html`
+- `static/style-efficiency-trainer.css` — the Efficiency Trainer minigame (static hand row, the pointer-following plane and its aim tracer, fire/re-roll controls); self-contained, loaded by `index.html` + `play.html`
 - `static/style-minigame.css` — the public arcade shell (`/play`): its banner/footer plus the guest sign-up CTA every trainer renders on game over; only loaded by `play.html` (inside the SPA `mgGuest` is never true, so the CTA never renders there)

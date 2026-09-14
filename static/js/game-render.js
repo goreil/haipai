@@ -242,75 +242,63 @@ function renderConceptBreakdown(agg, boxes) {
   return `<div class="concept-breakdown">${missed}${boxesHtml}${note}</div>`;
 }
 
-// The trade-off boxes that replace the old "Overvaluing these" ledger. Each box
-// is one trade-off axis (Push vs. Fold / Speed vs. Value / Other) and lists the
-// individual over-favoring mistakes on it: what your play favoured (left) vs what
-// the better play favoured (right), the EV lost, and a jump-to-mistake button
-// (reuses the #m<id> deep-link router → switches to rounds view + scrolls). See
-// haipaiConceptBreakdown.tradeoffBoxes for the bucketing.
+// Compact trade-off ledger using the same additive filters as the concept ledger.
 function renderTradeoffBoxes(boxes, gm) {
   if (!boxes || !boxes.length) return "";
   gm = gm || conceptMetaMap();
-  const canPill = typeof renderWinFeatPill === "function";
-
-  // An action pill (bad/missed riichi·call·kan) — the action decisions don't
-  // appear in the win-vector, so they get a group-coloured chip that reads like
-  // a feat-pill. `side` is "you" (Bad …) or "better" (Missed …).
-  const ACT_WORD = { Riichi: "riichi", Meld: "call", Kan: "kan" };
-  const actionPill = (group, side) => {
-    const meta = gm[group] || { label: group, color: "var(--text)" };
-    const label = (side === "you" ? "Bad " : "Missed ") + (ACT_WORD[group] || meta.label.toLowerCase());
-    return `<span class="feat-pill feat-pill-grp" style="--feat-grp:${meta.color}">`
-      + `<span class="feat-pill-label">${label}</span></span>`;
+  const definitions = {
+    push_fold: { color: (gm.Defense || {}).color, labels: ["Should push", "Should fold"] },
+    speed_value: { color: (gm.Speed || {}).color, labels: ["Should favor speed", "Should favor value"] },
+    other: { color: "var(--text-dim)", labels: ["Other trade-offs"] },
   };
-
-  // One pole (column cell) of a mistake row: every concrete win pill for that
-  // side (identical to the EV-table summary), plus an action pill when relevant.
-  // When a pole has no pills at all it falls back to the compared tile, then a
-  // dash — so a cell is never blank. `side` is "you" (red) / "ai" (green),
-  // mirroring the mistake-view You/AI columns.
-  const poleHtml = (wins, action, tile, oya, side) => {
-    let pills = canPill ? wins.map((w) => renderWinFeatPill(w, oya)).join("") : "";
-    if (action) pills += actionPill(action, side);
-    if (!pills) pills = tile ? renderTile(tile, "tile-sm") : `<span class="to-pole-empty">—</span>`;
-    return `<span class="to-pole to-pole-${side}">${pills}</span>`;
-  };
-
-  // Mistake tier (severe/mistake/light/unsure) → the EV colour var.
-  const TIER_COLOR = {
-    severe: "var(--sev-major)", mistake: "var(--sev-medium)",
-    light: "var(--sev-light)", unsure: "var(--sev-minor)",
-  };
-
-  const boxHtml = (box) => {
-    const rows = box.mistakes.map((m) => {
-      const evStyle = TIER_COLOR[m.tier] ? ` style="color:${TIER_COLOR[m.tier]}"` : "";
-      const goto = m.id
-        ? `<a class="to-goto" href="#m${m.id}" data-action="openHash" title="Go to this mistake">→</a>`
-        : `<span class="to-goto to-goto-off" title="No detail to jump to">→</span>`;
-      return `<div class="tradeoff-row">
-        ${poleHtml(m.youWins, m.youAction, m.youTile, m.oya, "you")}
-        ${poleHtml(m.betterWins, m.betterAction, m.betterTile, m.oya, "ai")}
-        <span class="to-end"><span class="to-ev"${evStyle}>${m.ev.toFixed(2)}</span>${goto}</span>
-      </div>`;
+  const filtering = state.conceptFilters.length > 0;
+  const rows = boxes.map(box => {
+    const def = definitions[box.key] || definitions.other;
+    const color = def.color || "var(--accent)";
+    const groups = def.labels.map(label => ({ label, ev: 0, mistakes: [] }));
+    const tiers = {};
+    for (const mistake of box.mistakes) {
+      const direction = haipaiConceptBreakdown.tradeoffDirection(box.key, mistake.betterWins);
+      const group = groups.find(group => group.label === direction);
+      group.ev += mistake.ev;
+      group.mistakes.push(mistake);
+      tiers[mistake.tier] = (tiers[mistake.tier] || 0) + 1;
+    }
+    const subs = groups.filter(group => group.mistakes.length).map(group => {
+      const active = conceptFilterActive("tradeoff", box.key, group.label);
+      const cls = "concept-sub concept-sub-btn"
+        + (active ? " concept-sub-active" : (filtering ? " concept-sub-dim" : ""));
+      return `<span class="${cls}" style="--grp:${color}" role="button" tabindex="0"
+        title="${active ? "Click to clear this filter" : "Show only rounds: " + group.label}"
+        data-action="filterConcept" data-concept-side="tradeoff" data-concept-group="${box.key}"
+        data-concept-dim="${group.label}">
+          <span class="concept-sub-label">${group.label}</span>
+          <span class="concept-sub-ev">${group.ev.toFixed(2)}</span>
+      </span>`;
     }).join("");
-    return `<div class="tradeoff-box">
-      <div class="tradeoff-box-head">
-        <span class="tradeoff-box-title">${box.title}</span>
-        <span class="tradeoff-box-ev">${box.ev.toFixed(2)} EV</span>
+    const active = conceptFilterActive("tradeoff", box.key, null);
+    const cls = "concept-pill concept-pill-btn"
+      + (active ? " concept-pill-active" : (filtering ? " concept-pill-dim" : ""));
+    const chips = [["severe", "sev-major", "Severe"], ["mistake", "sev-medium", "Mistake"],
+      ["light", "sev-light", "Light"], ["unsure", "sev-minor", "Unsure"]]
+      .filter(([key]) => tiers[key])
+      .map(([key, cls, label]) => `<span class="tier-count ${cls}" title="${label}">${tiers[key]}</span>`)
+      .join("");
+    return `<div class="concept-row">
+      <div class="concept-row-left">
+        <span class="${cls}" style="--grp:${color}" role="button" tabindex="0"
+          title="${active ? "Click to clear this filter" : "Show only rounds: " + box.title}"
+          data-action="filterConcept" data-concept-side="tradeoff" data-concept-group="${box.key}">${box.title}</span>${subs}
       </div>
-      <div class="tradeoff-grid">
-        <div class="tradeoff-colhead">
-          <span class="to-colhead to-colhead-you">You</span>
-          <span class="to-colhead to-colhead-ai">AI</span>
-          <span class="to-end"></span>
-        </div>
-        ${rows}
-      </div>
+      <span class="concept-tiers">${chips}</span>
+      <span class="concept-ev">${box.ev.toFixed(2)} EV</span>
     </div>`;
-  };
-
-  return `<div class="tradeoff-boxes">${boxes.map(boxHtml).join("")}</div>`;
+  }).join("");
+  return `<div class="concept-ledger">
+    <div class="concept-ledger-head">
+      <span class="concept-ledger-title">Trade-offs</span>
+      <span class="concept-ledger-sub">What the better play favored — select a pill to filter rounds</span>
+    </div>${rows}</div>`;
 }
 
 // Does a mistake clear the severity slider? Cumulative: shown when its tier rank
@@ -620,7 +608,13 @@ function renderGame() {
     const subMeta = (typeof haipaiConceptBreakdown !== "undefined" && haipaiConceptBreakdown.CONCEPT_META) || {};
     const matched = game.rounds.reduce((sum, r) => sum + r.mistakes.filter(mistakeVisible).length, 0);
     const pills = cfs.map((f) => {
-      const meta = gm[f.group] || { label: f.group, color: "var(--text)" };
+      const tradeoffMeta = {
+        push_fold: { label: "Push vs. Fold", color: (gm.Defense || {}).color },
+        speed_value: { label: "Speed vs. Value", color: (gm.Speed || {}).color },
+        other: { label: "Other", color: "var(--text-dim)" },
+      };
+      const meta = (f.side === "tradeoff" ? tradeoffMeta[f.group] : gm[f.group])
+        || { label: f.group, color: "var(--text)" };
       const label = f.dim ? ((subMeta[f.dim] || {}).label || f.dim) : meta.label;
       return `<span class="concept-pill" style="--grp:${meta.color}">${label}</span>`;
     }).join("");

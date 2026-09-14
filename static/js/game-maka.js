@@ -5,14 +5,14 @@ function renderMakaRatings(game) {
     matches: game.rounds.map((_, i) => game.maka_ratings?.matches?.[i] || ""),
   });
   const field = (label, value, index) => `<label>${escapeHtml(label)}
-    <input type="text" maxlength="4" pattern="[A-Za-z]{1,3}[+\\-]?" autocomplete="off"
+    <input type="text" maxlength="4" pattern="[A-ES][+\\-]?" autocomplete="off"
       placeholder="e.g. B+" value="${escapeHtml(value)}" data-maka-index="${index}">
     </label>`;
   return `<details class="maka-ratings" ${game._makaOpen ? "open" : ""}>
     <summary>Maka Ratings <span>(optional)</span></summary>
     <form class="maka-form">
-      <p>Enter Maka ratings from the in-game log. You can leave fields blank.</p>
-      ${field("Overall Score – entire Hanchan", draft.overall, "overall")}
+      <p>Help me out and enter your Maka ratings (Mahjong soul) below. I'm planning to implement simliar rankings and would like it to be comparable to Maka</p>
+      ${field("Overall Score", draft.overall, "overall")}
       <div class="maka-hands">${game.rounds.map((round, i) =>
         field(`Hand ${i + 1} · ${round.round} – Match Score`, draft.matches[i], i)).join("")}</div>
       <button type="submit" class="btn" ${game._makaSaving ? "disabled" : ""}>Save</button>

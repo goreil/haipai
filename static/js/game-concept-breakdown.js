@@ -354,12 +354,26 @@
     return out;
   }
 
+  // Shared by the summary totals and rounds filters so direction membership agrees.
+  function tradeoffDirection(key, betterWins) {
+    var has = function (group) { return betterWins.some(function (win) { return win.group === group; }); };
+    if (key === "push_fold") return has("Defense") ? "Should fold" : "Should push";
+    if (key === "speed_value") return has("Speed") ? "Should favor speed" : "Should favor value";
+    return "Other trade-offs";
+  }
+
   // Does this mistake match a concept filter {side, group, dim}? A group-level
   // filter (dim null/falsy) checks the deduped cells; a sub-pill filter (dim
   // set, e.g. "tanyao_kept") requires a raw win-vector hit with that exact dim
   // on the same side — so clicking "Tanyao" narrows to Tanyao, not all of Yaku.
   function mistakeTouchesConcept(m, compareDimensions, f) {
     if (!f) return false;
+    if (f.side === "tradeoff") {
+      var boxes = tradeoffBoxes({ rounds: [{ mistakes: [m] }] }, compareDimensions, null, function () {});
+      return boxes.some(function (box) {
+        return box.key === f.group && (!f.dim || tradeoffDirection(box.key, box.mistakes[0].betterWins) === f.dim);
+      });
+    }
     if (!f.dim) return mistakeTouchesGroup(m, compareDimensions, f.side, f.group);
     var hits = rawHits(m, compareDimensions);
     for (var h = 0; h < hits.length; h++) {
@@ -457,6 +471,6 @@
 
   return {
     CONCEPT_META, GROUP_HINT, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, tradeoffBoxes,
-    mistakeTouchesGroup, mistakeTouchesConcept, boxTotals, mergeAggregates, mergeBoxTotals,
+    mistakeTouchesGroup, mistakeTouchesConcept, tradeoffDirection, boxTotals, mergeAggregates, mergeBoxTotals,
   };
 }));

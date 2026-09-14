@@ -1,7 +1,8 @@
 /* Efficiency Trainer minigame (#efficiency-trainer) — see
    static/js/efficiency-trainer.js. Self-contained visual scope: a stage with a
-   drifting 13-tile hand along the top and a plane on a rail along the bottom,
-   plus the fire/re-roll controls. Sized to work on a phone in portrait. */
+   static 13-tile hand along the top and a pointer-following plane along the
+   bottom, plus the fire/re-roll controls. Sized to work on a phone in
+   portrait. */
 
 .ef-wrap {
   height: 100%;
@@ -13,7 +14,7 @@
   user-select: none;
   -webkit-user-select: none;
   /* Pre-mount fallbacks; efSyncLayout() overwrites both from the measured
-     stage width so the row always spans ~80% of it. */
+     stage width so the row always spans most of it. */
   --ef-tile-w: 30px;
   --ef-tile-gap: 3px;
 }
@@ -134,7 +135,11 @@
   background:
     radial-gradient(110% 70% at 50% 100%, rgba(79, 195, 247, 0.09), transparent 70%),
     var(--bg-card);
-  touch-action: manipulation;
+  /* The stage is the aim surface: a finger dragging across it is steering the
+     plane, so the browser must not read that as a scroll. `manipulation` still
+     hands vertical drags to the scroller, hence `none`. */
+  touch-action: none;
+  cursor: crosshair;
 }
 /* Tank dry — the stage cools out for the game-over panel. */
 .ef-stage.ef-dry { box-shadow: inset 0 0 60px rgba(239, 83, 80, 0.32); }
@@ -339,7 +344,6 @@
 @media (hover: hover) {
   .ef-btn:hover { border-color: var(--accent); background: var(--bg-card-hover); }
 }
-.ef-btn-move { flex: 0 0 22%; font-size: 17px; color: var(--text-dim); }
 .ef-btn-fire { flex: 1 1 auto; color: var(--accent); border-color: var(--accent-dim); }
 .ef-btn-reroll { flex: 1 1 auto; }
 .ef-key {
@@ -367,6 +371,8 @@
   overflow-y: auto;
 }
 .ef-overlay.show { display: flex; }
+/* The panels are read and clicked, not aimed at. */
+.ef-overlay { cursor: default; }
 .ef-panel {
   text-align: center;
   max-width: 400px;
@@ -401,6 +407,8 @@
   color: var(--text-dim);
 }
 .ef-keys .ef-key { margin-left: 0; margin-right: 5px; }
+/* The two pointer gestures aren't keys, so they don't get a keycap. */
+.ef-keys .ef-gesture { margin-right: 5px; color: var(--accent); font-weight: 600; }
 
 .ef-stuck { margin: 4px 0 12px; }
 .ef-stuck-l { font-size: 12px; color: var(--sev-major); margin-bottom: 6px; }

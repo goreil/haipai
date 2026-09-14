@@ -101,7 +101,10 @@ grepping. If you change a concept that isn't listed, add it.
   (`main.js`, `play-view.js`), the SPA's "Minigames" toolbar dropdown and the arcade's
   tab strip are generated from it (`mgTabRoutes`/`mgSlugPattern`/`mgMenuHtml`/
   `mgPlayTabsHtml`), and one `navMinigame` action serves them all, so adding a trainer
-  is one row there plus its own files. The Efficiency Trainer is the one that imports
+  is one row there plus its own files; a row marked `hidden: true` is dropped from
+  both menus but stays loaded and hash-routable — **Defense and Efficiency are
+  hidden that way right now** (unpolished), so only Waits is advertised. The
+  Efficiency Trainer is the one that imports
   app logic — it calls the real shanten solver (`static/js/prep/shanten.js`) rather
   than porting a second one, which is why `play.html` loads that module too.
   Full detail → `.claude/skills/minigames/SKILL.md` (skill `minigames`).

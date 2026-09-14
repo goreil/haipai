@@ -27,6 +27,12 @@ var mgGuest = false;
 // `show` is an arrow rather than a direct reference because this file loads
 // BEFORE the trainers do — the name is resolved when the tab is opened, not
 // now. Same lazy-resolution trick the action registry uses (actions.js).
+//
+// `hidden: true` takes a trainer out of both shells' menus (the SPA's
+// Minigames dropdown and the arcade's tab strip) while leaving it loaded and
+// routable — `/#defense-trainer` and `/play#efficiency-trainer` still open
+// it, so an unpolished game can be worked on and demoed without being
+// advertised. Delete the flag to ship it.
 var MG_GAMES = [
   {
     slug: "waits-trainer",
@@ -40,6 +46,7 @@ var MG_GAMES = [
     label: "Defense",
     title: "Defense Trainer",
     blurb: "Remember which tiles are safe against a riichi",
+    hidden: true,
     show: () => showDefenseTrainer(),
   },
   {
@@ -47,9 +54,16 @@ var MG_GAMES = [
     label: "Efficiency",
     title: "Efficiency Trainer",
     blurb: "Shoot tiles into a hand until it reaches tenpai",
+    hidden: true,
     show: () => showEfficiencyTrainer(),
   },
 ];
+
+// The advertised subset — what the menus offer. Routing deliberately uses the
+// full roster instead, so a hidden trainer stays reachable by hash.
+function mgVisibleGames() {
+  return MG_GAMES.filter((g) => !g.hidden);
+}
 
 // The roster as TAB_ROUTES entries, to be spread into each shell's own table.
 function mgTabRoutes() {
@@ -66,7 +80,7 @@ function mgSlugPattern() {
 // The SPA's "Minigames" toolbar dropdown. One category button instead of one
 // button per trainer — the toolbar does not grow every time a game is added.
 function mgMenuHtml() {
-  return MG_GAMES.map((g) =>
+  return mgVisibleGames().map((g) =>
     `<button data-action="navMinigame" data-mg-slug="${g.slug}" title="${g.blurb}">${g.title}</button>`
   ).join("");
 }
@@ -74,7 +88,7 @@ function mgMenuHtml() {
 // The public arcade's tab strip. `data-play-tab` is what applyPlayRoute()
 // marks active.
 function mgPlayTabsHtml() {
-  return MG_GAMES.map((g) =>
+  return mgVisibleGames().map((g) =>
     `<button type="button" class="btn" data-play-tab="${g.slug}" data-action="navMinigame" data-mg-slug="${g.slug}" title="${g.blurb}">${g.label}</button>`
   ).join("");
 }

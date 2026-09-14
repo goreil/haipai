@@ -28,7 +28,9 @@ function renderGameList() {}
 // Every minigame, and nothing else — this page IS the minigames category.
 var TAB_ROUTES = mgTabRoutes();
 
-var PLAY_DEFAULT_TAB = MG_GAMES[0].slug;
+// First *advertised* game: a hidden trainer is reachable by hash but must
+// never be what a bare /play lands on.
+var PLAY_DEFAULT_TAB = mgVisibleGames()[0].slug;
 
 var TAB_HASH_RE = new RegExp(`^#(${mgSlugPattern()})$`);
 
@@ -55,7 +57,7 @@ function applyPlayRoute() {
 
 document.addEventListener("DOMContentLoaded", () => {
   // Built from the roster, same as the SPA's dropdown, so the arcade always
-  // offers exactly the games that exist.
+  // offers exactly the games that are advertised.
   const tabs = document.getElementById("play-tabs");
   if (tabs) tabs.innerHTML = mgPlayTabsHtml();
   applyPlayRoute();

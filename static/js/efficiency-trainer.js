@@ -1,11 +1,18 @@
 // Efficiency Trainer (#efficiency-trainer) — a tile-shooting airplane game.
 //
-// A 13-tile hand drifts across the top of the stage; you fly a plane along the
-// bottom carrying exactly one tile of ammo. Fire (x) and the tile flies
-// straight up and REPLACES whichever hand tile it hits — a draw and a discard
-// in one shot, which is why you have to line the plane up rather than picking
-// a tile off a list. Don't like the tile you're holding? Re-roll it (c). The
-// hand is cleared the moment it reaches tenpai.
+// A 13-tile hand sits across the top of the stage; you fly a plane along the
+// bottom carrying exactly one tile of ammo. The plane follows the pointer —
+// the stage IS the aim surface, mouse or finger — and firing sends the tile
+// straight up to REPLACE whichever hand tile it hits: a draw and a discard in
+// one shot. Don't like the tile you're holding? Re-roll it (c). The hand is
+// cleared the moment it reaches tenpai.
+//
+// Aiming is therefore a pointing gesture, not a test of timing: the hand is
+// STATIC, so the tile under the tracer is the tile the shot will replace, and
+// the only question the game asks is which one that should be. (Both halves
+// of that used to be otherwise — a drifting hand and a plane on a held-key
+// rail — which made lining up a skill of its own and buried the efficiency
+// decision underneath it.)
 //
 // So the drill is ordinary tile efficiency with the bookkeeping removed: is
 // this tile worth using, and which tile does it replace? Both a shot and a
@@ -49,22 +56,20 @@ var EF_FUEL_LOW = 6;           // HUD goes red at or below this
 
 var EF_SHOT_SPEED = 4.6;       // stage-heights per second
 var EF_CLEAR_SEC = 1.9;        // tenpai flourish before the next hand
-var EF_PLANE_ACCEL = 9.0;      // stage-widths per second squared
-var EF_PLANE_MAX_V = 1.35;     // stage-widths per second
-var EF_ROW_TARGET = 0.8;       // hand row width as a fraction of the stage
-// On a phone 13 tiles at 80% of the stage are barely legible, and reading the
-// hand matters more than having room to drift — so the row gets the width and
-// the drift shrinks to almost nothing.
-var EF_ROW_TARGET_NARROW = 0.92;
+// The plane eases toward the pointer instead of snapping to it: ~97% of the
+// way in 150ms, which is under the threshold where a cursor feels laggy but
+// still enough travel to bank into. A tap-to-fire snaps first (efFireAt), so
+// the easing can never put a shot somewhere the player didn't point.
+var EF_PLANE_FOLLOW = 25;      // e-folds per second
+var EF_TAP_SLOP = 12;          // px of travel still counted as a tap, not a drag
+var EF_ROW_TARGET = 0.9;       // hand row width as a fraction of the stage
+// A phone stage gives 13 tiles as much width as it can spare — nothing has to
+// move through the margins any more, they only exist so a shot can miss.
+var EF_ROW_TARGET_NARROW = 0.96;
 var EF_TILE_W_MAX = 46;        // px; a wide desktop stage stops growing tiles
 var EF_TILE_RATIO = 0.75;      // tile SVG aspect (300x400 viewBox)
 
 var EF_BEST_KEY = "haipai.efficiencyTrainer.best.v1";
-
-// How far the hand slides, and how fast, as the run goes on. The drift is what
-// makes firing an act of aim: the shot flies straight up from where it was
-// launched, so a moving row has to be led.
-function efDriftSpeed(cleared) { return Math.min(0.5, 0.13 + cleared * 0.012); }
 
 // 34-index -> mjai notation. Index order is the app's canonical one (see
 // static/js/prep/shanten_calc.js's BASE_TO_MJAI).
@@ -391,10 +396,8 @@ function efShellHtml() {
       <div class="ef-overlay" id="ef-overlay"></div>
     </div>
     <div class="ef-controls">
-      <button type="button" class="ef-btn ef-btn-move" data-ef-move="-1" aria-label="Move left">&#9664;</button>
       <button type="button" class="ef-btn ef-btn-fire" data-action="efFire">Fire <span class="ef-key">x</span></button>
       <button type="button" class="ef-btn ef-btn-reroll" data-action="efReroll">Re-roll <span class="ef-key">c</span></button>
-      <button type="button" class="ef-btn ef-btn-move" data-ef-move="1" aria-label="Move right">&#9654;</button>
     </div>
   </div>`;
 }
@@ -422,11 +425,9 @@ function efNewGame() {
     stuck: null,          // the hand that ran the tank dry (see efGameOver)
     shot: null,           // {tile, x, y} while in flight
     clearTimer: 0,
-    drift: Math.random() * Math.PI * 2,
     planeX: 0.5,          // fraction of the plane's travel range
-    planeV: 0,
-    moveL: false,
-    moveR: false,
+    aimX: 0.5,            // where the pointer last pointed; the plane eases to it
+    planeV: 0,            // stage-widths/sec, measured — drives the banking only
     tileW: 24,
     rowW: 0,
     stageW: 0,
@@ -452,7 +453,6 @@ function efNextHand() {
   ef.actions = 0;
   ef.shot = null;
   ef.ammo = efDrawAmmo(null);
-  ef.drift = Math.random() * Math.PI * 2;
   efRenderHand();
   efSyncLayout();
   efRenderAmmo();
@@ -477,10 +477,10 @@ function efRenderAmmo() {
   el.classList.toggle("empty", ef.ammo == null);
 }
 
-// Tiles are sized so the row spans ~80% of the stage: the leftover margin is
-// what the hand drifts through, and a row wider than the stage would have
-// nowhere to go. Writes `--ef-tile-w` on .ef-wrap; the stylesheet's value is
-// only the pre-mount fallback.
+// Tiles are sized so the row spans most of the stage — the hand doesn't move,
+// so the leftover margin is only the air a deliberate miss flies through.
+// Writes `--ef-tile-w` on .ef-wrap; the stylesheet's value is only the
+// pre-mount fallback.
 function efSyncLayout() {
   const wrap = document.querySelector(".ef-wrap");
   const stage = document.getElementById("ef-stage");
@@ -488,6 +488,12 @@ function efSyncLayout() {
   if (!wrap || !stage || !row) return;
   const stageW = stage.clientWidth;
   if (!stageW) return;
+  // The loop re-measures every frame, but the aim rail is also read from
+  // pointer events — which can arrive before the first frame of a new run,
+  // since efNewGame() zeroes the measurements. Measuring here too means the
+  // stage is never un-measured while it is on screen.
+  ef.stageW = stageW;
+  ef.stageH = stage.clientHeight;
   const narrow = stageW < 420;
   const gap = narrow ? 1 : 3;
   const target = narrow ? EF_ROW_TARGET_NARROW : EF_ROW_TARGET;
@@ -499,10 +505,10 @@ function efSyncLayout() {
   ef.rowW = 13 * w + 12 * gap;
 }
 
-// Left edge of the hand row, in stage pixels, at the current drift phase.
+// Left edge of the hand row, in stage pixels. The row is centred and stays
+// there for the whole run.
 function efRowX() {
-  const slack = Math.max(0, ef.stageW - ef.rowW);
-  return slack / 2 + Math.sin(ef.drift) * (slack / 2 - 2);
+  return Math.max(0, ef.stageW - ef.rowW) / 2;
 }
 
 // Which slot sits under stage-x `x`, or -1 for a miss. The gap between two
@@ -516,16 +522,35 @@ function efSlotAt(x) {
   return Math.max(0, Math.min(12, i));
 }
 
-// The plane's rail is the whole stage (less half a tile so it stays on
-// screen), which is exactly the union of everywhere the row can drift to. Every
-// tile is therefore reachable at some phase of the drift — and there are always
-// positions with nothing overhead, which is what makes firing an act of aim
-// rather than a menu pick.
-function efPlanePx() {
+// The plane's rail is the whole stage, less half a tile at each end so the
+// glyph stays on screen. It covers the row plus both margins, so every tile is
+// reachable and firing into empty air is still possible (and still costs fuel).
+function efRail() {
   const half = ef.tileW * 0.9;
   const lo = half;
-  const hi = Math.max(lo, ef.stageW - half);
-  return lo + ef.planeX * (hi - lo);
+  return { lo: lo, hi: Math.max(lo, ef.stageW - half) };
+}
+
+function efPlanePx() {
+  const r = efRail();
+  return r.lo + ef.planeX * (r.hi - r.lo);
+}
+
+// Stage pixels -> the 0..1 rail fraction the plane is stored in, so a resize
+// rescales the aim instead of throwing it against a wall.
+function efPxToPlaneX(px) {
+  const r = efRail();
+  if (r.hi <= r.lo) return 0.5;
+  return Math.max(0, Math.min(1, (px - r.lo) / (r.hi - r.lo)));
+}
+
+// Pointer x (client coords) -> rail fraction. Null off the stage.
+function efAimFromEvent(e) {
+  const stage = document.getElementById("ef-stage");
+  if (!stage) return null;
+  const box = stage.getBoundingClientRect();
+  if (!box.width) return null;
+  return efPxToPlaneX(e.clientX - box.left);
 }
 
 // --- Firing -----------------------------------------------------------------
@@ -542,6 +567,17 @@ function efFire() {
   efRenderAmmo();
   efSfxFire();
   efRenderHud();
+}
+
+// Tap/click on the stage: put the plane exactly where the player pointed and
+// shoot from there. The snap is what makes a tap unambiguous — no easing tail
+// between the tile you touched and the tile the shot replaces.
+function efFireAt(aim) {
+  if (!ef || ef.phase !== "playing") return;
+  ef.aimX = aim;
+  ef.planeX = aim;
+  ef.planeV = 0;
+  efFire();
 }
 
 function efReroll() {
@@ -561,8 +597,9 @@ function efReroll() {
   efCheckDry();
 }
 
-// The shot reached the row. Resolve against where the tiles are NOW, not where
-// they were at launch — leading a drifting hand is the aiming skill.
+// The shot reached the row. The row is static, so this lands in the slot the
+// tracer was highlighting when the shot went out — the impact confirms the
+// choice, it never re-rolls the dice on it.
 function efImpact() {
   const shot = ef.shot;
   ef.shot = null;
@@ -691,19 +728,17 @@ function efLoop(ts) {
     if (ef.clearTimer <= 0) { ef.phase = "playing"; efNextHand(); }
   }
 
-  const live = ef.phase === "playing" || ef.phase === "clear";
-  if (live) ef.drift += efDriftSpeed(ef.cleared) * dt;
-
-  // Plane: accelerate while a key/button is held, coast to a stop otherwise.
-  // The little bit of inertia is what makes lining up feel like flying rather
-  // than picking from a list.
-  if (ef.phase === "playing") {
-    const dir = (ef.moveR ? 1 : 0) - (ef.moveL ? 1 : 0);
-    if (dir) ef.planeV = Math.max(-EF_PLANE_MAX_V, Math.min(EF_PLANE_MAX_V, ef.planeV + dir * EF_PLANE_ACCEL * dt));
-    else ef.planeV *= Math.pow(0.0015, dt);
-    ef.planeX += ef.planeV * dt;
-    if (ef.planeX < 0) { ef.planeX = 0; ef.planeV = 0; }
-    if (ef.planeX > 1) { ef.planeX = 1; ef.planeV = 0; }
+  // Plane: ease toward wherever the pointer last pointed. Velocity is measured
+  // from the move rather than integrated into it — it exists only so the glyph
+  // can bank, which is what keeps a cursor-follower reading as flight. It keeps
+  // flying through the tenpai flourish, so the next hand starts under the
+  // pointer instead of wherever the last shot left it.
+  if (efLive() && dt > 0) {
+    const prev = ef.planeX;
+    ef.planeX += (ef.aimX - ef.planeX) * (1 - Math.exp(-EF_PLANE_FOLLOW * dt));
+    ef.planeV = (ef.planeX - prev) / dt;
+  } else {
+    ef.planeV = 0;
   }
 
   if (ef.shot) {
@@ -737,8 +772,8 @@ function efPaint() {
 
   const px = efPlanePx();
   plane.style.transform = `translate3d(${px.toFixed(1)}px, 0, 0) translateX(-50%)`;
-  plane.classList.toggle("ef-banking-l", ef.planeV < -0.15);
-  plane.classList.toggle("ef-banking-r", ef.planeV > 0.15);
+  plane.classList.toggle("ef-banking-l", ef.planeV < -0.35);
+  plane.classList.toggle("ef-banking-r", ef.planeV > 0.35);
 
   // Aim line + the slot it currently covers. Shown only while you actually
   // have a tile loaded — an empty plane has nothing to aim.
@@ -832,10 +867,12 @@ function efRenderOverlay() {
   const best = efBestScore();
   ov.innerHTML = `<div class="ef-panel">
     <h3>Efficiency Trainer</h3>
-    <p class="ef-hint">Fly under the hand and shoot tiles into it. A hit
-      <b>replaces</b> the tile it lands on — get the hand to <b>tenpai</b>.</p>
+    <p class="ef-hint">The plane follows your mouse (or your finger). Line it up
+      under a tile and shoot: the hit <b>replaces</b> that tile — get the hand to
+      <b>tenpai</b>.</p>
     <ul class="ef-keys">
-      <li><span class="ef-key">&#9664; &#9654;</span> fly</li>
+      <li><span class="ef-gesture">move</span> aim</li>
+      <li><span class="ef-gesture">tap the stage</span> fire there</li>
       <li><span class="ef-key">x</span> fire</li>
       <li><span class="ef-key">c</span> re-roll your tile</li>
     </ul>
@@ -867,6 +904,12 @@ function efMounted() {
   return ef && document.getElementById("ef-stage");
 }
 
+// In the air: a hand is up and the stage is steerable. (`clear` is the tenpai
+// flourish between hands — the plane still flies, it just has nothing loaded.)
+function efLive() {
+  return ef && (ef.phase === "playing" || ef.phase === "clear");
+}
+
 window.addEventListener("resize", () => {
   if (!efMounted()) return;
   efSyncLayout();
@@ -876,9 +919,7 @@ document.addEventListener("keydown", (e) => {
   if (!efMounted()) return;
   if (e.target.closest("input, textarea, select")) return;
   const k = e.key.toLowerCase();
-  if (k === "arrowleft" || k === "a") { ef.moveL = true; e.preventDefault(); }
-  else if (k === "arrowright" || k === "d") { ef.moveR = true; e.preventDefault(); }
-  else if (k === "x") { efFire(); e.preventDefault(); }
+  if (k === "x") { efFire(); e.preventDefault(); }
   else if (k === "c") { efReroll(); e.preventDefault(); }
   else if (k === "m") { mgToggleMute(); }
   else if (e.key === " " || e.key === "Enter") {
@@ -886,30 +927,53 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-document.addEventListener("keyup", (e) => {
-  if (!ef) return;
-  const k = e.key.toLowerCase();
-  if (k === "arrowleft" || k === "a") ef.moveL = false;
-  else if (k === "arrowright" || k === "d") ef.moveR = false;
-});
+// Aiming. The stage is the control surface, so the listeners are delegated
+// here rather than expressed in the click-only action registry (actions.js):
+// a hover and a drag aren't clicks, and the tap that fires has to know where
+// it started. Registered once at load; no-ops off the trainer.
+//
+// A mouse aims by hovering (no button held) and fires by clicking; a finger
+// has no hover, so a touch aims by dragging and fires by tapping. Both fall
+// out of the same three handlers, and the Fire button stays for anyone who
+// would rather keep their thumb off the stage.
+var efTap = null;   // {x, y} where the current press went down, or null
 
-// The on-screen movement buttons are press-and-hold, which the click-only
-// action registry (actions.js) can't express — so they get their own delegated
-// pointer listeners here, the same way the keyboard does.
-document.addEventListener("pointerdown", (e) => {
-  const btn = e.target.closest("[data-ef-move]");
-  if (!btn || !efMounted()) return;
-  e.preventDefault();
-  if (btn.dataset.efMove === "-1") ef.moveL = true; else ef.moveR = true;
-});
-
-function efReleaseMove() {
-  if (!ef) return;
-  ef.moveL = false;
-  ef.moveR = false;
+// The aim, or null if this pointer isn't steering (off the stage, or the run
+// isn't in the air).
+function efStagePointer(e) {
+  if (!efMounted() || !efLive() || !e.target.closest("#ef-stage")) return null;
+  return efAimFromEvent(e);
 }
-document.addEventListener("pointerup", efReleaseMove);
-document.addEventListener("pointercancel", efReleaseMove);
+
+document.addEventListener("pointerdown", (e) => {
+  const aim = efStagePointer(e);
+  if (aim == null) return;
+  ef.aimX = aim;
+  efTap = { x: e.clientX, y: e.clientY };
+});
+
+document.addEventListener("pointermove", (e) => {
+  const aim = efStagePointer(e);
+  if (aim == null) return;
+  ef.aimX = aim;
+  // Past the slop the press is a drag-to-aim, not a tap — so releasing it
+  // must not fire. (Aiming continues either way.)
+  if (efTap && Math.hypot(e.clientX - efTap.x, e.clientY - efTap.y) > EF_TAP_SLOP) {
+    efTap = null;
+  }
+});
+
+document.addEventListener("pointerup", (e) => {
+  const tap = efTap;
+  efTap = null;
+  if (!tap) return;
+  const aim = efStagePointer(e);
+  if (aim == null) return;
+  if (Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > EF_TAP_SLOP) return;
+  efFireAt(aim);
+});
+
 // A pointer that leaves the window never reports `pointerup`, which would
-// leave the plane flying into the wall until the next press.
-window.addEventListener("blur", efReleaseMove);
+// otherwise leave a stale press armed to fire on the next release.
+document.addEventListener("pointercancel", () => { efTap = null; });
+window.addEventListener("blur", () => { efTap = null; });
