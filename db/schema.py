@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS games (
     mortal_file TEXT,
     stats_json TEXT,
     rounds_json TEXT,
+    maka_ratings_json TEXT,
     categorization_status TEXT NOT NULL DEFAULT 'done',
     share_token TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -155,6 +156,9 @@ def migrate(conn):
         return any(c["name"] == column for c in cols)
 
     altered = False
+    if not _has_column("games", "maka_ratings_json"):
+        conn.execute("ALTER TABLE games ADD COLUMN maka_ratings_json TEXT")
+        altered = True
     if not _has_column("users", "is_admin"):
         conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
         altered = True

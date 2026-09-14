@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, make_response, request
 from flask_login import current_user, login_required
 from pathlib import Path
 import json
+import re
 
 import db
 from lib.parse import parse_game, compute_summary
@@ -496,3 +497,39 @@ def _json_with_cors(payload, status):
     for k, v in _cors_headers().items():
         resp.headers[k] = v
     return resp
+
+
+@games_bp.route("/api/games/<int:game_id>/maka-ratings", methods=["POST"])
+@login_required
+def api_save_maka_ratings(game_id):
+    from app import get_conn
+    conn = get_conn()
+    game = db.get_game(conn, game_id, user_id=current_user.id)
+    if game is None:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or set(data) != {"overall", "matches"}:
+        return jsonify({"error": "Expected overall and matches"}), 400
+    matches = data["matches"]
+    if not isinstance(matches, list) or len(matches) != len(game["rounds"]):
+        return jsonify({"error": "Expected one match score per hand"}), 400
+
+    def normalize(value):
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError
+        value = value.strip().upper()
+        if not value:
+            return None
+        # Store letter grades without assuming Maka's exact rank thresholds.
+        if not re.fullmatch(r"[A-Z]{1,3}[+-]?", value):
+            raise ValueError
+        return value
+
+    try:
+        ratings = {"overall": normalize(data["overall"]), "matches": [normalize(v) for v in matches]}
+    except ValueError:
+        return jsonify({"error": "Use letter grades such as B+, A, or S, or leave blank"}), 400
+    db.save_maka_ratings(conn, game_id, current_user.id, ratings)
+    return jsonify(ratings)

@@ -567,6 +567,7 @@ function renderGame() {
     </div>
 
 
+    ${state.readOnly ? "" : renderMakaRatings(game)}
     ${renderFiltersPanel()}
 
     <div class="summary-bar">
@@ -883,6 +884,7 @@ function renderGame() {
   } // end if summary view
 
   content.innerHTML = html;
+  if (!state.readOnly) bindMakaRatings(game);
 
   // Re-highlight active game in sidebar. Not applicable on the read-only
   // shared/demo page — there's no sidebar and state.games is never populated.

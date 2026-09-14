@@ -113,6 +113,7 @@ def get_game(conn, game_id, user_id=None):
         "log_url": game_row["log_url"],
         "mortal_file": game_row["mortal_file"],
         "summary": stats,
+        "maka_ratings": json.loads(game_row["maka_ratings_json"]) if game_row["maka_ratings_json"] else None,
         "rounds": rounds,
         "categorization_status": game_row["categorization_status"],
     }
@@ -176,6 +177,7 @@ def get_game_by_share_token(conn, token):
     game = get_game(conn, row["id"], user_id=None)
     if game is None:
         return None
+    game.pop("maka_ratings", None)
     for rnd in game["rounds"]:
         for m in rnd["mistakes"]:
             m.pop("note", None)
@@ -336,3 +338,13 @@ def get_trends(conn, user_id):
             "decision_counts": s.get("decision_counts"),
         })
     return games
+
+
+def save_maka_ratings(conn, game_id, user_id, ratings):
+    """Persist manual ratings independently of computed analysis data."""
+    cur = conn.execute(
+        "UPDATE games SET maka_ratings_json = ? WHERE id = ? AND user_id = ?",
+        (json.dumps(ratings), game_id, user_id),
+    )
+    conn.commit()
+    return cur.rowcount > 0

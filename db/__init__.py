@@ -40,6 +40,7 @@ from db.games import (
     regenerate_share_token,
     revoke_share_token,
     update_game_stats,
+    save_maka_ratings,
 )
 from db.users import (
     DISPLAY_NAME_MAX,
@@ -141,6 +142,7 @@ __all__ = [
     "regenerate_share_token",
     "revoke_share_token",
     "update_game_stats",
+    "save_maka_ratings",
     # users
     "DISPLAY_NAME_MAX",
     "DISPLAY_NAME_MIN",

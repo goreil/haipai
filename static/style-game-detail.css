@@ -2651,3 +2651,11 @@
     rgba(255,167,38,0.15) 4px 8px);
   border-right: 1px dashed rgba(255,167,38,0.7);
 }
+
+.maka-ratings { margin: 16px 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.maka-ratings summary { cursor: pointer; font-weight: 600; }
+.maka-ratings summary span, .maka-status { color: var(--text-dim); font-weight: normal; }
+.maka-form label { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.maka-form input { width: 100px; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+.maka-hands { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0 16px; }
+.maka-status { margin-left: 8px; }
