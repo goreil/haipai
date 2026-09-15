@@ -98,15 +98,15 @@
 
   // hand_mjai: 14-tile list (post-draw). melds_mjai: list of called melds.
   // wall: 37-entry array (slots 0..33 base inclusive of red, 34..36 red).
-  // Raises if the hand is already in winning form (caller catches and
-  // re-classifies the mistake as "passed on win"). Returns null shanten
-  // when no stats produced (empty hand).
-  function calculate(hand_mjai, melds_mjai, wall) {
+  // A complete shape normally raises "winning". Discard decisions can opt
+  // into calculating its discards: a complete shape may lack a legal yaku.
+  // Returns null shanten when no stats are produced (empty hand).
+  function calculate(hand_mjai, melds_mjai, wall, options = {}) {
     const { hand34, red } = _hand_to_34(hand_mjai);
     const closed = !melds_mjai || melds_mjai.length === 0;
     const meld_count = melds_mjai ? melds_mjai.length : 0;
 
-    if (_shanten_of(hand34, closed, meld_count) === -1) {
+    if (!options.allowComplete && _shanten_of(hand34, closed, meld_count) === -1) {
       const err = new Error("hand is already in winning form");
       err.code = "winning";
       throw err;

@@ -304,13 +304,14 @@
       response = calcShanten(hand, melds, wall);
     } catch (e) {
       if (e && e.code === "winning") {
-        // Hand already winning. Frontend categorizes as P4 from action
-        // types alone; the patch built so far is still useful (defense
-        // ratings against riichi when passing on win).
+        // Both actions are discards. A complete shape does not imply a
+        // legal win (e.g. #m35086 has no yaku), so it still needs a discard
+        // table. Use the JS solver for this case with either active kernel.
+        response = jsCalcShanten(hand, melds, wall, { allowComplete: true });
+      } else {
+        _warn("Shanten error on mistake:", e);
         return patch;
       }
-      _warn("Shanten error on mistake:", e);
-      return patch;
     }
 
     const discard_stats = response.stats || [];

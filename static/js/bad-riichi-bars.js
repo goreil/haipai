@@ -146,7 +146,8 @@ function _isDoubleRiichiContext(m) {
 // One score evaluation. opts: { riichi: bool, tsumo: bool }.
 // `hand13` is the 13-tile tenpai hand (does NOT include the win tile).
 // Returns { han, fu, ten, yaku: [labels] } or null when the win is invalid
-// (e.g. no yaku on dama ron).
+// (e.g. no yaku on dama ron). With opts.includeNoYaku, a complete shape
+// lacking yaku returns { noYaku: true } so the table can retain its waits.
 function _evalWaitScore(hand13, winTile, m, opts) {
   if (typeof window === "undefined" || !window.Riichi) return null;
   if (typeof _windToKazeInt !== "function" || typeof _formatRiichiHandStr !== "function") return null;
@@ -187,7 +188,8 @@ function _evalWaitScore(hand13, winTile, m, opts) {
   // A yakuman scores as `yakuman: <multiplier>` with han AND fu both left at 0
   // (the lib skips the han/fu ladder entirely), so "no han" is NOT "no hand" —
   // gate on han OR yakuman or every yakuman silently vanishes from the card.
-  if (!result || !result.isAgari || (!result.han && !result.yakuman)) return null;
+  if (!result || result.error || !result.isAgari) return null;
+  if (!result.han && !result.yakuman) return opts.includeNoYaku ? { noYaku: true } : null;
 
   // The Riichi lib doesn't enforce the "must have a real yaku" rule — it
   // happily reports aka/dora-only "wins". Skip those: in real play you can't
@@ -212,7 +214,7 @@ function _evalWaitScore(hand13, winTile, m, opts) {
     if (_SITUATIONAL_YAKU && _SITUATIONAL_YAKU.has(jp)) continue;
     yaku.push((_YAKU_LABEL && _YAKU_LABEL[jp]) || jp);
   }
-  if (!hasRealYaku) return null;
+  if (!hasRealYaku) return opts.includeNoYaku ? { noYaku: true } : null;
   return { han: result.han, fu: result.fu, ten: result.ten, yaku, dora, aka,
            yakuman: result.yakuman || 0 };
 }
@@ -549,7 +551,8 @@ function renderBadRiichiBars(m) {
 // winning tiles (the column's ukeire — for a tenpai hand, ukeire == the wait),
 // each `{ tile, count, aka_count }`. `riichi` toggles the declared-riichi han
 // (plus the ippatsu/ura EV tail) vs. a silent dama win. Returns grouped rows
-// `[{ tiles, ron, tsumo, bonus, yaku, dora, aka }]` or null when nothing scores.
+// `[{ tiles, ron, tsumo, bonus, yaku, dora, aka, noYaku }]`, retaining
+// complete waits without yaku; null means scoring data is unavailable.
 function evalDiscardScores(m, discardTile, waitEntries, riichi) {
   if (typeof window === "undefined" || !window.Riichi) return null;
   // Open hands are scored too (silent value via _formatRiichiFuroSuffix); they
@@ -581,16 +584,20 @@ function evalDiscardScores(m, discardTile, waitEntries, riichi) {
   );
   const rows = [];
   for (const w of waits) {
-    const ron = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: false });
-    const tsumo = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: true });
-    if (!ron && !tsumo) continue;                    // no legal win on this wait
-    const anyEval = ron || tsumo;
+    const ronEval = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: false, includeNoYaku: true });
+    const tsumoEval = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: true, includeNoYaku: true });
+    if (!ronEval && !tsumoEval) continue;
+    const ron = ronEval && !ronEval.noYaku ? ronEval : null;
+    const tsumo = tsumoEval && !tsumoEval.noYaku ? tsumoEval : null;
+    const noYaku = !!(ronEval && ronEval.noYaku && tsumoEval && tsumoEval.noYaku);
+    if (!ron && !tsumo && !noYaku) continue;
+    const anyEval = ron || tsumo || {};
     let yaku = (ron && ron.yaku) || (tsumo && tsumo.yaku) || [];
     yaku = yaku.filter(y => y && y !== "立直" && y !== "ダブル立直");
     const bonus = useRiichi ? _badRiichiBonusEv(ron || tsumo) : 0;
     rows.push({
       tile: w.tile, count: w.count, furiten: w.furiten,
-      ron, tsumo, bonus,
+      ron, tsumo, bonus, noYaku,
       yaku, dora: anyEval.dora || 0, aka: anyEval.aka || 0,
     });
   }
@@ -604,6 +611,7 @@ function _scoreRowSig(r) {
     _scoreSig(r.ron), _scoreSig(r.tsumo), r.bonus || 0,
     (r.yaku || []).slice().sort().join("|"), r.dora || 0, r.aka || 0,
     r.furiten ? "f" : "",
+    r.noYaku ? "no-yaku" : "",
   ].join("/");
 }
 function _groupScoreRows(rows) {
@@ -653,9 +661,13 @@ function renderRiichiScoreCell(groups, riichi) {
     const yakuTags = `<span class="rsc-yaku">${tagParts.join(" ")}</span>`;
 
     let body = "";
-    if (g.ron) body += line("Ron", g.ron);
-    else if (!riichi) body += `<span class="rsc-line rsc-noyaku" title="No yaku — a dama hand can't ron, only menzen-tsumo wins"><span class="rsc-mode">Ron</span><span class="rsc-pts">no yaku</span></span>`;
-    body += line("Tsumo", g.tsumo);
+    if (g.noYaku) {
+      body += `<span class="rsc-line rsc-noyaku" title="These tiles complete the hand, but it has no yaku. Ron or tsumo needs an additional yaku."><span class="rsc-mode">Ron / Tsumo</span><span class="rsc-pts">no yaku</span></span>`;
+    } else {
+      if (g.ron) body += line("Ron", g.ron);
+      else if (!riichi) body += `<span class="rsc-line rsc-noyaku" title="No yaku — a dama hand can't ron, only menzen-tsumo wins"><span class="rsc-mode">Ron</span><span class="rsc-pts">no yaku</span></span>`;
+      body += line("Tsumo", g.tsumo);
+    }
     const bonus = (riichi && g.bonus > 0)
       ? `<span class="rsc-line rsc-bonus" title="Average ippatsu + uradora value on top of the riichi win"><span class="rsc-mode">+ ura</span><span class="rsc-pts">~${g.bonus.toLocaleString()}</span></span>`
       : "";
