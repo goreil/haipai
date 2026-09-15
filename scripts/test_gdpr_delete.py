@@ -11,7 +11,6 @@ every trace is gone — without touching real users' data.
 
 Run from repo root:  .venv/bin/python scripts/test_gdpr_delete.py
 """
-import json
 import os
 import sys
 

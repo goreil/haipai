@@ -65,7 +65,7 @@ def login():
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
-    from app import User, get_conn, oauth
+    from app import get_conn, oauth
 
     if current_user.is_authenticated:
         return redirect("/")

@@ -4,7 +4,7 @@
 # (shanten + ukeire via shanten-before/after), and reports who diverges from
 # ground truth — for both shanten and ukeire.
 #   .venv/bin/python scripts/gt_compare.py
-import json, sys
+import json
 from mahjong.shanten import Shanten
 
 S = Shanten()
