@@ -43,7 +43,7 @@
   // Reuse the categorizer's primitives verbatim — no forked dora/yakuhai/
   // shanten/deal-in logic (the whole point of a shared comparator).
   const {
-    findInStats, getShantenForTile, doraUkeireForTile, dealinFor,
+    findInStats, getShantenForTile, doraUkeireForTile, doraAcceptance, dealinFor,
     tileIsDora, tileIsYakuhai, isValueTileMjai, isHonorMjai, tileBase,
   } = categorize;
 
@@ -747,11 +747,9 @@
   // The live-dora tiles the winning wait accepts that the losing wait doesn't —
   // for the pill / fragment to name ("its wait still draws 4m (dora)").
   function doraAcceptTiles(winStat, loseStat, doraTiles) {
-    const loseDora = new Set(((loseStat && loseStat.necessary_tiles) || [])
-      .filter(nt => doraTiles.has(nt.tile)).map(nt => nt.tile));
-    return ((winStat && winStat.necessary_tiles) || [])
-      .filter(nt => doraTiles.has(nt.tile) && !loseDora.has(nt.tile))
-      .map(nt => nt.tile);
+    const loseDora = new Set(doraAcceptance(loseStat, doraTiles).map(nt => nt.tile));
+    return doraAcceptance(winStat, doraTiles)
+      .filter(nt => !loseDora.has(nt.tile)).map(nt => nt.tile);
   }
 
   // Derive the three-way shape from the win-vector topology (CORE Phase 1.1).

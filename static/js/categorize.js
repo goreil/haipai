@@ -25,7 +25,7 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 14;
+  const CATEGORIZER_VERSION = 15;
   const CATEGORIZER_CHANGELOG = {
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
     2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
@@ -41,6 +41,7 @@
     12: "dora_acceptance (compare-dimensions.js) is now GATED on tied shanten, same as ukeire: a wider wait can intersect more live dora simply by being a slower shape, so a cross-shanten 'gain' is marked suppressed (context, not a winning pill) instead of firing +dora acceptance. Fixes #m19244 (a faster hand's tighter wait was losing a Value pill to a slower, wider one). Can move a `trade-off`/`obvious` dahai spot to `complex` in deriveShape — hence the bump.",
     13: "New Speed win-vector dimension `versatility_kept` (compare-dimensions.js), GATED on tied shanten AND tied ukeire — a tied raw acceptance count can still hide a real efficiency edge, since not every floater is equally likely to become a good wait. Riichi Book 1's tile-versatility ranking (3-7 > 2,8 > 1,9 > honor, by how many kinds of protorun each can form) decides the winner. Fixes #R-206/#20996 (keeping 5m over 2m when both are excess floaters ties raw ukeire, but 5m is more versatile) and reframes #R-211/#21960 (reported as dora-chasing; it's plain versatility — 6p over 9m). Adds the blue Efficiency pill and can move a `complex` dahai spot to `obvious`/`trade-off` in deriveShape — hence the bump.",
     14: "Five new win-vector dimensions from the 2026-07 diagnostic (analysis/FAILURE-MODES.md ranks 2-5), plus the rank-1 wall fix. Prep: prep-board-state.js walks now stop at the decision's exact trigger event instead of the next draw, so post-decision discards/calls no longer deflate live-tile counts (reports #170/#207/#208; 146 negative-wall clamps on the bench sample → 0). Dimensions (compare-dimensions.js): `furiten_avoided` (Speed — one pick is a tenpai whose wait sits in your own pond, the other avoids it; report #183), `safe_spare_kept` (Defense — at tied shanten+ukeire with NO armed threat from junme 6 on, the side keeping the safer spare (honor/terminal/2-8, deader = safer) wins; the Complex bucket's largest cluster per COMPLEX-ANATOMY), `toitoi_kept` (open pon hand, >=5 kinds paired-or-better, cutting a single vs breaking a pair), `chiitoi_kept` (closed, >=5 distinct pairs), `chanta_kept` (>=11/14 terminal-adjacent tiles counting honors only as pairs, plus an outside 1/9/honor pair required; report #129). Bench: complex 506→463 (-8.5%), the new trade-offs carry named pills. Hence the bump.",
+    15: "Dora acceptance includes live red fives using prepared aka_count, and names the red tile in the pill. Fixes #m35078 falling through to Complex despite preserving red 5p acceptance.",
   };
 
   // --- Tunable rules (mirror RULES in rules.py) ---
@@ -172,23 +173,25 @@
     return doraSet.has(tile);
   }
 
-  // Live-dora acceptance of a candidate discard: how many wall-live tiles in
-  // its ukeire (necessary_tiles) are part of the active dora set. necessary_tiles
-  // carries base mjai names (no "r" suffix) with their live wall count, so we
-  // intersect against doraTiles directly — red-five dora never appears here as a
-  // distinct acceptance (a held red five is in hand, not in the wait), and bare-5
-  // acceptance is deliberately NOT treated as red dora: we can't confirm the red
-  // copy is live without a prep-side flag, and counting every 5 wait as dora
-  // floods false positives (see scripts/dora_accept_eval.mjs, V3).
-  function doraUkeireForTile(tileMjai, discardStats, doraTiles) {
-    const stat = findInStats(tileMjai, discardStats);
-    if (!stat || !stat.necessary_tiles) return 0;
+  // Count live dora copies, including red fives only when prep confirms their
+  // availability. A red five that is also indicator dora is still one tile.
+  function doraAcceptance(stat, doraTiles) {
     const doraSet = doraTiles instanceof Set ? doraTiles : new Set(doraTiles || []);
-    let n = 0;
-    for (const nt of stat.necessary_tiles) {
-      if (doraSet.has(nt.tile)) n += nt.count || 0;
+    const accepted = [];
+    for (const nt of ((stat && stat.necessary_tiles) || [])) {
+      if (!(nt.count > 0)) continue;
+      if (doraSet.has(nt.tile)) {
+        accepted.push({ tile: nt.tile, count: nt.count });
+      } else if (/^5[mps]$/.test(nt.tile) && nt.aka_count > 0) {
+        accepted.push({ tile: nt.tile + "r", count: Math.min(nt.count, nt.aka_count) });
+      }
     }
-    return n;
+    return accepted;
+  }
+
+  function doraUkeireForTile(tileMjai, discardStats, doraTiles) {
+    return doraAcceptance(findInStats(tileMjai, discardStats), doraTiles)
+      .reduce((n, nt) => n + nt.count, 0);
   }
 
   function tileIsYakuhai(tile, roundWind, seatWind) {
@@ -316,6 +319,7 @@
     findInStats,
     getShantenForTile,
     doraUkeireForTile,
+    doraAcceptance,
     dealinFor,
     tileBase,
   };

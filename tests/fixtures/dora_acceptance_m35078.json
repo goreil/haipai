@@ -1,0 +1,618 @@
+{
+  "hand": [
+    "1m",
+    "1m",
+    "2m",
+    "3m",
+    "4m",
+    "3p",
+    "5p",
+    "5p",
+    "7p",
+    "7p",
+    "2s",
+    "3s",
+    "4s",
+    "8p"
+  ],
+  "melds": [],
+  "shanten": 1,
+  "draw": "8p",
+  "actual": {
+    "type": "dahai",
+    "actor": 3,
+    "pai": "5p",
+    "tsumogiri": false
+  },
+  "expected": {
+    "type": "dahai",
+    "actor": 3,
+    "pai": "7p",
+    "tsumogiri": false
+  },
+  "board_state": {
+    "dora_indicators": [
+      "4s"
+    ],
+    "dora_tiles": [
+      "5s"
+    ],
+    "seat_wind": "W",
+    "round_wind": "S",
+    "scores": [
+      20300,
+      13400,
+      28400,
+      37900
+    ],
+    "all_discards": [
+      {
+        "seat": 0,
+        "discards": [
+          {
+            "tile": "W",
+            "tsumogiri": false
+          },
+          {
+            "tile": "E",
+            "tsumogiri": false
+          },
+          {
+            "tile": "9m",
+            "tsumogiri": true
+          },
+          {
+            "tile": "P",
+            "tsumogiri": false
+          },
+          {
+            "tile": "9p",
+            "tsumogiri": false
+          },
+          {
+            "tile": "2m",
+            "tsumogiri": false
+          }
+        ],
+        "riichi_idx": null
+      },
+      {
+        "seat": 1,
+        "discards": [
+          {
+            "tile": "3m",
+            "tsumogiri": true
+          },
+          {
+            "tile": "1p",
+            "tsumogiri": true
+          },
+          {
+            "tile": "1s",
+            "tsumogiri": true
+          },
+          {
+            "tile": "3s",
+            "tsumogiri": true
+          },
+          {
+            "tile": "9p",
+            "tsumogiri": true
+          },
+          {
+            "tile": "1p",
+            "tsumogiri": true
+          },
+          {
+            "tile": "1s",
+            "tsumogiri": true
+          }
+        ],
+        "riichi_idx": null
+      },
+      {
+        "seat": 2,
+        "discards": [
+          {
+            "tile": "F",
+            "tsumogiri": false
+          },
+          {
+            "tile": "S",
+            "tsumogiri": false
+          },
+          {
+            "tile": "9s",
+            "tsumogiri": false
+          },
+          {
+            "tile": "C",
+            "tsumogiri": true
+          },
+          {
+            "tile": "P",
+            "tsumogiri": true
+          },
+          {
+            "tile": "F",
+            "tsumogiri": true
+          },
+          {
+            "tile": "F",
+            "tsumogiri": true
+          }
+        ],
+        "riichi_idx": null
+      },
+      {
+        "seat": 3,
+        "discards": [
+          {
+            "tile": "N",
+            "tsumogiri": false
+          },
+          {
+            "tile": "9s",
+            "tsumogiri": false
+          },
+          {
+            "tile": "F",
+            "tsumogiri": false
+          },
+          {
+            "tile": "W",
+            "tsumogiri": false
+          },
+          {
+            "tile": "7m",
+            "tsumogiri": false
+          },
+          {
+            "tile": "2m",
+            "tsumogiri": true
+          }
+        ],
+        "riichi_idx": null
+      }
+    ],
+    "opponent_melds": [],
+    "tiles_left": 43
+  },
+  "discard_stats": [
+    {
+      "tile": "5p",
+      "shanten": 1,
+      "necessary_count": 14,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "tile": "7p",
+      "shanten": 1,
+      "necessary_count": 14,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "tile": "8p",
+      "shanten": 1,
+      "necessary_count": 14,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "tile": "3p",
+      "shanten": 1,
+      "necessary_count": 12,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "tile": "1m",
+      "shanten": 2,
+      "necessary_count": 42,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "2m",
+          "count": 1
+        },
+        {
+          "tile": "3m",
+          "count": 2
+        },
+        {
+          "tile": "4m",
+          "count": 3
+        },
+        {
+          "tile": "5m",
+          "count": 4,
+          "aka_count": 1
+        },
+        {
+          "tile": "6m",
+          "count": 4
+        },
+        {
+          "tile": "1p",
+          "count": 2
+        },
+        {
+          "tile": "2p",
+          "count": 4
+        },
+        {
+          "tile": "3p",
+          "count": 3
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        },
+        {
+          "tile": "8p",
+          "count": 3
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "tile": "4m",
+      "shanten": 2,
+      "necessary_count": 34,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "2m",
+          "count": 1
+        },
+        {
+          "tile": "3m",
+          "count": 2
+        },
+        {
+          "tile": "4m",
+          "count": 3
+        },
+        {
+          "tile": "1p",
+          "count": 2
+        },
+        {
+          "tile": "2p",
+          "count": 4
+        },
+        {
+          "tile": "3p",
+          "count": 3
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        },
+        {
+          "tile": "8p",
+          "count": 3
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "tile": "2s",
+      "shanten": 2,
+      "necessary_count": 23,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        },
+        {
+          "tile": "2s",
+          "count": 3
+        },
+        {
+          "tile": "5s",
+          "count": 4,
+          "aka_count": 1
+        }
+      ]
+    },
+    {
+      "tile": "2m",
+      "shanten": 2,
+      "necessary_count": 21,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "2m",
+          "count": 1
+        },
+        {
+          "tile": "5m",
+          "count": 4,
+          "aka_count": 1
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "tile": "4s",
+      "shanten": 2,
+      "necessary_count": 20,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        },
+        {
+          "tile": "1s",
+          "count": 2
+        },
+        {
+          "tile": "4s",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "tile": "3m",
+      "shanten": 2,
+      "necessary_count": 18,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "3m",
+          "count": 2
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "tile": "3s",
+      "shanten": 2,
+      "necessary_count": 18,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 2
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 2,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 2
+        },
+        {
+          "tile": "9p",
+          "count": 2
+        },
+        {
+          "tile": "3s",
+          "count": 2
+        }
+      ]
+    }
+  ],
+  "turn": 7
+}
