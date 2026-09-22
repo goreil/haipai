@@ -3,22 +3,30 @@
 // mistake/category-group rendering, view-toggle helpers, and the
 // navigate-home action that wipes the detail pane and re-renders the list.
 
-// --- Game rating ---
-// Thresholds + sevTier/sevClass/sevLabel/sevTooltip live in
-// static/js/severity.js. gameRating() converts the threshold pair into the
-// star icon + tooltip used in the sidebar list.
-
+// Shared fixed scale for games and hands; always uses all evaluated mistakes.
 function gameRating(summary) {
-  if (!summary || !summary.total_decisions) return { icon: "", label: "", cls: "" };
-  const evpt = summary.ev_per_decision;
-  if (evpt == null) return { icon: "", label: "", cls: "" };
+  if (!summary || !Number.isFinite(summary.total_decisions) || summary.total_decisions <= 0
+      || !Number.isFinite(summary.total_ev_loss) || summary.total_ev_loss < 0) return null;
+  const index = Math.max(1, Math.min(17, Math.round(
+    21.124813514948926 - 24.895305056375324 * Math.sqrt(summary.total_ev_loss / summary.total_decisions)
+  )));
+  const letters = ["E", "D", "C", "B", "A", "S"];
+  const letter = letters[Math.floor(index / 3)];
+  const modifier = ["−", "", "+"][index % 3];
+  // Half-step boundaries invert the same curve used above, including the capped ends.
+  const boundary = value => ((21.124813514948926 - value) / 24.895305056375324) ** 2;
+  const threshold = index === 17 ? `≤ ${boundary(16.5).toFixed(4)}`
+    : index === 1 ? `> ${boundary(1.5).toFixed(4)}`
+    : `${boundary(index + 0.5).toFixed(4)}–${boundary(index - 0.5).toFixed(4)}`;
+  return { letter, modifier, grade: letter + modifier, threshold };
+}
 
-  const th = computeThresholds(state.games);
-  // Top 25%: excellent
-  if (evpt <= th.p25) return { icon: "★", label: "One of your best", cls: "rating-excellent" };
-  // Top 50%: good
-  if (evpt <= th.p50) return { icon: "☆", label: "Above your average", cls: "rating-great" };
-  return { icon: "", label: "", cls: "" };
+function renderRanking(summary, size = "") {
+  const rating = gameRating(summary);
+  if (!rating) return `<span class="ranking ranking-unavailable ${size}" title="No reviewed decisions available" aria-label="Ranking unavailable">—</span>`;
+  return `<span class="ranking ranking-${rating.letter.toLowerCase()} ${size}"
+    title="${rating.grade}: ${rating.threshold} EV/D (approx.)"
+    aria-label="Ranking ${rating.grade}"><span class="ranking-letter">${rating.letter}</span><sup>${rating.modifier}</sup></span>`;
 }
 
 // --- Render: Game List ---
@@ -30,7 +38,9 @@ function renderGameList() {
   list.innerHTML = sorted.map(g => {
     const s = g.summary || {};
     const active = g.id === state.currentGame ? "active" : "";
-    const rating = gameRating(s);
+    const evPerDecision = Number.isFinite(s.total_decisions) && s.total_decisions > 0
+      && Number.isFinite(s.total_ev_loss) && s.total_ev_loss >= 0
+      ? (s.total_ev_loss / s.total_decisions).toFixed(4) : "—";
     const dateObj = new Date(g.date + "T00:00:00");
     const shortDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     let sep = "";
@@ -40,9 +50,8 @@ function renderGameList() {
     }
     return `${sep}
       <div class="game-item ${active}" data-action="fetchGame" data-game-id="${g.id}">
-        <div class="date"><a class="dev-id" href="#g${g.id}" data-action="openHash" title="Deep-link to this game">#g${g.id}</a>${rating.icon ? ` <span class="game-rating-icon" title="${rating.label}">${rating.icon}</span>` : ""} ${
-          s.total_mistakes || 0} mistakes &middot; ${(s.total_ev_loss || 0).toFixed(2)} EV${
-          s.total_decisions ? ` &middot; ${s.ev_per_decision.toFixed(4)}/D` : ""}</div>
+        <div class="date"><a class="dev-id" href="#g${g.id}" data-action="openHash" title="Deep-link to this game">#g${g.id}</a> · ${evPerDecision} EV/D</div>
+        ${renderRanking(s, "ranking-sidebar")}
       </div>
     `;
   }).join("");
@@ -509,15 +518,12 @@ function renderGame() {
 
   const s = game.summary || {};
 
-  // Recount by UI tier (server-side by_severity only has 3 buckets). `total`
-  // counts everything; `vis` only the tiers the severity slider currently shows
-  // — the summary bar reflects the slider, so it tallies the visible set.
+  // Recount by UI tier (server-side by_severity only has 3 buckets).
+  // The slider controls which tier totals are shown; the ranking uses the full game.
   const tierCounts = { severe: 0, mistake: 0, light: 0, unsure: 0 };
-  let visCount = 0, visEv = 0;
   for (const rnd of game.rounds) {
     for (const mi of rnd.mistakes) {
       tierCounts[sevTier(mi.ev_loss)]++;
-      if (sliderVisible(mi)) { visCount++; visEv += mi.ev_loss || 0; }
     }
   }
   // Which severity stats to surface: severe is always on, deeper tiers appear
@@ -559,8 +565,7 @@ function renderGame() {
     ${renderFiltersPanel()}
 
     <div class="summary-bar">
-      <div class="stat" title="Mistakes shown at the current severity level."><span class="value">${visCount}</span><span class="label">Mistakes</span></div>
-      <div class="stat" title="Expected value lost across the shown mistakes, compared to Mortal's (the AI) preferred plays."><span class="value">${visEv.toFixed(2)}</span><span class="label">EV Loss</span></div>
+      <div class="stat ranking-stat">${renderRanking(s, "ranking-large")}<span class="label">Ranking</span></div>
       ${s.total_decisions ? `<div class="stat" title="How many of your decisions Mortal reviewed this game."><span class="value">${s.total_decisions}</span><span class="label">Decisions</span></div>
       <div class="stat" title="Average expected value lost per decision — lower is better."><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
       ${TIER_SLOTS.filter((_, rank) => rank <= state.sevLevel).map(([key, color, label, tip]) =>
@@ -584,17 +589,6 @@ function renderGame() {
     html += `<div id="prep-progress-banner" class="categorization-banner pending">
       <span class="prep-progress-label">Re-analyzing categories… ${p.done}/${p.total} rounds</span>
       <div class="cat-progress-bar"><div class="cat-progress-fill" style="width:${pct}%"></div></div>
-    </div>`;
-  }
-
-  // Positive feedback banner
-  const rating = gameRating(s);
-  if (rating.icon) {
-    const cleanRounds = game.rounds.filter(r => r.mistakes.length === 0).length;
-    html += `<div class="game-rating ${rating.cls}">
-      <span class="game-rating-star">${rating.icon}</span>
-      <span>${rating.label}</span>
-      ${cleanRounds > 0 ? `<span class="game-rating-detail">${cleanRounds}/${game.rounds.length} clean rounds</span>` : ""}
     </div>`;
   }
 
@@ -658,7 +652,12 @@ function renderGame() {
 
     const isClean = rnd.mistakes.length === 0;
     html += `<div class="round${isClean ? " round-clean" : ""}">`;
+    const handSummary = {
+      total_decisions: rnd.decision_count,
+      total_ev_loss: rnd.mistakes.reduce((sum, m) => sum + (m.ev_loss || 0), 0),
+    };
     html += `<div class="round-header">
+      ${renderRanking(handSummary, "ranking-hand")}
       <span>${formatRoundLabel(rnd.round)}${countStr ? ` <span class="round-count" title="How many of your decisions Mortal reviewed in this round.">&middot; ${countStr}</span>` : ""}</span>
       ${outcomeStr ? `<span class="outcome">${outcomeStr}</span>` : ""}
       ${isClean ? '<span class="clean-badge">Clean</span>' : ""}

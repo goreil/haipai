@@ -2659,3 +2659,53 @@
 .maka-form input { width: 100px; padding: 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
 .maka-hands { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0 16px; }
 .maka-status { margin-left: 8px; }
+
+/* Arcade-style ranks: gold ornament at the top, progressively quieter below. */
+.ranking {
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 1.6em;
+  padding: 3px 5px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1.15;
+  color: var(--rank-color, var(--text-dim));
+}
+.ranking sup { font-size: 0.46em; line-height: 1.4; margin-left: 1px; }
+.ranking-s {
+  --rank-color: #ffd76a;
+  font-weight: 900;
+  filter: drop-shadow(0 2px 1px #78400b) drop-shadow(0 0 7px #ffc13b55);
+}
+.ranking-s .ranking-letter {
+  background: linear-gradient(155deg, #fff9d5 8%, #ffdb70 35%, #bd7c13 48%, #fff0a6 60%, #efb52c 85%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 0.5px #ffdf83;
+}
+.ranking-a { --rank-color: #f45c78; filter: drop-shadow(1px 2px 0 #702036); }
+.ranking-a .ranking-letter { background-image: linear-gradient(155deg, #ff8a9c, #e63859 60%, #bd244a); }
+.ranking-b { --rank-color: #ed8869; }
+.ranking-b .ranking-letter { background-image: linear-gradient(155deg, #ffad91, #ec8060 60%, #cf664b); }
+.ranking-a .ranking-letter, .ranking-b .ranking-letter {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.ranking-c { --rank-color: #70c69d; font-weight: 700; }
+.ranking-d { --rank-color: #70b9b7; font-weight: 600; font-style: normal; }
+.ranking-e { --rank-color: #859bb5; font-weight: 500; font-style: normal; }
+.ranking-unavailable { font-weight: 400; font-style: normal; }
+.ranking-large { font-size: 48px; }
+.ranking-hand { font-size: 30px; }
+.summary-bar .ranking-stat { min-width: 78px; }
+.summary-bar { align-items: center; }
+@media (forced-colors: active) {
+  .ranking .ranking-letter { -webkit-text-fill-color: currentColor; background: none; }
+  .ranking { filter: none; text-shadow: none; }
+}

@@ -1,7 +1,7 @@
-// EV-loss based severity tiers + game-rating thresholds.
+// EV-loss based severity tiers.
 //
 // Display-only: drives the per-mistake severity badge (mistake-card,
-// game-list) and the per-game star rating (game-list sidebar).
+// game-list). Fixed game rankings live in game-render.js.
 // The backend `sev` string ("?"/"??"/"???"/"!") is independent and surfaces
 // via the server-side `by_severity` aggregates in db/games.py; nothing in
 // this module reads it.
@@ -61,19 +61,4 @@ function sevLabel(m) {
 function sevTooltip(m) {
   const ev = typeof m === "object" && m !== null ? m.ev_loss : null;
   return TIER_TOOLTIP[sevTier(ev)] || "";
-}
-
-// Per-user game-rating thresholds: top-25% / top-50% of the user's own
-// ev-per-decision distribution. Defaults (0.14 / 0.19) only kick in for
-// new accounts with <3 finished games — picked by sampling the live DB so
-// a first-game rating still feels meaningful.
-function computeThresholds(games) {
-  const evpts = (games || [])
-    .map(g => (g.summary || {}).ev_per_decision)
-    .filter(v => v != null)
-    .sort((a, b) => a - b);
-  if (evpts.length < 3) return { p25: 0.14, p50: 0.19 };
-  const p25 = evpts[Math.floor(evpts.length * 0.25)];
-  const p50 = evpts[Math.floor(evpts.length * 0.50)];
-  return { p25, p50 };
 }

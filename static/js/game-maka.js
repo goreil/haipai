@@ -9,9 +9,9 @@ function renderMakaRatings(game) {
       placeholder="e.g. B+" value="${escapeHtml(value)}" data-maka-index="${index}">
     </label>`;
   return `<details class="maka-ratings" ${game._makaOpen ? "open" : ""}>
-    <summary>Maka Ratings <span>(optional)</span></summary>
+    <summary>Help improve Haipai ranking by adding the real Maka ranks</summary>
     <form class="maka-form">
-      <p>Help me out and enter your Maka ratings (Mahjong soul) below. I'm planning to implement simliar rankings and would like it to be comparable to Maka</p>
+      <p>Enter your real Maka ranks from Mahjong Soul below to help make Haipai rankings more comparable to Maka.</p>
       ${field("Overall Score", draft.overall, "overall")}
       <div class="maka-hands">${game.rounds.map((round, i) =>
         field(`Hand ${i + 1} · ${round.round} – Match Score`, draft.matches[i], i)).join("")}</div>
