@@ -123,19 +123,22 @@
   font-size: 13px;
 }
 
-.summary-bar .stat {
+.summary-bar .stat,
+.round-mistake-summary .stat {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.summary-bar .stat .value {
+.summary-bar .stat .value,
+.round-mistake-summary .stat .value {
   font-size: 18px;
   font-weight: 700;
   color: var(--accent);
 }
 
-.summary-bar .stat .label {
+.summary-bar .stat .label,
+.round-mistake-summary .stat .label {
   color: var(--text-dim);
   font-size: 11px;
   text-transform: uppercase;
@@ -555,8 +558,16 @@
   border-radius: 6px;
   margin-bottom: 6px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.round-mistake-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-left: auto;
 }
 
 .round-header .outcome {

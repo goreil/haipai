@@ -511,29 +511,26 @@ function renderFinalScores(mortalData) {
   return `<div class="final-scores" title="Final scores for this game">${cells}</div>`;
 }
 
+// Always summarize all mistakes, independently of the active display filters.
+function renderMistakeStats(mistakes) {
+  const tierCounts = { severe: 0, mistake: 0, light: 0, unsure: 0 };
+  for (const mistake of mistakes) tierCounts[sevTier(mistake.ev_loss)]++;
+  const tiers = [
+    ["severe", "var(--sev-major)", "Severe", "EV loss > 1.0"],
+    ["mistake", "var(--sev-medium)", "Mistake", "EV loss 0.5–1.0"],
+    ["light", "var(--sev-light)", "Light", "EV loss 0.2–0.5"],
+    ["unsure", "var(--sev-minor)", "Unsure", "EV loss < 0.2 — AI not confident"],
+  ];
+  return tiers.map(([key, color, label, tip]) =>
+    `<div class="stat" title="${tip}"><span class="value" style="color:${color}">${tierCounts[key]}</span><span class="label">${label}</span></div>`).join("");
+}
+
 function renderGame() {
   const game = state.currentGameData;
   if (!game) return;
   const content = document.getElementById("content");
 
   const s = game.summary || {};
-
-  // Recount by UI tier (server-side by_severity only has 3 buckets).
-  // The slider controls which tier totals are shown; the ranking uses the full game.
-  const tierCounts = { severe: 0, mistake: 0, light: 0, unsure: 0 };
-  for (const rnd of game.rounds) {
-    for (const mi of rnd.mistakes) {
-      tierCounts[sevTier(mi.ev_loss)]++;
-    }
-  }
-  // Which severity stats to surface: severe is always on, deeper tiers appear
-  // only once the slider reaches them (TIER_SLOTS index = SEV_ORDER rank).
-  const TIER_SLOTS = [
-    ["severe", "var(--sev-major)", "Severe", "EV loss > 1.0"],
-    ["mistake", "var(--sev-medium)", "Mistake", "EV loss 0.5–1.0"],
-    ["light", "var(--sev-light)", "Light", "EV loss 0.2–0.5"],
-    ["unsure", "var(--sev-minor)", "Unsure", "EV loss < 0.2 — AI not confident"],
-  ];
 
   // Concept aggregate, computed once over the slider-visible mistakes (so the
   // ledgers + summary headline track the slider too): the summary-bar headline
@@ -568,8 +565,7 @@ function renderGame() {
       <div class="stat ranking-stat">${renderRanking(s, "ranking-large")}<span class="label">Ranking</span></div>
       ${s.total_decisions ? `<div class="stat" title="How many of your decisions Mortal reviewed this game."><span class="value">${s.total_decisions}</span><span class="label">Decisions</span></div>
       <div class="stat" title="Average expected value lost per decision — lower is better."><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
-      ${TIER_SLOTS.filter((_, rank) => rank <= state.sevLevel).map(([key, color, label, tip]) =>
-        `<div class="stat" title="${tip}"><span class="value" style="color:${color}">${tierCounts[key]}</span><span class="label">${label}</span></div>`).join("")}
+      ${renderMistakeStats(game.rounds.flatMap(rnd => rnd.mistakes))}
       ${renderTopGroupStat(conceptAgg, tradeoffBoxes)}
     </div>
   `;
@@ -661,8 +657,7 @@ function renderGame() {
       <span>${formatRoundLabel(rnd.round)}${countStr ? ` <span class="round-count" title="How many of your decisions Mortal reviewed in this round.">&middot; ${countStr}</span>` : ""}</span>
       ${outcomeStr ? `<span class="outcome">${outcomeStr}</span>` : ""}
       ${isClean ? '<span class="clean-badge">Clean</span>' : ""}
-      ${!isClean && visible.length !== rnd.mistakes.length ?
-        `<span style="font-size:12px;color:var(--text-dim)">(${visible.length}/${rnd.mistakes.length})</span>` : ""}
+      <div class="round-mistake-summary">${renderMistakeStats(rnd.mistakes)}</div>
     </div>`;
 
     // Track turn index for duplicate turn disambiguation
