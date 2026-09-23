@@ -2686,6 +2686,8 @@
   line-height: 1.15;
   color: var(--rank-color, var(--text-dim));
 }
+/* Italic glyphs overhang their advance width; extend the gradient paint area. */
+.ranking .ranking-letter { padding-inline: 0.12em; }
 .ranking sup { font-size: 0.46em; line-height: 1.4; margin-left: 1px; }
 .ranking-s {
   --rank-color: #ffd76a;
