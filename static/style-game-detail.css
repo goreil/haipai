@@ -2699,10 +2699,10 @@
   -webkit-text-fill-color: transparent;
   -webkit-text-stroke: 0.5px #ffdf83;
 }
-.ranking-a { --rank-color: #f45c78; filter: drop-shadow(1px 2px 0 #702036); }
-.ranking-a .ranking-letter { background-image: linear-gradient(155deg, #ff8a9c, #e63859 60%, #bd244a); }
-.ranking-b { --rank-color: #ed8869; }
-.ranking-b .ranking-letter { background-image: linear-gradient(155deg, #ffad91, #ec8060 60%, #cf664b); }
+.ranking-a { --rank-color: #cbd2dc; filter: drop-shadow(1px 2px 0 #505966); }
+.ranking-a .ranking-letter { background-image: linear-gradient(155deg, #f4f7fb, #c0c8d3 60%, #929dab); }
+.ranking-b { --rank-color: #cd955d; }
+.ranking-b .ranking-letter { background-image: linear-gradient(155deg, #edbd89, #c18a52 60%, #996332); }
 .ranking-a .ranking-letter, .ranking-b .ranking-letter {
   background-clip: text;
   -webkit-background-clip: text;
