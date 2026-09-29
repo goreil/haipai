@@ -103,6 +103,7 @@ function yakuDetail(d) {
     const suits = (d.suits || []).map(s => SUIT_NAME[s]).join(" / ");
     const title = d.chinitsuReachable ? "Honitsu / Chinitsu" : "Honitsu";
     return `<b>${title}</b> · <span class="muted">${d.state}</span><br>`
+      + (d.state === "locked" ? `Four honor melds leave only the pair concealed.<br>` : ``)
       + `Committable suit${(d.suits || []).length > 1 ? "s" : ""}: <b>${suits || "—"}</b>.<br>`
       + `Chinitsu upgrade: <b style="color:${d.chinitsuReachable ? "#9fd9a2" : "var(--text-dim)"}">`
       + `${d.chinitsuReachable ? "still reachable" : "dead (honor already melded)"}</b>.`;
@@ -112,8 +113,9 @@ function yakuDetail(d) {
       + `<span class="muted">All melds are simples (2–8). Dies if a terminal or honor enters a meld.</span>`;
   }
   if (d.type === "toitoi") {
-    return `<b>Toitoi</b> · <span class="muted">possible</span><br>`
-      + `<span class="muted">Every meld is a triplet. Dies on any chi.</span>`;
+    return `<b>Toitoi</b> · <span class="muted">${d.state}</span><br>`
+      + (d.state === "locked" ? `Four triplet melds leave only the pair concealed.`
+        : `<span class="muted">Every meld is a triplet. Dies on any chi.</span>`);
   }
   return `<b>${(YAKU_META[d.type] || {}).label || d.type}</b>`;
 }

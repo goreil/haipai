@@ -72,6 +72,14 @@
     return out;
   }
 
+  // The board event stream lists a kakan as well as the pon it upgrades.
+  // Count that pair of events as one set when reasoning about concealed slots.
+  function _effective_melds(melds) {
+    return melds.filter(meld => meld.type !== "kakan" || !melds.some(other =>
+      other.type === "pon" && base_mjai(other.pai || other.consumed?.[0])
+        === base_mjai(meld.pai || meld.consumed?.[0])));
+  }
+
   // Numbered tile -> its suit letter ('m'|'p'|'s'); honor -> null.
   function _tile_suit_mjai(t) {
     if (is_honor_mjai(t)) return null;
@@ -86,10 +94,10 @@
 
   // Shape yakus a seat's melds keep alive, per the v1.3 Yaku-Panel handoff.
   // Each survives only while the melds don't contradict it (no likelihood
-  // ranking yet — binary alive/dead). All three stay 'possible' from an
-  // opponent's view: locking them needs the concealed shape we can't see.
+  // ranking yet — binary alive/dead). A four-set shape can lock without
+  // seeing the concealed pair.
   //   tanyao  — alive while no meld holds a terminal or honor.
-  //   toitoi  — alive while no meld is a chi (every group a triplet/kan).
+  //   toitoi  — alive while no meld is a chi; locked at four triplet/kan sets.
   //   chanta  — alive while every meld holds a terminal or honor. The badge
   //             folds in junchan: `junchanReachable` is true when no honor has
   //             been melded (the terminals-only finish is still open).
@@ -97,6 +105,7 @@
   //             folds in chinitsu: `chinitsuReachable` is true when no honor
   //             has been melded (the no-honor finish is still open). With only
   //             honor melds, every suit is still committable (suits = all 3).
+  //             Four honor sets lock the honor-based finish.
   function _shape_yakus(melds) {
     let hasChi = false;
     let termOrHonor = false;
@@ -119,7 +128,7 @@
     }
     const out = [];
     if (!termOrHonor) out.push({ type: "tanyao", state: "possible", support });
-    if (!hasChi) out.push({ type: "toitoi", state: "possible", support });
+    if (!hasChi) out.push({ type: "toitoi", state: support === 4 ? "locked" : "possible", support });
     if (everyMeldTermOrHonor) {
       out.push({
         type: "chanta", state: "possible", support,
@@ -128,7 +137,8 @@
     }
     if (suits.size <= 1) {
       out.push({
-        type: "honitsu", state: "possible", support,
+        type: "honitsu", state: support === 4 && honorMelded && suits.size === 0
+          ? "locked" : "possible", support,
         suits: suits.size === 1 ? [...suits] : ["m", "p", "s"],
         chinitsuReachable: !honorMelded && suits.size === 1,
       });
@@ -365,9 +375,9 @@
   //     the strip (see board.js). The yakuhai entry may have state='dead'
   //     when all candidates are dead; it skips live rendering then but its
   //     `dead[]` is still picked up by the dead-row collector.
-  //   tanyao / toitoi: { type, state:'possible', support }
+  //   tanyao / toitoi: { type, state:'possible'|'locked', support }
   //   chanta:  { type, state:'possible', support, junchanReachable }
-  //   honitsu: { type, state:'possible', support, suits:['m'|'p'|'s'], chinitsuReachable }
+  //   honitsu: { type, state:'possible'|'locked', support, suits:['m'|'p'|'s'], chinitsuReachable }
   //     `support` = backing meld count; the strip keeps only 2-meld-committed
   //     whole-hand yakus out of the "more" toggle.
   //   sanshoku: { type, state, seq, progress, rows, bottleneck, dealInTiles } (see above)
@@ -382,8 +392,8 @@
     }
     for (const key of Object.keys(meldsBySeat || {})) {
       const seat = Number(key);
-      const melds = meldsBySeat[key];
-      if (!melds || !melds.length) continue;
+      const melds = _effective_melds(meldsBySeat[key] || []);
+      if (!melds.length) continue;
 
       const seat_wind = _seat_wind(seat, oya);
       // Candidate yakuhai tiles for this seat, deduped, in display order:
@@ -412,6 +422,9 @@
           locked.push({ tile: t, note });
           continue;
         }
+        // With four sets exposed, the last concealed tile can only be a pair.
+        // No further yakuhai triplet can be completed, regardless of copies.
+        if (melds.length === 4) continue;
         const unseen = wall[mjai_to_tile_id(t)] || 0;
         const inHand = handHonors[t] || 0;
         const live = unseen + inHand;

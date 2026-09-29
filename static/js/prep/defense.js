@@ -119,9 +119,16 @@
   // Han an open hand is locked into (board-discards.js::threatGuaranteedHan):
   // yakuhai stand alone; dora only count alongside a yaku, so a dora-only hand
   // adds 1 for the yaku it still needs.
-  function _guaranteed_han(yakuhai_han, meld_dora) {
-    if (yakuhai_han > 0) return yakuhai_han + meld_dora;
+  function _guaranteed_han(yaku_han, meld_dora) {
+    if (yaku_han > 0) return yaku_han + meld_dora;
     return meld_dora > 0 ? meld_dora + 1 : 0;
+  }
+
+  function _four_call_shape_han(opp) {
+    if (opp.open_melds !== 4 || (opp.melds || []).some(m => m.type === "chi")) return 0;
+    const allHonors = opp.melds.every(m => m.tiles.length && m.tiles.every(t =>
+      t === "E" || t === "S" || t === "W" || t === "N" || t === "P" || t === "F" || t === "C"));
+    return 2 + (allHonors ? 2 : 0);
   }
 
   // Value-based han for the open-defense gate (the V8 model). Every open hand
@@ -274,6 +281,7 @@
       // Value metadata for the han-gate sweep — carried through to per_threat.
       const meld_dora = _meld_dora_count(opp, dora_set);
       const yakuhai_han = _yakuhai_han(opp, state.bakaze, seat_wind);
+      const shape_han = _four_call_shape_han(opp);
       threats.push({
         kind: "open",
         seat,
@@ -285,7 +293,8 @@
         open_melds: opp.open_melds || 0,
         meld_dora,
         yakuhai_han,
-        guaranteed_han: _guaranteed_han(yakuhai_han, meld_dora),
+        shape_han,
+        guaranteed_han: _guaranteed_han(yakuhai_han + shape_han, meld_dora),
       });
     }
     return threats;
@@ -349,8 +358,12 @@
 
     const threat_data = [];
     for (const threat of threats) {
+      // Four open melds leave one concealed tile after a discard. Any winning
+      // tile must pair with it; sequence and shanpon waits cannot fit.
+      const waits = generateWaits().filter(wait =>
+        threat.kind !== "open" || threat.open_melds < 4 || wait.type === WAIT_TYPE.tanki);
       const combos = calcCombos(
-        generateWaits(), threat.genbutsu, threat.discards_to_riichi, unseen,
+        waits, threat.genbutsu, threat.discards_to_riichi, unseen,
         threat.dora_tiles
       );
       threat_data.push({ threat, combos });
@@ -439,6 +452,7 @@
         entry.open_melds = td.threat.open_melds;
         entry.meld_dora = td.threat.meld_dora;
         entry.yakuhai_han = td.threat.yakuhai_han;
+        entry.shape_han = td.threat.shape_han;
         entry.guaranteed_han = td.threat.guaranteed_han;
         entry.soft_safe = soft_safe_mjai;
       }

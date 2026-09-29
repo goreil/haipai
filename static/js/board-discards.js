@@ -17,8 +17,8 @@ var OPEN_MELD_TYPES = new Set(["chi", "pon", "daiminkan"]);
 // yakuhai IS that yaku (1 han), a double wind counts twice, and each exposed
 // dora adds 1. Used only to decide whether a single high-value call trips the
 // gate — the displayed total stays threatGuaranteedHan.
-function openValueHan(yakuhaiHan, meldDora) {
-  return Math.max(1, yakuhaiHan) + meldDora;
+function openValueHan(yakuHan, meldDora) {
+  return Math.max(1, yakuHan) + meldDora;
 }
 
 // Confidence band for a non-riichi open threat, mirroring the shipped trigger
@@ -35,24 +35,24 @@ function openThreatBand(openMeldCount, guaranteedHan, valueHan) {
   return guaranteedHan >= 2 ? "strong" : "moderate";
 }
 
-// The han an open hand is *locked into*, given its melded yakuhai and exposed
-// dora. Yakuhai are the hand's yaku, so their han stands alone; dora only counts
+// The han an open hand is *locked into*, given its melded yaku and exposed
+// dora. Guaranteed yaku han stands alone; dora only counts
 // toward a win alongside a yaku, so a dora-only hand adds 1 for the yaku it still
 // has to find. (A hand with both takes the yakuhai as that yaku — no extra +1.)
-function threatGuaranteedHan(yakuhaiHan, doraCount) {
-  if (yakuhaiHan > 0) return yakuhaiHan + doraCount;
+function threatGuaranteedHan(yakuHan, doraCount) {
+  if (yakuHan > 0) return yakuHan + doraCount;
   return doraCount > 0 ? doraCount + 1 : 0;
 }
 
 // Popover breaking down an open threat's guaranteed han — a sibling of the yaku
-// strip's hover detail (board-yaku-panel.js). One row per melded yakuhai (tile +
+// strip's hover detail (board-yaku-panel.js). One row per guaranteed melded yaku (tile +
 // name + "+han"), one row for exposed dora (the tiles + "+N"), and, for a
 // dora-only hand, the "+1" yaku it still needs. Header carries the ≥N-han total.
-function renderThreatDetail(openMeldCount, turn, yakuhaiList, doraTilesList, guaranteedHan) {
+function renderThreatDetail(openMeldCount, turn, yakuList, doraTilesList, guaranteedHan) {
   let rows = "";
-  for (const y of yakuhaiList) {
+  for (const y of yakuList) {
     rows += `<div class="td-row">`
-      + `<span class="td-tile">${renderTile(y.tile, "")}</span>`
+      + `<span class="td-tile">${y.tile ? renderTile(y.tile, "") : ""}</span>`
       + `<span class="td-name">${y.name}</span>`
       + `<span class="td-han">+${y.han}</span></div>`;
   }
@@ -63,7 +63,7 @@ function renderThreatDetail(openMeldCount, turn, yakuhaiList, doraTilesList, gua
       + `<span class="td-name">Dora</span>`
       + `<span class="td-han">+${doraTilesList.length}</span></div>`;
   }
-  if (!yakuhaiList.length && doraTilesList.length) {
+  if (!yakuList.length && doraTilesList.length) {
     rows += `<div class="td-row td-needed">`
       + `<span class="td-tile"></span>`
       + `<span class="td-name">Yaku to win</span>`
@@ -380,11 +380,12 @@ function renderBoardContext(m) {
         const doraTilesList = isOppThreat ? meldDoraTiles(seatMelds, doraTiles) : [];
         const meldDora = doraTilesList.length;
         const seatWindLetter = (oya != null) ? WINDS[(d.seat - oya + 4) % 4] : null;
-        const yakuhaiList = isOppThreat
-          ? meldYakuhai(seatMelds, seatWindLetter, b.round_wind) : [];
-        const yakuhaiHan = yakuhaiList.reduce((sum, y) => sum + y.han, 0);
-        const guaranteedHan = threatGuaranteedHan(yakuhaiHan, meldDora);
-        const valueHan = openValueHan(yakuhaiHan, meldDora);
+        const yakuList = isOppThreat
+          ? [...meldYakuhai(seatMelds, seatWindLetter, b.round_wind),
+             ...meldFourCallYaku(seatMelds, openMeldCount)] : [];
+        const yakuHan = yakuList.reduce((sum, y) => sum + y.han, 0);
+        const guaranteedHan = threatGuaranteedHan(yakuHan, meldDora);
+        const valueHan = openValueHan(yakuHan, meldDora);
         const threatBand = isOppThreat
           ? openThreatBand(openMeldCount, guaranteedHan, valueHan) : null;
         const isMeldDanger = threatBand != null;
@@ -405,10 +406,10 @@ function renderBoardContext(m) {
           // the threat-detail popover, the open-threat sibling of the yaku pills.
           const detail = [`${openMeldCount} call${openMeldCount === 1 ? "" : "s"}`];
           if (threatBand === "strong") detail.push(`≥${guaranteedHan} han`);
-          const hasBreakdown = yakuhaiList.length || doraTilesList.length;
+          const hasBreakdown = yakuList.length || doraTilesList.length;
           if (hasBreakdown) {
             html += `<span class="danger-tag ${threatBand} has-detail">⚠ Open threat`
-              + renderThreatDetail(openMeldCount, m.turn, yakuhaiList, doraTilesList, guaranteedHan)
+              + renderThreatDetail(openMeldCount, m.turn, yakuList, doraTilesList, guaranteedHan)
               + `</span>`;
           } else {
             const title = `Open threat — ${openMeldCount} open call${openMeldCount === 1 ? "" : "s"} by turn ${m.turn || 0}`;

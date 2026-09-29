@@ -164,6 +164,20 @@ function meldYakuhai(melds, seatWind, roundWind) {
   return out;
 }
 
+// Four open calls leave only the pair concealed. Four triplet calls therefore
+// lock Toitoi, and four honor calls also lock the honor-based Honitsu floor.
+function meldFourCallYaku(melds, openMeldCount) {
+  if (openMeldCount !== 4) return [];
+  const calls = (melds || []).filter(m => m.type === "chi" || m.type === "pon" || m.type === "daiminkan");
+  if (calls.length !== 4 || calls.some(m => m.type === "chi")) return [];
+  const out = [{ tile: null, name: "Toitoi", han: 2 }];
+  if (calls.every(m => [...(m.consumed || []), m.pai].filter(Boolean)
+    .every(t => "ESWNPFC".includes(tileBase(t))))) {
+    out.push({ tile: null, name: "Honitsu", han: 2 });
+  }
+  return out;
+}
+
 // --- Action formatting ---
 // The played/expected action chips on every mistake card. `renderAction`
 // delegates to renderMeld for chi/pon/kan so the strip-tile glyph is byte-
