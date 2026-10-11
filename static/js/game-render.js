@@ -525,12 +525,45 @@ function renderMistakeStats(mistakes) {
     `<div class="stat" title="${tip}"><span class="value" style="color:${color}">${tierCounts[key]}</span><span class="label">${label}</span></div>`).join("");
 }
 
+// Keep the navigation marker on the last section heading above the reading line.
+// A stable listener reads the current markup, so re-renders cannot stack handlers.
+function syncGameToc() {
+  const content = document.getElementById("content");
+  const toc = content.querySelector(".game-toc");
+  if (!toc || !window.matchMedia("(min-width: 1100px)").matches) return;
+  const buttons = [...toc.querySelectorAll(".game-toc-item")];
+  const readingLine = content.getBoundingClientRect().top + 64;
+  let current = buttons[0];
+  for (const button of buttons) {
+    const section = document.getElementById(button.dataset.target);
+    if (section && section.getBoundingClientRect().top <= readingLine) current = button;
+    else break;
+  }
+  if (content.scrollTop > 0 && content.scrollTop + content.clientHeight >= content.scrollHeight - 1) {
+    current = buttons[buttons.length - 1];
+  }
+  if (toc.querySelector('[aria-current="location"]') === current) return;
+  for (const button of buttons) {
+    if (button === current) button.setAttribute("aria-current", "location");
+    else button.removeAttribute("aria-current");
+  }
+
+  // Long games can overflow the small floating panel; keep its marker visible.
+  const rounds = toc.querySelector(".game-toc-rounds");
+  if (!rounds || !rounds.contains(current)) return;
+  const viewport = rounds.getBoundingClientRect();
+  const item = current.getBoundingClientRect();
+  if (item.top < viewport.top) rounds.scrollTop += item.top - viewport.top;
+  else if (item.bottom > viewport.bottom) rounds.scrollTop += item.bottom - viewport.bottom;
+}
+
 function renderGame() {
   const game = state.currentGameData;
   if (!game) return;
   const content = document.getElementById("content");
 
   const s = game.summary || {};
+  const tocItems = [];
 
   // Concept aggregate, computed once over the slider-visible mistakes (so the
   // ledgers + summary headline track the slider too): the summary-bar headline
@@ -548,7 +581,7 @@ function renderGame() {
   const dateObj = new Date(game.date + "T00:00:00");
   const displayDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   let html = `
-    <div class="game-header">
+    <div class="game-header" id="game-overview">
       <h2>${displayDate}<a class="dev-id" href="#g${state.currentGame}" data-action="openHash" title="Deep-link to this game">#g${state.currentGame}</a>
         ${state.readOnly ? "" : `<button class="btn" data-action="showShareModal" title="Get a shareable link to this game">Share</button>
         <button class="btn btn-delete" data-action="deleteGame" title="Delete game">Delete</button>`}
@@ -632,7 +665,7 @@ function renderGame() {
 
   if (state.gameView === "rounds") {
   // Rounds
-  for (const rnd of game.rounds) {
+  for (const [roundIndex, rnd] of game.rounds.entries()) {
     const visible = rnd.mistakes.filter(mistakeVisible);
     // With a concept filter active a clean/non-matching round carries nothing to
     // show, so drop it entirely rather than render an empty "Clean" card.
@@ -647,11 +680,13 @@ function renderGame() {
       : (rnd.turn_count ? `${rnd.turn_count} turn${rnd.turn_count === 1 ? "" : "s"}` : "");
 
     const isClean = rnd.mistakes.length === 0;
-    html += `<div class="round${isClean ? " round-clean" : ""}">`;
+    const roundId = `game-round-${roundIndex}`;
+    html += `<div class="round${isClean ? " round-clean" : ""}" id="${roundId}">`;
     const handSummary = {
       total_decisions: rnd.decision_count,
       total_ev_loss: rnd.mistakes.reduce((sum, m) => sum + (m.ev_loss || 0), 0),
     };
+    tocItems.push({ id: roundId, label: rnd.round, summary: handSummary });
     html += `<div class="round-header">
       ${renderRanking(handSummary, "ranking-hand")}
       <span>${formatRoundLabel(rnd.round)}${countStr ? ` <span class="round-count" title="How many of your decisions Mortal reviewed in this round.">&middot; ${countStr}</span>` : ""}</span>
@@ -871,7 +906,25 @@ function renderGame() {
   }
   } // end if summary view
 
+  if (state.gameView === "rounds") {
+    const toc = `<nav class="game-toc" aria-label="Game contents">
+      <div class="game-toc-heading">Contents</div>
+      <button type="button" class="game-toc-item game-toc-overview" data-action="scrollGameSection" data-target="game-overview">
+        <span>The game</span>${renderRanking(s, "ranking-toc")}
+      </button>
+      ${tocItems.length ? `<div class="game-toc-columns" aria-hidden="true"><span>Round</span><span>Rank</span></div>
+      <div class="game-toc-rounds"><div class="game-toc-list">${tocItems.map(item => `<button type="button" class="game-toc-item" data-action="scrollGameSection"
+        data-target="${item.id}" aria-label="${formatRoundLabel(item.label)}, ranking ${gameRating(item.summary)?.grade || "unavailable"}"
+        title="${formatRoundLabel(item.label)}"><span>${item.label}</span>${renderRanking(item.summary, "ranking-toc")}</button>`).join("")}</div></div>` : ""}
+    </nav>`;
+    html = `<div class="game-detail-layout"><div class="game-detail-body">${html}</div>${toc}</div>`;
+  }
   content.innerHTML = html;
+  content.removeEventListener("scroll", syncGameToc);
+  if (state.gameView === "rounds") {
+    content.addEventListener("scroll", syncGameToc, { passive: true });
+    requestAnimationFrame(syncGameToc);
+  }
   if (!state.readOnly) bindMakaRatings(game);
 
   // Re-highlight active game in sidebar. Not applicable on the read-only

@@ -64,6 +64,7 @@ var HAIPAI_CLICK_ACTIONS = {
   },
   deleteGame: () => deleteGame(state.currentGame),
   switchGameView: (el) => switchGameView(el.dataset.view),
+  scrollGameSection: (el) => document.getElementById(el.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" }),
   filterConcept: (el) => toggleConceptFilter(el.dataset.conceptSide, el.dataset.conceptGroup, el.dataset.conceptDim),
   clearConceptFilters: () => clearConceptFilters(),
   toggleTrendsConceptExpand: (el) => toggleTrendsConceptExpand(el.dataset.scope, el.dataset.conceptSide, el.dataset.conceptGroup),
