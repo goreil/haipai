@@ -859,6 +859,8 @@
    pip when chinitsu is alive). Each pill lifts a hover detail above the row. */
 .yaku-strip {
   margin-left: auto;
+  max-width: 100%;
+  flex-wrap: wrap;
   display: inline-flex;
   align-items: center;
   gap: 4px;

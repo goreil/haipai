@@ -122,13 +122,14 @@ var TAB_ROUTES = Object.assign({
   trends: () => showTrends(),
   admin: () => showAdmin(),
   help: () => showHelp(),
-  account: () => showAccount(),
+  account: () => showAccount(), // Preserve existing bookmarks.
+  settings: () => showAccount(),
 }, mgTabRoutes());   // the minigame roster — see minigame-shell.js
 
 // Returns the tab slug from `#trends`/`#admin`/`#help`/`#account` or any
 // minigame slug, or null. The minigame half of the pattern comes from the
 // roster so a new trainer is routable the moment it is listed there.
-var TAB_HASH_RE = new RegExp(`^#(trends|admin|help|account|${mgSlugPattern()})$`);
+var TAB_HASH_RE = new RegExp(`^#(trends|admin|help|account|settings|${mgSlugPattern()})$`);
 
 function parseTabHash() {
   const m = (window.location.hash || "").match(TAB_HASH_RE);

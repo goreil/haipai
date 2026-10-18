@@ -308,11 +308,14 @@
 .tutorial-video { display: none; margin-top: 12px; }
 .tutorial-video.active { display: block; }
 
-/* Account page */
+/* Settings: terminology and account controls. */
 .account-section {
   max-width: 400px; padding: 16px;
   background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border);
 }
+.account-section + .account-section { margin-top: 16px; }
+.account-section .form-hint { font-size: 13px; line-height: 1.5; color: var(--text-dim); }
+.account-section select.account-input { width: 100%; min-height: 40px; flex: none; }
 .account-row {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 0; border-bottom: 1px solid var(--border);

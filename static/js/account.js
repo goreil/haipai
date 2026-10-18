@@ -1,4 +1,4 @@
-// Account page (OAuth link/unlink) and Help page. Sibling menu pages
+// Settings page (terminology, account and OAuth links) and Help page. Sibling menu pages
 // reachable from the toolbar dropdown.
 
 // --- Account ---
@@ -14,8 +14,20 @@ function showAccount() {
   const discordLinked = me.discord_linked;
   const googleLinked = me.google_linked;
 
-  let html = `<div class="game-header"><h2>Account</h2></div>`;
-  html += `<div class="account-section">`;
+  let html = `<div class="game-header"><h2>Settings</h2></div>`;
+  html += `<div class="account-section" data-terminology="ignore">
+    <div class="account-row account-row-stack">
+      <label class="account-label" for="terminology-select">Mahjong terminology</label>
+      <select id="terminology-select" class="account-input" aria-describedby="terminology-hint" data-change-action="setTerminology">
+        <option value="japanese"${HaipaiTerminology.language === "japanese" ? " selected" : ""}>Japanese names</option>
+        <option value="english"${HaipaiTerminology.language === "english" ? " selected" : ""}>English names</option>
+      </select>
+      <p class="form-hint" id="terminology-hint" style="margin:0">English uses acceptance for ukeire, away for shanten,
+        and yaku names such as All simples for Tanyao. Saved in this browser.</p>
+      <p class="account-msg" id="terminology-status" role="status"></p>
+    </div>
+  </div>`;
+  html += `<div class="account-section" data-terminology="ignore">`;
   html += `<div class="account-row"><span class="account-label">Username</span><span>${escapeHtml(me.username || "—")}</span></div>`;
 
   // Display name: leaderboard label only — login still uses the username.
@@ -58,7 +70,7 @@ function showAccount() {
   html += `</div>`;
 
   // GDPR data export
-  html += `<div class="account-section" style="margin-top:16px">
+  html += `<div class="account-section">
     <div class="account-row" style="border-bottom:none;flex-direction:column;align-items:flex-start;gap:8px">
       <span class="account-label" style="min-width:0">Export your data (GDPR)</span>
       <p class="form-hint" style="margin:0">Download a JSON file containing your account, games, mistakes, category reports, and mailbox messages.</p>

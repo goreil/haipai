@@ -26,7 +26,8 @@ var HAIPAI_CLICK_ACTIONS = {
   // turns the resulting hashchange into the actual render. See main.js.
   showTrends: () => navTab("trends"),
   toggleMenu: (el) => el.parentElement.classList.toggle("open"),
-  showAccount: () => navTab("account"),
+  showAccount: () => navTab("settings"),
+  showSettings: () => navTab("settings"),
   showHelp: () => navTab("help"),
   // One action for the whole Minigames category: the button carries the slug,
   // so adding a trainer to the roster (minigame-shell.js) needs nothing here.
@@ -113,6 +114,11 @@ var HAIPAI_CLICK_ACTIONS = {
 
 // name -> fn(el, event), for the `change` event (selects, checkboxes).
 var HAIPAI_CHANGE_ACTIONS = {
+  setTerminology: (el) => {
+    const saved = HaipaiTerminology.setLanguage(el.value);
+    document.getElementById("terminology-status").textContent = saved
+      ? "Preference saved." : "Applied for this page. Browser storage is unavailable.";
+  },
   onAnnotate: (el) => onAnnotate(el),
   onReportDetails: (el) => onReportDetails(el, +el.dataset.mid),
   onComplexReason: (el) => onComplexReason(+el.dataset.mid),

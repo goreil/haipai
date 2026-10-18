@@ -73,7 +73,7 @@
         <div class="toolbar-menu">
           <button class="btn toolbar-menu-btn" data-action="toggleMenu">&#8943;</button>
           <div class="toolbar-dropdown">
-            <button data-action="showAccount">Account</button>
+            <button data-action="showSettings">Settings</button>
             <button data-action="showHelp">Help</button>
             <button id="admin-btn" style="display:none" data-action="showAdmin">Admin</button>
             <button id="stop-impersonating-btn" style="display:none" data-action="adminStopImpersonate">Stop impersonating</button>
@@ -158,6 +158,7 @@
        first so its document-level listeners are attached before any markup
        is interacted with. See docs/backlogs/CSP-HARDENING.md. -->
   <script src="/static/js/actions.js"></script>
+  <script src="/static/js/terminology.js"></script>
   <script src="/static/js/html-escape.js"></script>
   <script src="/static/js/tiles.js"></script>
   <script src="/static/js/severity.js"></script>
