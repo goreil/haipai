@@ -557,6 +557,29 @@ function syncGameToc() {
   else if (item.bottom > viewport.bottom) rounds.scrollTop += item.bottom - viewport.bottom;
 }
 
+// Expansion belongs to the loaded game, so it survives re-renders without
+// carrying round indexes into another game's review.
+const expandedHandMistakes = new WeakMap();
+
+function handMistakesExpanded(game, roundIndex) {
+  return expandedHandMistakes.get(game)?.has(roundIndex) || false;
+}
+
+function toggleHandMistakes(roundIndex) {
+  const game = state.currentGameData;
+  if (!game || !game.rounds[roundIndex]) return;
+  let expanded = expandedHandMistakes.get(game);
+  if (!expanded) expandedHandMistakes.set(game, expanded = new Set());
+  if (expanded.has(roundIndex)) expanded.delete(roundIndex);
+  else expanded.add(roundIndex);
+  const content = document.getElementById("content");
+  const scrollTop = content.scrollTop;
+  renderGame();
+  content.scrollTop = scrollTop;
+  document.querySelector(`[data-action="toggleHandMistakes"][data-round-index="${roundIndex}"]`)
+    ?.focus({ preventScroll: true });
+}
+
 function renderGame() {
   const game = state.currentGameData;
   if (!game) return;
@@ -641,9 +664,9 @@ function renderGame() {
       const label = f.dim ? ((subMeta[f.dim] || {}).label || f.dim) : meta.label;
       return `<span class="concept-pill" style="--grp:${meta.color}">${label}</span>`;
     }).join("");
-    const lead = cfs.length === 1 ? "matching" : "matching any of";
+    const lead = cfs.length === 1 ? "in" : "in any of";
     html += `<div class="filter-banner concept-filter-banner">
-      <span class="concept-filter-text">Showing the ${matched} mistake${matched === 1 ? "" : "s"} ${lead}</span>
+      <span class="concept-filter-text">Filters match ${matched} mistake${matched === 1 ? "" : "s"} ${lead}</span>
       ${pills}
       <button class="concept-filter-clear" data-action="clearConceptFilters">Show all</button>
     </div>`;
@@ -653,7 +676,7 @@ function renderGame() {
     const visibleMistakes = game.rounds.reduce((sum, r) => sum + r.mistakes.filter(mistakeVisible).length, 0);
     if (totalMistakes > 0 && visibleMistakes < totalMistakes && state.gameView === "rounds") {
       const hidden = totalMistakes - visibleMistakes;
-      html += `<div class="filter-banner">Showing ${visibleMistakes} of ${totalMistakes} mistakes. ${hidden} hidden by the severity slider.</div>`;
+      html += `<div class="filter-banner">Filters match ${visibleMistakes} of ${totalMistakes} mistakes. Expand a hand to see its ${hidden === 1 ? "hidden mistake" : "hidden mistakes"}.</div>`;
     }
   }
 
@@ -667,9 +690,11 @@ function renderGame() {
   // Rounds
   for (const [roundIndex, rnd] of game.rounds.entries()) {
     const visible = rnd.mistakes.filter(mistakeVisible);
+    const expanded = handMistakesExpanded(game, roundIndex);
+    const hiddenCount = rnd.mistakes.length - visible.length;
     // With a concept filter active a clean/non-matching round carries nothing to
     // show, so drop it entirely rather than render an empty "Clean" card.
-    if (state.conceptFilters.length && visible.length === 0) continue;
+    if (state.conceptFilters.length && visible.length === 0 && !expanded) continue;
 
     const outcomeStr = rnd.outcome ? (OUTCOME_EMOJI[rnd.outcome] || rnd.outcome) : "";
     // Prefer the decision count; old games stored before it existed only
@@ -693,6 +718,10 @@ function renderGame() {
       ${outcomeStr ? `<span class="outcome">${outcomeStr}</span>` : ""}
       ${isClean ? '<span class="clean-badge">Clean</span>' : ""}
       <div class="round-mistake-summary">${renderMistakeStats(rnd.mistakes)}</div>
+      ${hiddenCount ? `<button type="button" class="round-expand" data-action="toggleHandMistakes"
+        data-round-index="${roundIndex}" aria-expanded="${expanded}"
+        title="${expanded ? "Hide mistakes excluded by the filters" : `Show ${hiddenCount} more mistake${hiddenCount === 1 ? "" : "s"} hidden by the filters`}">
+        ${expanded ? "Show less" : "Show all"}<span class="round-expand-chevron" aria-hidden="true"></span></button>` : ""}
     </div>`;
 
     // Track turn index for duplicate turn disambiguation
@@ -708,7 +737,7 @@ function renderGame() {
       const idx = turnSeen[turnKey] = (turnSeen[turnKey] || 0);
       turnSeen[turnKey]++;
 
-      if (!mistakeVisible(m)) continue;
+      if (!expanded && !mistakeVisible(m)) continue;
 
       const sc = sevClass(m);
       const dataAttrs = `data-game="${state.currentGame}" data-round="${rnd.round}" data-turn="${m.turn}" data-index="${idx}"`;

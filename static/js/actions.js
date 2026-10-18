@@ -63,6 +63,7 @@ var HAIPAI_CLICK_ACTIONS = {
     else window.location.hash = h;
   },
   deleteGame: () => deleteGame(state.currentGame),
+  toggleHandMistakes: (el) => toggleHandMistakes(Number(el.dataset.roundIndex)),
   switchGameView: (el) => switchGameView(el.dataset.view),
   scrollGameSection: (el) => document.getElementById(el.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" }),
   filterConcept: (el) => toggleConceptFilter(el.dataset.conceptSide, el.dataset.conceptGroup, el.dataset.conceptDim),
