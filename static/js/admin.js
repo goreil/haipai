@@ -1,7 +1,8 @@
 // Admin dashboard: category-reports list + user list with View-as
 // impersonation. Impersonate banner rendering also lives here.
 
-var adminState = { users: [], reports: [], reportKind: "", reportScope: "others", reportsLoading: false,
+var adminState = { users: [], reports: [], reportKind: "", reportSort: "ev", reportScope: "others", reportsLoading: false,
+                   reportPageSize: 10, reportPage: 0, reportIds: [],
                    mau: 0, mauTrend: [],
                    makaRanks: { count: 0, undated: 0, since: "" },
                    userSort: { col: "latest_game", dir: "desc" },
@@ -54,6 +55,7 @@ async function loadSnapshotHistory() {
 // Used when the admin switches between "Other players" and "All reports".
 async function reloadAdminReports(scope) {
   adminState.reportScope = scope;
+  adminState.reportPage = 0;
   adminState.reportsLoading = true;
   renderAdmin();
   const res = await fetch(`/api/admin/category-reports?scope=${encodeURIComponent(scope)}`);
@@ -87,6 +89,76 @@ function prepAndCategorizeReports(reports, mortalByGame) {
       r.mistake.labels = out.labels;
     }
   }
+}
+
+// Apply all filters before sorting and pagination.
+function rankedAdminReports(reports, kind, sort, reportIds = []) {
+  const ids = new Set(reportIds);
+  const ev = r => {
+    const value = r.mistake && r.mistake.ev_loss;
+    return value != null && Number.isFinite(Number(value)) ? Number(value) : -Infinity;
+  };
+  return reports.filter(r => (!kind || r.kind === kind) && (!ids.size || ids.has(r.id))).sort((a, b) => {
+    if (sort !== "date" && ev(a) !== ev(b)) return ev(a) > ev(b) ? -1 : 1;
+    return (b.created_at || "").localeCompare(a.created_at || "") || b.id - a.id;
+  });
+}
+
+function adminReportPage(reports, pageSize, page) {
+  const total = reports.length;
+  const size = pageSize === "unlimited" ? Math.max(total, 1) : pageSize;
+  const pages = Math.max(1, Math.ceil(total / size));
+  page = Math.max(0, Math.min(page, pages - 1));
+  const offset = page * size;
+  return { reports: reports.slice(offset, offset + size), total, page, pages,
+           start: total ? offset + 1 : 0, end: Math.min(offset + size, total) };
+}
+
+function adminSetReportPageSize(value) {
+  adminState.reportPageSize = value === "unlimited" ? value : [10, 20, 50].includes(Number(value)) ? Number(value) : 10;
+  adminState.reportPage = 0;
+  renderAdmin();
+}
+
+function adminChangeReportPage(direction) {
+  if (adminState.reportsLoading) return;
+  adminState.reportPage += direction;
+  renderAdmin();
+  document.getElementById("admin-report-controls")?.scrollIntoView({ block: "start" });
+}
+
+function parseAdminReportIds(value) {
+  const tokens = value.trim().split(/[\s,;]+/).filter(Boolean);
+  if (tokens.some(token => !/^#?\d+$/.test(token)
+      || !Number.isSafeInteger(Number(token.replace(/^#/, ""))) || Number(token.replace(/^#/, "")) <= 0)) {
+    throw new Error("Enter positive report IDs separated by commas or spaces (for example, 12, 34, 56).");
+  }
+  return [...new Set(tokens.map(token => Number(token.replace(/^#/, ""))))];
+}
+
+function adminFilterReportIds(form) {
+  const input = form.elements.reportIds;
+  try {
+    adminState.reportIds = parseAdminReportIds(input.value);
+  } catch (error) {
+    input.setCustomValidity(error.message);
+    input.reportValidity();
+    return;
+  }
+  adminState.reportPage = 0;
+  renderAdmin();
+}
+
+function adminClearReportIds() {
+  adminState.reportIds = [];
+  adminState.reportPage = 0;
+  renderAdmin();
+}
+
+function adminSortReports(sort) {
+  adminState.reportSort = sort === "date" ? "date" : "ev";
+  adminState.reportPage = 0;
+  renderAdmin();
 }
 
 // Return a sorted copy of the user list. Numeric columns (game_count) sort
@@ -222,29 +294,58 @@ function renderAdmin() {
   const reports = adminState.reports || [];
   const reportKind = adminState.reportKind;
   const reportScope = adminState.reportScope;
-  const filteredReports = reportKind ? reports.filter(r => r.kind === reportKind) : reports;
+  const matchingReports = rankedAdminReports(reports, reportKind, adminState.reportSort, adminState.reportIds);
+  const page = adminReportPage(matchingReports, adminState.reportPageSize, adminState.reportPage);
+  adminState.reportPage = page.page;
+  const filteredReports = page.reports;
+  const pagination = `<nav class="admin-report-pagination" aria-label="Report pages">
+    <button class="btn btn-sm" data-action="adminChangeReportPage" data-direction="-1" ${adminState.reportsLoading || page.page === 0 ? "disabled" : ""}>Previous</button>
+    <span>Page ${page.page + 1} of ${page.pages}</span>
+    <button class="btn btn-sm" data-action="adminChangeReportPage" data-direction="1" ${adminState.reportsLoading || page.page + 1 >= page.pages ? "disabled" : ""}>Next</button>
+  </nav>`;
   const counts = reports.reduce((a, r) => { a[r.kind] = (a[r.kind] || 0) + 1; return a; }, {});
-  html += `<div class="game-header" style="margin-top:8px"><h2>Category reports (${reports.length})</h2></div>`;
-  html += `<div class="admin-filters">
-    <select data-change-action="reloadAdminReports">
+  html += `<div class="game-header" style="margin-top:8px"><h2>Category reports <span class="admin-report-total">${reports.length}</span></h2></div>`;
+  html += `<div id="admin-report-controls" class="admin-filters admin-report-controls">
+    <label>Players<select data-change-action="reloadAdminReports">
       <option value="others" ${reportScope==="others"?"selected":""}>Other player reports</option>
       <option value="all" ${reportScope==="all"?"selected":""}>All reports</option>
-    </select>
-    <select data-change-action="adminReportKind">
+    </select></label>
+    <label>Report kind<select data-change-action="adminReportKind">
       <option value="">All kinds (${reports.length})</option>
-      <option value="complex_gap" ${reportKind==="complex_gap"?"selected":""}>complex_gap (${counts.complex_gap||0})</option>
-      <option value="wrong_text" ${reportKind==="wrong_text"?"selected":""}>wrong_text (${counts.wrong_text||0})</option>
-      <option value="wrong_category" ${reportKind==="wrong_category"?"selected":""}>wrong_category (${counts.wrong_category||0})</option>
-    </select>
+      <option value="complex_gap" ${reportKind==="complex_gap"?"selected":""}>Complex gap (${counts.complex_gap||0})</option>
+      <option value="wrong_text" ${reportKind==="wrong_text"?"selected":""}>Wrong text (${counts.wrong_text||0})</option>
+      <option value="wrong_category" ${reportKind==="wrong_category"?"selected":""}>Wrong category (${counts.wrong_category||0})</option>
+    </select></label>
+    <label>Sort by<select data-change-action="adminSortReports">
+      <option value="ev" ${adminState.reportSort === "ev" ? "selected" : ""}>EV · highest first</option>
+      <option value="date" ${adminState.reportSort === "date" ? "selected" : ""}>Report date · newest first</option>
+    </select></label>
+    <label>Reports per page<select data-change-action="adminSetReportPageSize">
+      ${[10, 20, 50, "unlimited"].map(size => `<option value="${size}" ${adminState.reportPageSize === size ? "selected" : ""}>${size === "unlimited" ? "Unlimited" : size}</option>`).join("")}
+    </select></label>
+    <form class="admin-report-id-filter" data-submit-action="adminFilterReportIds">
+      <label for="admin-report-ids">Filter by report IDs</label>
+      <div class="admin-report-id-input">
+        <input id="admin-report-ids" name="reportIds" type="text" value="${adminState.reportIds.join(", ")}" placeholder="e.g. 12, 34, 56" aria-describedby="admin-report-id-help">
+        <button class="btn btn-sm" type="submit">Apply filter</button>
+        <button class="btn btn-sm" type="button" data-action="adminClearReportIds">Clear</button>
+      </div>
+      <small id="admin-report-id-help">Separate IDs with commas or spaces. Applies within the selected players and report kind.</small>
+    </form>
+    <span class="admin-report-summary" aria-live="polite">${adminState.reportsLoading ? "Loading reports…" : `Showing ${page.total ? `${page.start}–${page.end}` : "0"} of ${page.total} reports`}
+      <small>${adminState.reportSort === "date" ? "Newest reports first" : "Highest EV loss first"}${adminState.reportIds.length ? ` · ${adminState.reportIds.length} IDs selected` : ""}</small>
+    </span>
+    ${pagination}
   </div>`;
   if (adminState.reportsLoading) {
     html += '<div class="empty-state">Loading reports...</div>';
   } else if (!filteredReports.length) {
-    html += '<div class="empty-state">No reports</div>';
+    html += '<div class="empty-state">No reports match the selected filters.</div>';
   } else {
     for (const r of filteredReports) {
       html += renderReportCard(r);
     }
+    if (page.pages > 1) html += pagination;
   }
 
   content.innerHTML = html;
@@ -627,7 +728,7 @@ async function adminDeleteReport(reportId) {
     return;
   }
   adminState.reports = (adminState.reports || []).filter(x => x.id !== reportId);
-  document.getElementById(`report-${reportId}`)?.remove();
+  renderAdmin();
 }
 
 async function adminStopImpersonate() {

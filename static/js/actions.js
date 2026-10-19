@@ -90,6 +90,8 @@ var HAIPAI_CLICK_ACTIONS = {
   adminImpersonate: (el) => adminImpersonate(+el.dataset.userId),
   adminDeleteUser: (el) => adminDeleteUser(+el.dataset.userId),
   adminDeleteReport: (el) => adminDeleteReport(+el.dataset.reportId),
+  adminChangeReportPage: (el) => adminChangeReportPage(Number(el.dataset.direction)),
+  adminClearReportIds: () => adminClearReportIds(),
   computeCategorySnapshot: () => computeCategorySnapshot(),
   saveCategorySnapshot: () => saveCategorySnapshot(),
 
@@ -123,7 +125,9 @@ var HAIPAI_CHANGE_ACTIONS = {
   onReportDetails: (el) => onReportDetails(el, +el.dataset.mid),
   onComplexReason: (el) => onComplexReason(+el.dataset.mid),
   reloadAdminReports: (el) => reloadAdminReports(el.value),
-  adminReportKind: (el) => { adminState.reportKind = el.value; renderAdmin(); },
+  adminSortReports: (el) => adminSortReports(el.value),
+  adminReportKind: (el) => { adminState.reportKind = el.value; adminState.reportPage = 0; renderAdmin(); },
+  adminSetReportPageSize: (el) => adminSetReportPageSize(el.value),
   onSevSlider: (el) => onSevSlider(el),
 };
 
@@ -139,4 +143,14 @@ document.addEventListener("change", (e) => {
   if (!el) return;
   const fn = HAIPAI_CHANGE_ACTIONS[el.dataset.changeAction];
   if (fn) fn(el, e);
+});
+
+document.addEventListener("submit", (e) => {
+  if (e.target.dataset.submitAction !== "adminFilterReportIds") return;
+  e.preventDefault();
+  adminFilterReportIds(e.target);
+});
+
+document.addEventListener("input", (e) => {
+  if (e.target.id === "admin-report-ids") e.target.setCustomValidity("");
 });
