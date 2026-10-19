@@ -77,7 +77,7 @@ async function showCoins() {
           <div class="coins-total">${data.balance.toLocaleString()} <span>coins</span></div></div></div>
         <p class="coins-disclaimer">Coins have no use yet.</p>
       </div>
-      <p class="coins-rates">Fixed reports: 100 × EV · Maka ranks: ${data.maka_rate} coins per grade</p>
+      <p class="coins-rates">Category reports that lead to fixes: 100 × EV · Maka ranks: ${data.maka_rate} coins per grade</p>
       <div class="coins-log-heading"><h3>Activity</h3></div>
       <ul class="coin-log" id="coin-log">${coinMakaSummaryHtml(data.totals.maka_grade || 0)}${coinEntriesHtml(data.entries)}${
         !data.entries.length && !data.totals.maka_grade ? '<li class="coins-empty">No coins yet.</li>' : ""}</ul>
