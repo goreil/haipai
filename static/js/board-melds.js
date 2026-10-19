@@ -164,6 +164,24 @@ function meldYakuhai(melds, seatWind, roundWind) {
   return out;
 }
 
+// Ittsu is guaranteed only when 123, 456 and 789 of one suit are all called.
+function meldIttsu(melds) {
+  const runs = new Map();
+  for (const meld of melds || []) {
+    if (meld.type !== "chi") continue;
+    const tiles = [...(meld.consumed || []), meld.pai].filter(Boolean).map(tileBase).sort();
+    if (tiles.length !== 3) continue;
+    const suit = tiles[0][1];
+    const start = Number(tiles[0][0]);
+    if (!"mps".includes(suit) || ![1, 4, 7].includes(start)) continue;
+    if (!tiles.every((tile, i) => tile === `${start + i}${suit}`)) continue;
+    if (!runs.has(suit)) runs.set(suit, new Set());
+    runs.get(suit).add(start);
+  }
+  return [...runs].filter(([, starts]) => starts.size === 3)
+    .map(([suit]) => ({ tile: `1${suit}`, name: "Ittsu", han: 1 }));
+}
+
 // Four open calls leave only the pair concealed. Four triplet calls therefore
 // lock Toitoi, and four honor calls also lock the honor-based Honitsu floor.
 function meldFourCallYaku(melds, openMeldCount) {

@@ -11,6 +11,7 @@ frontend consumes.
 
 import json
 import secrets
+from datetime import datetime, timezone
 
 from db.mistakes import mistake_to_row, row_to_mistake
 
@@ -342,9 +343,33 @@ def get_trends(conn, user_id):
 
 def save_maka_ratings(conn, game_id, user_id, ratings):
     """Persist manual ratings independently of computed analysis data."""
+    row = conn.execute(
+        "SELECT maka_ratings_json, maka_ratings_added_at_json FROM games WHERE id = ? AND user_id = ?",
+        (game_id, user_id),
+    ).fetchone()
+    if row is None:
+        return False
+    previous = json.loads(row["maka_ratings_json"]) if row["maka_ratings_json"] else {}
+    added = json.loads(row["maka_ratings_added_at_json"]) if row["maka_ratings_added_at_json"] else {}
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+    def added_at(grade, old_grade, old_date):
+        if not grade:
+            return None
+        return old_date if old_grade else now
+
+    old_matches = previous.get("matches", [])
+    old_dates = added.get("matches", [])
+    dates = {
+        "overall": added_at(ratings["overall"], previous.get("overall"), added.get("overall")),
+        "matches": [added_at(grade,
+                             old_matches[i] if i < len(old_matches) else None,
+                             old_dates[i] if i < len(old_dates) else None)
+                    for i, grade in enumerate(ratings["matches"])],
+    }
     cur = conn.execute(
-        "UPDATE games SET maka_ratings_json = ? WHERE id = ? AND user_id = ?",
-        (json.dumps(ratings), game_id, user_id),
+        "UPDATE games SET maka_ratings_json = ?, maka_ratings_added_at_json = ? WHERE id = ? AND user_id = ?",
+        (json.dumps(ratings), json.dumps(dates), game_id, user_id),
     )
     conn.commit()
     return cur.rowcount > 0

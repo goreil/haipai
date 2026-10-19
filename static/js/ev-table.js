@@ -73,8 +73,10 @@ function renderWinFeatPill(w, oya) {
           + "3, 1/9 with 2 (never ryanmen), honors with none",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
     case "yakuhai_kept":
-      return featPill("pos", "+yakuhai",
-        "Keeps a yakuhai (value honor) the other pick discards",
+      return featPill("pos", w.han === 2 ? "+double yakuhai" : "+yakuhai",
+        w.han === 2
+          ? "Keeps a double yakuhai wind (both seat and round wind), worth 2 han as a triplet"
+          : "Keeps a yakuhai (value honor) the other pick discards",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
     case "tanyao_kept":
       return featPill("pos", `+tanyao ${w.magnitude}/14`,

@@ -90,7 +90,7 @@ function _yakuName(w) {
     case "toitoi_kept": return "toitoi";
     case "chiitoi_kept": return "chiitoi";
     case "chanta_kept": return "chanta";
-    case "yakuhai_kept": return `yakuhai ${renderTile(w.tiles[0], "tile-sm")}`;
+    case "yakuhai_kept": return `${w.han === 2 ? "double yakuhai (2 han)" : "yakuhai"} ${renderTile(w.tiles[0], "tile-sm")}`;
   }
   return null;
 }

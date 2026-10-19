@@ -3,6 +3,7 @@
 
 var adminState = { users: [], reports: [], reportKind: "", reportScope: "others", reportsLoading: false,
                    mau: 0, mauTrend: [],
+                   makaRanks: { count: 0, undated: 0, since: "" },
                    userSort: { col: "latest_game", dir: "desc" },
                    // Category-shape snapshot panel: history of saved runs, the
                    // last in-browser computed result, and live run status.
@@ -27,6 +28,7 @@ async function showAdmin() {
   adminState.users = stats.users || [];
   adminState.mau = stats.mau || 0;
   adminState.mauTrend = stats.mau_trend || [];
+  adminState.makaRanks = stats.maka_ranks || adminState.makaRanks;
   const reportPayload = reportsRes.ok ? await reportsRes.json() : { reports: [], mortal_data_by_game: {} };
   adminState.reports = reportPayload.reports || [];
   prepAndCategorizeReports(adminState.reports, reportPayload.mortal_data_by_game || {});
@@ -159,6 +161,16 @@ function renderAdmin() {
   let html = `<div class="game-header"><h2>Admin Dashboard</h2></div>`;
 
   html += renderMauPanel();
+
+  const maka = adminState.makaRanks;
+  const rankDate = maka.since ? new Date(maka.since.replace(" ", "T") + "Z")
+    .toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "last update";
+  html += `<div class="admin-card" style="margin-bottom:16px">
+    <div class="admin-card-header"><b>Maka ranks added since Haipai rank update</b>
+      <span class="admin-meta">&middot; ${rankDate}</span></div>
+    <div>${maka.undated ? "At least " : ""}<strong>${maka.count}</strong> overall and match grades</div>
+    ${maka.undated ? `<div class="admin-meta">${maka.undated} existing grades on older games have unknown save dates.</div>` : ""}
+  </div>`;
 
   // User stats (with View-as button for impersonation). Sortable by any
   // column — click a header to toggle; default is latest_game desc.

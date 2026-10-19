@@ -47,9 +47,11 @@ def api_admin_stats():
     conn = get_conn()
     users = db.admin_user_stats(conn)
     mau = db.admin_mau_stats(conn)
+    maka = db.admin_maka_rank_stats(conn)
     return jsonify({
         "users": users, "total_users": len(users),
         "mau": mau["mau"], "mau_trend": mau["trend"],
+        "maka_ranks": maka,
     })
 
 

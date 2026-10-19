@@ -24,6 +24,8 @@ For the Elm subproject, run `npm test`, `npm run format`, or `npm run review` fr
 
 Use four-space indentation and `snake_case` for Python functions/modules; use `PascalCase` for classes. Ruff enforces `E`, `F`, and `W` rules with a 120-character line target. Keep route handlers thin and put persistence logic in `db/`. Existing JavaScript uses lower camel case and scope-based `style-*.css` files. Preserve Elm formatting with `elm-format`; format Rust with `cargo fmt`.
 
+Inspect UI changes visually and make sure they look aesthetically pleasing.
+
 ## Testing Guidelines
 
 Pytest discovers `test_*.py`, `Test*` classes, and `test_*` functions. Add regression tests beside the affected API or database area and reuse fixtures from `tests/fixtures.py` or `tests/fixtures/`. Run the full suite before submitting; use `--cov` when evaluating coverage. Component-specific changes should also run their Elm or Rust tests.

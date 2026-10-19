@@ -1,0 +1,918 @@
+{
+  "id": 35708,
+  "hand": [
+    "2m",
+    "6m",
+    "2p",
+    "6p",
+    "8p",
+    "1s",
+    "3s",
+    "5s",
+    "6s",
+    "8s",
+    "9s",
+    "E",
+    "P",
+    "2s"
+  ],
+  "melds": [],
+  "shanten": 4,
+  "draw": "2s",
+  "turn": 1,
+  "actual": {
+    "type": "dahai",
+    "actor": 2,
+    "pai": "E",
+    "tsumogiri": false
+  },
+  "expected": {
+    "type": "dahai",
+    "actor": 2,
+    "pai": "P",
+    "tsumogiri": false
+  },
+  "board_state": {
+    "dora_indicators": [
+      "5sr"
+    ],
+    "dora_tiles": [
+      "6s"
+    ],
+    "seat_wind": "E",
+    "round_wind": "E",
+    "scores": [
+      23600,
+      35500,
+      19300,
+      21600
+    ],
+    "all_discards": [
+      {
+        "seat": 0,
+        "discards": [],
+        "riichi_idx": null
+      },
+      {
+        "seat": 1,
+        "discards": [],
+        "riichi_idx": null
+      },
+      {
+        "seat": 2,
+        "discards": [],
+        "riichi_idx": null
+      },
+      {
+        "seat": 3,
+        "discards": [],
+        "riichi_idx": null
+      }
+    ],
+    "opponent_melds": [],
+    "tiles_left": 69
+  },
+  "discard_stats": [
+    {
+      "tile": "2m",
+      "shanten": 3,
+      "necessary_count": 24,
+      "necessary_tiles": [
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "6m",
+      "shanten": 3,
+      "necessary_count": 24,
+      "necessary_tiles": [
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "2p",
+      "shanten": 3,
+      "necessary_count": 24,
+      "necessary_tiles": [
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "E",
+      "shanten": 3,
+      "necessary_count": 24,
+      "necessary_tiles": [
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "P",
+      "shanten": 3,
+      "necessary_count": 24,
+      "necessary_tiles": [
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "9s",
+      "shanten": 4,
+      "necessary_count": 77,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 4
+        },
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "3m",
+          "count": 4
+        },
+        {
+          "tile": "4m",
+          "count": 4
+        },
+        {
+          "tile": "5m",
+          "count": 4,
+          "aka_count": 1
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "7m",
+          "count": 4
+        },
+        {
+          "tile": "8m",
+          "count": 4
+        },
+        {
+          "tile": "1p",
+          "count": 4
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "3p",
+          "count": 4
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "3s",
+          "count": 3
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "5s",
+          "count": 2
+        },
+        {
+          "tile": "6s",
+          "count": 3
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "8s",
+          "count": 3
+        },
+        {
+          "tile": "9s",
+          "count": 3
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "5s",
+      "shanten": 4,
+      "necessary_count": 74,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 4
+        },
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "3m",
+          "count": 4
+        },
+        {
+          "tile": "4m",
+          "count": 4
+        },
+        {
+          "tile": "5m",
+          "count": 4,
+          "aka_count": 1
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "7m",
+          "count": 4
+        },
+        {
+          "tile": "8m",
+          "count": 4
+        },
+        {
+          "tile": "1p",
+          "count": 4
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "3p",
+          "count": 4
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "5s",
+          "count": 2
+        },
+        {
+          "tile": "6s",
+          "count": 3
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "8s",
+          "count": 3
+        },
+        {
+          "tile": "9s",
+          "count": 3
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "6p",
+      "shanten": 4,
+      "necessary_count": 73,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 4
+        },
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "3m",
+          "count": 4
+        },
+        {
+          "tile": "4m",
+          "count": 4
+        },
+        {
+          "tile": "5m",
+          "count": 4,
+          "aka_count": 1
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "7m",
+          "count": 4
+        },
+        {
+          "tile": "8m",
+          "count": 4
+        },
+        {
+          "tile": "1p",
+          "count": 4
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "3p",
+          "count": 4
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "6p",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "8p",
+          "count": 3
+        },
+        {
+          "tile": "9p",
+          "count": 4
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "8p",
+      "shanten": 4,
+      "necessary_count": 73,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 4
+        },
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "3m",
+          "count": 4
+        },
+        {
+          "tile": "4m",
+          "count": 4
+        },
+        {
+          "tile": "5m",
+          "count": 4,
+          "aka_count": 1
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "7m",
+          "count": 4
+        },
+        {
+          "tile": "8m",
+          "count": 4
+        },
+        {
+          "tile": "1p",
+          "count": 4
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "3p",
+          "count": 4
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "5p",
+          "count": 4,
+          "aka_count": 1
+        },
+        {
+          "tile": "6p",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "8p",
+          "count": 3
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "6s",
+      "shanten": 4,
+      "necessary_count": 71,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 4
+        },
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "3m",
+          "count": 4
+        },
+        {
+          "tile": "4m",
+          "count": 4
+        },
+        {
+          "tile": "5m",
+          "count": 4,
+          "aka_count": 1
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "7m",
+          "count": 4
+        },
+        {
+          "tile": "8m",
+          "count": 4
+        },
+        {
+          "tile": "1p",
+          "count": 4
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "3p",
+          "count": 4
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "3s",
+          "count": 3
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "5s",
+          "count": 2
+        },
+        {
+          "tile": "6s",
+          "count": 3
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "8s",
+      "shanten": 4,
+      "necessary_count": 69,
+      "necessary_tiles": [
+        {
+          "tile": "1m",
+          "count": 4
+        },
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "3m",
+          "count": 4
+        },
+        {
+          "tile": "4m",
+          "count": 4
+        },
+        {
+          "tile": "5m",
+          "count": 4,
+          "aka_count": 1
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "7m",
+          "count": 4
+        },
+        {
+          "tile": "8m",
+          "count": 4
+        },
+        {
+          "tile": "1p",
+          "count": 4
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "3p",
+          "count": 4
+        },
+        {
+          "tile": "4p",
+          "count": 4
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "8s",
+          "count": 3
+        },
+        {
+          "tile": "9s",
+          "count": 3
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "1s",
+      "shanten": 4,
+      "necessary_count": 30,
+      "necessary_tiles": [
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "1s",
+          "count": 3
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "2s",
+      "shanten": 4,
+      "necessary_count": 30,
+      "necessary_tiles": [
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "2s",
+          "count": 3
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "tile": "3s",
+      "shanten": 4,
+      "necessary_count": 30,
+      "necessary_tiles": [
+        {
+          "tile": "2m",
+          "count": 3
+        },
+        {
+          "tile": "6m",
+          "count": 3
+        },
+        {
+          "tile": "2p",
+          "count": 3
+        },
+        {
+          "tile": "7p",
+          "count": 4
+        },
+        {
+          "tile": "3s",
+          "count": 3
+        },
+        {
+          "tile": "4s",
+          "count": 4
+        },
+        {
+          "tile": "7s",
+          "count": 4
+        },
+        {
+          "tile": "E",
+          "count": 3
+        },
+        {
+          "tile": "P",
+          "count": 3
+        }
+      ]
+    }
+  ]
+}

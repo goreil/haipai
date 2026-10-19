@@ -381,7 +381,7 @@ function renderBoardContext(m) {
         const meldDora = doraTilesList.length;
         const seatWindLetter = (oya != null) ? WINDS[(d.seat - oya + 4) % 4] : null;
         const yakuList = isOppThreat
-          ? [...meldYakuhai(seatMelds, seatWindLetter, b.round_wind),
+          ? [...meldYakuhai(seatMelds, seatWindLetter, b.round_wind), ...meldIttsu(seatMelds),
              ...meldFourCallYaku(seatMelds, openMeldCount)] : [];
         const yakuHan = yakuList.reduce((sum, y) => sum + y.han, 0);
         const guaranteedHan = threatGuaranteedHan(yakuHan, meldDora);

@@ -247,12 +247,20 @@
     // --- Yaku / yakuhai_kept — the side that keeps a yakuhai the other drops. ---
     // ev-table's +yakuhai pill rides on the column NOT discarding the yakuhai;
     // the kept tile is the other column's discard.
-    const aYak = tileIsYakuhai(actualTile, roundWind, seatWind);
-    const eYak = tileIsYakuhai(expectedTile, roundWind, seatWind);
-    if (eYak && !aYak) {
-      wins.push({ dim: "yakuhai_kept", group: "Yaku", prio: 1, winner: "you", tiles: [expectedTile] });
-    } else if (aYak && !eYak) {
-      wins.push({ dim: "yakuhai_kept", group: "Yaku", prio: 1, winner: "mortal", tiles: [actualTile] });
+    // A wind matching both seat and round is worth two han, even when the
+    // other discard is also yakuhai (report #m35708: double East vs white).
+    const yakuhaiHan = tile => tileIsYakuhai(tile, roundWind, seatWind)
+      ? 1 + Number(tile === roundWind && tile === seatWind) : 0;
+    const aYak = yakuhaiHan(actualTile);
+    const eYak = yakuhaiHan(expectedTile);
+    if (aYak !== eYak) {
+      const win = {
+        dim: "yakuhai_kept", group: "Yaku", prio: 1,
+        winner: aYak > eYak ? "mortal" : "you",
+        tiles: [aYak > eYak ? actualTile : expectedTile],
+      };
+      if (Math.max(aYak, eYak) === 2) win.han = 2;
+      wins.push(win);
     }
 
     // --- Yaku / tanyao_kept — the side that cuts a non-simple (terminal/honor)

@@ -7,6 +7,9 @@ Migrations are forward-only; additive steps (`ALTER TABLE ADD COLUMN`
 block — see the practice-mode removal below for the pattern.
 """
 
+# Updated with the Haipai grading formula. UTC, from commit 9f1ba75.
+HAIPAI_RANK_UPDATED_AT = "2026-09-22 19:12:18"
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
@@ -31,6 +34,7 @@ CREATE TABLE IF NOT EXISTS games (
     stats_json TEXT,
     rounds_json TEXT,
     maka_ratings_json TEXT,
+    maka_ratings_added_at_json TEXT,
     categorization_status TEXT NOT NULL DEFAULT 'done',
     share_token TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -158,6 +162,28 @@ def migrate(conn):
     altered = False
     if not _has_column("games", "maka_ratings_json"):
         conn.execute("ALTER TABLE games ADD COLUMN maka_ratings_json TEXT")
+        altered = True
+    if not _has_column("games", "maka_ratings_added_at_json"):
+        import json
+
+        conn.execute("ALTER TABLE games ADD COLUMN maka_ratings_added_at_json TEXT")
+        # A grade on a game uploaded after the last ranking change must have
+        # been added after that change. Earlier uploads have no reliable grade
+        # save date, so leave their existing grades explicitly undated.
+        for row in conn.execute(
+            "SELECT id, created_at, maka_ratings_json FROM games "
+            "WHERE maka_ratings_json IS NOT NULL AND created_at >= ?",
+            (HAIPAI_RANK_UPDATED_AT,),
+        ).fetchall():
+            ratings = json.loads(row["maka_ratings_json"])
+            added = {
+                "overall": row["created_at"] if ratings.get("overall") else None,
+                "matches": [row["created_at"] if grade else None for grade in ratings.get("matches", [])],
+            }
+            conn.execute(
+                "UPDATE games SET maka_ratings_added_at_json = ? WHERE id = ?",
+                (json.dumps(added), row["id"]),
+            )
         altered = True
     if not _has_column("users", "is_admin"):
         conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")

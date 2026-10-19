@@ -1,5 +1,9 @@
 """Admin-only helpers (privilege check + user dashboard stats)."""
 
+import json
+
+from db.schema import HAIPAI_RANK_UPDATED_AT
+
 
 def is_admin(conn, user_id):
     """Check if a user has admin privileges."""
@@ -63,3 +67,29 @@ def admin_mau_stats(conn):
         months.append({"month": key, "active_users": counts.get(key, 0)})
 
     return {"mau": mau, "trend": months}
+
+
+def admin_maka_rank_stats(conn):
+    """Count filled Maka grades added since the latest Haipai ranking change.
+
+    Existing grades on games uploaded before timestamp tracking began have an
+    unknown save date. Report those separately rather than claiming they are
+    new. One overall grade and each match grade count as separate entries.
+    """
+    count = undated = 0
+    for row in conn.execute(
+        "SELECT maka_ratings_json, maka_ratings_added_at_json FROM games WHERE maka_ratings_json IS NOT NULL"
+    ):
+        ratings = json.loads(row["maka_ratings_json"])
+        added = json.loads(row["maka_ratings_added_at_json"]) if row["maka_ratings_added_at_json"] else {}
+        grades = [ratings.get("overall"), *ratings.get("matches", [])]
+        dates = [added.get("overall"), *added.get("matches", [])]
+        for i, grade in enumerate(grades):
+            if not grade:
+                continue
+            date = dates[i] if i < len(dates) else None
+            if date is None:
+                undated += 1
+            elif date >= HAIPAI_RANK_UPDATED_AT:
+                count += 1
+    return {"count": count, "undated": undated, "since": HAIPAI_RANK_UPDATED_AT}

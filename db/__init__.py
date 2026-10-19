@@ -69,7 +69,7 @@ from db.reports import (
     list_category_reports,
     submit_category_report,
 )
-from db.admin import admin_user_stats, admin_mau_stats, is_admin
+from db.admin import admin_user_stats, admin_mau_stats, admin_maka_rank_stats, is_admin
 from db.snapshots import (
     insert_category_snapshot,
     insert_snapshot,
@@ -171,6 +171,7 @@ __all__ = [
     # admin
     "admin_user_stats",
     "admin_mau_stats",
+    "admin_maka_rank_stats",
     "is_admin",
     # snapshots
     "insert_snapshot",

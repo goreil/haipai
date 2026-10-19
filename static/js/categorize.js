@@ -25,8 +25,9 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 15;
+  const CATEGORIZER_VERSION = 16;
   const CATEGORIZER_CHANGELOG = {
+    16: "Yakuhai comparisons count double seat/round winds as 2 han, including against a single yakuhai. Fixes #m35708; the pill and explanation name double yakuhai.",
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",
     2: "P1/P2 shanten + ukeire comparisons now use Mortal's expected pick, not the speed-calculator's top. Fixes false shanten-failure flags when calc finds a faster line than Mortal (#6805, #6283, #12151, #12164).",
     3: "P3 now requires Mortal's ukeire to be at least equal to the player's (strict, no similarity threshold). Rule is now: more ukeire or better shanten → push; otherwise complex. Affects #12151.",
