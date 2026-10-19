@@ -18,6 +18,9 @@
 //     _isDoubleRiichiContext, tenpaiWaitTiles)
 //   - mistake-card.js (mortalRaisedShanten, for the 5A branch)
 //   - tiles.js (renderTile, formatAction)
+//
+// Trainer text explains the card's visuals only (AGENTS.md). Hidden/suppressed
+// dimensions and guesses about Mortal's reasoning must not appear in the prose.
 
 // --- Compositional trainer text (mistake-dimensions CORE, Phase 2) ---
 //
@@ -122,8 +125,7 @@ function _sideClauses(wins, side, skillArea, seatWindFor) {
     if (_yakuName(w)) {
       if (yakuEmitted) continue;
       yakuEmitted = true;
-      c = `wants to go ${_joinClauses(yakuNames)}, which gives the option `
-        + `for more points and speeds up the hand`;
+      c = `keeps ${_joinClauses(yakuNames)} available for hand value`;
     } else if (w.dim === "dora_acceptance" && keptDora.size) {
       // Only the dora the kept clause didn't already name.
       const extra = (w.tiles || []).filter(t => !keptDora.has(t));
@@ -159,14 +161,6 @@ function _defenseLead(skillArea, defenseCtx) {
   return `${subject} ${winds.length > 1 ? "are" : "is"} in riichi.`;
 }
 
-// The "trust the read" hint for a complex spot — what the visible stats can't
-// see. Defense reads weigh the threat; attack reads weigh hand-building.
-function _complexHint(skillArea) {
-  return (skillArea === "defense" || skillArea === "open_defense")
-    ? "a wait-quality, hand-value, or score read on the threat"
-    : "hand shape, wait quality, or yaku potential";
-}
-
 // Assemble the discard-vs-discard body from shape + win-vector. Returns null
 // when the comparator isn't available (callers fall through to legacy text).
 function explainDiscardShape(m, defenseCtx) {
@@ -189,29 +183,26 @@ function explainDiscardShape(m, defenseCtx) {
   const mortalText = _joinClauses(_sideClauses(wins, "mortal", skillArea, seatWindFor));
   const lead = _defenseLead(skillArea, defenseCtx);
   const leadHtml = lead ? `<span class="trigger-line">${lead}</span>` : "";
-
   if (shape === "obvious") {
-    // Mortal strictly dominates — your column won nothing.
-    let head = mortalText
-      ? `Mortal's ${eT} is simply better — it ${mortalText}.`
-      : `Mortal's ${eT} is simply better here.`;
-    return `${leadHtml}<span class="trigger-line">${head}</span>`
-      + ` Your ${aT} gives that up for nothing — a pure-technique spot, so it's one of the easier ones to fix.`;
+    // Describe only the advantages represented by visible feature pills.
+    const head = mortalText
+      ? `The visible comparison favors Mortal's ${eT} — it ${mortalText}.`
+      : `The visible comparison favors Mortal's ${eT}.`;
+    return `${leadHtml}<span class="trigger-line">${head}</span>`;
   }
 
   if (shape === "trade-off") {
     // Both columns won something — value vs speed vs safety.
     return `${leadHtml}<span class="trigger-line">A judgment call.</span>`
-      + ` Your ${aT} ${youText} — but Mortal's ${eT} ${mortalText}, and here that's worth more.`;
+      + ` Your ${aT} ${youText}, while Mortal's ${eT} ${mortalText}. Mortal recommends ${eT}.`;
   }
 
   // complex — Mortal's column won nothing visible.
   if (youText) {
     return `${leadHtml}<span class="trigger-line">Mortal prefers ${eT}, but the visible stats don't explain it.</span>`
-      + ` Your ${aT} ${youText}, yet Mortal still picks ${eT} — likely ${_complexHint(skillArea)}. Trust the read.`;
+      + ` Your ${aT} ${youText}, yet Mortal still picks ${eT}.`;
   }
-  return `${leadHtml}<span class="trigger-line">Mortal prefers ${eT} over your ${aT}, but shanten, ukeire and value don't explain it.</span>`
-    + ` The edge is ${_complexHint(skillArea)} — trust the read.`;
+  return `${leadHtml}<span class="trigger-line">Mortal prefers ${eT} over your ${aT}, but the visible comparison doesn't explain it.</span>`;
 }
 
 function generateExplanation(m) {

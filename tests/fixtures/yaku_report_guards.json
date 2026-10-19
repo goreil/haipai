@@ -1,0 +1,2510 @@
+[
+  {
+    "report_id": 221,
+    "mistake": {
+      "id": 27698,
+      "hand": [
+        "1p",
+        "2p",
+        "5pr",
+        "2s",
+        "3s",
+        "5s",
+        "7s",
+        "7s",
+        "E",
+        "E",
+        "4s"
+      ],
+      "melds": [
+        {
+          "type": "pon",
+          "target": 1,
+          "pai": "P",
+          "consumed": [
+            "P",
+            "P"
+          ]
+        }
+      ],
+      "actual": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "5s",
+        "tsumogiri": false
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "2p",
+        "tsumogiri": false
+      },
+      "turn": 5,
+      "discard_stats": [
+        {
+          "tile": "5s",
+          "shanten": 1,
+          "necessary_count": 8,
+          "necessary_tiles": [
+            {
+              "tile": "3p",
+              "count": 4
+            },
+            {
+              "tile": "7s",
+              "count": 2
+            },
+            {
+              "tile": "E",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "tile": "2p",
+          "shanten": 2,
+          "necessary_count": 54,
+          "necessary_tiles": [
+            {
+              "tile": "1p",
+              "count": 3
+            },
+            {
+              "tile": "2p",
+              "count": 3
+            },
+            {
+              "tile": "3p",
+              "count": 4
+            },
+            {
+              "tile": "4p",
+              "count": 4
+            },
+            {
+              "tile": "5p",
+              "count": 3
+            },
+            {
+              "tile": "6p",
+              "count": 4
+            },
+            {
+              "tile": "7p",
+              "count": 3
+            },
+            {
+              "tile": "1s",
+              "count": 3
+            },
+            {
+              "tile": "2s",
+              "count": 3
+            },
+            {
+              "tile": "3s",
+              "count": 3
+            },
+            {
+              "tile": "4s",
+              "count": 3
+            },
+            {
+              "tile": "5s",
+              "count": 3,
+              "aka_count": 1
+            },
+            {
+              "tile": "6s",
+              "count": 4
+            },
+            {
+              "tile": "7s",
+              "count": 2
+            },
+            {
+              "tile": "8s",
+              "count": 4
+            },
+            {
+              "tile": "9s",
+              "count": 3
+            },
+            {
+              "tile": "E",
+              "count": 2
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "S",
+        "dora_tiles": [
+          "2s"
+        ],
+        "dora_indicators": [
+          "1s"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "9p",
+                "tsumogiri": true
+              },
+              {
+                "tile": "F",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "4m",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "8p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "7p",
+                "tsumogiri": true
+              },
+              {
+                "tile": "P",
+                "tsumogiri": true,
+                "called_by": 0
+              },
+              {
+                "tile": "8m",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false
+              },
+              {
+                "tile": "N",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "9m",
+                "tsumogiri": true
+              },
+              {
+                "tile": "9s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1m",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": []
+      }
+    }
+  },
+  {
+    "report_id": 226,
+    "mistake": {
+      "id": 29197,
+      "hand": [
+        "3m",
+        "3p",
+        "4p",
+        "6p",
+        "7p",
+        "1s",
+        "1s",
+        "3s",
+        "4s",
+        "E",
+        "E"
+      ],
+      "melds": [
+        {
+          "type": "pon",
+          "target": 0,
+          "pai": "W",
+          "consumed": [
+            "W",
+            "W"
+          ]
+        }
+      ],
+      "actual": {
+        "type": "dahai",
+        "actor": 3,
+        "pai": "7p",
+        "tsumogiri": false
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 3,
+        "pai": "6p",
+        "tsumogiri": false
+      },
+      "turn": 2,
+      "discard_stats": [
+        {
+          "tile": "6p",
+          "shanten": 2,
+          "necessary_count": 20,
+          "necessary_tiles": [
+            {
+              "tile": "2p",
+              "count": 4
+            },
+            {
+              "tile": "5p",
+              "count": 4,
+              "aka_count": 1
+            },
+            {
+              "tile": "1s",
+              "count": 2
+            },
+            {
+              "tile": "2s",
+              "count": 4
+            },
+            {
+              "tile": "5s",
+              "count": 4,
+              "aka_count": 1
+            },
+            {
+              "tile": "E",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "tile": "7p",
+          "shanten": 2,
+          "necessary_count": 20,
+          "necessary_tiles": [
+            {
+              "tile": "2p",
+              "count": 4
+            },
+            {
+              "tile": "5p",
+              "count": 4,
+              "aka_count": 1
+            },
+            {
+              "tile": "1s",
+              "count": 2
+            },
+            {
+              "tile": "2s",
+              "count": 4
+            },
+            {
+              "tile": "5s",
+              "count": 4,
+              "aka_count": 1
+            },
+            {
+              "tile": "E",
+              "count": 2
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "W",
+        "dora_tiles": [
+          "3m"
+        ],
+        "dora_indicators": [
+          "2m"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false,
+                "called_by": 3
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "N",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "1m",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "F",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": []
+      }
+    }
+  },
+  {
+    "report_id": 227,
+    "mistake": {
+      "id": 29592,
+      "hand": [
+        "7m",
+        "8m",
+        "9m",
+        "9m",
+        "6s",
+        "7s",
+        "8s",
+        "6s"
+      ],
+      "melds": [
+        {
+          "type": "pon",
+          "target": 1,
+          "pai": "F",
+          "consumed": [
+            "F",
+            "F"
+          ]
+        },
+        {
+          "type": "chi",
+          "target": 3,
+          "pai": "2s",
+          "consumed": [
+            "1s",
+            "3s"
+          ]
+        }
+      ],
+      "actual": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "6s",
+        "tsumogiri": true
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "9m",
+        "tsumogiri": false
+      },
+      "turn": 8,
+      "discard_stats": [
+        {
+          "tile": "6s",
+          "shanten": 0,
+          "necessary_count": 6,
+          "necessary_tiles": [
+            {
+              "tile": "6m",
+              "count": 4
+            },
+            {
+              "tile": "9m",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "tile": "9m",
+          "shanten": 0,
+          "necessary_count": 5,
+          "necessary_tiles": [
+            {
+              "tile": "6s",
+              "count": 2
+            },
+            {
+              "tile": "9s",
+              "count": 3
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "E",
+        "dora_tiles": [
+          "3m"
+        ],
+        "dora_indicators": [
+          "2m"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "P",
+                "tsumogiri": true
+              },
+              {
+                "tile": "8p",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "F",
+                "tsumogiri": false,
+                "called_by": 0
+              },
+              {
+                "tile": "9p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "E",
+                "tsumogiri": true
+              },
+              {
+                "tile": "8s",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8p",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2s",
+                "tsumogiri": false,
+                "called_by": 0
+              },
+              {
+                "tile": "8p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "6p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": true
+              },
+              {
+                "tile": "5s",
+                "tsumogiri": false,
+                "called_by": 1
+              },
+              {
+                "tile": "2p",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": [
+          {
+            "seat": 1,
+            "melds": [
+              {
+                "type": "pon",
+                "consumed": [
+                  "5sr",
+                  "5s"
+                ],
+                "pai": "5s",
+                "target": 3
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "report_id": 233,
+    "mistake": {
+      "id": 30331,
+      "hand": [
+        "4m",
+        "6m",
+        "7m",
+        "8m",
+        "5p",
+        "7p",
+        "8p",
+        "9p"
+      ],
+      "melds": [
+        {
+          "type": "pon",
+          "target": 0,
+          "pai": "F",
+          "consumed": [
+            "F",
+            "F"
+          ]
+        },
+        {
+          "type": "chi",
+          "target": 0,
+          "pai": "2m",
+          "consumed": [
+            "1m",
+            "3m"
+          ]
+        }
+      ],
+      "actual": {
+        "type": "dahai",
+        "actor": 1,
+        "pai": "4m",
+        "tsumogiri": false
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 1,
+        "pai": "5p",
+        "tsumogiri": false
+      },
+      "turn": 6,
+      "discard_stats": [
+        {
+          "tile": "4m",
+          "shanten": 0,
+          "necessary_count": 3,
+          "necessary_tiles": [
+            {
+              "tile": "5p",
+              "count": 3,
+              "aka_count": 1
+            }
+          ]
+        },
+        {
+          "tile": "5p",
+          "shanten": 0,
+          "necessary_count": 3,
+          "necessary_tiles": [
+            {
+              "tile": "4m",
+              "count": 3
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "E",
+        "dora_tiles": [
+          "2p"
+        ],
+        "dora_indicators": [
+          "1p"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "F",
+                "tsumogiri": false,
+                "called_by": 1
+              },
+              {
+                "tile": "2m",
+                "tsumogiri": false,
+                "called_by": 1
+              },
+              {
+                "tile": "1m",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "P",
+                "tsumogiri": false
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "7m",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "2s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": []
+      }
+    }
+  },
+  {
+    "report_id": 237,
+    "mistake": {
+      "id": 31501,
+      "hand": [
+        "2m",
+        "3m",
+        "5m",
+        "1p",
+        "1p",
+        "2p",
+        "3p",
+        "4p",
+        "7p",
+        "8p",
+        "6s",
+        "7s",
+        "8s",
+        "F"
+      ],
+      "melds": [],
+      "actual": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "F",
+        "tsumogiri": true
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "5m",
+        "tsumogiri": false
+      },
+      "turn": 6,
+      "discard_stats": [
+        {
+          "tile": "5m",
+          "shanten": 1,
+          "necessary_count": 15,
+          "necessary_tiles": [
+            {
+              "tile": "1m",
+              "count": 3
+            },
+            {
+              "tile": "4m",
+              "count": 4
+            },
+            {
+              "tile": "6p",
+              "count": 4
+            },
+            {
+              "tile": "9p",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "tile": "F",
+          "shanten": 1,
+          "necessary_count": 15,
+          "necessary_tiles": [
+            {
+              "tile": "1m",
+              "count": 3
+            },
+            {
+              "tile": "4m",
+              "count": 4
+            },
+            {
+              "tile": "6p",
+              "count": 4
+            },
+            {
+              "tile": "9p",
+              "count": 4
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "E",
+        "dora_tiles": [
+          "3m"
+        ],
+        "dora_indicators": [
+          "2m"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "P",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "W",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "1p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false
+              },
+              {
+                "tile": "F",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false
+              },
+              {
+                "tile": "W",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "F",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "N",
+                "tsumogiri": true
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1m",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": true
+              },
+              {
+                "tile": "1s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "3s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "P",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": []
+      }
+    }
+  },
+  {
+    "report_id": 240,
+    "mistake": {
+      "id": 33292,
+      "hand": [
+        "2m",
+        "3m",
+        "4m",
+        "6m",
+        "7m",
+        "5p",
+        "6p",
+        "8p",
+        "3s",
+        "4s",
+        "1m"
+      ],
+      "melds": [
+        {
+          "type": "chi",
+          "target": 0,
+          "pai": "6s",
+          "consumed": [
+            "7s",
+            "8s"
+          ]
+        }
+      ],
+      "actual": {
+        "type": "dahai",
+        "actor": 1,
+        "pai": "1m",
+        "tsumogiri": true
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 1,
+        "pai": "8p",
+        "tsumogiri": false
+      },
+      "turn": 15,
+      "discard_stats": [
+        {
+          "tile": "8p",
+          "shanten": 2,
+          "necessary_count": 29,
+          "necessary_tiles": [
+            {
+              "tile": "1m",
+              "count": 0
+            },
+            {
+              "tile": "4m",
+              "count": 3
+            },
+            {
+              "tile": "5m",
+              "count": 3,
+              "aka_count": 1
+            },
+            {
+              "tile": "6m",
+              "count": 1
+            },
+            {
+              "tile": "7m",
+              "count": 0
+            },
+            {
+              "tile": "8m",
+              "count": 4
+            },
+            {
+              "tile": "4p",
+              "count": 2
+            },
+            {
+              "tile": "5p",
+              "count": 2
+            },
+            {
+              "tile": "6p",
+              "count": 3
+            },
+            {
+              "tile": "7p",
+              "count": 1
+            },
+            {
+              "tile": "2s",
+              "count": 1
+            },
+            {
+              "tile": "3s",
+              "count": 3
+            },
+            {
+              "tile": "4s",
+              "count": 3
+            },
+            {
+              "tile": "5s",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "tile": "1m",
+          "shanten": 2,
+          "necessary_count": 28,
+          "necessary_tiles": [
+            {
+              "tile": "5m",
+              "count": 3,
+              "aka_count": 1
+            },
+            {
+              "tile": "6m",
+              "count": 1
+            },
+            {
+              "tile": "7m",
+              "count": 0
+            },
+            {
+              "tile": "8m",
+              "count": 4
+            },
+            {
+              "tile": "4p",
+              "count": 2
+            },
+            {
+              "tile": "5p",
+              "count": 2
+            },
+            {
+              "tile": "6p",
+              "count": 3
+            },
+            {
+              "tile": "7p",
+              "count": 1
+            },
+            {
+              "tile": "8p",
+              "count": 2
+            },
+            {
+              "tile": "2s",
+              "count": 1
+            },
+            {
+              "tile": "3s",
+              "count": 3
+            },
+            {
+              "tile": "4s",
+              "count": 3
+            },
+            {
+              "tile": "5s",
+              "count": 3
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "E",
+        "dora_tiles": [
+          "3s"
+        ],
+        "dora_indicators": [
+          "2s"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "9s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "6s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "P",
+                "tsumogiri": false
+              },
+              {
+                "tile": "6m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "6s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "3m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "6s",
+                "tsumogiri": true,
+                "called_by": 1
+              },
+              {
+                "tile": "2m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "F",
+                "tsumogiri": true
+              },
+              {
+                "tile": "9s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "4p",
+                "tsumogiri": true
+              },
+              {
+                "tile": "1p",
+                "tsumogiri": true
+              },
+              {
+                "tile": "1p",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "P",
+                "tsumogiri": true
+              },
+              {
+                "tile": "S",
+                "tsumogiri": true,
+                "called_by": 3
+              },
+              {
+                "tile": "7m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9p",
+                "tsumogiri": true
+              },
+              {
+                "tile": "1m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "3p",
+                "tsumogiri": true
+              },
+              {
+                "tile": "1s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1s",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "9m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "F",
+                "tsumogiri": true
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false,
+                "called_by": 3
+              },
+              {
+                "tile": "1s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "6s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "1m",
+                "tsumogiri": true
+              },
+              {
+                "tile": "7p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1m",
+                "tsumogiri": true
+              },
+              {
+                "tile": "3p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "7p",
+                "tsumogiri": true
+              },
+              {
+                "tile": "P",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": true
+              },
+              {
+                "tile": "3p",
+                "tsumogiri": true,
+                "called_by": 0
+              },
+              {
+                "tile": "2s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "7m",
+                "tsumogiri": false,
+                "called_by": 0
+              },
+              {
+                "tile": "7p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "5sr",
+                "tsumogiri": true
+              },
+              {
+                "tile": "7m",
+                "tsumogiri": true
+              },
+              {
+                "tile": "C",
+                "tsumogiri": true
+              },
+              {
+                "tile": "5pr",
+                "tsumogiri": true
+              },
+              {
+                "tile": "W",
+                "tsumogiri": true
+              },
+              {
+                "tile": "8p",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": [
+          {
+            "seat": 0,
+            "melds": [
+              {
+                "type": "chi",
+                "consumed": [
+                  "2p",
+                  "4p"
+                ],
+                "pai": "3p",
+                "target": 3
+              },
+              {
+                "type": "chi",
+                "consumed": [
+                  "5m",
+                  "6m"
+                ],
+                "pai": "7m",
+                "target": 3
+              }
+            ]
+          },
+          {
+            "seat": 3,
+            "melds": [
+              {
+                "type": "pon",
+                "consumed": [
+                  "E",
+                  "E"
+                ],
+                "pai": "E",
+                "target": 2
+              },
+              {
+                "type": "pon",
+                "consumed": [
+                  "S",
+                  "S"
+                ],
+                "pai": "S",
+                "target": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "report_id": 242,
+    "mistake": {
+      "id": 34806,
+      "hand": [
+        "1m",
+        "3m",
+        "4m",
+        "6m",
+        "6m",
+        "3p",
+        "3p",
+        "1s",
+        "1s",
+        "2s",
+        "8s",
+        "8s",
+        "9s",
+        "3m"
+      ],
+      "melds": [],
+      "actual": {
+        "type": "dahai",
+        "actor": 3,
+        "pai": "4m",
+        "tsumogiri": false
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 3,
+        "pai": "2s",
+        "tsumogiri": false
+      },
+      "turn": 3,
+      "discard_stats": [
+        {
+          "tile": "2s",
+          "shanten": 1,
+          "necessary_count": 8,
+          "necessary_tiles": [
+            {
+              "tile": "1m",
+              "count": 2
+            },
+            {
+              "tile": "4m",
+              "count": 3
+            },
+            {
+              "tile": "9s",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "tile": "4m",
+          "shanten": 1,
+          "necessary_count": 7,
+          "necessary_tiles": [
+            {
+              "tile": "1m",
+              "count": 2
+            },
+            {
+              "tile": "2s",
+              "count": 2
+            },
+            {
+              "tile": "9s",
+              "count": 3
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "N",
+        "dora_tiles": [
+          "3s"
+        ],
+        "dora_indicators": [
+          "2s"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2m",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8m",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "7p",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9p",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": []
+      }
+    }
+  },
+  {
+    "report_id": 247,
+    "mistake": {
+      "id": 34884,
+      "hand": [
+        "2m",
+        "2m",
+        "2m",
+        "5m",
+        "4p",
+        "3s",
+        "5s",
+        "7s",
+        "7s",
+        "8s",
+        "W",
+        "W",
+        "W",
+        "2p"
+      ],
+      "melds": [],
+      "actual": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "8s",
+        "tsumogiri": false
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "5m",
+        "tsumogiri": false
+      },
+      "turn": 5,
+      "discard_stats": [
+        {
+          "tile": "5m",
+          "shanten": 1,
+          "necessary_count": 8,
+          "necessary_tiles": [
+            {
+              "tile": "3p",
+              "count": 4
+            },
+            {
+              "tile": "4s",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "tile": "8s",
+          "shanten": 1,
+          "necessary_count": 8,
+          "necessary_tiles": [
+            {
+              "tile": "3p",
+              "count": 4
+            },
+            {
+              "tile": "4s",
+              "count": 4
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "W",
+        "seat_wind": "E",
+        "dora_tiles": [
+          "7m"
+        ],
+        "dora_indicators": [
+          "6m"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "1p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "S",
+                "tsumogiri": true
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "1p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "P",
+                "tsumogiri": true
+              },
+              {
+                "tile": "4m",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "9p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "S",
+                "tsumogiri": true
+              },
+              {
+                "tile": "C",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "C",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2p",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": []
+      }
+    }
+  },
+  {
+    "report_id": 253,
+    "mistake": {
+      "id": 35552,
+      "hand": [
+        "4m",
+        "8m",
+        "9m",
+        "1p",
+        "1p",
+        "5pr",
+        "5p",
+        "8s",
+        "9s",
+        "E",
+        "E",
+        "P",
+        "P",
+        "8m"
+      ],
+      "melds": [],
+      "actual": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "9m",
+        "tsumogiri": false
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "4m",
+        "tsumogiri": false
+      },
+      "turn": 4,
+      "discard_stats": [
+        {
+          "tile": "9m",
+          "shanten": 1,
+          "necessary_count": 9,
+          "necessary_tiles": [
+            {
+              "tile": "4m",
+              "count": 3
+            },
+            {
+              "tile": "8s",
+              "count": 3
+            },
+            {
+              "tile": "9s",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "tile": "4m",
+          "shanten": 1,
+          "necessary_count": 8,
+          "necessary_tiles": [
+            {
+              "tile": "9m",
+              "count": 2
+            },
+            {
+              "tile": "8s",
+              "count": 3
+            },
+            {
+              "tile": "9s",
+              "count": 3
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "E",
+        "dora_tiles": [
+          "7m"
+        ],
+        "dora_indicators": [
+          "6m"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "5s",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "F",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2s",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "1m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "W",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": []
+      }
+    }
+  },
+  {
+    "report_id": 271,
+    "mistake": {
+      "id": 37523,
+      "hand": [
+        "5m",
+        "6m",
+        "7m",
+        "8m",
+        "9m",
+        "4p",
+        "2s",
+        "3s",
+        "7s",
+        "7s",
+        "8s"
+      ],
+      "melds": [
+        {
+          "type": "pon",
+          "target": 1,
+          "pai": "C",
+          "consumed": [
+            "C",
+            "C"
+          ]
+        }
+      ],
+      "actual": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "8s",
+        "tsumogiri": false
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 0,
+        "pai": "4p",
+        "tsumogiri": false
+      },
+      "turn": 6,
+      "discard_stats": [
+        {
+          "tile": "4p",
+          "shanten": 1,
+          "necessary_count": 14,
+          "necessary_tiles": [
+            {
+              "tile": "4m",
+              "count": 4
+            },
+            {
+              "tile": "7m",
+              "count": 3
+            },
+            {
+              "tile": "1s",
+              "count": 3
+            },
+            {
+              "tile": "4s",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "tile": "8s",
+          "shanten": 1,
+          "necessary_count": 14,
+          "necessary_tiles": [
+            {
+              "tile": "4m",
+              "count": 4
+            },
+            {
+              "tile": "7m",
+              "count": 3
+            },
+            {
+              "tile": "1s",
+              "count": 3
+            },
+            {
+              "tile": "4s",
+              "count": 4
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "W",
+        "dora_tiles": [
+          "8p"
+        ],
+        "dora_indicators": [
+          "7p"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "F",
+                "tsumogiri": false,
+                "called_by": 3
+              },
+              {
+                "tile": "2p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "E",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "9m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "S",
+                "tsumogiri": true
+              },
+              {
+                "tile": "P",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false,
+                "called_by": 0
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "9s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "3m",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "1s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "P",
+                "tsumogiri": false
+              },
+              {
+                "tile": "3m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "7p",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": [
+          {
+            "seat": 3,
+            "melds": [
+              {
+                "type": "pon",
+                "consumed": [
+                  "F",
+                  "F"
+                ],
+                "pai": "F",
+                "target": 0
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "report_id": 272,
+    "mistake": {
+      "id": 38441,
+      "hand": [
+        "1m",
+        "1m",
+        "2m",
+        "3m",
+        "4m",
+        "5m",
+        "6m",
+        "1s",
+        "2s",
+        "4s",
+        "5s",
+        "6s",
+        "C",
+        "7s"
+      ],
+      "melds": [],
+      "actual": {
+        "type": "dahai",
+        "actor": 3,
+        "pai": "4s",
+        "tsumogiri": false
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 3,
+        "pai": "C",
+        "tsumogiri": false
+      },
+      "turn": 9,
+      "discard_stats": [
+        {
+          "tile": "C",
+          "shanten": 1,
+          "necessary_count": 18,
+          "necessary_tiles": [
+            {
+              "tile": "1m",
+              "count": 2
+            },
+            {
+              "tile": "4m",
+              "count": 2
+            },
+            {
+              "tile": "7m",
+              "count": 4
+            },
+            {
+              "tile": "1s",
+              "count": 2
+            },
+            {
+              "tile": "3s",
+              "count": 3
+            },
+            {
+              "tile": "4s",
+              "count": 2
+            },
+            {
+              "tile": "7s",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "tile": "4s",
+          "shanten": 1,
+          "necessary_count": 12,
+          "necessary_tiles": [
+            {
+              "tile": "1m",
+              "count": 2
+            },
+            {
+              "tile": "4m",
+              "count": 2
+            },
+            {
+              "tile": "7m",
+              "count": 4
+            },
+            {
+              "tile": "3s",
+              "count": 3
+            },
+            {
+              "tile": "C",
+              "count": 1
+            }
+          ]
+        }
+      ],
+      "board_state": {
+        "round_wind": "E",
+        "seat_wind": "N",
+        "dora_tiles": [
+          "5m"
+        ],
+        "dora_indicators": [
+          "4m"
+        ],
+        "all_discards": [
+          {
+            "seat": 0,
+            "discards": [
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "5s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "3s",
+                "tsumogiri": true
+              },
+              {
+                "tile": "9m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8p",
+                "tsumogiri": true
+              },
+              {
+                "tile": "N",
+                "tsumogiri": true
+              },
+              {
+                "tile": "6p",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 1,
+            "discards": [
+              {
+                "tile": "9s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false
+              },
+              {
+                "tile": "8s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "4s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9p",
+                "tsumogiri": true
+              },
+              {
+                "tile": "2s",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9m",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 2,
+            "discards": [
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "F",
+                "tsumogiri": false
+              },
+              {
+                "tile": "W",
+                "tsumogiri": true
+              },
+              {
+                "tile": "P",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "3p",
+                "tsumogiri": false
+              },
+              {
+                "tile": "2m",
+                "tsumogiri": false
+              },
+              {
+                "tile": "W",
+                "tsumogiri": true
+              }
+            ],
+            "riichi_idx": null
+          },
+          {
+            "seat": 3,
+            "discards": [
+              {
+                "tile": "S",
+                "tsumogiri": false
+              },
+              {
+                "tile": "W",
+                "tsumogiri": false
+              },
+              {
+                "tile": "C",
+                "tsumogiri": false
+              },
+              {
+                "tile": "N",
+                "tsumogiri": false
+              },
+              {
+                "tile": "P",
+                "tsumogiri": false
+              },
+              {
+                "tile": "9m",
+                "tsumogiri": true
+              },
+              {
+                "tile": "E",
+                "tsumogiri": false
+              },
+              {
+                "tile": "1p",
+                "tsumogiri": false
+              }
+            ],
+            "riichi_idx": null
+          }
+        ],
+        "opponent_melds": []
+      }
+    }
+  }
+]

@@ -14,6 +14,8 @@
 //             GATED: only a real win at tied shanten AND tied ukeire)
 //   Yaku    — yakuhai_kept, tanyao_kept, honitsu_kept, ittsu_kept,
 //             toitoi_kept, chiitoi_kept, chanta_kept
+//             (chanta/ittsu/honitsu require a live tenpai completion to win;
+//              other tile-pattern prospects are suppressed in visuals and text)
 //   Dora    — dora_kept, dora_acceptance
 //   Defense — deal_in           (a per-opponent vector, read off m.per_threat),
 //             safe_spare_kept   (pre-threat safe-tile economy; only fires when
@@ -34,11 +36,13 @@
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
-    module.exports = factory(require("./categorize.js"), require("./prep/parse.js"));
+    module.exports = factory(require("./categorize.js"), require("./prep/parse.js"),
+      require("./prep/shanten.js"), require("./prep/tiles.js"));
   } else {
-    root.haipaiCompareDimensions = factory(root.haipaiCategorize, root.haipaiPrepParse);
+    root.haipaiCompareDimensions = factory(root.haipaiCategorize, root.haipaiPrepParse,
+      root.haipaiShanten, root.haipaiPrepTiles);
   }
-}(typeof self !== "undefined" ? self : this, function (categorize, prepParse) {
+}(typeof self !== "undefined" ? self : this, function (categorize, prepParse, shanten, prepTiles) {
 
   // Reuse the categorizer's primitives verbatim — no forked dora/yakuhai/
   // shanten/deal-in logic (the whole point of a shared comparator).
@@ -249,7 +253,7 @@
     // the kept tile is the other column's discard.
     // A wind matching both seat and round is worth two han, even when the
     // other discard is also yakuhai (report #m35708: double East vs white).
-    const yakuhaiHan = tile => tileIsYakuhai(tile, roundWind, seatWind)
+    const yakuhaiHan = tile => tileIsYakuhai(tile, roundWind, seatWind) && yakuhaiReachable(m, tile)
       ? 1 + Number(tile === roundWind && tile === seatWind) : 0;
     const aYak = yakuhaiHan(actualTile);
     const eYak = yakuhaiHan(expectedTile);
@@ -539,7 +543,119 @@
       });
     }
 
-    return wins;
+    // Tile concentration is a prospect, not proof of a scoring advantage.
+    // Only live, completed tenpai shapes can verify these three yaku here.
+    return wins.filter(w => {
+      if (!["chanta_kept", "ittsu_kept", "honitsu_kept"].includes(w.dim)) return true;
+      const stat = w.winner === "you" ? actualStat : expectedStat;
+      const tile = w.winner === "you" ? actualTile : expectedTile;
+      const otherStat = w.winner === "you" ? expectedStat : actualStat;
+      const otherTile = w.winner === "you" ? expectedTile : actualTile;
+      if (w.dim === "chanta_kept" && chiitoiCloser(m, tile)) return false;
+      if (stat && stat.shanten === 0) {
+        return hasLiveYakuCompletion(m, tile, stat, w)
+          && !hasLiveYakuCompletion(m, otherTile, otherStat, w);
+      }
+      w.suppressed = true;
+      w.potential = true;
+      w.context = "Tile-pattern potential; requires further hand development";
+      return true;
+    });
+  }
+
+  function chiitoiCloser(m, discard) {
+    if ((m.melds || []).length || !shanten || !prepTiles) return false;
+    const counts = new Array(38).fill(0);
+    for (const t of m.hand || []) counts[prepTiles.MJAI_TO_RT[t]]++;
+    const index = prepTiles.MJAI_TO_RT[discard];
+    if (!counts[index]) return false;
+    counts[index]--;
+    const pairs = counts.filter(n => n >= 2).length;
+    const unique = counts.filter(n => n > 0).length;
+    const chiitoiShanten = 6 - pairs + Math.max(0, 7 - unique);
+    return chiitoiShanten < shanten.calculateStandardShanten(counts);
+  }
+
+  // Count exposed copies once: a called discard now belongs to its meld.
+  // Copies in our concealed hand remain available for our own triplet.
+  function yakuhaiReachable(m, tile) {
+    const board = m.board_state || {};
+    let exposed = 0;
+    const add = t => { if (tileBase(t) === tileBase(tile)) exposed++; };
+    for (const row of board.all_discards || []) {
+      for (const d of row.discards || []) if (d.called_by == null) add(d.tile);
+    }
+    for (const row of board.opponent_melds || []) {
+      const melds = row.melds || [];
+      for (const meld of melds) {
+        // The board records both the original pon and its kakan upgrade.
+        if (meld.type === "pon" && melds.some(other => other.type === "kakan"
+            && tileBase(other.pai) === tileBase(meld.pai))) continue;
+        meldTiles(meld).forEach(add);
+      }
+    }
+    for (const t of board.dora_indicators || []) add(t);
+    return 4 - exposed >= 3;
+  }
+
+  function hasLiveYakuCompletion(m, discard, stat, win) {
+    if (!stat || stat.shanten !== 0 || !discard) return false;
+    const hand = (m.hand || []).map(tileBase);
+    const index = hand.indexOf(tileBase(discard));
+    if (index < 0) return false;
+    hand.splice(index, 1);
+    return (stat.necessary_tiles || []).some(wait => wait.count > 0
+      && completedShapeHasYaku([...hand, tileBase(wait.tile)], m.melds || [], win));
+  }
+
+  // At most four sets plus a pair; enumerate complete decompositions only.
+  // This deliberately does not guess which blocks a non-tenpai hand will keep.
+  function completedShapeHasYaku(hand, melds, win) {
+    const fixed = melds.map(meldTiles).map(ts => ts.map(tileBase));
+    if (win.dim === "honitsu_kept") {
+      return [...hand, ...fixed.flat()].every(t => !isOffSuit(t, win.suit));
+    }
+    const outside = ts => ts.some(t => isHonorMjai(t) || tileRank(t) === 1 || tileRank(t) === 9);
+    const runBit = ts => {
+      if (ts.length !== 3 || ts.some(t => tileSuit(t) !== win.suit)) return 0;
+      const ranks = ts.map(tileRank).sort((a, b) => a - b);
+      return [1, 4, 7].includes(ranks[0]) && ranks[1] === ranks[0] + 1 && ranks[2] === ranks[0] + 2
+        ? 1 << ((ranks[0] - 1) / 3) : 0;
+    };
+    const chanta = win.dim === "chanta_kept";
+    if (chanta && fixed.some(ts => !outside(ts))) return false;
+    const counts = baseCounts(hand);
+    const fixedMask = fixed.reduce((mask, ts) => mask | runBit(ts), 0);
+    const fixedRun = melds.some(meld => meld.type === "chi");
+    function sets(left, mask, hasRun) {
+      const tile = Object.keys(counts).sort().find(t => counts[t] > 0);
+      if (!tile) return left === 0 && (chanta ? hasRun : mask === 7);
+      if (left <= 0) return false;
+      if (counts[tile] >= 3 && (!chanta || outside([tile]))) {
+        counts[tile] -= 3;
+        const ok = sets(left - 1, mask, hasRun);
+        counts[tile] += 3;
+        if (ok) return true;
+      }
+      const rank = tileRank(tile), suit = tileSuit(tile);
+      const run = [tile, `${rank + 1}${suit}`, `${rank + 2}${suit}`];
+      if (suit !== "z" && rank >= 1 && rank <= 7 && run.every(t => counts[t] > 0)
+          && (!chanta || outside(run))) {
+        run.forEach(t => counts[t]--);
+        const ok = sets(left - 1, mask | runBit(run), true);
+        run.forEach(t => counts[t]++);
+        if (ok) return true;
+      }
+      return false;
+    }
+    for (const tile of Object.keys(counts)) {
+      if (counts[tile] < 2 || (chanta && !outside([tile]))) continue;
+      counts[tile] -= 2;
+      const ok = sets(4 - melds.length, fixedMask, fixedRun);
+      counts[tile] += 2;
+      if (ok) return true;
+    }
+    return false;
   }
 
   // Per-base tile counts of a tile list (red fives fold into their base).

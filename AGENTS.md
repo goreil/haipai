@@ -50,6 +50,12 @@ Use four-space indentation and `snake_case` for Python functions/modules; use `P
 
 Inspect UI changes visually and make sure they look aesthetically pleasing.
 
+Haipai trainer text must only explain information already shown in the card's visuals
+(tiles, badges, feature pills, tables, and board). Do not add new strategic claims,
+hidden scoring patterns, or speculative reasons for Mortal's choice. Suppressed
+dimensions must stay out of the text as well as the visuals. When the displayed
+comparison cannot explain the recommendation, say so without guessing why.
+
 ## Testing Guidelines
 
 Pytest discovers `test_*.py`, `Test*` classes, and `test_*` functions. Add regression tests beside the affected API or database area and reuse fixtures from `tests/fixtures.py` or `tests/fixtures/`. Run the full suite before submitting; use `--cov` when evaluating coverage. Component-specific changes should also run their Elm or Rust tests.
