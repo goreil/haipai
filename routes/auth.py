@@ -13,6 +13,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
+from db import coins
 from lib.mail import send_verification_email
 
 auth_bp = Blueprint("auth", __name__)
@@ -263,7 +264,18 @@ def api_me():
         "discord_linked": bool(user_row["discord_id"]) if user_row else False,
         "google_linked": bool(user_row["google_id"]) if user_row else False,
         "csrf_token": generate_csrf(),
+        "community_coins": coins.balance(conn, current_user.id),
     })
+
+
+@auth_bp.route("/api/me/coins")
+@login_required
+def api_my_coins():
+    from app import get_conn
+    raw = request.args.get('before')
+    if raw is not None and (len(raw) > 19 or not raw.isascii() or not raw.isdigit() or not 0 < int(raw) < 2**63):
+        return jsonify({'error': 'Invalid history cursor'}), 400
+    return jsonify(coins.history(get_conn(), current_user.id, int(raw) if raw is not None else None))
 
 
 @auth_bp.route("/api/me/display-name", methods=["POST"])
@@ -415,6 +427,12 @@ def api_me_export():
                 yield dumps(dict(r))
             yield "\n],\n"
 
+            yield '"community_coins": '
+            yield dumps([dict(r) for r in conn.execute(
+                "SELECT id, kind, amount, title, detail, created_at, game_id, mistake_id, report_id, message_id "
+                "FROM community_coins WHERE user_id = ? ORDER BY id", (user_id,),
+            )])
+            yield ',\n'
             yield '"messages": [\n'
             first = True
             for r in conn.execute(

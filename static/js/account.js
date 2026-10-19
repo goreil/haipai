@@ -73,7 +73,7 @@ function showAccount() {
   html += `<div class="account-section">
     <div class="account-row" style="border-bottom:none;flex-direction:column;align-items:flex-start;gap:8px">
       <span class="account-label" style="min-width:0">Export your data (GDPR)</span>
-      <p class="form-hint" style="margin:0">Download a JSON file containing your account, games, mistakes, category reports, and mailbox messages.</p>
+      <p class="form-hint" style="margin:0">Download a JSON file containing your account, games, mistakes, category reports, community coin history, and mailbox messages.</p>
       <a class="account-btn" href="/api/me/export" download>Download JSON</a>
     </div>
   </div>`;

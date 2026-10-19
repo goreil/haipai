@@ -78,6 +78,7 @@ def list_category_reports(conn, exclude_user_id=None):
     rows = conn.execute(
         f"""SELECT cr.id AS id,
                   cr.user_id AS user_id,
+                  coins.amount AS awarded_coins,
                   cr.mistake_id AS mistake_id,
                   cr.kind AS kind,
                   cr.suggested_category AS suggested_category,
@@ -98,6 +99,8 @@ def list_category_reports(conn, exclude_user_id=None):
            JOIN users u ON cr.user_id = u.id
            JOIN mistakes m ON cr.mistake_id = m.id
            JOIN games g ON m.game_id = g.id
+           LEFT JOIN community_coins coins ON coins.user_id = cr.user_id
+             AND coins.kind = 'report_fix' AND coins.source_key = m.coin_key
            {where}
            ORDER BY cr.created_at DESC""",
         params,

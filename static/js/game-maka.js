@@ -11,7 +11,7 @@ function renderMakaRatings(game) {
   return `<details class="maka-ratings" ${game._makaOpen ? "open" : ""}>
     <summary>Help improve Haipai ranking by adding the real Maka ranks</summary>
     <form class="maka-form">
-      <p>Enter your real Maka ranks from Mahjong Soul below to help make Haipai rankings more comparable to Maka.</p>
+      <p>Enter your real Maka ranks from Mahjong Soul below to help make Haipai rankings more comparable to Maka. Earn 5 community coins per grade, once per field.</p>
       ${field("Overall Score", draft.overall, "overall")}
       <div class="maka-hands">${game.rounds.map((round, i) =>
         field(`Hand ${i + 1} · ${round.round} – Match Score`, draft.matches[i], i)).join("")}</div>
@@ -47,6 +47,7 @@ function bindMakaRatings(game) {
       const response = await apiPost(`/api/games/${game.id}/maka-ratings`, payload);
       if (!response.ok) throw new Error("Save failed");
       game.maka_ratings = await response.json();
+      refreshCoinBalance();
       game._makaStatus = JSON.stringify(payload) === JSON.stringify(game._makaDraft)
         ? "Saved" : "Unsaved changes";
     } catch (_) {

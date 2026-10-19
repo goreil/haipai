@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Insert a mailbox message (feature announcement or thank-you).
+"""Insert a feature announcement. Report thanks now use community coins.
 
 Designed to run from the repo root or via ``docker exec`` inside the prod
 container. Picks the same DB the running app uses (DB_PATH > /app/data/games.db
@@ -12,14 +12,9 @@ Examples
         --type feature --broadcast \\
         --title "Mailbox is here" --body-file /tmp/mailbox.html
 
-    # Thanks targeted at a single user, quoting their category report:
-    docker exec -i haipai-app-1 python3 /app/scripts/leave_message.py \\
-        --type thanks --to Ikuto --report 7414 --quote-report \\
-        --title "Re: yakuhai discard categorization" \\
-        --body-stdin <<'EOF'
-    <p>Fixed in commit <code>102da0d</code> — the categorizer no longer
-    flags discarding a yakuhai pair when Mortal had already done so.</p>
-    EOF
+    # Award a fixed category report instead of sending a thank-you:
+    docker compose exec -T app python scripts/community_coins.py \
+        --report-ids 12,34 --reason "Corrected the visible comparison" --apply
 
     # Preview without inserting:
     .venv/bin/python scripts/leave_message.py --type feature --broadcast \\
@@ -163,6 +158,10 @@ def main():
                     help="skip confirmation prompt")
 
     args = ap.parse_args()
+    if args.type == "thanks":
+        ap.error("Report thanks have been replaced by community coins. Use "
+                 "scripts/community_coins.py --report-ids REPORT_IDS (preview), then --apply. "
+                 "Use category_reports.id, not mistake IDs.")
 
     if args.report and not args.to:
         ap.error("--report requires --to (looks up the recipient's report)")

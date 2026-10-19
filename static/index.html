@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style-theme.css">
+  <link rel="stylesheet" href="/static/style-coins.css">
   <link rel="stylesheet" href="/static/style-layout.css">
   <link rel="stylesheet" href="/static/style-game-detail.css">
   <link rel="stylesheet" href="/static/style-board-display.css">
@@ -37,6 +38,11 @@
         <button class="btn sidebar-toggle" data-action="toggleSidebar" title="Toggle sidebar">&#9776; Games</button>
         <div class="spacer"></div>
         <button class="btn" id="trends-btn" data-action="showTrends">Trends</button>
+        <button class="btn community-open" id="community-open" data-action="showCoins"
+                title="Community coins · View activity" aria-label="Community coins · View activity" hidden>
+          <span class="coin-mark" aria-hidden="true">H</span>
+          <span class="community-amount" id="community-balance">0</span>
+        </button>
         <!-- The minigames live behind one category button so the toolbar does
              not grow a button per trainer. Contents are rendered from the
              roster in minigame-shell.js by main.js's init. -->
@@ -202,6 +208,7 @@
   <script src="/static/js/trends-view.js"></script>
   <script src="/static/js/admin.js"></script>
   <script src="/static/js/account.js"></script>
+  <script src="/static/js/coins.js"></script>
   <script src="/static/js/mailbox.js"></script>
   <script src="/static/js/minigame-shell.js"></script>
   <script src="/static/js/minigame-audio.js"></script>

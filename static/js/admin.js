@@ -698,6 +698,9 @@ function renderReportCard(r) {
       ${catBadge}
       <span class="report-by"><span class="user">@${escapeHtml(r.username)}</span><span class="date">${date}</span></span>
       <span class="report-actions">
+        ${r.awarded_coins != null
+          ? `<span class="report-coin-awarded">✓ ${r.awarded_coins.toLocaleString()} coins awarded</span>`
+          : `<button class="btn btn-sm" data-action="adminAwardReport" data-report-id="${r.id}">Fixed · award coins</button>`}
         <button class="btn btn-sm btn-delete" data-action="adminDeleteReport" data-report-id="${r.id}">Delete</button>
       </span>
     </div>`;
@@ -783,4 +786,22 @@ function renderImpersonateBanner(me) {
     }
   }
   if (stopMenuBtn) stopMenuBtn.style.display = active ? "" : "none";
+}
+
+
+async function adminAwardReport(reportId, button) {
+  button.disabled = true;
+  try {
+    const res = await apiPost(`/api/admin/category-reports/${reportId}/award`, {});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not award coins");
+    const report = adminState.reports.find(r => r.id === reportId);
+    if (report) report.awarded_coins = data.amount;
+    if (parseTabHash() === "admin") renderAdmin();
+    refreshCoinBalance();
+  } catch (error) {
+    alert(error.message || "Could not award coins. Please try again.");
+  } finally {
+    button.disabled = false;
+  }
 }

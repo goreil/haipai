@@ -318,3 +318,22 @@ def api_admin_impersonate_stop():
     session.pop(IMPERSONATOR_SESSION_KEY, None)
     login_user(User(admin_row["id"], admin_row["username"]))
     return jsonify({"ok": True, "username": admin_row["username"]})
+
+
+@admin_bp.route("/api/admin/category-reports/<int:report_id>/award", methods=["POST"])
+@require_admin
+def api_admin_award_report(report_id):
+    from app import get_conn
+    from db.coins import award_report
+    conn = get_conn()
+    try:
+        with conn:
+            body = request.get_json(silent=True) or {}
+            if not isinstance(body, dict):
+                return jsonify({"error": "Expected an object"}), 400
+            result = award_report(conn, report_id, reason=body.get('reason'))
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(result)

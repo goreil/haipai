@@ -367,9 +367,11 @@ def save_maka_ratings(conn, game_id, user_id, ratings):
                              old_dates[i] if i < len(old_dates) else None)
                     for i, grade in enumerate(ratings["matches"])],
     }
-    cur = conn.execute(
-        "UPDATE games SET maka_ratings_json = ?, maka_ratings_added_at_json = ? WHERE id = ? AND user_id = ?",
-        (json.dumps(ratings), json.dumps(dates), game_id, user_id),
-    )
-    conn.commit()
+    from db.coins import award_maka
+    with conn:
+        cur = conn.execute(
+            "UPDATE games SET maka_ratings_json = ?, maka_ratings_added_at_json = ? WHERE id = ? AND user_id = ?",
+            (json.dumps(ratings), json.dumps(dates), game_id, user_id),
+        )
+        award_maka(conn, game_id, user_id, ratings)
     return cur.rowcount > 0

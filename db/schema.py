@@ -66,6 +66,24 @@ CREATE TABLE IF NOT EXISTS category_reports (
     FOREIGN KEY (mistake_id) REFERENCES mistakes(id) ON DELETE CASCADE
 );
 
+-- Award sources are snapshots: deleting a game/report must not erase earned coins.
+CREATE TABLE IF NOT EXISTS community_coins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK(kind IN ('report_fix', 'maka_grade')),
+    source_key TEXT NOT NULL,
+    amount INTEGER NOT NULL CHECK(amount >= 0),
+    title TEXT NOT NULL,
+    detail TEXT NOT NULL,
+    game_id INTEGER,
+    mistake_id INTEGER,
+    report_id INTEGER,
+    message_id INTEGER,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, kind, source_key)
+);
+CREATE INDEX IF NOT EXISTS idx_community_coins_user ON community_coins(user_id, id DESC);
+
 CREATE TABLE IF NOT EXISTS weakness_snapshots (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -160,6 +178,10 @@ def migrate(conn):
         return any(c["name"] == column for c in cols)
 
     altered = False
+    for table in ('games', 'mistakes'):
+        if not _has_column(table, 'coin_key'):
+            conn.execute(f'ALTER TABLE {table} ADD COLUMN coin_key TEXT')
+            altered = True
     if not _has_column("games", "maka_ratings_json"):
         conn.execute("ALTER TABLE games ADD COLUMN maka_ratings_json TEXT")
         altered = True

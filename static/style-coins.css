@@ -1,0 +1,57 @@
+/* Community coins: warm gold recognition, kept distinct from game ratings. */
+.toolbar .community-open[hidden], .coins-load button[hidden] { display: none; }
+.toolbar .community-open { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; color: #f4dfaf; cursor: pointer; }
+.toolbar .community-open:hover { border-color: #a8894d; }
+.toolbar .community-open .coin-mark { width: 18px; height: 18px; font-size: 11px; box-shadow: inset 0 0 0 2px #3b3329; }
+.community-open:focus-visible, .coins-back:focus-visible { outline: 2px solid #f4cf83; outline-offset: 5px; border-radius: 4px; }
+.coin-mark { display: inline-flex; flex-shrink: 0; width: 30px; height: 30px; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid #c29b53; box-shadow: inset 0 0 0 3px #3b3329; background: linear-gradient(145deg, #eaca87, #a87b32); color: #302619; font: 700 17px 'Outfit', sans-serif; }
+.community-amount { font: 500 12px 'Outfit', sans-serif; font-variant-numeric: tabular-nums; }
+.coins-page { max-width: 820px; margin: 12px auto 40px; }
+.coins-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.coins-heading h2 { font: 500 30px 'Outfit', sans-serif; margin-top: 5px; }
+.coins-eyebrow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #c4b79e; }
+.coins-back { font-size: 12px; color: #aebed4; text-decoration: none; white-space: nowrap; }
+.coins-hero { border: 1px solid #655335; border-radius: 18px; padding: 30px; background: radial-gradient(ellipse at top right, #69502c55, transparent 65%), linear-gradient(135deg, #292a3d, #1a263c); }
+.coins-balance-block { display: flex; gap: 18px; align-items: center; }
+.coins-hero .coin-mark { height: 60px; width: 60px; font-size: 32px; box-shadow: inset 0 0 0 5px #3b3329, 0 5px 24px #0003; }
+.coins-total { font: 500 52px 'Outfit', sans-serif; color: #f6dfb0; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.coins-total > span { font-size: 18px; letter-spacing: 0; color: #c4b79e; }
+.coins-hero > p { margin-top: 17px; color: #c4cad5; font-size: 14px; line-height: 1.6; }
+.coins-hero > .coins-disclaimer { color: #a6a7af; font-size: 11px; margin-top: 15px; }
+.coins-log-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 13px; }
+.coins-log-heading h3 { font: 500 20px 'Outfit', sans-serif; }
+.coin-log { list-style: none; border: 1px solid var(--border); border-radius: 14px; background: #152039; overflow: hidden; }
+.coin-entry { display: flex; gap: 14px; padding: 20px; align-items: flex-start; }
+.coin-entry + .coin-entry { border-top: 1px solid #293650; }
+.coin-entry-icon { display: flex; flex: 0 0 34px; height: 34px; border-radius: 10px; align-items: center; justify-content: center; font: 500 15px 'Outfit', sans-serif; }
+.coin-report { background: #26403b; color: #95d9b2; }
+.coin-maka { background: #2b3552; color: #b5c9f7; }
+.coin-entry-body { flex: 1; min-width: 0; }
+.coin-entry-body strong { display: block; font-size: 13px; font-weight: 500; color: #e1e6ef; }
+.coin-entry-body p { font-size: 12px; line-height: 1.65; color: #a3b0c4; margin-top: 5px; overflow-wrap: anywhere; }
+.coin-entry-body time { display: block; font-size: 10px; color: #8996ad; margin-top: 9px; }
+.coin-earned { color: #e8ca8e; text-align: right; font: 500 21px 'Outfit', sans-serif; white-space: nowrap; }
+.coin-earned small { display: block; color: #a6a7af; font: 10px 'DM Sans', sans-serif; margin-top: 2px; }
+.coins-empty { padding: 30px; color: #a3b0c4; line-height: 1.8; font-size: 13px; text-align: center; }
+.coins-load { text-align: center; margin-top: 20px; }
+.coins-load p { font-size: 12px; color: #a3b0c4; margin-top: 8px; }
+.report-coin-awarded { color: #e8ca8e; font-size: 12px; }
+@media (max-width: 640px) {
+  .coins-page { margin-top: 4px; }
+  .coins-heading { align-items: flex-start; gap: 8px; }
+  .coins-heading h2 { font-size: 26px; }
+  .coins-back { font-size: 10px; padding-top: 5px; }
+  .coins-hero { padding: 22px 20px; }
+  .coins-total { font-size: 42px; }
+  .coins-hero .coin-mark { width: 48px; height: 48px; font-size: 27px; }
+  .coins-eyebrow { font-size: 9px; }
+  .coin-entry { padding: 16px 12px; gap: 10px; }
+  .coin-entry-icon { flex-basis: 28px; height: 28px; border-radius: 8px; }
+}
+
+.coins-rates { margin: 18px 0 28px; color: #9ca9bd; font-size: 11px; line-height: 1.7; }
+.coin-entry-body a { color: #c5d8f4; text-decoration: none; }
+.coin-entry-body a:hover { color: var(--accent); text-decoration: underline; }
+.coin-entry-body .coin-report-id { color: #8996ad; font-size: 10px; font-weight: 400; margin-left: 6px; }
+.coin-entry-body blockquote { margin: 10px 0 0; padding-left: 11px; border-left: 2px solid #50627e; color: #d2dbe9; font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.coin-maka-summary { align-items: center; }

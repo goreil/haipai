@@ -30,6 +30,42 @@ To view the result: **Admin → Category reports → Players: All reports → Re
 
 For investigation, report persistence and joins are in `db/reports.py`, the admin API is `/api/admin/category-reports` in `routes/admin.py`, and filter parsing is `parseAdminReportIds` in `static/js/admin.js`. Match the requested problem using report reasons and relevant mistake context; a problem category is not necessarily the stored report `kind` (`wrong_text`, `complex_gap`, or historical `wrong_category`). Base the list on inspected data and state any limits on coverage.
 
+## Community coins after report fixes
+
+When a user asks to credit a fix, use the coin award tool directly. The user
+can authorize the awards together with the fix; do not ask for the same
+permission again. Awards use **category_reports.id**, the `R-…` card ID, and
+credit **100 × stored EV loss**, rounded to the nearest whole coin (half up).
+An award is issued once per reporter and mistake, including across report
+resubmissions and historical thanks backfills. Admin contributions are eligible.
+
+From the production checkout, preview the exact batch and then apply it:
+
+```bash
+docker compose exec -T app python scripts/community_coins.py --report-ids 12,34,56
+docker compose exec -T app python scripts/community_coins.py --report-ids 12,34,56 --apply
+```
+
+For a local database, use the checked-in virtual environment and an explicit
+path: `.venv/bin/python scripts/community_coins.py --db /path/to/games.db
+--report-ids 12,34,56`, adding `--apply` after inspecting the preview. The script
+prints JSON with new award entries, recipients, and resulting balances. With
+no `--apply`, it works on an in-memory copy and leaves the source untouched.
+Add `--reason "Short description of the fix"` to retain context in the award
+record. Fix descriptions are hidden from the Activity page. Missing reports
+or invalid EV abort the entire batch. Repeating a successful batch issues no
+additional coins. Award after validating the fix and before
+removing reports. Report the actual awarded count and amount to the user.
+
+Use `--backfill-thanks` / `--backfill-maka` only for an explicitly intended
+historical backfill. Maka grades automatically earn 5 coins on their first
+save per overall/per-hand field; edits and clearing/re-entering do not pay
+again. Historical thanks references identify mistakes and must be matched to
+the message recipient. Do not create new manual `thanks` messages; award coins
+instead. Historical messages remain readable. The admin UI offers the same
+operation via **Fixed · award coins** on each report card, and users can open
+the coin icon and balance beside **Trends** to view their ledger.
+
 ## Build, Test, and Development Commands
 
 Use the checked-in virtual environment; system Python may lack project dependencies.

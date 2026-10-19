@@ -22,6 +22,7 @@ async function refreshCsrfToken() {
     if (!res.ok) return;
     const me = await res.json();
     csrfToken = me.csrf_token || csrfToken;
+    updateCoinBalance(me.community_coins);
   } catch (e) {
     // Network hiccup — leave the existing token; next action retries.
   }
@@ -64,6 +65,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   const me = await meRes.json();
   window._meData = me;
+  updateCoinBalance(me.community_coins);
   csrfToken = me.csrf_token || "";
   document.getElementById("user-info").innerHTML =
     `${me.username} <a href="/logout">logout</a>`;
@@ -124,12 +126,13 @@ var TAB_ROUTES = Object.assign({
   help: () => showHelp(),
   account: () => showAccount(), // Preserve existing bookmarks.
   settings: () => showAccount(),
+  coins: () => showCoins(),
 }, mgTabRoutes());   // the minigame roster — see minigame-shell.js
 
 // Returns the tab slug from `#trends`/`#admin`/`#help`/`#account` or any
 // minigame slug, or null. The minigame half of the pattern comes from the
 // roster so a new trainer is routable the moment it is listed there.
-var TAB_HASH_RE = new RegExp(`^#(trends|admin|help|account|settings|${mgSlugPattern()})$`);
+var TAB_HASH_RE = new RegExp(`^#(trends|admin|help|account|settings|coins|${mgSlugPattern()})$`);
 
 function parseTabHash() {
   if ((window.location.hash || "").startsWith("#admin?")) return "admin";
@@ -187,7 +190,7 @@ async function applyHashRoute() {
   }
   const gameId = parseGameHash();
   if (gameId == null) {
-    if (state.currentGame != null) navigateHome();
+    if (state.currentGame != null || document.querySelector(".coins-page")) navigateHome();
   } else if (gameId !== state.currentGame) {
     await fetchGame(gameId);
   }
