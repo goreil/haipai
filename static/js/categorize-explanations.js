@@ -182,27 +182,27 @@ function explainDiscardShape(m, defenseCtx) {
   const youText = _joinClauses(_sideClauses(wins, "you", skillArea, seatWindFor));
   const mortalText = _joinClauses(_sideClauses(wins, "mortal", skillArea, seatWindFor));
   const lead = _defenseLead(skillArea, defenseCtx);
-  const leadHtml = lead ? `<span class="trigger-line">${lead}</span>` : "";
+  const leadText = lead ? `${lead} ` : "";
   if (shape === "obvious") {
     // Describe only the advantages represented by visible feature pills.
-    const head = mortalText
-      ? `The visible comparison favors Mortal's ${eT} — it ${mortalText}.`
-      : `The visible comparison favors Mortal's ${eT}.`;
-    return `${leadHtml}<span class="trigger-line">${head}</span>`;
+    const text = mortalText
+      ? `Mortal's ${eT} ${mortalText}.`
+      : `Mortal recommends ${eT}.`;
+    return `${leadText}${text}`;
   }
 
   if (shape === "trade-off") {
     // Both columns won something — value vs speed vs safety.
-    return `${leadHtml}<span class="trigger-line">A judgment call.</span>`
+    return `${leadText}A judgment call.`
       + ` Your ${aT} ${youText}, while Mortal's ${eT} ${mortalText}. Mortal recommends ${eT}.`;
   }
 
   // complex — Mortal's column won nothing visible.
   if (youText) {
-    return `${leadHtml}<span class="trigger-line">Mortal prefers ${eT}, but the visible stats don't explain it.</span>`
+    return `${leadText}Mortal prefers ${eT}, but the visible stats don't explain it.`
       + ` Your ${aT} ${youText}, yet Mortal still picks ${eT}.`;
   }
-  return `${leadHtml}<span class="trigger-line">Mortal prefers ${eT} over your ${aT}, but the visible comparison doesn't explain it.</span>`;
+  return `${leadText}Mortal prefers ${eT} over your ${aT}, but the visible comparison doesn't explain it.`;
 }
 
 function generateExplanation(m) {

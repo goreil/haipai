@@ -2192,13 +2192,6 @@
   opacity: 0.85;
 }
 
-.speech-bubble .trigger-line {
-  display: block;
-  font-weight: 500;
-  color: var(--text);
-  margin-bottom: 6px;
-}
-
 /* Defense-context line shown above the lead of meld/riichi/kan cards when an
    opponent is in riichi. Same red palette as the Defense group colour. */
 .speech-bubble .defense-context-line {
