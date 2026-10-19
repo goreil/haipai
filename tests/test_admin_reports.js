@@ -2,7 +2,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
-const ctx = vm.createContext({});
+const ctx = vm.createContext({ URLSearchParams });
 vm.runInContext(fs.readFileSync("static/js/admin.js", "utf8"), ctx);
 const reports = Array.from({ length: 15 }, (_, i) => ({
   id: i + 1, kind: i % 2 ? "wrong_text" : "complex_gap",
@@ -94,4 +94,62 @@ test("changing size, sort, or ID filters resets the page; invalid IDs keep the c
   assert.deepEqual(Array.from(context.adminState.reportIds), [12, 34]);
   context.adminClearReportIds();
   assert.equal(context.adminState.reportIds.length, 0);
+});
+
+function reportLinkContext(hash) {
+  const context = vm.createContext({
+    URLSearchParams,
+    window: { location: { hash } },
+    document: { addEventListener() {} },
+    mgTabRoutes: () => ({}),
+    mgSlugPattern: () => "waits",
+  });
+  for (const file of ["admin", "main"]) {
+    vm.runInContext(fs.readFileSync(`static/js/${file}.js`, "utf8"), context);
+  }
+  return context;
+}
+
+test("report links route to admin and show all requested IDs beyond 50 on one page", async () => {
+  const ids = Array.from({ length: 63 }, (_, i) => i + 1);
+  const hash = `#admin?report_ids=${ids.join(",")}`;
+  const context = reportLinkContext(hash);
+  Object.assign(context.adminState, { reportKind: "wrong_text", reportPageSize: 10, reportPage: 4 });
+  let routedHash;
+  context.showAdmin = async value => {
+    routedHash = value;
+    context.applyAdminReportHash(value);
+  };
+  await context.applyHashRoute();
+  assert.equal(routedHash, hash);
+  assert.equal(context.adminState.reportScope, "all");
+  assert.equal(context.adminState.reportKind, "");
+  assert.equal(context.adminState.reportPageSize, "unlimited");
+  assert.equal(context.adminState.reportPage, 0);
+  const ranked = context.rankedAdminReports(ids.map(id => ({ id })), "", "ev", context.adminState.reportIds);
+  const page = context.adminReportPage(ranked, context.adminState.reportPageSize, context.adminState.reportPage);
+  assert.equal(page.reports.length, 63);
+  assert.equal(page.pages, 1);
+});
+
+test("report links decode and deduplicate IDs, and a second link replaces the first", () => {
+  const context = reportLinkContext("");
+  context.applyAdminReportHash("#admin?report_ids=12%2C%20%2334%0A12&report_ids=56");
+  assert.deepEqual(Array.from(context.adminState.reportIds), [12, 34, 56]);
+  context.applyAdminReportHash("#admin?report_ids=78");
+  assert.deepEqual(Array.from(context.adminState.reportIds), [78]);
+});
+
+test("invalid report links do not change filters, and ordinary hashes still work", () => {
+  const context = reportLinkContext("");
+  context.applyAdminReportHash("#admin?report_ids=12");
+  for (const value of ["", ", ;", "12,bad", "0", "-1", "1.5", "9007199254740992"]) {
+    assert.throws(() => context.applyAdminReportHash(`#admin?report_ids=${encodeURIComponent(value)}`));
+    assert.deepEqual(Array.from(context.adminState.reportIds), [12]);
+  }
+  for (const hash of ["#admin", "#help", "#trends", "#g12", "#m12"]) {
+    context.window.location.hash = hash;
+    assert.equal(context.applyAdminReportHash(hash), false);
+    assert.equal(context.parseTabHash(), ["#g12", "#m12"].includes(hash) ? null : hash.slice(1));
+  }
 });

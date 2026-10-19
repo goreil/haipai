@@ -10,11 +10,18 @@ var adminState = { users: [], reports: [], reportKind: "", reportSort: "ev", rep
                    // last in-browser computed result, and live run status.
                    snapshot: { history: null, result: null, running: false, status: "" } };
 
-async function showAdmin() {
+async function showAdmin(reportHash = "") {
   state.currentGame = null;
   state.currentGameData = null;
   renderGameList();
   const content = document.getElementById("content");
+  let linkedReports;
+  try {
+    linkedReports = applyAdminReportHash(reportHash);
+  } catch (error) {
+    content.innerHTML = `<div class="empty-state">Invalid report link: ${escapeHtml(error.message)} <a href="#admin">Open admin</a></div>`;
+    return;
+  }
   content.innerHTML = '<div class="empty-state">Loading...</div>';
 
   const [statsRes, reportsRes] = await Promise.all([
@@ -34,6 +41,7 @@ async function showAdmin() {
   adminState.reports = reportPayload.reports || [];
   prepAndCategorizeReports(adminState.reports, reportPayload.mortal_data_by_game || {});
   renderAdmin();
+  if (linkedReports) document.getElementById("admin-report-controls")?.scrollIntoView({ block: "start" });
   // Snapshot history is cheap; load it lazily after the main render so the
   // dashboard paints immediately, then refresh the panel in place.
   loadSnapshotHistory();
@@ -134,6 +142,22 @@ function parseAdminReportIds(value) {
     throw new Error("Enter positive report IDs separated by commas or spaces (for example, 12, 34, 56).");
   }
   return [...new Set(tokens.map(token => Number(token.replace(/^#/, ""))))];
+}
+
+// Handoff links show every requested report, regardless of previous UI filters.
+// Validate before changing state; an empty/invalid list must not show all reports.
+function applyAdminReportHash(hash) {
+  if (!hash.startsWith("#admin?")) return false;
+  const params = new URLSearchParams(hash.slice("#admin?".length));
+  if (!params.has("report_ids")) return false;
+  const ids = parseAdminReportIds(params.getAll("report_ids").join(","));
+  if (!ids.length) throw new Error("Provide at least one report ID.");
+  adminState.reportIds = ids;
+  adminState.reportScope = "all";
+  adminState.reportKind = "";
+  adminState.reportPageSize = "unlimited";
+  adminState.reportPage = 0;
+  return true;
 }
 
 function adminFilterReportIds(form) {

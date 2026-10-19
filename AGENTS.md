@@ -6,6 +6,30 @@
 
 The repository also contains independent components: the Elm client in `riichi-mahjong-trainer/`, the Rust/WASM shanten engine in `wasm/haipai-shanten/`, and browser extensions in `extension/` and `extension-firefox/`. Read nearby documentation before changing these areas.
 
+## Admin Report ID Filter (Codex Handoff)
+
+When asked for all report IDs for a problem/category, return a clickable admin link containing all matching **`category_reports.id`** values, deduplicated. Include the count and a brief description of the matching criteria. Do not truncate the list to the current admin page size. If there are no matches, say so instead of generating an empty link.
+
+Link format (illustrative IDs):
+
+```text
+https://haipai-trainer.com/#admin?report_ids=12,34,56
+```
+
+Use the relevant deployment's origin when working outside production. Keep `?report_ids=` **after `#admin`**; this is a browser hash route. Opening the link automatically sets Players to **All reports**, Report kind to **All kinds**, Reports per page to **Unlimited**, and the first page, then scrolls to the report controls. This shows every existing report in the list, even when there are more than 50 IDs or prior filters would hide them. Normal admin authentication is required; if signed out, sign in and reopen the link. Missing/deleted IDs cannot be shown. Empty or malformed ID lists display an error instead of showing unrelated reports.
+
+If the user asks for the raw list, provide a single comma-separated line in a plain code block for the manual filter:
+
+```text
+12, 34, 56
+```
+
+Use the report ID shown as `R-12` on the report card, but output just `12`. Do not output mistake IDs (`mistake_id`, `#m…`, or the adjacent `#…` on the report card), game IDs, ranges, or JSON arrays. The filter accepts positive integer IDs separated by commas, whitespace, or semicolons, with optional `#` prefixes; prefer the plain comma-separated format above.
+
+To view the result: **Admin → Category reports → Players: All reports → Report kind: All kinds → Filter by report IDs → paste → Apply filter**. Select **Reports per page: Unlimited** to see every match together, or use Previous/Next. The ID filter intersects with the player and report-kind filters; the default Other player reports scope hides the admin's own reports. Clear removes the ID filter.
+
+For investigation, report persistence and joins are in `db/reports.py`, the admin API is `/api/admin/category-reports` in `routes/admin.py`, and filter parsing is `parseAdminReportIds` in `static/js/admin.js`. Match the requested problem using report reasons and relevant mistake context; a problem category is not necessarily the stored report `kind` (`wrong_text`, `complex_gap`, or historical `wrong_category`). Base the list on inspected data and state any limits on coverage.
+
 ## Build, Test, and Development Commands
 
 Use the checked-in virtual environment; system Python may lack project dependencies.

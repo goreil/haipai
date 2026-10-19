@@ -120,7 +120,7 @@ function parseMistakeHash() {
 // above). Maps the hash slug to the function that renders the view.
 var TAB_ROUTES = Object.assign({
   trends: () => showTrends(),
-  admin: () => showAdmin(),
+  admin: () => showAdmin(window.location.hash),
   help: () => showHelp(),
   account: () => showAccount(), // Preserve existing bookmarks.
   settings: () => showAccount(),
@@ -132,6 +132,7 @@ var TAB_ROUTES = Object.assign({
 var TAB_HASH_RE = new RegExp(`^#(trends|admin|help|account|settings|${mgSlugPattern()})$`);
 
 function parseTabHash() {
+  if ((window.location.hash || "").startsWith("#admin?")) return "admin";
   const m = (window.location.hash || "").match(TAB_HASH_RE);
   return m ? m[1] : null;
 }
@@ -181,7 +182,7 @@ async function applyHashRoute() {
   }
   const tab = parseTabHash();
   if (tab) {
-    TAB_ROUTES[tab]();
+    await TAB_ROUTES[tab]();
     return;
   }
   const gameId = parseGameHash();
