@@ -127,13 +127,12 @@ function renderWinFeatPill(w, oya) {
       // Push/fold context (w.threat): what you'd be folding to — riichi vs open,
       // dealer-ness, and open-hand han. This is the deciding info for the call,
       // so it rides on the deal-in pill itself (both the EV table and the
-      // trade-off boxes). Dealer replaces the bare wind tag (E seat = dealer);
-      // non-dealers keep their kyoku wind so you still know which opponent.
+      // trade-off boxes). Keep the wind visible for dealers too.
       const th = w.threat;
       if (th) {
         const dealer = oya != null && th.seat != null
           && (((th.seat - oya + 4) % 4) === 0);
-        const windTag = (!dealer && th.seat != null) ? ` (${seatWindShort(th.seat)})` : "";
+        const windTag = (th.seat != null) ? ` (${seatWindShort(th.seat)})` : "";
         const kindWord = th.kind === "open"
           ? (th.han ? `open ${th.han}han` : "open") : "riichi";
         const ctx = `${dealer ? "dealer " : ""}${kindWord}${windTag}`;
@@ -154,10 +153,8 @@ function renderWinFeatPill(w, oya) {
 
 function renderEvComparison(m, options) {
   options = options || {};
-  // Deal-in defense always shows the combined picture: the aggregated deal-in %
-  // per discard, with an expandable per-opponent calculation inside the Deal-in
-  // cell (see threatLines below). The old per-seat view toggle was retired once
-  // that per-opponent breakdown made it redundant.
+  // Each opponent gets a separate deal-in value with a persistent wind badge.
+  // Expanding a value reveals only that opponent’s wait calculation.
   const ukeireDora = getDoraTiles(m.board_state);
   // Keep the ambient active-dora set armed for the EV table's own renderTile()
   // and renderUkeireTiles() calls (the card renderer sets it too; this makes the
@@ -184,7 +181,7 @@ function renderEvComparison(m, options) {
     const pw = WINDS.indexOf(heroWind);
     if (pw >= 0) oya = ((heroActor - pw) % 4 + 4) % 4;
   }
-  const seatWind = (seat) => oya == null ? null : WINDS[(seat - oya + 4) % 4];
+  const seatWind = (seat) => WINDS[(seat - (oya ?? 0) + 4) % 4];
   const seatWindShort = (seat) => seatWind(seat)
     || (SEAT_NAMES[seat] ? SEAT_NAMES[seat][0] : `${seat}`);
   const seatWindFor = (seat) => oya == null
@@ -456,13 +453,9 @@ function renderEvComparison(m, options) {
       }
     }
 
-    // Multi-threat decomposition: with 2+ live opponents, break the tile's
-    // deal-in into one line per opponent (seat wind + that opponent's wait
-    // shapes + its deal-in %), so "defense against all" is visible at once
-    // instead of only the most-dangerous threat. Single-opponent picks keep the
-    // plain wait equation below.
+    // Use the same per-opponent display for single and multiple threats.
     let threatLines = null;
-    if (useKd && threatCount >= 2) {
+    if (useKd && threatCount >= 1) {
       threatLines = m.per_threat.map(pt => ({
         seat: pt.seat,
         wind: seatWindShort(pt.seat),
@@ -616,51 +609,38 @@ function renderEvComparison(m, options) {
   // already shows the EV loss, so a per-pick EV row just repeats it. (The
   // per-column `c.mortal` is still computed in case it's needed elsewhere.)
   if (useKd) {
-    // Show only each pick's total until its pill opens the calculation.
+    // Each opponent’s wind and rate stay visible while its calculation is closed.
     // Native details provides mouse and keyboard activation without extra state.
     html += rowFor(
       "Deal-in",
-      ` title="Probability this tile deals in across all live threats. Click a total to show or hide its calculation."`,
+      ` title="Probability this tile deals in against each opponent. Click a value to show or hide its calculation."`,
       "dealin-col",
       c => {
+        if (c.threatLines) {
+          return `<div class="dealin-opponents">` + c.threatLines.map(tl => {
+            const safe = tl.rate === 0;
+            const rateStyle = tl.rate == null || safe ? "" : ` style="color:${dealinColor(tl.rate)}"`;
+            const rateCls = "dealin-threat-rate" + (safe ? " dealin-genbutsu" : "");
+            const rateText = tl.rate == null ? "&ndash;"
+              : (safe && tl.softSafe ? "Safe*" : `${tl.rate.toFixed(1)}%`);
+            const rateTitle = safe && tl.softSafe ? ` title="${SOFT_SAFE_TITLE}"` : "";
+            const waitsCell = safe && tl.softSafe
+              ? `<span class="dealin-safe-note">${SOFT_SAFE_TITLE}</span>`
+              : (tl.waits || `<span class="dealin-safe-note">${safe
+                ? "No live wait." : "No wait breakdown available."}</span>`);
+            return `<details class="dealin-details">`
+              + `<summary class="ukeire-shared-pill dealin-total-pill" title="Show or hide the deal-in calculation against ${seatWindFor(tl.seat)}">`
+              + `<span class="dealin-threat-seat threat-${tl.kind}" title="Deal-in against the ${seatWindFor(tl.seat)} opponent">${tl.wind}</span>`
+              + `<span class="${rateCls}"${rateStyle}${rateTitle}>${rateText}</span>`
+              + `<span class="dealin-details-caret" aria-hidden="true">▸</span></summary>`
+              + `<div class="dealin-calculation"><span class="waits-row-list">${waitsCell}</span></div></details>`;
+          }).join("") + `</div>`;
+        }
         if (!c.dealinCls) return c.dealin;
         const calculation = body => `<details class="dealin-details">`
           + `<summary class="ukeire-shared-pill dealin-total-pill" title="Show or hide the deal-in calculation">`
           + c.dealin + `<span class="dealin-details-caret" aria-hidden="true">▸</span></summary>`
           + `<div class="dealin-calculation">${body}</div></details>`;
-        // Multi-threat combined view: one row per opponent — seat wind, that
-        // opponent's wait shapes, and its own deal-in % — stacked, with the
-        // aggregated total on the "=" line at the bottom. Lets the student read
-        // the defense against every live threat at once.
-        if (c.threatLines) {
-          let s = `<div class="dealin-stack dealin-multi">`;
-          for (const tl of c.threatLines) {
-            const safe = tl.rate == null || tl.rate === 0;
-            const rateColor = safe ? null : dealinColor(tl.rate);
-            const rateStyle = rateColor ? ` style="color:${rateColor}"` : "";
-            const rateCls = safe ? "dealin-threat-rate dealin-genbutsu" : "dealin-threat-rate";
-            const rateText = tl.rate == null ? "&ndash;"
-              : (tl.rate === 0 ? (tl.softSafe ? "Safe*" : "Safe") : `${tl.rate.toFixed(1)}%`);
-            // Soft-safe vs this threat: the 0% is behavioural (its wait was
-            // frozen), so we suppress the wait-shape equation and just mark the
-            // line Safe* with the explanatory tooltip.
-            const rateTitle = tl.softSafe ? ` title="${SOFT_SAFE_TITLE}"` : "";
-            const waitsCell = tl.softSafe
-              ? `<span class="dealin-threat-none" title="${SOFT_SAFE_TITLE}">wait frozen</span>`
-              : (tl.waits || `<span class="dealin-threat-none">no live wait</span>`);
-            s += `<div class="dealin-threat-line">`
-              +    `<span class="dealin-threat-seat threat-${tl.kind}" title="Deal-in against the ${seatWindFor(tl.seat)} opponent">${tl.wind}</span>`
-              +    `<span class="waits-row-list dealin-threat-waits">${waitsCell}</span>`
-              +    `<span class="${rateCls}"${rateStyle}${rateTitle}>${rateText}</span>`
-              +  `</div>`;
-          }
-          s += `<div class="dealin-threat-total">`
-            +    `<span class="dealin-threat-total-label">all threats</span>`
-            +    `<span class="dealin-sum-eq">=</span>`
-            +    c.dealin
-            +  `</div></div>`;
-          return calculation(s);
-        }
         // Soft-safe (single threat): the 0% is behavioural — the tile passed
         // while the open opp's wait was frozen — not a live-wait calculation.
         // Skip the wait equation and show just the Safe* mark (c.dealin already

@@ -2152,6 +2152,8 @@
 .dealin-details-caret { font-size: 9px; }
 .dealin-details[open] .dealin-details-caret { transform: rotate(90deg); }
 .dealin-calculation { margin-top: 8px; }
+.dealin-opponents { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.dealin-opponents > .dealin-details { max-width: 100%; }
 .dealin-safe-note { font-size: 11px; color: var(--text-dim); white-space: normal; }
 
 /* Multi-threat deal-in: one row per live opponent (seat wind · its wait shapes ·
