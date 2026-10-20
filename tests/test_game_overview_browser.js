@@ -22,7 +22,7 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
         ] },
       ],
     };
-    const html = `<!doctype html><html><head>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
       <link rel="stylesheet" href="file://${path.resolve(__dirname, '../static/style-theme.css')}">
       <link rel="stylesheet" href="file://${path.resolve(__dirname, '../static/style-game-detail.css')}">
       <style>body {overflow:hidden} #content {height: 500px; overflow: auto} .mistake {height: 300px}</style>
@@ -65,7 +65,7 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
           await fetchGame(1);
           check(opened === 1, 'opens once through prep refresh');
           check(document.querySelectorAll('.overview-mistake').length === 1, 'only the top mistake');
-          check(document.querySelector('.overview-mistake').textContent.includes('6.00 EV'), 'highest EV across game');
+          check(document.querySelector('.overview-mistake').textContent.includes('6.00 EV (Severe)'), 'highest EV across game');
           check(getComputedStyle(document.querySelector('.overview-category-name')).color === 'rgb(79, 195, 247)',
             'top category retains its category color');
           check(getComputedStyle(document.querySelector('.overview-mistake .cat-badge')).color === 'rgb(79, 195, 247)',
@@ -76,6 +76,15 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
           const dialog = document.querySelector('dialog');
           check(dialog.querySelector('.trainer-tip').compareDocumentPosition(dialog.querySelector('.overview-highlights'))
             & Node.DOCUMENT_POSITION_FOLLOWING, 'trainer above category');
+          check(dialog.querySelector('.overview-mistake .overview-label').textContent === 'Worst mistake', 'worst mistake label');
+          check(dialog.querySelector('.overview-category .overview-label').textContent === 'Worst category', 'worst category label');
+          const gradeRect = dialog.querySelector('.overview-grade').getBoundingClientRect();
+          const choicesRect = dialog.querySelector('.overview-highlights').getBoundingClientRect();
+          check(gradeRect.right < choicesRect.left, 'grade left of all three choices');
+          const severity = dialog.querySelector('.overview-mistake .severity');
+          check(severity.classList.contains('sev-major'), 'mistake header severity class');
+          check(getComputedStyle(severity).color === 'rgb(239, 83, 80)', 'mistake header severity color');
+          check(getComputedStyle(dialog.querySelector('.speech-bubble')).fontSize === '14px', 'prominent trainer text');
           const rect = dialog.getBoundingClientRect();
           check(Math.abs((rect.left + rect.right) / 2 - innerWidth / 2) < 2, 'centered horizontally');
           check(Math.abs((rect.top + rect.bottom) / 2 - innerHeight / 2) < 2, 'centered vertically');

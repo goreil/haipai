@@ -83,36 +83,38 @@ function renderGameOverview(game, topGroup) {
   return `<header class="overview-heading">
       <h2 id="overview-title">Game overview</h2>
       <div class="overview-heading-actions">
-        <div class="overview-grade"><span>Grade</span>${renderRanking(game.summary, "ranking-large")}</div>
         <button type="button" class="overview-close" data-action="closeGameOverview" aria-label="Close game overview" autofocus>×</button>
       </div>
     </header>
     ${renderTrainerTip(tipAgg, tipBoxes)}
-    <div class="overview-highlights">
+    <div class="overview-summary">
+      <div class="overview-grade"><span>Grade</span>${renderRanking(game.summary, "ranking-large")}</div>
+      <div class="overview-highlights">
       ${entry ? `<button type="button" class="overview-mistake overview-choice overview-target"
         style="--overview-color:${escapeHtml(badge?.color || "var(--accent)")}"
         data-action="overviewNavigate" data-view="top5" data-round-index="${entry.roundIndex}" data-position="${entry.position}">
-        <span class="overview-choice-main"><span class="overview-label">Top mistake</span>
+        <span class="overview-choice-main"><span class="overview-label">Worst mistake</span>
           ${badge ? `<span class="cat-badge" style="background:${badge.color}20;color:${badge.color};border:1px solid ${badge.color}40"
             title="${escapeHtml(badge.desc || "")}">${escapeHtml(badge.label)}</span>` : '<strong>Unclassified mistake</strong>'}
           <span class="overview-mistake-location">${escapeHtml(formatRoundLabel(entry.round))} · Turn ${entry.mistake.turn}</span>
         </span>
-        <span class="overview-choice-result"><strong>${(entry.mistake.ev_loss || 0).toFixed(2)} EV</strong><span aria-hidden="true">›</span></span>
-      </button>` : '<div class="overview-choice"><span class="overview-choice-main"><span class="overview-label">Top mistake</span><span class="overview-empty">No mistakes to review in this game.</span></span></div>'}
+        <span class="overview-choice-result"><span class="severity ${sevClass(entry.mistake)}" title="${escapeHtml(sevTooltip(entry.mistake))}">${(entry.mistake.ev_loss || 0).toFixed(2)} EV (${sevLabel(entry.mistake)})</span><span aria-hidden="true">›</span></span>
+      </button>` : '<div class="overview-choice"><span class="overview-choice-main"><span class="overview-label">Worst mistake</span><span class="overview-empty">No mistakes to review in this game.</span></span></div>'}
       ${topGroup ? `<button type="button" class="overview-category overview-choice overview-target"
         style="--overview-color:${escapeHtml(topGroup.meta.color || "var(--accent)")}"
         data-action="overviewNavigate" data-view="top-group">
-        <span class="overview-choice-main"><span class="overview-label">Top category</span>
+        <span class="overview-choice-main"><span class="overview-label">Worst category</span>
           <strong class="overview-category-name">${escapeHtml(topGroup.meta.label)}</strong></span>
         <span class="overview-choice-result"><strong>${topGroup.ev.toFixed(2)} EV</strong><span aria-hidden="true">›</span></span>
-      </button>` : '<div class="overview-choice"><span class="overview-choice-main"><span class="overview-label">Top category</span><span class="overview-empty">No category data yet.</span></span></div>'}
+      </button>` : '<div class="overview-choice"><span class="overview-choice-main"><span class="overview-label">Worst category</span><span class="overview-empty">No category data yet.</span></span></div>'}
       ${worst ? `<button type="button" class="overview-round overview-choice overview-target" data-action="overviewNavigate"
         data-view="rounds" data-round-index="${worst.roundIndex}">
-        <span class="overview-choice-main"><span class="overview-label">Worst Round</span><strong>${escapeHtml(formatRoundLabel(worst.round))}</strong></span>
+        <span class="overview-choice-main"><span class="overview-label">Worst round</span><strong>${escapeHtml(formatRoundLabel(worst.round))}</strong></span>
         <span class="overview-choice-result"><span class="overview-round-grade"><span class="overview-label">Grade</span>
           ${renderRanking({ total_decisions: worst.decisions, total_ev_loss: worst.ev }, "ranking-hand")}</span>
           <strong>${worst.ev.toFixed(2)} EV</strong><span aria-hidden="true">›</span></span>
-      </button>` : '<div class="overview-choice"><span class="overview-choice-main"><span class="overview-label">Worst Round</span><span class="overview-empty">No round with mistakes.</span></span></div>'}
+      </button>` : '<div class="overview-choice"><span class="overview-choice-main"><span class="overview-label">Worst round</span><span class="overview-empty">No round with mistakes.</span></span></div>'}
+    </div>
     </div>
     ${custom ? `<div class="overview-shortcuts"><button type="button" class="overview-shortcut overview-target" data-action="overviewNavigate" data-view="${escapeHtml(custom.id)}">
       <span><span class="overview-label">Custom filter</span><strong>${escapeHtml(custom.name)}</strong></span><span aria-hidden="true">›</span>
