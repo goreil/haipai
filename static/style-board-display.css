@@ -35,7 +35,16 @@
 .hand-choice-button:hover > .tile { box-shadow: 0 0 0 2px var(--accent); }
 .hand-choice-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .hand-choice-button[aria-pressed="true"] > .tile { box-shadow: 0 0 0 2px var(--accent); }
-.hand-choice-tabs { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; }
+/* Tuck the tabs behind the tile's rounded lower edge for a continuous join. */
+.hand-choice > .tile { position: relative; z-index: 1; }
+.hand-choice-tabs {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  margin-top: -3px;
+}
 .hand-choice-tab {
   display: flex;
   flex-direction: column;
@@ -50,6 +59,7 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.hand-choice-tab:first-child { padding-top: 5px; }
 .hand-choice-you { color: var(--sev-major); }
 .hand-choice-ai { color: var(--sev-minor); }
 .hand-choice-rank-2 { color: #90b9ef; }
