@@ -87,7 +87,7 @@ function renderTile(t, extraClass = "", titleOverride = null, extraAttrs = "") {
     cls += " dora-highlight";
   }
   let title = titleOverride || t;
-  if (_activeYakuhai.has(t) && !/(^|\s)(no-dora|wind-tile)(\s|$)/.test(extraClass)) {
+  if (_activeYakuhai.has(t) && !/(^|\s)(no-dora|no-yakuhai|wind-tile)(\s|$)/.test(extraClass)) {
     cls += " yakuhai-highlight";
     title += " — Yakuhai for you (value honor)";
   }

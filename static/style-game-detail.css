@@ -1634,9 +1634,13 @@
   margin-right: 4px;
 }
 .meld-wind {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
   font-size: 9px;
   color: var(--text-dim);
-  margin-left: 1px;
+  /* Rotated called tiles extend beyond their layout box, including outlines. */
+  margin-left: 7px;
   vertical-align: super;
 }
 .meld-called {
@@ -2139,6 +2143,16 @@
   gap: 5px;
 }
 .ev-table-cols .dealin-stack .waits-row-list { justify-content: center; }
+
+/* The total uses the same pill chrome as tile acceptance. Each pick opens
+   its calculation independently, keeping the initial comparison compact. */
+.dealin-details > summary { list-style: none; }
+.dealin-details > summary::-webkit-details-marker { display: none; }
+.dealin-total-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.dealin-details-caret { font-size: 9px; }
+.dealin-details[open] .dealin-details-caret { transform: rotate(90deg); }
+.dealin-calculation { margin-top: 8px; }
+.dealin-safe-note { font-size: 11px; color: var(--text-dim); white-space: normal; }
 
 /* Multi-threat deal-in: one row per live opponent (seat wind · its wait shapes ·
    its deal-in %), stacked, with the aggregated total on the final "=" line.

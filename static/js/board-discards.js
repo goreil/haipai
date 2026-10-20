@@ -438,7 +438,7 @@ function renderBoardContext(m) {
           const absTurn = absTurnMap.get(`${d.seat}_${i}`);
           const posAttrs = `data-turn="${absTurn}" data-seat="${d.seat}"`;
           // dora-highlight is applied automatically by renderTile.
-          let cls = "action-tile-sm";
+          let cls = "action-tile-sm no-yakuhai";
           // Called tile (taken by an opponent) → dashed outline; tsumogiri
           // (drawn-and-thrown) → grey shading. Independent, so a tile can be
           // both (a tsumogiri that got called).
@@ -462,9 +462,10 @@ function renderBoardContext(m) {
         }
         html += `</span>`;
         if (seatMelds) {
+          const yakuhaiTiles = new Set(["P", "F", "C", b.round_wind, seatWindLetter].filter(Boolean));
           html += `<span class="inline-melds">`;
           for (const meld of seatMelds) {
-            html += renderMeld(meld, "action-tile-sm", d.seat, doraTiles, oya) + " ";
+            html += renderMeld(meld, "action-tile-sm", d.seat, doraTiles, oya, yakuhaiTiles) + " ";
           }
           html += `</span>`;
         }

@@ -4,7 +4,7 @@
 // reference renderMeld (yaku-panel via dead pills' renderTile reuse only,
 // discards inline-melds + the EV/mistake-card action rows).
 
-function renderMeld(meld, tileClass = "action-tile-sm", actorSeat, doraTiles, oya = null) {
+function renderMeld(meld, tileClass = "action-tile-sm", actorSeat, doraTiles, oya = null, yakuhaiTiles = null) {
   const type = meld.type;
   const consumed = meld.consumed || [];
   const pai = meld.pai;
@@ -14,8 +14,18 @@ function renderMeld(meld, tileClass = "action-tile-sm", actorSeat, doraTiles, oy
   // meld tiles highlight even when renderMeld is reached via renderAction (the
   // played/recommended action chips), which has no doraTiles to pass.
   function meldTile(t, extra = "") {
-    const cls = extra ? tileClass + " " + extra : tileClass;
-    return renderTile(t, cls);
+    let cls = extra ? tileClass + " " + extra : tileClass;
+    // Board rows supply the meld owner's value honors. Action chips and the
+    // player's hand use renderTile's current decision context.
+    let title = null;
+    if (yakuhaiTiles != null) {
+      cls += " no-yakuhai";
+      if (yakuhaiTiles.has(t)) {
+        cls += " yakuhai-highlight";
+        title = `${t} — Yakuhai for caller (value honor)`;
+      }
+    }
+    return renderTile(t, cls, title);
   }
   function calledTile(t) { return `<span class="meld-called">${meldTile(t)}</span>`; }
 
