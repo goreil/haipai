@@ -217,7 +217,7 @@ function renderDoraSection(b) {
     for (let i = 0; i < b.dora_indicators.length; i++) {
       const d = b.dora_indicators[i];
       const actual = doraList[i] || d;
-      html += renderTile(actual, "tile-sm dora-indicator", `Dora ${actual} (from indicator ${d})`);
+      html += renderTile(actual, "dora-indicator", `Dora ${actual} (from indicator ${d})`);
     }
     html += `</span>`;
   }
