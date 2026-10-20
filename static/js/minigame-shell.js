@@ -21,7 +21,7 @@ var mgGuest = false;
 //
 // The one place that knows which minigames exist. Adding a fourth trainer
 // means adding a row here: both shells' hash routers (main.js, play-view.js),
-// the SPA's "Minigames" toolbar dropdown and the arcade's tab strip are all
+// the SPA's main menu and the arcade's tab strip are all
 // built from this list, so none of them can fall out of step with another.
 //
 // `show` is an arrow rather than a direct reference because this file loads
@@ -29,7 +29,7 @@ var mgGuest = false;
 // now. Same lazy-resolution trick the action registry uses (actions.js).
 //
 // `hidden: true` takes a trainer out of both shells' menus (the SPA's
-// Minigames dropdown and the arcade's tab strip) while leaving it loaded and
+// main menu and the arcade's tab strip) while leaving it loaded and
 // routable — `/#defense-trainer` and `/play#efficiency-trainer` still open
 // it, so an unpolished game can be worked on and demoed without being
 // advertised. Delete the flag to ship it.
@@ -77,8 +77,7 @@ function mgSlugPattern() {
   return MG_GAMES.map((g) => g.slug).join("|");
 }
 
-// The SPA's "Minigames" toolbar dropdown. One category button instead of one
-// button per trainer — the toolbar does not grow every time a game is added.
+// Trainer entries for the SPA's main menu.
 function mgMenuHtml() {
   return mgVisibleGames().map((g) =>
     `<button data-action="navMinigame" data-mg-slug="${g.slug}" title="${g.blurb}">${g.title}</button>`

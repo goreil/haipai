@@ -74,11 +74,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const adminBtn = document.getElementById("admin-btn");
   if (adminBtn && me.is_admin) adminBtn.style.display = "";
 
-  // The Minigames dropdown is built from the roster rather than written out in
-  // index.html, so the toolbar can't list a different set of games than the
-  // router knows about.
-  const mgMenu = document.getElementById("minigames-dropdown");
-  if (mgMenu) mgMenu.innerHTML = mgMenuHtml();
+  // Add the advertised trainers to the main menu from the shared roster.
+  const mainMenu = document.getElementById("main-menu-dropdown");
+  if (mainMenu) mainMenu.insertAdjacentHTML("afterbegin", mgMenuHtml());
 
   renderImpersonateBanner(me);
   if (typeof mailboxInit === "function") mailboxInit();

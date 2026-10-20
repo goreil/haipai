@@ -43,14 +43,6 @@
           <span class="coin-mark" aria-hidden="true">H</span>
           <span class="community-amount" id="community-balance">0</span>
         </button>
-        <!-- The minigames live behind one category button so the toolbar does
-             not grow a button per trainer. Contents are rendered from the
-             roster in minigame-shell.js by main.js's init. -->
-        <div class="toolbar-menu">
-          <button class="btn" data-action="toggleMenu">Minigames &#9662;</button>
-          <div class="toolbar-dropdown" id="minigames-dropdown"></div>
-        </div>
-
         <div class="mailbox" id="mailbox" style="display:none">
           <button class="btn mailbox-btn" id="mailbox-trigger" title="Mailbox" aria-label="Mailbox">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -78,7 +70,7 @@
 
         <div class="toolbar-menu">
           <button class="btn toolbar-menu-btn" data-action="toggleMenu">&#8943;</button>
-          <div class="toolbar-dropdown">
+          <div class="toolbar-dropdown" id="main-menu-dropdown">
             <button data-action="showSettings">Settings</button>
             <button data-action="showHelp">Help</button>
             <button id="admin-btn" style="display:none" data-action="showAdmin">Admin</button>
