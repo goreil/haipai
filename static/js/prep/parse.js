@@ -240,6 +240,7 @@
     const types = new Set();
     if (actual_type) types.add(actual_type);
     if (expected_type) types.add(expected_type);
+    if (types.has("hora")) return "attack";
     if (types.has("chi") || types.has("pon")) return "meld";
     if (types.has("reach")) return "riichi";
     if (types.has("ankan") || types.has("kakan") || types.has("daiminkan")) return "kan";

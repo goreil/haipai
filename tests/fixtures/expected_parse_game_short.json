@@ -771,7 +771,7 @@
     {
       "decision_count": 9,
       "decision_counts": {
-        "attack": 5,
+        "attack": 6,
         "defense": 0,
         "kan": 0,
         "meld": 2,
@@ -1231,7 +1231,7 @@
     {
       "decision_count": 9,
       "decision_counts": {
-        "attack": 7,
+        "attack": 8,
         "defense": 0,
         "kan": 0,
         "meld": 0,

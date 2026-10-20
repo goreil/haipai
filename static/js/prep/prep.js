@@ -102,15 +102,17 @@
       _compute_kd_defense_patch(mistake.hand || [], defenseCtx, tiles_left, wall));
   }
 
-  function _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry) {
+  function _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry, allowComplete = false) {
     const hand = mistake.hand || [];
-    if (hand.length !== 14) return [];
+    if (hand.length !== 14 - 3 * (mistake.melds || []).length) return [];
     const tiles_left = entry ? entry.tiles_left : null;
     if (tiles_left == null) return [];
     try {
       const ctx = reconstruct_context(mortalData, kyokuIdx, tiles_left, entry);
       const wall = _clamp_wall(subtract_hand_from_wall(ctx.wall, hand));
-      const response = calcShanten(hand, mistake.melds || [], wall);
+      const response = allowComplete
+        ? jsCalcShanten(hand, mistake.melds || [], wall, { allowComplete: true })
+        : calcShanten(hand, mistake.melds || [], wall);
       return response.stats || [];
     } catch (e) {
       _warn("discard_stats compute failed:", e);
@@ -249,6 +251,109 @@
     }
   }
 
+  // A passed ron is followed by a later decision, with a different hand/board.
+  // Keep that snapshot separate from the original winning opportunity.
+  function _win_patch(mistake, mortalData, kyokuIdx, entry, defenseCtx) {
+    const patch = {};
+    if (!defenseCtx) return patch;
+    const { mjai_events: events, start_pos: start, end_pos: end, player_id: player } = defenseCtx;
+    const trigger = boardStateMod.decision_trigger(entry, player);
+    if (!trigger) return patch;
+    let left = 70;
+    let riichi = false, doubleRiichi = false, ippatsu = false, calls = false, ownDraws = 0;
+    let lastDrawWasKan = false;
+    for (let i = start + 1; i < end; i++) {
+      const e = events[i];
+      if (e.type === "tsumo") {
+        left--;
+        if (e.actor === player) {
+          ownDraws++;
+        }
+      }
+      if (["chi", "pon", "ankan", "kakan", "daiminkan"].includes(e.type)) {
+        calls = true;
+        ippatsu = false;
+        lastDrawWasKan = e.actor === player && ["ankan", "kakan", "daiminkan"].includes(e.type);
+      }
+      if (e.type === "dahai") {
+        lastDrawWasKan = false;
+        if (e.actor === player && riichi && ownDraws > riichi) ippatsu = false;
+      }
+      if (e.type === "reach" && e.actor === player) {
+        riichi = ownDraws;
+        doubleRiichi = ownDraws === 1 && !calls;
+        ippatsu = true;
+      }
+      if (!trigger(e, left)) continue;
+      patch.win_context = {
+        tile: entry.tile, tsumo: entry.last_actor === player,
+        flags: (riichi ? (doubleRiichi ? "w" : "r") : "") + (ippatsu ? "i" : "")
+          + (entry.at_opponent_kakan || (entry.last_actor === player && lastDrawWasKan) ? "k" : "")
+          + (left === 0 ? "h" : "") + (!calls && ownDraws === 1 && entry.last_actor === player ? "t" : ""),
+        honba: events[start].honba || 0,
+        kyotaku: (events[start].kyotaku || 0) + events.slice(start + 1, i + 1)
+          .filter(x => x.type === "reach_accepted").length,
+      };
+      if (mistake.actual?.type === "hora" && riichi) {
+        const result = events.slice(i + 1, end).find(x => x.type === "hora" && x.actor === player);
+        if (result && Array.isArray(result.ura_markers)) {
+          patch.win_context.ura_tiles = result.ura_markers.map(tilesMod.dora_indicator_to_dora_mjai);
+        }
+      }
+      if (mistake.actual?.type !== "none") break;
+      if (!patch.win_context.tsumo) {
+        const wall = _wall_for_mistake(mistake, mortalData, kyokuIdx, entry);
+        patch.passed_win = {
+          waits: tenpai_wait_tiles(mistake.hand || [], mistake.melds || [], wall),
+          furiten_kind: riichi ? "riichi_pass" : "temporary_pass",
+        };
+      }
+      // Find the first subsequent player action. Stop at the round boundary;
+      // never borrow a discard from a different round or invent an AI follow-up.
+      const hand = (mistake.hand || []).slice();
+      let pendingReach = false;
+      for (let j = i + 1; j < end; j++) {
+        const next = events[j];
+        if (["ryukyoku", "end_kyoku"].includes(next.type)
+            || (next.type === "hora" && next.actor !== player)) break;
+        if (next.type === "tsumo") left--;
+        if (next.actor !== player) continue;
+        if (next.type === "tsumo") hand.push(next.pai);
+        if (next.type === "hora") {
+          const source = events.slice(i + 1, j).reverse().find(x =>
+            x.actor === next.target && ["tsumo", "dahai", "kakan"].includes(x.type));
+          if (source) {
+            const followEntry = { tiles_left: left, last_actor: source.actor, tile: source.pai,
+              at_opponent_kakan: source.type === "kakan" };
+            const follow = { ...mistake, hand, actual: next, expected: { type: "none" } };
+            patch.win_continuation = { hand, actual: next,
+              board_state: _compute_board_state(mortalData, kyokuIdx, followEntry),
+              ..._win_patch(follow, mortalData, kyokuIdx, followEntry, defenseCtx) };
+          }
+          break;
+        }
+        if (next.type === "reach") { pendingReach = true; continue; }
+        if (!["dahai", "chi", "pon", "ankan", "kakan", "daiminkan"].includes(next.type)) continue;
+        const followEntry = { tiles_left: left, last_actor: player };
+        const follow = { ...mistake, hand, actual: next, expected: next };
+        const board = _compute_board_state(mortalData, kyokuIdx, followEntry);
+        const wall = _wall_for_mistake(follow, mortalData, kyokuIdx, followEntry);
+        let stats = [];
+        if (wall && next.type === "dahai") {
+          stats = jsCalcShanten(hand, mistake.melds || [], wall, { allowComplete: true }).stats || [];
+        }
+        patch.win_continuation = {
+          hand, actual: next, board_state: board, discard_stats: stats,
+          riichi_decision: !!riichi || pendingReach,
+          ...(wall ? _compute_kd_defense_patch(hand, defenseCtx, left, wall) : {}),
+        };
+        break;
+      }
+      break;
+    }
+    return patch;
+  }
+
   function prepMistake(mistake, mortalData, kyokuIdx, entry, defenseCtx) {
     const actual = mistake.actual || {};
     const expected = mistake.expected || {};
@@ -264,9 +369,10 @@
     // populated here too so 5A/4A/4B/6A cards can detect a riichi opponent
     // through the same channel dahai-vs-dahai uses.
     if (!(at === "dahai" && et === "dahai")) {
-      const patch = {};
+      const patch = (at === "hora" || et === "hora")
+        ? _win_patch(mistake, mortalData, kyokuIdx, entry, defenseCtx) : {};
       if (board_state) patch.board_state = board_state;
-      const stats = _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry);
+      const stats = _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry, at === "hora" || et === "hora");
       if (stats && stats.length) patch.discard_stats = stats;
 
       _maybe_apply_defense_patch(patch, mistake, defenseCtx, mortalData,

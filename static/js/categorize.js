@@ -25,8 +25,9 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 17;
+  const CATEGORIZER_VERSION = 18;
   const CATEGORIZER_CHANGELOG = {
+    18: "Win decisions belong to Attack and do not emit discard-based feature comparisons. Adds Ron/Tsumo comparisons, passed-ron furiten, and confirmed win scoring (#m323).",
     17: "Yaku plausibility: exposed honors that cannot form a triplet no longer earn yakuhai. Chanta, ittsu and flush tile patterns are suppressed until verified by a live tenpai completion; speculative patterns no longer determine shape or appear in trainer text (reports #221/#226/#227/#233/#237/#240/#242/#247/#253/#271/#272).",
     16: "Yakuhai comparisons count double seat/round winds as 2 han, including against a single yakuhai. Fixes #m35708; the pill and explanation name double yakuhai.",
     1: "Initial JS-side categorizer (P1-P4 push, D1-D3 defense, 4A/4B/4C meld, 5A/5B riichi, 6A/6B kan).",

@@ -69,7 +69,7 @@ async function fetchGame(id) {
   // so revisits only re-download the (small) game payload.
   const [res, mres] = await Promise.all([
     fetch(`/api/games/${id}`),
-    fetch(`/api/games/${id}/mortal`),
+    fetch(`/api/games/${id}/mortal?v=2`),
   ]);
   if (state.gameFetchRequest !== request) return;
   if (!res.ok) {

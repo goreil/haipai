@@ -120,3 +120,21 @@ test('invalid waits and unavailable scoring do not become no-yaku results', () =
     context.window.Riichi = calc;
   }
 });
+
+test('discard furiten blocks ron across all waits and preserves tsumo scoring', () => {
+  const m = {
+    hand:['1m','2m','3m','3m','3m','6m','7m','7p','7p','7p','5s','6s','7s'],
+    melds:[],board_state:{round_wind:'S',seat_wind:'N'},furiten_tiles:['8m'],
+  };
+  const groups = context.evalDiscardScores(m,null,[{tile:'5m',count:4},{tile:'8m',count:3}],true);
+  assert.ok(groups.length > 0);
+  for (const group of groups) {
+    assert.equal(group.ron,null);
+    assert.ok(group.tsumo.ten > 0);
+    assert.ok(group.tiles.every(t => t.furiten));
+  }
+  const html = context.renderRiichiScoreCell(groups,true);
+  assert.match(html,/furiten-badge/);
+  assert.match(html,/discard pool/);
+  assert.doesNotMatch(html,/no yaku/);
+});

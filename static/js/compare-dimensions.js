@@ -185,6 +185,8 @@
   }
 
   function compareDimensions(m) {
+    // A terminal win has no discard-based shape or value tradeoffs.
+    if (m.actual?.type === "hora" || m.expected?.type === "hora") return [];
     const wins = [];
     const { actualTile, expectedTile } = comparedTiles(m);
     const discardStats = m.discard_stats || [];

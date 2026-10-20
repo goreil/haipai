@@ -13,6 +13,9 @@ from lib.parse import parse_game, compute_summary
 DIR = Path(__file__).parent.parent
 games_bp = Blueprint("games", __name__)
 
+# Bump alongside the /mortal URL version in game-fetch.js and trends-analysis.js.
+MORTAL_PAYLOAD_VERSION = 2
+
 # Origin allowed to POST games via the bookmarklet upload endpoint.
 UPLOAD_ALLOWED_ORIGIN = "https://mjai.ekyu.moe"
 
@@ -65,9 +68,8 @@ def api_game_mortal(game_id):
     if not row:
         return jsonify({"error": "Game not found"}), 404
 
-    # The filename is the content hash — use it as the ETag so
-    # revalidations are answered without reading the file.
-    etag = Path(row["mortal_file"]).stem if row["mortal_file"] else None
+    # Include the response schema: the same source file can produce a new slim payload.
+    etag = f"slim-v{MORTAL_PAYLOAD_VERSION}-{Path(row['mortal_file']).stem}" if row["mortal_file"] else None
     if etag and etag in request.if_none_match:
         resp = make_response("", 304)
         resp.set_etag(etag)
@@ -173,11 +175,11 @@ def load_full_mortal_data(mortal_file):
 
 
 def _slim_mortal_data(md):
-    """Return only the fields JS prep needs. The retained per-entry shape
-    is tiles_left/junme/is_equal plus the action-type fields the JS
-    skill-area classifier needs (`actual.type`, `expected.type`,
-    `details[].action.type`). The discarded fields (model probabilities,
-    scores, ratings) aren't consumed by static/js/prep/."""
+    """Keep the decision boundary and action types needed by JS prep.
+
+    Trigger fields locate the exact draw/discard/call in the replay, including
+    Win scoring and the player's subsequent choice after passing a win.
+    """
 
     def _entry_slim(e):
         actual = e.get("actual") or {}
@@ -185,6 +187,10 @@ def _slim_mortal_data(md):
         details = e.get("details") or []
         return {
             "tiles_left": e.get("tiles_left"),
+            "last_actor": e.get("last_actor"),
+            "tile": e.get("tile"),
+            "at_self_chi_pon": e.get("at_self_chi_pon", False),
+            "at_opponent_kakan": e.get("at_opponent_kakan", False),
             "junme": e.get("junme"),
             "is_equal": e.get("is_equal"),
             "actual": {"type": actual.get("type")} if actual else None,

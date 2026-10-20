@@ -239,6 +239,8 @@ def skill_area_for_entry(actual_type, expected_type, detail_types=(),
     through to attack/defense based on whether the player is in riichi.
     """
     types = {actual_type, expected_type}
+    if "hora" in types:
+        return "attack"
     if types & _MELD_TYPES:
         return "meld"
     if "reach" in types:

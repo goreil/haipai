@@ -166,10 +166,15 @@ function renderMistakeCard(m, opts = {}) {
   html += `</div>`;
 
   if (m.hand && m.hand.length) {
-    html += `<div class="hand-row">
+    html += `<div class="hand-row${m.win_context ? " win-opportunity-hand" : ""}">
       <span class="label">Hand</span>
             <span class="tiles">${renderHand(m.hand, m.draw, m,
-              m.top_actions?.length && m.discard_stats?.length ? registerHandComparison(m) : null)}</span>`;
+              m.top_actions?.length && m.discard_stats?.length
+                && m.actual?.type !== "hora" && m.expected?.type !== "hora" ? registerHandComparison(m) : null)}</span>`;
+    if (m.win_context && !m.win_context.tsumo) {
+      html += `<span class="win-incoming"><span class="label">Opponent discard</span>`
+        + renderTile(m.win_context.tile) + `</span>`;
+    }
     if (m.melds && m.melds.length) {
       const playerSeat = mistakeActorSeat(m);
       const oya = mistakeOya(m);
@@ -184,7 +189,8 @@ function renderMistakeCard(m, opts = {}) {
   }
   html += renderBoardContext(m);
   html += renderTenpaiWaitsRow(m);
-  if (m.top_actions && m.top_actions.length && m.discard_stats && m.discard_stats.length) {
+  if (m.top_actions && m.top_actions.length
+      && (m.discard_stats?.length || m.actual?.type === "hora" || m.expected?.type === "hora")) {
     html += renderEvComparison(m);
   } else if (m.top_actions && m.top_actions.length) {
     html += `<div class="top-actions">`;

@@ -268,3 +268,11 @@ class TestDecisionCountsForKyoku:
         dc = game["rounds"][0]["decision_counts"]
         assert dc == {"attack": 1, "defense": 0, "riichi": 0, "meld": 2, "kan": 1}
         assert sum(dc.values()) == len(entries)
+
+
+@pytest.mark.parametrize("other", ["none", "dahai", "reach", "pon", "ankan"])
+def test_win_decisions_are_attack(other):
+    from lib.parse import skill_area_for_entry
+
+    assert skill_area_for_entry("hora", other, in_riichi=True) == "attack"
+    assert skill_area_for_entry(other, "hora", in_riichi=True) == "attack"

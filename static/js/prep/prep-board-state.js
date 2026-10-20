@@ -259,6 +259,7 @@
   }
 
   return {
+    decision_trigger: _decision_trigger,
     decrement_wall,
     reconstruct_context,
     extract_board_state,

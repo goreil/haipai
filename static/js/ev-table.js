@@ -153,6 +153,8 @@ function renderWinFeatPill(w, oya) {
 
 function renderEvComparison(m, options) {
   options = options || {};
+  const winMistake = m.actual?.type === "hora" || m.expected?.type === "hora" ? m : null;
+
   if (options.selectedTile) {
     // Keep the stored decision intact; only the exploratory table uses this discard.
     const expectedTile = m.expected?.pai || (m.expected?.type === "reach"
@@ -200,10 +202,12 @@ function renderEvComparison(m, options) {
   // as `actual_riichi_tile`; for 5B (player silently discarded when they
   // should have reached) we use actual.pai as the tile for both rows
   // (Mortal's reach would have dropped the same tile).
-  const actualTile = (m.actual && m.actual.pai)
-    || (m.actual && m.actual.type === "reach" ? m.actual_riichi_tile : null);
-  const expectedTile = (m.expected && m.expected.pai)
-    || (m.expected && m.expected.type === "reach" ? actualTile : null);
+  const actualTile = (winMistake?.actual?.type === "hora" ? "hora" : null)
+    || (m.actual && m.actual.pai)
+    || (m.actual && m.actual.type === "reach" ? m.actual_riichi_tile : (winMistake ? m.actual.type : null));
+  const expectedTile = (winMistake?.expected?.type === "hora" ? "hora" : null)
+    || (m.expected && m.expected.pai)
+    || (m.expected && m.expected.type === "reach" ? actualTile : (winMistake ? m.expected.type : null));
 
   // Riichi-vs-dama decisions. 5A (Bad Riichi): you reached, AI says dahai.
   // 5B (Missed Riichi): you dahai'd, AI says reach. The reach side is the
@@ -227,7 +231,7 @@ function renderEvComparison(m, options) {
   }
 
   const statMap = {};
-  for (const s of m.discard_stats) {
+  for (const s of m.discard_stats || []) {
     statMap[s.tile] = s;
     // Cross-alias red/regular fives. shanten_calc emits one stat per base
     // tile, keyed "5pr" when the hand holds the red copy and "5p" otherwise
@@ -237,6 +241,11 @@ function renderEvComparison(m, options) {
     // tile-acceptance disappear.
     if (/^5[mps]r$/.test(s.tile)) statMap[s.tile.slice(0, -1)] = s;
     else if (/^5[mps]$/.test(s.tile)) statMap[s.tile + "r"] = s;
+  }
+
+  if (m.passed_win?.waits?.length) {
+    statMap.none = { shanten: 0, necessary_tiles: m.passed_win.waits,
+      necessary_count: m.passed_win.waits.reduce((sum, w) => sum + w.count, 0) };
   }
 
   // Review view is decluttered: just the three decisions the user cares about
@@ -311,7 +320,7 @@ function renderEvComparison(m, options) {
   const diffByTile = {};
   if (diff) diff.perRow.forEach((r, i) => { diffByTile[diffSource[i].tile] = r; });
 
-  let html = `<div class="ev-comparison">`;
+  let html = `<div class="ev-comparison${winMistake ? " ev-win-comparison" : ""}">`;
 
   // Transposed layout: each shown pick (You / AI) becomes a COLUMN; the
   // attributes (acceptance, EV, shanten, deal-in, type, waits) become rows.
@@ -341,6 +350,7 @@ function renderEvComparison(m, options) {
   // place and the row emission a simple map.
   const cols = colSpecs.map(spec => {
     const tile = spec.tile;
+    const isWin = !!winMistake && tile === "hora";
     const ma = mortalMap[tile];
     const ca = statMap[tile] || statMap[tileBase(tile)];
     const isActual = spec.side === "actual";
@@ -366,7 +376,8 @@ function renderEvComparison(m, options) {
     // one pick has data) the full acceptance list is shown instead.
     const hasUkeire = (isActual || isExpected || isBestDiscard)
       && ca && ca.necessary_tiles && ca.necessary_tiles.length;
-    let acc = "";
+    let acc = winMistake && !isWin && !ca
+      ? `<span class="rsc-hanfu">${isActual ? "No win taken" : "Continuation unknown"}</span>` : "";
     if (hasUkeire) {
       if (diffEnabled) {
         const g = diffByTile[tile];
@@ -497,7 +508,9 @@ function renderEvComparison(m, options) {
     // pick, with no live dama alternative to contrast it with, so both
     // columns read "riichi" rather than splitting into riichi/dama.
     let reachRole = null;
-    if (reachSide) {
+    if (isActual && m.passed_win && /[rw]/.test(m.win_context?.flags || "")) {
+      reachRole = "riichi";
+    } else if (reachSide) {
       if (spec.side === reachSide) reachRole = "riichi";
       else if ((spec.side === "actual" || spec.side === "expected") && shantenVal === 0) reachRole = "dama";
     } else if (m.riichi_decision && shantenVal === 0) {
@@ -517,10 +530,20 @@ function renderEvComparison(m, options) {
     if (shantenVal === 0
         && ca && ca.necessary_tiles && ca.necessary_tiles.length
         && typeof evalDiscardScores === "function") {
-      scoreGroups = evalDiscardScores(m, tile, ca.necessary_tiles, scoreIsRiichi);
+      const scoringMistake = isActual && m.passed_win
+        ? { ...m, furiten_kind: m.passed_win.furiten_kind } : m;
+      scoreGroups = evalDiscardScores(scoringMistake, tile, ca.necessary_tiles, scoreIsRiichi);
     }
 
-    return { tile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
+    const winningSnapshot = winMistake;
+    const winScore = isWin ? renderWinScore(winningSnapshot) : null;
+    const winTile = isWin ? winningSnapshot.win_context?.tile || winningSnapshot.draw : null;
+    if (isWin) {
+      dealin = '<span class="dealin-genbutsu" title="Winning ends the hand">0.0%</span>';
+      dealinCls = "";
+      threatLines = null;
+    }
+    return { tile, isWin, winScore, winTile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
              acc, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe };
   });
 
@@ -585,7 +608,15 @@ function renderEvComparison(m, options) {
       : c.reachRole === "dama"
       ? `<span class="reach-pill reach-pill-dama" title="Dama — stay closed at tenpai without declaring riichi">dama</span>`
       : "";
-    html += `<th class="${c.colClass} ev-col-head"><span class="tile-cell">${pill}${reachPill}${renderTile(c.tile, "ev-tile")} ${c.markers.join("")}</span></th>`;
+    let choice = renderTile(c.tile, "ev-tile");
+    if (c.isWin) {
+      const winLabel = winMistake.win_context?.tsumo ? "Tsumo" : "Ron";
+      choice = `<span class="action-pill action-win">${winLabel}</span>` + renderTile(c.winTile, "ev-tile");
+    } else if (winMistake) {
+      const action = c.side === "actual" ? m.actual : m.expected;
+      if (action?.type !== "dahai") choice = renderAction(action);
+    }
+    html += `<th class="${c.colClass} ev-col-head"><span class="tile-cell">${pill}${reachPill}${choice} ${c.markers.join("")}</span></th>`;
   }
   html += `</tr></thead><tbody>`;
 
@@ -597,9 +628,9 @@ function renderEvComparison(m, options) {
   // still short of tenpai shows its tile-acceptance cell instead, keeping the
   // "N shared" expand pill — which belongs only on acceptance cells, never on a
   // value cell. The row label adapts to whichever mix the card carries.
-  const isScored = c => c.scoreGroups && c.scoreGroups.length;
+  const isScored = c => c.winScore || (c.scoreGroups && c.scoreGroups.length);
   const anyScore = cols.some(isScored);
-  const anyAcc = cols.some(c => !isScored(c) && c.acc);
+  const anyAcc = cols.some(c => !isScored(c) && c.acc && c.tile !== "none");
   const valueLabel = anyScore ? (anyAcc ? "Value / acceptance" : "Value") : "Tile acceptance";
   const valueTitle = anyScore
     ? ` title="Tenpai picks show their win value and waits; a pick still short of tenpai shows its tile acceptance instead — its “N shared” pill is the tiles every pick accepts, the “+N” the extra it alone accepts."`
@@ -609,7 +640,7 @@ function renderEvComparison(m, options) {
     valueTitle,
     "ukeire-col ukeire-acc-row score-col",
     c => isScored(c)
-      ? `<div class="rsc-cell">${renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>`
+      ? `<div class="rsc-cell">${c.winScore || renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>`
       : `<div class="ukeire-acc-cell">${c.acc}</div>`,
   );
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row

@@ -74,7 +74,7 @@ async function startWeaknessAnalysis() {
         // served from the browser cache.
         const [res, mres] = await Promise.all([
           fetch(`/api/games/${trendsEntry.id}`),
-          fetch(`/api/games/${trendsEntry.id}/mortal`),
+          fetch(`/api/games/${trendsEntry.id}/mortal?v=2`),
         ]);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const full = await res.json();

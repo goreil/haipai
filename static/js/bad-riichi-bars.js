@@ -159,7 +159,7 @@ function _evalWaitScore(hand13, winTile, m, opts) {
   // when junme 1 with no calls. The Riichi lib's 立直 check excludes itself
   // when ダブル立直 fires, so the two never double-count.
   const riichiFlag = opts.riichi ? (_isDoubleRiichiContext(m) ? "w" : "r") : "";
-  const extras = riichiFlag + `${bakaze}${jikaze}`;
+  const extras = (opts.flags ?? riichiFlag) + `${bakaze}${jikaze}`;
   const doraStr = _formatRiichiDoraStr(bs.dora_tiles);
   const doraSuffix = doraStr ? `+d${doraStr}` : "";
   // Called melds feed the calc as extra furo groups so an OPEN hand scores its
@@ -211,8 +211,11 @@ function _evalWaitScore(hand13, winTile, m, opts) {
       continue;
     }
     hasRealYaku = true;
-    if (_SITUATIONAL_YAKU && _SITUATIONAL_YAKU.has(jp)) continue;
-    yaku.push((_YAKU_LABEL && _YAKU_LABEL[jp]) || jp);
+    if (_SITUATIONAL_YAKU && _SITUATIONAL_YAKU.has(jp) && !opts.includeSituational) continue;
+    const situational = { "立直": "riichi", "ダブル立直": "double riichi", "一発": "ippatsu",
+      "門前清自摸和": "menzen tsumo", "嶺上開花": "rinshan", "搶槓": "chankan",
+      "海底摸月": "haitei", "河底撈魚": "houtei", "天和": "tenhou", "地和": "chiihou" };
+    yaku.push((_YAKU_LABEL && _YAKU_LABEL[jp]) || situational[jp] || jp);
   }
   if (!hasRealYaku) return opts.includeNoYaku ? { noYaku: true } : null;
   return { han: result.han, fu: result.fu, ten: result.ten, yaku, dora, aka,
@@ -577,7 +580,15 @@ function evalDiscardScores(m, discardTile, waitEntries, riichi) {
   }
   if (!Array.isArray(waitEntries) || !waitEntries.length) return null;
 
-  const furitenSet = new Set(m.furiten_tiles || []);
+  // Furiten locks ron on every wait, including tiles other than the
+  // discarded/passed tile. Tsumo remains legal and keeps its live counts.
+  const furiten = !!m.furiten_kind || (m.furiten_tiles || []).length > 0;
+  const furitenReason = m.furiten_kind === "riichi_pass"
+    ? "Passed ron after riichi — ron is unavailable for the rest of this hand; tsumo is still possible."
+    : m.furiten_kind === "temporary_pass"
+    ? "Passed ron — ron is unavailable until your next draw; tsumo is still possible."
+    : "A wait is in your discard pool — ron is unavailable on every wait; tsumo is still possible.";
+  const furitenSet = new Set(furiten ? waitEntries.map(w => w.tile) : []);
   const waits = _expandWaitsForAka(
     waitEntries.map(w => ({ tile: w.tile, count: w.count, aka_count: w.aka_count })),
     furitenSet,
@@ -587,7 +598,7 @@ function evalDiscardScores(m, discardTile, waitEntries, riichi) {
     const ronEval = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: false, includeNoYaku: true });
     const tsumoEval = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: true, includeNoYaku: true });
     if (!ronEval && !tsumoEval) continue;
-    const ron = ronEval && !ronEval.noYaku ? ronEval : null;
+    const ron = !furiten && ronEval && !ronEval.noYaku ? ronEval : null;
     const tsumo = tsumoEval && !tsumoEval.noYaku ? tsumoEval : null;
     const noYaku = !!(ronEval && ronEval.noYaku && tsumoEval && tsumoEval.noYaku);
     if (!ron && !tsumo && !noYaku) continue;
@@ -596,7 +607,7 @@ function evalDiscardScores(m, discardTile, waitEntries, riichi) {
     yaku = yaku.filter(y => y && y !== "立直" && y !== "ダブル立直");
     const bonus = useRiichi ? _badRiichiBonusEv(ron || tsumo) : 0;
     rows.push({
-      tile: w.tile, count: w.count, furiten: w.furiten,
+      tile: w.tile, count: w.count, furiten: w.furiten, furitenReason,
       ron, tsumo, bonus, noYaku,
       yaku, dora: anyEval.dora || 0, aka: anyEval.aka || 0,
     });
@@ -632,7 +643,8 @@ function _groupScoreRows(rows) {
 // that only menzen-tsumo wins.
 function renderRiichiScoreCell(groups, riichi) {
   if (!groups || !groups.length) return "";
-  const cls = riichi ? "rsc rsc-riichi" : "rsc rsc-dama";
+  const cls = (riichi ? "rsc rsc-riichi" : "rsc rsc-dama")
+    + (groups.some(g => g.winning) ? " rsc-win" : "");
   const line = (label, s) => s
     ? `<span class="rsc-line"><span class="rsc-mode">${label}</span>`
       + `<span class="rsc-pts">${s.ten.toLocaleString()}</span>`
@@ -645,7 +657,7 @@ function renderRiichiScoreCell(groups, riichi) {
     const tileEntries = (g.tiles || []).map(t => {
       const tileHtml = renderTile(t.tile, "tile-sm ukeire-tile-img");
       const countCls = t.furiten ? "rsc-count rsc-count-furiten" : "rsc-count";
-      const countTip = t.furiten ? `${t.tile} — furiten (already discarded)` : `${t.tile} ×${t.count}`;
+      const countTip = t.furiten ? `${t.tile} — ${g.furitenReason || "furiten"}` : `${t.tile} ×${t.count}`;
       return `<span class="rsc-tile-entry">${tileHtml}<span class="${countCls}" title="${countTip}">×${t.count}</span></span>`;
     }).join("");
 
@@ -674,9 +686,18 @@ function renderRiichiScoreCell(groups, riichi) {
     if (g.noYaku) {
       body += `<span class="rsc-line rsc-noyaku" title="These tiles complete the hand, but it has no yaku. Ron or tsumo needs an additional yaku."><span class="rsc-mode">Ron / Tsumo</span><span class="rsc-pts">no yaku</span></span>`;
     } else {
-      if (g.ron) body += line("Ron", g.ron);
-      else if (!riichi) body += `<span class="rsc-line rsc-noyaku" title="No yaku — a dama hand can't ron, only menzen-tsumo wins"><span class="rsc-mode">Ron</span><span class="rsc-pts">no yaku</span></span>`;
+      if (g.furiten) body += `<span class="rsc-line"><span class="rsc-mode">Ron</span>`
+        + `<span class="furiten-badge" title="${g.furitenReason}">Furiten</span></span>`;
+      else if (g.ron) body += line("Ron", g.ron);
+      else if (!riichi && !g.winning) body += `<span class="rsc-line rsc-noyaku" title="No yaku — a dama hand can't ron, only menzen-tsumo wins"><span class="rsc-mode">Ron</span><span class="rsc-pts">no yaku</span></span>`;
       body += line("Tsumo", g.tsumo);
+    }
+    if (g.winning) {
+      if (g.honba || g.kyotaku) {
+        body += `<span class="rsc-line"><span class="rsc-mode">Total</span><span class="rsc-pts">${g.total.toLocaleString()}</span></span>`
+          + `<span class="rsc-hanfu">${g.honba} honba · ${g.kyotaku} riichi ${g.kyotaku === 1 ? "stick" : "sticks"}</span>`;
+      }
+      if (g.unknownUra) body += '<span class="rsc-hanfu">Unrevealed ura excluded</span>';
     }
     const bonus = (riichi && g.bonus > 0)
       ? `<span class="rsc-line rsc-bonus" title="Average ippatsu + uradora value on top of the riichi win"><span class="rsc-mode">+ ura</span><span class="rsc-pts">~${g.bonus.toLocaleString()}</span></span>`
@@ -685,4 +706,27 @@ function renderRiichiScoreCell(groups, riichi) {
       + `<span class="rsc-vals">${body}${bonus}</span></div>`;
   }).join("");
   return `<div class="${cls}">${blocks}</div>`;
+}
+
+// Score the tile available now, with confirmed situational yaku only.
+function renderWinScore(m) {
+  const ctx = m.win_context;
+  if (!ctx) return '<span class="dim">Win value unavailable</span>';
+  const hand = (m.hand || []).slice();
+  if (ctx.tsumo) {
+    const idx = hand.indexOf(ctx.tile);
+    if (idx < 0) return '<span class="dim">Win value unavailable</span>';
+    hand.splice(idx, 1);
+  }
+  const scoringMistake = { ...m, board_state: { ...m.board_state,
+    dora_tiles: [...(m.board_state?.dora_tiles || []), ...(ctx.ura_tiles || [])] } };
+  const score = _evalWaitScore(hand, ctx.tile, scoringMistake,
+    { tsumo: ctx.tsumo, flags: ctx.flags, includeSituational: true });
+  if (!score) return '<span class="dim">Win value unavailable</span>';
+  const total = score.ten + ctx.honba * 300 + ctx.kyotaku * 1000;
+  // Reuse the established value-cell chrome, without hypothetical waits or EV bonuses.
+  const group = { ...score, winning: true, tiles: [], [ctx.tsumo ? 'tsumo' : 'ron']: score,
+    total, honba: ctx.honba, kyotaku: ctx.kyotaku,
+    unknownUra: /[rw]/.test(ctx.flags) && !ctx.ura_tiles };
+  return renderRiichiScoreCell([group], false);
 }

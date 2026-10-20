@@ -3241,3 +3241,21 @@
   .ranking .ranking-letter { -webkit-text-fill-color: currentColor; background: none; }
   .ranking { filter: none; text-shadow: none; }
 }
+
+/* A terminal win has one value, rather than a grid of hypothetical waits. */
+.ev-table .rsc-win { grid-template-columns: auto; }
+.ev-table .rsc-win .rsc-yaku { justify-content: flex-start; justify-self: start; }
+.ev-table .rsc-win .rsc-tiles { display: none; }
+.ev-table .rsc-win .rsc-line { flex-wrap: wrap; }
+.ev-table .rsc-win .rsc-hanfu { white-space: normal; }
+
+.ev-win-comparison .tile-cell { flex-wrap: wrap; white-space: normal; justify-content: center; }
+
+.win-incoming {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
