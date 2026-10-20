@@ -312,6 +312,7 @@
 }
 
 .danger-tag {
+  white-space: nowrap;
   color: var(--threat-open);
   font-weight: 700;
   text-transform: none;
@@ -518,7 +519,7 @@
 @container (min-width: 520px) {
   .mistake .discard-row {
     display: grid;
-    grid-template-columns: 84px minmax(0, 1fr) 228px;
+    grid-template-columns: 110px minmax(0, 1fr) 228px;
     align-items: start;
   }
   .mistake .discard-row > .tiles {
