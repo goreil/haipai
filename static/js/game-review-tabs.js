@@ -117,11 +117,12 @@ function syncReviewFilter(topGroup) {
   if (!tab) return;
   state.sevLevel = tab.severity ?? 3;
   if (tab.severity === null) autoSetSeverityFilters(state.currentGameData);
+  if (state.reviewNavigation?.topics) state.sevLevel = 3;
   state.reviewSort = state.reviewNavigation?.view === tab.id ? state.reviewNavigation.sort : tab.sort;
   state.reviewLimit = state.reviewNavigation?.view === tab.id ? state.reviewNavigation.limit : tab.limit;
-  state.conceptFilters = tab.topGroup
+  state.conceptFilters = state.reviewNavigation?.topics || (tab.topGroup
     ? (topGroup ? [reviewTopGroupFilter(topGroup)] : [])
-    : tab.topics.map(f => ({ ...f }));
+    : tab.topics.map(f => ({ ...f })));
 }
 
 function saveActiveReviewFilter(changes) {

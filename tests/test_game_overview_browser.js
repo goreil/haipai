@@ -41,7 +41,9 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
       const OUTCOME_EMOJI = {};
       const haipaiCompareDimensions = { compareDimensions: () => ({}), GROUP_META: {Speed:{label:'Efficiency', color:'#4fc3f7'}} };
       const haipaiConceptBreakdown = {
-        aggregate: () => ({groups:{missed:{Speed:{group:'Speed',ev:14}}}}), tradeoffBoxes: () => [],
+        aggregate: () => ({groups:{missed:{Speed:{group:'Speed',ev:14,tiers:{severe:1,mistake:3,light:2}}}}}), tradeoffBoxes: () => [{key:'push_fold',title:'Push vs. Fold',ev:6,
+          mistakes:[{ev:6,tier:'severe',betterWins:[{group:'Defense'}]}]}],
+        tradeoffDirection: () => 'Should fold',
         mistakeTouchesConcept: (m, compare, f) => m.topic === f.group,
       };
       recategorizeGameInPlace = () => {};
@@ -88,6 +90,23 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
           const rect = dialog.getBoundingClientRect();
           check(Math.abs((rect.left + rect.right) / 2 - innerWidth / 2) < 2, 'centered horizontally');
           check(Math.abs((rect.top + rect.bottom) / 2 - innerHeight / 2) < 2, 'centered vertically');
+          click('[data-action="changeGameOverviewPage"][data-page="1"]');
+          check(dialog.textContent.includes('Category breakdown') && dialog.textContent.includes('Efficiency'), 'detailed categories');
+          check(dialog.textContent.includes('Push vs. Fold') && dialog.textContent.includes('Should fold'), 'tradeoff directions');
+          renderGame();
+          check(document.querySelector('dialog').textContent.includes('Category breakdown'), 'refresh retains detail page');
+          click('[data-action="changeGameOverviewPage"][data-page="0"]');
+          const swipe = (dx, dy) => {
+            const target = document.querySelector('dialog');
+            target.dispatchEvent(new TouchEvent('touchstart', {touches:[new Touch({identifier:1,target,clientX:100,clientY:100})]}));
+            target.dispatchEvent(new TouchEvent('touchend', {changedTouches:[new Touch({identifier:1,target,clientX:100+dx,clientY:100+dy})]}));
+          };
+          swipe(10, 120);
+          check(state.overviewPage === 0, 'vertical scroll does not turn page');
+          swipe(100, 5);
+          check(state.overviewPage === 1, 'right swipe opens details');
+          swipe(-100, 5);
+          check(state.overviewPage === 0, 'swipe returns to summary');
           click('[data-action="closeGameOverview"]');
           check(state.gameView === 'top5', 'dismiss retains default filter');
           check(document.activeElement.dataset.action === 'openGameOverview', 'close restores focus');
@@ -97,6 +116,14 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
           check(!document.querySelector('dialog'), 'filter edit stays closed');
           click('[data-action="openGameOverview"]');
           check(document.querySelectorAll('.overview-mistake').length === 1, 'saved count cannot expand overview');
+          check(state.overviewPage === 0, 'reopening starts on summary');
+          click('[data-action="changeGameOverviewPage"][data-page="1"]');
+          click('[data-action="overviewFilterConcept"][data-concept-dim="Should fold"]');
+          check(!document.querySelector('dialog') && state.gameView === 'rounds', 'breakdown opens rounds');
+          check(state.conceptFilters[0].dim === 'Should fold' && state.reviewLimit === 0, 'direction filter applied without limit');
+          click('[data-action="clearConceptFilters"]');
+          check(state.conceptFilters.length === 0 && !state.reviewNavigation, 'clear transient category filter');
+          click('[data-action="openGameOverview"]');
           click('.overview-category');
           check(state.gameView === 'top-group' && !document.querySelector('dialog'), 'category shortcut');
           switchGameView('rounds');

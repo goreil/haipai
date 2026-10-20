@@ -360,6 +360,11 @@ function toggleConceptFilter(side, group, dim) {
 }
 
 function clearConceptFilters() {
+  if (state.reviewNavigation?.topics) {
+    state.reviewNavigation = null;
+    renderGame();
+    return;
+  }
   if (isStandardReviewFilter(activeReviewTab())) return;
   state.conceptFilters = [];
   saveActiveReviewFilter({ topics: [], topGroup: false });
@@ -740,12 +745,13 @@ function renderReviewControls(game, agg, boxes) {
   const sortLabel = state.reviewSort === "ev" ? "Highest EV first" : "Round order";
   return `<div class="review-controls">
     <div class="review-scope">
-      ${state.reviewNavigation?.view === "rounds" ? '<span class="review-active-filters">Showing the worst round in chronological order with no limit. Saved Rounds settings are unchanged; select Rounds again to restore them.</span>' : ""}
+      ${state.reviewNavigation?.view === "rounds" ? '<span class="review-active-filters">Showing rounds in chronological order with no limit. Saved Rounds settings are unchanged; select Rounds again to restore them.</span>' : ""}
       <strong>Showing ${shown} of ${total} review items</strong>
       <span class="review-active-filters">${severity} · ${topics} · ${sortLabel}${state.reviewLimit ? ` · Top ${state.reviewLimit}` : ""}</span>
       ${revealed ? `<span class="review-active-filters">Includes ${revealed} item${revealed === 1 ? "" : "s"} revealed in individual hands.</span>` : ""}
     </div>
     <div class="review-control-actions">
+      ${state.reviewNavigation?.topics ? '<button type="button" class="review-link" data-action="clearConceptFilters">Clear topic filter</button>' : ""}
       <button type="button" class="review-disclosure" data-action="toggleGamePanel" data-panel="filters"
         aria-controls="game-review-filters" aria-expanded="${open}">Filters</button>
       ${standard ? '<button type="button" class="review-link" data-action="resetStandardReviewFilter">Reset to default</button>' : `<button type="button" class="review-link" data-action="showAllReviewItems"
@@ -825,6 +831,8 @@ function renderGame() {
         haipaiCompareDimensions.comparedTiles, sevTier)
     : null;
 
+  state.reviewConceptAgg = conceptAgg;
+  state.reviewTradeoffBoxes = tradeoffBoxes;
   const topGroup = reviewTopGroup(game, conceptAgg, tradeoffBoxes);
   syncReviewFilter(topGroup);
   const hasReview = state.reviewLinkedMistake || !!activeReviewTab();

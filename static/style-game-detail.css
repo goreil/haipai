@@ -3246,3 +3246,11 @@
   padding-left: 10px;
   border-left: 1px solid var(--border);
 }
+
+.overview-details-title { margin: 18px 0 12px; font-size: 16px; }
+.overview-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; }
+.overview-pagination > span { color: var(--text-dim); font-size: 12px; white-space: nowrap; }
+.overview-pagination .btn { min-height: 40px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.overview-pagination .btn:disabled { opacity: .4; cursor: default; }
+.game-overview-dialog .concept-ledger { background: var(--bg); border: 1px solid var(--border); }
+.game-overview-dialog .concept-breakdown { margin-bottom: 0; }

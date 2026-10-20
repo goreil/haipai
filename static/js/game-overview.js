@@ -40,10 +40,12 @@ function beginGameReview(linkedMistake = false) {
   state.gameView = linkedMistake ? null : prefs.defaultFilter;
   state.reviewLinkedMistake = linkedMistake;
   state.reviewNavigation = null;
+  state.overviewPage = 0;
   state.overviewOpen = !linkedMistake && !prefs.skipOverview;
 }
 
 function openGameOverview() {
+  state.overviewPage = 0;
   state.overviewOpen = true;
   updateGameOverview();
 }
@@ -80,12 +82,18 @@ function renderGameOverview(game, topGroup) {
   const tipAgg = topGroup?.side === "missed" ? { groups: { missed: { [topGroup.group]: topGroup } } } : null;
   const tipBoxes = topGroup?.side === "box"
     ? [{ key: topGroup.group, title: topGroup.meta.label, ev: topGroup.ev }] : [];
+  const details = state.overviewPage === 1;
+  const breakdown = details ? renderConceptBreakdown(state.reviewConceptAgg, state.reviewTradeoffBoxes)
+    .replaceAll('data-action="filterConcept"', 'data-action="overviewFilterConcept"') : "";
   return `<header class="overview-heading">
       <h2 id="overview-title">Game overview</h2>
       <div class="overview-heading-actions">
         <button type="button" class="overview-close" data-action="closeGameOverview" aria-label="Close game overview" autofocus>×</button>
       </div>
     </header>
+    <section id="overview-page" aria-label="${details ? "Category breakdown" : "Summary"}">
+    ${details ? `<h3 class="overview-details-title">Category breakdown</h3>
+      ${breakdown || '<p class="overview-empty">No category data yet.</p>'}` : `
     ${renderTrainerTip(tipAgg, tipBoxes)}
     <div class="overview-summary">
       <div class="overview-grade"><span>Grade</span>${renderRanking(game.summary, "ranking-large")}</div>
@@ -119,6 +127,13 @@ function renderGameOverview(game, topGroup) {
     ${custom ? `<div class="overview-shortcuts"><button type="button" class="overview-shortcut overview-target" data-action="overviewNavigate" data-view="${escapeHtml(custom.id)}">
       <span><span class="overview-label">Custom filter</span><strong>${escapeHtml(custom.name)}</strong></span><span aria-hidden="true">›</span>
     </button></div>` : ""}
+    `}
+    </section>
+    <nav class="overview-pagination" aria-label="Game overview pages">
+      <button type="button" class="btn" data-action="changeGameOverviewPage" data-page="0" ${details ? "" : "disabled"}>‹ Previous page</button>
+      <span role="status">${details ? "2" : "1"} / 2</span>
+      <button type="button" class="btn" data-action="changeGameOverviewPage" data-page="1" ${details ? "disabled" : ""}>Next page ›</button>
+    </nav>
     <footer class="overview-preferences">
       <label class="overview-skip"><input type="checkbox" data-change-action="changeReviewOpeningPreference" data-preference="skip"
         ${prefs.skipOverview ? "checked" : ""}> Skip overview when opening games</label>
@@ -146,6 +161,22 @@ function updateGameOverview() {
       event.preventDefault();
       closeGameOverview();
     });
+    let touchStart = null;
+    dialog.addEventListener("touchstart", event => {
+      touchStart = event.touches.length === 1
+        ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
+    }, { passive: true });
+    dialog.addEventListener("touchcancel", () => { touchStart = null; });
+    dialog.addEventListener("touchend", event => {
+      const start = touchStart;
+      touchStart = null;
+      if (!start || event.touches.length || !event.changedTouches.length) return;
+      const dx = event.changedTouches[0].clientX - start.x;
+      const dy = event.changedTouches[0].clientY - start.y;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      // Either horizontal direction turns the page; a right swipe opens details too.
+      changeGameOverviewPage({ dataset: { page: state.overviewPage === 1 ? "0" : "1" } });
+    }, { passive: true });
     document.body.append(dialog);
   }
   const active = dialog.contains(document.activeElement) ? document.activeElement : null;
@@ -172,7 +203,13 @@ function overviewNavigate(el) {
   if (view === "rounds") {
     // Keep this visit chronological/unlimited across prep refreshes. Switching
     // tabs or editing options ends the override; saved Rounds settings survive.
-    state.reviewNavigation = { view, sort: "round", limit: 0, roundIndex: Number(el.dataset.roundIndex), pending: true };
+    state.reviewNavigation = {
+      view, sort: "round", limit: 0,
+      roundIndex: el.dataset.roundIndex == null ? null : Number(el.dataset.roundIndex), pending: true,
+      ...(el.dataset.conceptSide ? { topics: [{
+        side: el.dataset.conceptSide, group: el.dataset.conceptGroup, dim: el.dataset.conceptDim || null,
+      }] } : {}),
+    };
   } else if (view === "top5" && el.dataset.position != null) {
     state.reviewNavigation = {
       view, sort: activeReviewTab().sort, limit: activeReviewTab().limit,
@@ -198,4 +235,18 @@ function scrollReviewNavigation() {
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
     if (!state.prepProgress) nav.pending = false;
   });
+}
+
+function changeGameOverviewPage(el) {
+  const page = Number(el.dataset.page);
+  if (![0, 1].includes(page) || page === (state.overviewPage || 0)) return;
+  state.overviewPage = page;
+  updateGameOverview();
+  const dialog = document.getElementById("game-overview-dialog");
+  dialog.scrollTop = 0;
+  dialog.querySelector(`.overview-pagination button[data-page="${page === 1 ? 0 : 1}"]`)?.focus({ preventScroll: true });
+}
+
+function overviewFilterConcept(el) {
+  overviewNavigate({ dataset: { ...el.dataset, view: "rounds" } });
 }
