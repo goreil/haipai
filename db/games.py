@@ -14,12 +14,14 @@ import secrets
 from datetime import datetime, timezone
 
 from db.mistakes import mistake_to_row, row_to_mistake
+from lib.game_info import load_match_info
 
 
 def list_games(conn, user_id):
     """List all games for a user (summary info for sidebar)."""
     rows = conn.execute(
-        "SELECT id, date, log_url, stats_json, categorization_status FROM games WHERE user_id = ? ORDER BY date DESC, id DESC",
+        """SELECT id, date, log_url, mortal_file, stats_json, categorization_status
+           FROM games WHERE user_id = ? ORDER BY date DESC, id DESC""",
         (user_id,),
     ).fetchall()
     result = []
@@ -34,6 +36,7 @@ def list_games(conn, user_id):
             "date": row["date"],
             "log_url": row["log_url"],
             "summary": stats,
+            "match_info": load_match_info(row["mortal_file"]),
             "total": total,
             "categorization_status": row["categorization_status"],
         })

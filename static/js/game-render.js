@@ -38,9 +38,14 @@ function renderGameList() {
   list.innerHTML = sorted.map(g => {
     const s = g.summary || {};
     const active = g.id === state.currentGame ? "active" : "";
-    const evPerDecision = Number.isFinite(s.total_decisions) && s.total_decisions > 0
-      && Number.isFinite(s.total_ev_loss) && s.total_ev_loss >= 0
-      ? (s.total_ev_loss / s.total_decisions).toFixed(4) : "—";
+    const info = g.match_info;
+    const seats = computeFinalScores(info);
+    const place = seats?.findIndex(seat => seat.you) ?? -1;
+    const you = place >= 0 ? seats[place] : null;
+    const result = you
+      ? `<span class="game-placement place-${place + 1}">${["1st", "2nd", "3rd", "4th"][place]}</span>
+          <span>${you.score.toLocaleString()} pts</span>`
+      : '<span class="game-result-unavailable">Result unavailable</span>';
     const dateObj = new Date(g.date + "T00:00:00");
     const shortDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     let sep = "";
@@ -50,7 +55,7 @@ function renderGameList() {
     }
     return `${sep}
       <div class="game-item ${active}" data-action="fetchGame" data-game-id="${g.id}">
-        <div class="date"><a class="dev-id" href="#g${g.id}" data-action="openHash" title="Deep-link to this game">#g${g.id}</a> · ${evPerDecision} EV/D</div>
+        <div class="game-result">${result}</div>
         ${renderRanking(s, "ranking-sidebar")}
       </div>
     `;

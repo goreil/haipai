@@ -114,6 +114,31 @@ class TestGameEndpoints:
         assert res.status_code == 200
         assert res.get_json() == []
 
+    def test_games_list_includes_compact_match_info(self, client):
+        _login(client)
+        me = client.get("/api/me").get_json()
+        game_id, _ = insert_game(me["id"])
+        legacy_id, _ = insert_game(me["id"])
+        conn = db.get_db()
+        conn.execute("UPDATE games SET mortal_file = ? WHERE id = ?", (SMALL_MORTAL_FILE, game_id))
+        conn.commit()
+        conn.close()
+
+        games = {game["id"]: game for game in client.get("/api/games").get_json()}
+        info = games[game_id]["match_info"]
+        assert info["game_length"] == "Hanchan"
+        assert info["player_id"] == 2
+        assert info["mjai_log"][0] == {
+            "type": "start_kyoku", "oya": 0, "scores": [25000] * 4, "kyotaku": 0,
+        }
+        assert sum(event["type"] == "start_kyoku" for event in info["mjai_log"]) == 2
+        assert all(event["type"] in {
+            "start_kyoku", "reach", "reach_accepted", "hora", "ryukyoku",
+        } for event in info["mjai_log"])
+        assert "review" not in info
+        assert "mortal_file" not in games[game_id]
+        assert games[legacy_id]["match_info"] is None
+
     def test_add_game_no_data(self, client):
         _login(client)
         res = client.post("/api/games/add", json={})
