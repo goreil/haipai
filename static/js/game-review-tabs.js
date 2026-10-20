@@ -1,6 +1,6 @@
-// Browser-local filter tabs: standards and custom filters share one editable,
-// ordered collection. Only preferences are persisted, never game data.
-const REVIEW_STANDARD_NAMES = { top5: "Top 5 mistakes", "top-group": "Top group", rounds: "Rounds" };
+// Browser-local filters. Standards stay first and only their count/sort are editable.
+// Only preferences are persisted, never game data.
+const REVIEW_STANDARD_NAMES = { top5: "Top 5 mistakes", "top-group": "Top category", rounds: "Rounds" };
 let reviewTabCache = null;
 let reviewTabCacheKey = null;
 let reviewLastTabClick = null;
@@ -46,7 +46,7 @@ function reviewTabs() {
         if (!validReviewFilter(f) || ids.has(f.id)) return false;
         ids.add(f.id);
         return true;
-      }).slice(0, 50);
+      }).slice(0, 53); // Up to 50 legacy tabs plus three restored standards.
     } else {
       // Keep existing custom filters when upgrading from the previous UI.
       const old = JSON.parse(localStorage.getItem(reviewStorageKey(1)) || "[]");
@@ -64,7 +64,27 @@ function reviewTabs() {
   } catch (_) {
     // Keep this session usable if storage is unavailable or contains bad JSON.
   }
+  // Restore missing standards and their fixed rules without losing custom tabs.
+  // Existing standard IDs retain only the two settings that remain editable.
+  const standards = Object.keys(REVIEW_STANDARD_NAMES).map(kind => {
+    const saved = reviewTabCache.find(f => f.id === kind);
+    return { ...standardReviewFilter(kind), ...(saved ? { sort: saved.sort, limit: saved.limit } : {}) };
+  });
+  reviewTabCache = [...standards, ...reviewTabCache.filter(f => !isStandardReviewFilter(f))];
   return reviewTabCache;
+}
+
+function isStandardReviewFilter(tab) {
+  return !!tab && Object.hasOwn(REVIEW_STANDARD_NAMES, tab.id);
+}
+
+function resetStandardReviewFilter() {
+  const tab = activeReviewTab();
+  if (!isStandardReviewFilter(tab)) return;
+  state.reviewNavigation = null;
+  const defaults = standardReviewFilter(tab.id);
+  saveActiveReviewFilter({ sort: defaults.sort, limit: defaults.limit });
+  renderGame();
 }
 
 function persistReviewTabs() {
@@ -97,8 +117,8 @@ function syncReviewFilter(topGroup) {
   if (!tab) return;
   state.sevLevel = tab.severity ?? 3;
   if (tab.severity === null) autoSetSeverityFilters(state.currentGameData);
-  state.reviewSort = tab.sort;
-  state.reviewLimit = tab.limit;
+  state.reviewSort = state.reviewNavigation?.view === tab.id ? state.reviewNavigation.sort : tab.sort;
+  state.reviewLimit = state.reviewNavigation?.view === tab.id ? state.reviewNavigation.limit : tab.limit;
   state.conceptFilters = tab.topGroup
     ? (topGroup ? [reviewTopGroupFilter(topGroup)] : [])
     : tab.topics.map(f => ({ ...f }));
@@ -107,13 +127,19 @@ function syncReviewFilter(topGroup) {
 function saveActiveReviewFilter(changes) {
   const tab = activeReviewTab();
   if (!tab) return;
-  Object.assign(tab, changes);
-  if (changes.topics) tab.topics = changes.topics.map(f => ({ ...f }));
+  if (isStandardReviewFilter(tab)) {
+    if (["ev", "round"].includes(changes.sort)) tab.sort = changes.sort;
+    if ([0, 5, 10, 20].includes(changes.limit)) tab.limit = changes.limit;
+  } else {
+    Object.assign(tab, changes);
+    if (changes.topics) tab.topics = changes.topics.map(f => ({ ...f }));
+  }
   expandedHandMistakes.delete(state.currentGameData);
   persistReviewTabs();
 }
 
 function changeReviewOption(el) {
+  state.reviewNavigation = null;
   if (el.dataset.reviewOption === "sort") {
     state.reviewSort = el.value === "round" ? "round" : "ev";
     saveActiveReviewFilter({ sort: state.reviewSort });
@@ -128,53 +154,45 @@ function changeReviewOption(el) {
 
 function switchGameView(view) {
   if (!reviewTabs().some(f => f.id === view)) return;
-  if (view === state.gameView && !state.reviewLinkedMistake) return;
+  if (view === state.gameView && !state.reviewLinkedMistake && !state.reviewNavigation) return;
+  state.reviewNavigation = null;
   state.gameView = view;
   state.reviewLinkedMistake = false;
   expandedHandMistakes.delete(state.currentGameData);
   renderGame();
 }
 
-function reviewTabName(tab, topGroup = state.reviewTopGroup) {
-  return tab.topGroup && tab.name === REVIEW_STANDARD_NAMES["top-group"] && topGroup
-    ? `${tab.name} · ${topGroup.meta.label}` : tab.name;
-}
-
-function missingReviewStandards() {
-  return Object.keys(REVIEW_STANDARD_NAMES).filter(kind => {
-    const standard = standardReviewFilter(kind);
-    return !reviewTabs().some(tab =>
-      ["name", "severity", "sort", "limit", "topGroup"].every(key => tab[key] === standard[key])
-      && tab.topics.length === 0);
-  });
+function reviewTabName(tab) {
+  if (tab.id === "top5") return tab.limit ? `Top ${tab.limit} mistakes` : "Top mistakes · All";
+  return tab.name;
 }
 
 function addReviewFilter(kind) {
-  if (kind !== "new" && !missingReviewStandards().includes(kind)) return;
+  if (kind !== "new") return;
   if (reviewTabs().length >= 50) {
     state.reviewFilterError = "You can keep up to 50 filters. Remove one to add another.";
     renderGame();
     return;
   }
   const id = crypto.randomUUID();
-  const tab = kind === "new"
-    ? { id, name: "New filter", severity: 3, sort: "round", limit: 0, topics: [], topGroup: false }
-    : standardReviewFilter(kind, id);
+  const tab = { id, name: "New filter", severity: 3, sort: "round", limit: 0, topics: [], topGroup: false };
   reviewTabs().push(tab);
   persistReviewTabs();
   state.gameView = id;
   state.reviewLinkedMistake = false;
-  if (kind === "new") openReviewFilters();
+  state.reviewNavigation = null;
+  openReviewFilters();
   renderGame();
-  if (kind === "new") beginReviewRename(id);
-  else focusReviewTab(id);
+  beginReviewRename(id);
 }
 
 function deleteReviewFilter(id) {
   const tabs = reviewTabs();
   const index = tabs.findIndex(f => f.id === id);
-  if (index < 0) return;
+  if (index < 0 || isStandardReviewFilter(tabs[index])) return;
+  const wasDefault = reviewOpeningPreferences().defaultFilter === id;
   tabs.splice(index, 1);
+  if (wasDefault) saveReviewOpeningPreferences({ defaultFilter: "top5" });
   if (state.gameView === id) state.gameView = tabs[Math.min(index, tabs.length - 1)]?.id || null;
   persistReviewTabs();
   renderGame();
@@ -184,7 +202,8 @@ function deleteReviewFilter(id) {
 function moveReviewTab(id, targetId, after = false) {
   const tabs = reviewTabs();
   const from = tabs.findIndex(f => f.id === id);
-  if (from < 0 || id === targetId || !tabs.some(f => f.id === targetId)) return;
+  if (from < 0 || id === targetId || isStandardReviewFilter(tabs[from])
+      || !tabs.some(f => f.id === targetId && !isStandardReviewFilter(f))) return;
   const [tab] = tabs.splice(from, 1);
   const to = tabs.findIndex(f => f.id === targetId) + (after ? 1 : 0);
   tabs.splice(to, 0, tab);
@@ -215,6 +234,7 @@ function selectReviewTab(el, event) {
 
 function beginReviewRename(id) {
   const tab = reviewTabs().find(f => f.id === id);
+  if (isStandardReviewFilter(tab)) return;
   if (tab && (state.gameView !== id || state.reviewLinkedMistake)) switchGameView(id);
   const button = document.querySelector(`[data-action="selectReviewTab"][data-view="${id}"]`);
   if (!tab || !button) return;
@@ -234,7 +254,7 @@ function finishReviewRename(input, cancel = false, blurred = false) {
   if (!input.isConnected) return;
   const tab = reviewTabs().find(f => f.id === input.dataset.renameReviewTab);
   const name = input.value.trim();
-  if (tab && name && !cancel) {
+  if (tab && !isStandardReviewFilter(tab) && name && !cancel) {
     tab.name = name;
     persistReviewTabs();
   }
@@ -269,27 +289,24 @@ function finishReviewRename(input, cancel = false, blurred = false) {
 
 function renderReviewTabs(topGroup) {
   const tabs = reviewTabs();
-  const missing = missingReviewStandards();
   return `<nav class="game-review-nav" aria-label="Mistake filters"><div class="game-tabs">
     ${tabs.map(tab => {
       const name = escapeHtml(reviewTabName(tab, topGroup));
       const id = escapeHtml(tab.id);
       const active = !state.reviewLinkedMistake && state.gameView === tab.id;
       return `<div class="review-tab ${active ? "active" : ""}" data-review-tab="${id}">
-        <button type="button" class="review-tab-handle" aria-label="Reorder ${name}"
-          title="Drag to reorder. Alt + Left or Right also moves this tab." data-reorder-review-tab="${id}">⠿</button>
+        ${isStandardReviewFilter(tab) ? "" : `<button type="button" class="review-tab-handle" aria-label="Reorder ${name}"
+          title="Drag to reorder. Alt + Left or Right also moves this tab." data-reorder-review-tab="${id}">⠿</button>`}
         <button type="button" class="game-tab" data-action="selectReviewTab" data-view="${id}"
           ${active ? 'aria-current="page"' : ""}
-          title="${tab.topGroup ? "Mistakes in the group with the highest total EV loss. " : ""}Double-click to rename; F2 also works.">${name}</button>
-        <button type="button" class="review-tab-close" data-action="deleteReviewFilter" data-view="${id}"
-          aria-label="Delete ${name}" title="Delete filter">×</button>
+          title="${isStandardReviewFilter(tab) ? "Standard filter: edit count and sorting in Filters." : "Double-click to rename; F2 also works."}">${name}</button>
+        ${isStandardReviewFilter(tab) ? "" : `<button type="button" class="review-tab-close" data-action="deleteReviewFilter" data-view="${id}"
+          aria-label="Delete ${name}" title="Delete filter">×</button>`}
       </div>`;
     }).join("")}
     <details class="review-add-menu">
       <summary class="game-tab-add" aria-label="Add filter" title="Add filter">+</summary>
       <div class="review-add-options">
-        ${missing.length ? `<span class="review-add-heading">Restore standard filter</span>
-          ${missing.map(kind => `<button type="button" data-action="addReviewFilter" data-kind="${kind}">${REVIEW_STANDARD_NAMES[kind]}</button>`).join("")}` : ""}
         <button type="button" class="review-add-new" data-action="addReviewFilter" data-kind="new">+ New filter</button>
       </div>
     </details>
@@ -299,7 +316,8 @@ function renderReviewTabs(topGroup) {
 
 function reviewTabPointerDown(event) {
   const tab = event.target.closest(".review-tab");
-  if (!tab || event.button !== 0 || event.isPrimary === false || event.target.closest("input, .review-tab-close")) return;
+  if (!tab || isStandardReviewFilter({ id: tab.dataset.reviewTab }) || event.button !== 0
+      || event.isPrimary === false || event.target.closest("input, .review-tab-close")) return;
   if (event.pointerType !== "mouse" && !event.target.closest(".review-tab-handle")) return;
   reviewTabDrag = { id: tab.dataset.reviewTab, element: tab, pointerId: event.pointerId,
     x: event.clientX, y: event.clientY, moving: false };
@@ -319,7 +337,7 @@ function reviewTabPointerMove(event) {
     .forEach(el => el.classList.remove("review-tab-drop-before", "review-tab-drop-after"));
   const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".review-tab");
   drag.targetId = null;
-  if (!target || target === drag.element) return;
+  if (!target || target === drag.element || isStandardReviewFilter({ id: target.dataset.reviewTab })) return;
   const rect = target.getBoundingClientRect();
   drag.targetId = target.dataset.reviewTab;
   drag.after = event.clientX > rect.left + rect.width / 2;

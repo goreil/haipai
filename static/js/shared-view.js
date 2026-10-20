@@ -47,6 +47,7 @@ async function fetchSharedGame() {
   }
   state.currentGameData = await res.json();
   state.currentGame = state.currentGameData.id;
+  beginGameReview();
 
   // First render uses stored fields (advisory) + JS categorize so the visitor
   // sees the game immediately; refreshPrepAndRecategorize then re-runs prep

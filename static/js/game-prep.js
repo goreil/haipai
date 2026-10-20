@@ -54,12 +54,12 @@ async function refreshPrepAndRecategorize(game, gameId) {
   }
   try {
     await haipaiPrep.prepGameAsync(game, game.mortal_data, (done, total) => {
-      if (state.currentGame !== gameId) return;
+      if (state.currentGame !== gameId || state.currentGameData !== game) return;
       state.prepProgress = { done, total };
       _updatePrepBannerDOM();
     });
   } finally {
-    if (state.currentGame === gameId) {
+    if (state.currentGame === gameId && state.currentGameData === game) {
       recategorizeGameInPlace(game);
       game.summary = recomputeSummaryByCategory(game);
       state.prepProgress = null;

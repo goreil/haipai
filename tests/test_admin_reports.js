@@ -103,6 +103,7 @@ function reportLinkContext(hash) {
     document: { addEventListener() {} },
     mgTabRoutes: () => ({}),
     mgSlugPattern: () => "waits",
+    closeGameOverview: () => {},
   });
   for (const file of ["admin", "main"]) {
     vm.runInContext(fs.readFileSync(`static/js/${file}.js`, "utf8"), context);

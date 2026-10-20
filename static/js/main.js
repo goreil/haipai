@@ -40,7 +40,7 @@ var state = {
   // (0 = severe only, 1 = +mistake, 2 = +light, 3 = +unsure).
   // The Rounds preset uses autoSetSeverityFilters to choose its initial level.
   sevLevel: 3,
-  gameView: null, // Active filter tab ID; the first tab is selected on game load.
+  gameView: null, // Active filter tab ID; the saved default is selected on game entry.
   reviewSort: "ev",
   reviewLimit: 5,
   // Concept-breakdown pill filters (additive / OR). Array of
@@ -171,6 +171,8 @@ async function applyHashRoute() {
     state.scrollToMistakeId = mistakeId;
     state.gameView = null;
     state.reviewLinkedMistake = true;
+    state.reviewNavigation = null;
+    closeGameOverview(false);
     state.reviewSort = "round";
     state.reviewLimit = 0;
     state.conceptFilters = [];
@@ -189,6 +191,7 @@ async function applyHashRoute() {
   }
   const tab = parseTabHash();
   if (tab) {
+    closeGameOverview(false);
     await TAB_ROUTES[tab]();
     return;
   }

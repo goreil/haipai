@@ -121,7 +121,7 @@ function renderTopGroupStat(agg, boxes, scope) {
     : `Your biggest concept-group EV leak ${scope} — the trade-off axis where you most often favored the wrong side.`;
   return `<div class="stat" title="${tip}">
     <span class="value" style="color:${tg.meta.color}">${tg.meta.label}</span>
-    <span class="label">Top leak &middot; ${tg.ev.toFixed(2)} EV</span>
+    <span class="label">Top category &middot; ${tg.ev.toFixed(2)} EV</span>
   </div>`;
 }
 
@@ -321,6 +321,7 @@ function sliderVisible(m) {
 function mistakeVisible(m) {
   if (!sliderVisible(m)) return false;
   const cfs = state.conceptFilters;
+  if (!state.reviewLinkedMistake && activeReviewTab()?.topGroup && !cfs?.length) return false;
   if (cfs && cfs.length
       && typeof haipaiConceptBreakdown !== "undefined"
       && typeof haipaiCompareDimensions !== "undefined") {
@@ -338,6 +339,7 @@ function conceptFilterActive(side, group, dim) {
 
 // Changes are saved directly to the active filter tab.
 function toggleConceptFilter(side, group, dim) {
+  if (isStandardReviewFilter(activeReviewTab())) return;
   if (!side) return; // defensive; "Show all" uses clearConceptFilters
   dim = dim || null;
   const cfs = state.conceptFilters;
@@ -353,12 +355,14 @@ function toggleConceptFilter(side, group, dim) {
 }
 
 function clearConceptFilters() {
+  if (isStandardReviewFilter(activeReviewTab())) return;
   state.conceptFilters = [];
   saveActiveReviewFilter({ topics: [], topGroup: false });
   renderGame();
 }
 
 function showAllReviewItems() {
+  if (isStandardReviewFilter(activeReviewTab())) return;
   state.sevLevel = 3;
   state.conceptFilters = [];
   state.reviewLimit = 0;
@@ -368,6 +372,7 @@ function showAllReviewItems() {
 
 // Severity slider input handler: clamp to 0..3 and re-render.
 function onSevSlider(el) {
+  if (isStandardReviewFilter(activeReviewTab())) return;
   const v = parseInt(el.value, 10);
   state.sevLevel = Number.isFinite(v) ? Math.max(0, Math.min(3, v)) : 3;
   saveActiveReviewFilter({ severity: state.sevLevel });
@@ -377,6 +382,7 @@ function onSevSlider(el) {
 // Jump the slider to a specific level (clicking a tier label is a shortcut for
 // dragging the slider there).
 function setSevLevel(level) {
+  if (isStandardReviewFilter(activeReviewTab())) return;
   state.sevLevel = Math.max(0, Math.min(3, level));
   saveActiveReviewFilter({ severity: state.sevLevel });
   renderGame();
@@ -610,20 +616,29 @@ function reviewRoundLayout() {
 }
 
 // Assign annotation indexes before filtering/sorting: two decisions may share a turn.
-function reviewEntries(game) {
+function allReviewEntries(game) {
   const entries = [];
   for (const [roundIndex, round] of game.rounds.entries()) {
     const seen = {};
     for (const [position, mistake] of round.mistakes.entries()) {
       const index = seen[mistake.turn] || 0;
       seen[mistake.turn] = index + 1;
-      if (mistakeVisible(mistake)) entries.push({ mistake, round: round.round, roundIndex, index, position });
+      entries.push({ mistake, round: round.round, roundIndex, index, position });
     }
   }
+  return entries;
+}
+
+function compareReviewEv(a, b) {
+  return (b.mistake.ev_loss || 0) - (a.mistake.ev_loss || 0)
+    || a.roundIndex - b.roundIndex || a.mistake.turn - b.mistake.turn || a.position - b.position;
+}
+
+function reviewEntries(game) {
+  const entries = allReviewEntries(game).filter(entry => mistakeVisible(entry.mistake));
   if (activeReviewTab()?.topGroup && !state.conceptFilters.length) return [];
   // A limit always means the highest-EV matches; sorting only changes their display order.
-  entries.sort((a, b) => (b.mistake.ev_loss || 0) - (a.mistake.ev_loss || 0)
-    || a.roundIndex - b.roundIndex || a.mistake.turn - b.mistake.turn || a.position - b.position);
+  entries.sort(compareReviewEv);
   const selected = state.reviewLimit ? entries.slice(0, state.reviewLimit) : entries;
   if ((state.reviewSort || "round") === "round") {
     selected.sort((a, b) => a.roundIndex - b.roundIndex || a.mistake.turn - b.mistake.turn || a.position - b.position);
@@ -681,6 +696,7 @@ function reviewTopicLabel(filter) {
 function renderReviewControls(game, agg, boxes) {
   if (state.reviewLinkedMistake) return '<p class="review-summary-scope">Viewing a linked mistake. Select a filter tab to return to your filters.</p>';
   if (!activeReviewTab()) return '<p class="review-empty">No filters yet. Use + to add a standard filter or create your own.</p>';
+  const standard = isStandardReviewFilter(activeReviewTab());
   const { total, shown, revealed } = reviewItemCounts(game);
   const filters = state.conceptFilters;
   const severity = ["Severe only", "Severe + Mistake", "Severe + Mistake + Light", "All severity levels"][state.sevLevel];
@@ -719,6 +735,7 @@ function renderReviewControls(game, agg, boxes) {
   const sortLabel = state.reviewSort === "ev" ? "Highest EV first" : "Round order";
   return `<div class="review-controls">
     <div class="review-scope">
+      ${state.reviewNavigation?.view === "rounds" ? '<span class="review-active-filters">Showing the worst round in chronological order with no limit. Saved Rounds settings are unchanged; select Rounds again to restore them.</span>' : ""}
       <strong>Showing ${shown} of ${total} review items</strong>
       <span class="review-active-filters">${severity} · ${topics} · ${sortLabel}${state.reviewLimit ? ` · Top ${state.reviewLimit}` : ""}</span>
       ${revealed ? `<span class="review-active-filters">Includes ${revealed} item${revealed === 1 ? "" : "s"} revealed in individual hands.</span>` : ""}
@@ -726,8 +743,8 @@ function renderReviewControls(game, agg, boxes) {
     <div class="review-control-actions">
       <button type="button" class="review-disclosure" data-action="toggleGamePanel" data-panel="filters"
         aria-controls="game-review-filters" aria-expanded="${open}">Filters</button>
-      <button type="button" class="review-link" data-action="showAllReviewItems"
-        ${state.sevLevel === 3 && !filters.length && !state.reviewLimit ? "disabled" : ""}>Show all review items</button>
+      ${standard ? '<button type="button" class="review-link" data-action="resetStandardReviewFilter">Reset to default</button>' : `<button type="button" class="review-link" data-action="showAllReviewItems"
+        ${state.sevLevel === 3 && !filters.length && !state.reviewLimit ? "disabled" : ""}>Show all review items</button>`}
     </div>
   </div>
   <div id="game-review-filters" class="review-filter-panel" ${open ? "" : "hidden"}>
@@ -745,15 +762,16 @@ function renderReviewControls(game, agg, boxes) {
         </select>
       </label>
     </div>
-    ${renderFiltersPanel()}
+    ${standard ? "" : `${renderFiltersPanel()}
     <div class="review-topics">
       <div class="filters-head">Topics · match any selected topic</div>
       <div class="review-topic-options">${topicButtons || '<span>No topics at this severity level.</span>'}</div>
       ${filters.length ? '<button type="button" class="review-link" data-action="clearConceptFilters">Clear topic filter</button>' : ""}
     </div>
-    <p class="review-active-filters review-filter-hint">Changes save to this tab automatically in this browser. Double-click its name to rename it.</p>
+    `}
+    <p class="review-active-filters review-filter-hint">Changes save to this tab automatically in this browser.${standard ? " Standard topics and severity are fixed." : " Double-click its name to rename it."}</p>
   </div>
-  ${!shown ? `<p class="review-empty">${total ? 'No review items match this filter. Adjust the topics or severity, or choose “Show all review items”.' : "No mistakes to review in this game."}</p>` : ""}`;
+  ${!shown ? `<p class="review-empty">${total ? 'No review items match this filter. Choose another filter or adjust its available settings.' : "No mistakes to review in this game."}</p>` : ""}`;
 }
 
 function handMistakesExpanded(game, roundIndex) {
@@ -824,22 +842,8 @@ function renderGame() {
         </details>` : ""}
       </div>
     </div>
-    <button type="button" class="review-disclosure review-overview-toggle" data-action="toggleGamePanel"
-      data-panel="overview" aria-controls="game-review-overview" aria-expanded="${gamePanelOpen(game, "overview")}">Game overview</button>
-    <section id="game-review-overview" class="game-review-overview" aria-label="Game overview"
-      ${gamePanelOpen(game, "overview") ? "" : "hidden"}>
-      ${renderFinalScores(game.mortal_data)}
-      <div class="summary-bar">
-        <div class="stat ranking-stat">${renderRanking(s, "ranking-large")}<span class="label">Ranking</span></div>
-        ${s.total_decisions ? `<div class="stat" title="How many of your decisions Mortal reviewed this game."><span class="value">${s.total_decisions}</span><span class="label">Decisions</span></div>
-        <div class="stat" title="Average expected value lost per decision — lower is better."><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
-        ${renderMistakeStats(game.rounds.flatMap(rnd => rnd.mistakes))}
-        ${renderTopGroupStat(conceptAgg, tradeoffBoxes)}
-      </div>
-      ${renderTrainerTip(conceptAgg, tradeoffBoxes)}
-      <p class="review-summary-scope">Game totals and concept breakdowns include all review items.</p>
-      ${renderConceptBreakdown(conceptAgg, tradeoffBoxes)}
-    </section>
+    <button type="button" class="btn review-overview-toggle" data-action="openGameOverview"
+      aria-haspopup="dialog">Game overview</button>
     ${renderReviewTabs(topGroup)}
     ${renderReviewControls(game, conceptAgg, tradeoffBoxes)}
   `;
@@ -924,6 +928,8 @@ function renderGame() {
     html = `<div class="game-detail-layout"><div class="game-detail-body">${html}</div>${toc}</div>`;
   }
   content.innerHTML = html;
+  updateGameOverview();
+  scrollReviewNavigation();
   if (renaming) {
     beginReviewRename(renaming.id);
     const input = document.querySelector("[data-rename-review-tab]");
@@ -978,6 +984,7 @@ function toggleGameMistakes(grpId) {
 }
 
 function navigateHome() {
+  closeGameOverview(false);
   state.currentGame = null;
   state.currentGameData = null;
   if (window.location.hash) history.replaceState(null, "", window.location.pathname + window.location.search);

@@ -75,6 +75,10 @@ var HAIPAI_CLICK_ACTIONS = {
   filterConcept: (el) => toggleConceptFilter(el.dataset.conceptSide, el.dataset.conceptGroup, el.dataset.conceptDim),
   clearConceptFilters: () => clearConceptFilters(),
   showAllReviewItems: () => showAllReviewItems(),
+  openGameOverview: () => openGameOverview(),
+  closeGameOverview: () => closeGameOverview(),
+  overviewNavigate: (el) => overviewNavigate(el),
+  resetStandardReviewFilter: () => resetStandardReviewFilter(),
   toggleGamePanel: (el) => toggleGamePanel(el),
   toggleTrendsConceptExpand: (el) => toggleTrendsConceptExpand(el.dataset.scope, el.dataset.conceptSide, el.dataset.conceptGroup),
   toggleTrendsExpandAll: (el) => toggleTrendsConceptExpandAll(el.dataset.scope, el.dataset.side, el.dataset.groups),
@@ -137,6 +141,7 @@ var HAIPAI_CHANGE_ACTIONS = {
   adminReportKind: (el) => { adminState.reportKind = el.value; adminState.reportPage = 0; renderAdmin(); },
   adminSetReportPageSize: (el) => adminSetReportPageSize(el.value),
   onSevSlider: (el) => onSevSlider(el),
+  changeReviewOpeningPreference: (el) => changeReviewOpeningPreference(el),
   changeReviewOption: (el) => changeReviewOption(el),
 };
 

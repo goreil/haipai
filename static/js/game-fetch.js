@@ -62,12 +62,16 @@ function clearAdminImpersonateGuards() {
 }
 
 async function fetchGame(id) {
+  const entering = state.currentGame !== id || !document.querySelector(".game-header");
+  const request = (state.gameFetchRequest || 0) + 1;
+  state.gameFetchRequest = request;
   // mortal_data ships from its own endpoint with immutable cache headers,
   // so revisits only re-download the (small) game payload.
   const [res, mres] = await Promise.all([
     fetch(`/api/games/${id}`),
     fetch(`/api/games/${id}/mortal`),
   ]);
+  if (state.gameFetchRequest !== request) return;
   if (!res.ok) {
     // Admin deep-link to another user's game: impersonate the owner and reload.
     if (await tryAdminImpersonateForDeepLink("game", id)) return;
@@ -80,11 +84,12 @@ async function fetchGame(id) {
     return;
   }
   clearAdminImpersonateGuards();
-  state.currentGameData = await res.json();
-  if (mres.ok) state.currentGameData.mortal_data = await mres.json();
+  const game = await res.json();
+  if (mres.ok) game.mortal_data = await mres.json();
+  if (state.gameFetchRequest !== request) return;
+  state.currentGameData = game;
   state.currentGame = id;
-  state.gameView = null;
-  state.reviewLinkedMistake = state.scrollToMistakeId != null;
+  if (entering) beginGameReview(state.scrollToMistakeId != null);
   state.conceptFilters = []; // the breakdown is per-game; don't carry filters across games
   // Normalize the URL to the canonical game hash — unless we arrived via a
   // #m<id> mistake deep-link, in which case keep that hash so the URL stays
