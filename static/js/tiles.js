@@ -58,9 +58,15 @@ function tileBase(t) {
 // isn't one), the round/seat wind badges (.wind-tile), and the opponent yaku
 // panel's representative tiles (.no-dora).
 var _activeDora = new Set();
+var _activeYakuhai = new Set();
 
-function setActiveDora(doraTiles) {
+// Both markings use the current decision's context. Callers outside decision
+// cards omit boardState, clearing yakuhai so another card's winds cannot leak.
+function setActiveDora(doraTiles, boardState = null) {
   _activeDora = doraTiles instanceof Set ? doraTiles : new Set(doraTiles || []);
+  _activeYakuhai = boardState
+    ? new Set(["P", "F", "C", boardState.round_wind, boardState.seat_wind].filter(Boolean))
+    : new Set();
 }
 
 // True when a tile is an active dora: a red five (always) or a tile whose base
@@ -80,7 +86,11 @@ function renderTile(t, extraClass = "", titleOverride = null, extraAttrs = "") {
   if (!_DORA_OPT_OUT.test(extraClass) && tileIsActiveDora(t)) {
     cls += " dora-highlight";
   }
-  const title = titleOverride || t;
+  let title = titleOverride || t;
+  if (_activeYakuhai.has(t) && !/(^|\s)(no-dora|wind-tile)(\s|$)/.test(extraClass)) {
+    cls += " yakuhai-highlight";
+    title += " — Yakuhai for you (value honor)";
+  }
   const attrs = extraAttrs ? " " + extraAttrs : "";
   return `<img class="${cls}" src="${tileSrc(t)}" alt="${t}" title="${title}" data-tile="${tileBase(t)}"${attrs}>`;
 }

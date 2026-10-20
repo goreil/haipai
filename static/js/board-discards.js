@@ -202,28 +202,9 @@ function tenpaiWaitTiles(m) {
   return waits;
 }
 
-function renderBoardContext(m) {
-  const b = m.board_state;
+function renderDoraSection(b) {
   if (!b) return "";
-  // Arm the ambient active-dora set so every renderTile() below (discards,
-  // inline melds, waits, yaku panels) auto-highlights dora. Also covers the
-  // standalone renderBoardContext() call in game-render.js.
-  setActiveDora(getDoraTiles(b));
-
-  // BoardState owns the wall position — `b.tiles_left` is emitted by
-  // static/js/prep/prep-board-state.js for every mistake. Read it from here
-  // rather than counting [data-tile] DOM nodes.
-
-  let html = `<div class="board-context">`;
-
-  // Wind + Dora bar
-  html += `<div class="board-info-bar">`;
-  if (b.round_wind) {
-    html += `<span class="wind-badge round-wind" title="Round wind">${renderTile(b.round_wind, "tile-sm wind-tile")}<span class="wind-label">Round</span></span>`;
-  }
-  if (b.seat_wind) {
-    html += `<span class="wind-badge seat-wind" title="Seat wind">${renderTile(b.seat_wind, "tile-sm wind-tile")}<span class="wind-label">Seat</span></span>`;
-  }
+  let html = "";
   if (b.dora_indicators && b.dora_indicators.length) {
     // CS-02: dora_tiles is the canonical resolved list emitted by
     // extract_board_state — same length/order as dora_indicators.
@@ -236,7 +217,15 @@ function renderBoardContext(m) {
     }
     html += `</span>`;
   }
-  html += `</div>`;
+  return html;
+}
+
+function renderBoardContext(m) {
+  const b = m.board_state;
+  if (!b) return "";
+  setActiveDora(getDoraTiles(b), b);
+
+  let html = "";
 
   // Build seat -> melds lookup for inline rendering
   const meldsBySeat = {};
@@ -502,8 +491,14 @@ function renderBoardContext(m) {
     }
   }
 
-  // Scores inline in info bar — use seat winds relative to oya like the
-  // discard rows above.
+  return html ? `<div class="board-context">${html}</div>` : "";
+}
+
+// Optional placement context, kept at the end of the decision card.
+function renderScoreDetails(m) {
+  const b = m.board_state;
+  if (!b) return "";
+  let html = "";
   if (b.scores && b.scores.length) {
     const WINDS = ["E", "S", "W", "N"];
     const playerSeat = mistakeActorSeat(m);
@@ -512,7 +507,7 @@ function renderBoardContext(m) {
       const pw = WINDS.indexOf(b.seat_wind);
       if (pw >= 0) oya = ((playerSeat - pw) % 4 + 4) % 4;
     }
-    html += `<div class="scores-bar">`;
+    html += `<details class="score-details"><summary>Scores</summary><div class="scores-bar">`;
     for (let i = 0; i < b.scores.length; i++) {
       const name = oya != null
         ? WIND_DISPLAY[WINDS[(i - oya + 4) % 4]]
@@ -520,9 +515,8 @@ function renderBoardContext(m) {
       const youTag = playerSeat === i ? '<span class="you-tag">(you)</span>' : '';
       html += `<span class="score-item"><span class="score-seat">${name}${youTag}</span> ${b.scores[i].toLocaleString()}</span>`;
     }
-    html += `</div>`;
+    html += `</div></details>`;
   }
 
-  html += `</div>`;
   return html;
 }

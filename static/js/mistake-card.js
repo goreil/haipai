@@ -81,7 +81,7 @@ function renderMistakeCard(m, opts = {}) {
   const doraTiles = getDoraTiles(m.board_state);
   // Arm the ambient active-dora set for the whole card so every renderTile()
   // here — action chips, hand, melds, board, EV table — auto-highlights dora.
-  setActiveDora(doraTiles);
+  setActiveDora(doraTiles, m.board_state);
 
   // Outline colour follows the skill area (Attack/Defense/Open Defense/Meld/
   // Riichi/Kan) instead of severity — tells the student at a glance which skill
@@ -103,9 +103,7 @@ function renderMistakeCard(m, opts = {}) {
     html += `<span class="all-last-badge" title="Final round of the hand — placement matters more than raw EV here.">All last</span>`;
   }
   html += formatTurnBadge(m.turn);
-  if (m.id) html += `<a class="dev-id" href="#m${m.id}" data-action="openHash" title="Deep-link to this mistake">#m${m.id}</a>`;
-  html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;
-  html += `<span class="ev-loss" title="${EV_LOSS_TOOLTIP}">${m.ev_loss.toFixed(2)} EV</span>`;
+  html += `<span class="severity ${sc}" title="${EV_LOSS_TOOLTIP} ${sevTooltip(m)}">${m.ev_loss.toFixed(2)} EV (${sevLabel(m)})</span>`;
   const badge = mistakeBadge(m);
   if (badge) {
     html += `<span class="cat-badge" style="background:${badge.color}20;color:${badge.color};border:1px solid ${badge.color}40" title="${badge.desc}">${badge.label}</span>`;
@@ -123,29 +121,12 @@ function renderMistakeCard(m, opts = {}) {
       : `Your ${raised.userTile} keeps ${raised.userSh}-shanten; Mortal's ${raised.mortalTile} goes to ${raised.mortalSh}-shanten — Mortal is breaking up the hand for a strategic reason (likely yaku or value), not for tile efficiency.`;
     html += `<span class="raised-shanten-badge" title="${reason}">Mortal raised shanten</span>`;
   }
-  if (m.shanten != null) html += `<span class="shanten">${m.shanten}-shanten</span>`;
-  if (showLink) {
-    // Prefer a stable deep-link to the mistake when we know its id — that
-    // updates location.hash so the browser's back button rewinds the jump,
-    // and the rounds view scrolls + flashes the target card. Falls back to a
-    // plain game fetch for cards without an id (shouldn't happen for stored
-    // mistakes, but keep the link from being a dead end).
-    if (m.id) {
-      html += `<a class="mistake-link" href="#m${m.id}">View mistake</a>`;
-    } else {
-      html += `<span class="mistake-link" data-action="fetchGame" data-game-id="${showLink}">View game</span>`;
-    }
+  if (m.id) {
+    html += `<a class="dev-id mistake-permalink" href="#m${m.id}" data-action="openHash" title="Deep-link to this mistake">#m${m.id}</a>`;
   }
-  if (m.actual && m.expected) {
-    const actStr = formatAction(m.actual);
-    const expStr = formatAction(m.expected);
-    if (actStr !== expStr) {
-      html += `<span class="discard-comparison">
-        <span class="played">${renderAction(m.actual, "played")}</span>
-        <span class="arrow">&rarr;</span>
-        <span class="ai">${renderAction(m.expected, "ai")}</span>
-      </span>`;
-    }
+  if (showLink && !m.id) {
+    // Cards without a stored mistake ID can still open their game.
+    html += `<span class="mistake-link" data-action="fetchGame" data-game-id="${opts.gameId}">View game</span>`;
   }
   html += `</div>`;
 
@@ -154,13 +135,16 @@ function renderMistakeCard(m, opts = {}) {
       <span class="label">Hand</span>
             <span class="tiles">${renderHand(m.hand, m.draw, m, doraTiles)}</span>`;
     if (m.melds && m.melds.length) {
-      const playerSeat = m.actual ? m.actual.actor : null;
+      const playerSeat = mistakeActorSeat(m);
       const oya = mistakeOya(m);
       html += `<span class="inline-melds">`;
       for (const meld of m.melds) html += renderMeld(meld, "action-tile-sm", playerSeat, doraTiles, oya) + " ";
       html += `</span>`;
     }
+    html += renderDoraSection(m.board_state);
     html += `</div>`;
+  } else {
+    html += renderDoraSection(m.board_state);
   }
   html += renderBoardContext(m);
   html += renderTenpaiWaitsRow(m);
@@ -190,6 +174,7 @@ function renderMistakeCard(m, opts = {}) {
     if (m.id) html += renderReportRow(m);
   }
 
+  html += renderScoreDetails(m);
   html += `</div>`;
   return html;
 }

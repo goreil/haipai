@@ -1921,6 +1921,7 @@
   cursor: pointer;
 }
 .dev-id:hover { opacity: 0.75; text-decoration: underline; }
+.mistake-top .mistake-permalink { margin-left: auto; }
 
 /* Furiten — loudest 5A signal, worth a dedicated tag. */
 .furiten-badge {

@@ -162,7 +162,7 @@ function renderEvComparison(m, options) {
   // Keep the ambient active-dora set armed for the EV table's own renderTile()
   // and renderUkeireTiles() calls (the card renderer sets it too; this makes the
   // table self-sufficient if reached standalone).
-  setActiveDora(ukeireDora);
+  setActiveDora(ukeireDora, m.board_state);
   // The per-tile dora / yakuhai / shanten / deal-in comparisons that used to be
   // recomputed here now live in the shared comparator (compare-dimensions.js);
   // the feature pills below read its win-vector. See renderWinPill.
