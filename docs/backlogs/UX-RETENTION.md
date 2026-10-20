@@ -264,18 +264,154 @@ Source: [game-fetch.js](../../static/js/game-fetch.js), `showOnboarding`;
 [shared-view.js](../../static/js/shared-view.js), `fetchSharedGame`;
 [game-render.js](../../static/js/game-render.js), `TRAINER_TIPS`.
 
-## Proposed first implementation slice
+## Concrete follow-up proposals
+
+Recorded 2026-10-20 after implementing proposal 1, the layout above the rounds,
+in `bc7c410`. Proposals 2, 3, and 5 remain backlog work; proposal 4 records
+scope/count behavior already delivered. These details make the remaining
+proposals from the review discussion specific enough to build.
+
+Keep the accepted navigation: **Game overview → Rounds → Summary**, with
+Game overview selected when a game opens and mistake links opening Rounds.
+Keep the original, uniform round headers even when every item is filtered
+out. Do not reintroduce the collapsed overview or compact empty-round styling.
+
+### Proposal 2 — Give decision cards a fixed reading order (UI-02)
+
+Use this structure in both the rounds renderer and the reusable card renderer:
+
+```text
+East 1 · Turn 6                              Attack
+
+Your choice                 Mortal's choice
+[actual action]              [recommended action]
+
+Your hand
+[tiles and melds]
+
+Comparison
+[existing comparison table and relevant board evidence]
+
+[explanation grounded in the comparison above]
+
+▸ Full board    ▸ Evaluation details    ▸ Notes and feedback
+```
+
+- Move the action comparison out of the badge row. Label both choices
+  explicitly; their identity must not depend on color.
+- Keep one category badge in the header. Move severity, EV gap, and the
+  internal mistake link into **Evaluation details**.
+- Keep decision-relevant badges, such as furiten, beside the evidence they
+  qualify. Preserve the hand and melds beside the comparison.
+- Keep the existing comparison table's candidates and metrics for this
+  first card-layout change. Reducing table contents is separate work.
+- Expand **Full board** by default for defense and mixed defense comparisons.
+  Any other explanation that needs board evidence must also show that
+  evidence by default. Collapsing detail must never leave a visible claim
+  without its supporting visuals; suppressed dimensions stay out of prose.
+- Move the complex-card feedback questionnaire into **Notes and feedback**,
+  after the explanation. Preserve existing note/report behavior and owner-only
+  write controls; shared/demo views remain read-only.
+- Preserve disclosure state across filtering and rerendering of the loaded
+  game. Keep mistake links working without requiring manual expansion.
+
+Implementation: [game-render.js](../../static/js/game-render.js),
+[mistake-card.js](../../static/js/mistake-card.js),
+[ev-table.js](../../static/js/ev-table.js), and the existing game/board styles.
+Check rounds, Summary cards, shared/demo cards, and other consumers of the
+reusable card renderer.
+
+### Proposal 3 — Replace misleading labels and uncertainty wording (UI-07)
+
+Apply these display changes consistently, preserving stored keys, severity
+thresholds, grading, and categorization:
+
+| Current wording | Proposed wording |
+| --- | --- |
+| `Unsure` | `Small evaluation gap` |
+| `AI not confident` | `Mortal's evaluation gap is below 0.2.` |
+| `Obvious` | `Direct comparison` |
+| Per-hand `Show all` | `Show N hidden items` |
+| Per-hand `Show less` | `Hide items outside filters` |
+| Overview `Ranking` | `Full-game grade` |
+
+For recommendations not explained by the displayed evidence, use:
+
+> The displayed comparison does not explain why Mortal prefers this choice.
+
+Replace speculative raised-shanten tooltips with the two displayed shanten
+values. Add the same limitation when the displayed evidence does not explain
+the choice; do not suggest unshown yaku, value, waits, or safety as reasons.
+Check the full-game and per-card variants, severity slider labels, summary
+counts, badge descriptions, and Help for conflicting wording.
+
+Implementation: [severity.js](../../static/js/severity.js),
+[categorize-metadata.js](../../static/js/categorize-metadata.js),
+[categorize-explanations.js](../../static/js/categorize-explanations.js),
+[game-render.js](../../static/js/game-render.js), and
+[mistake-card.js](../../static/js/mistake-card.js).
+
+### Proposal 4 — Keep the filter scope explicit (UI-04)
+
+The concrete scope/count behavior is already implemented in `bc7c410`:
+
+- Rounds says **Showing X of Y review items**, including per-hand overrides.
+- Overrides add **Includes N items revealed in individual hands.**
+- **Show all review items** clears both severity and topic restrictions.
+- Topic-only reset says **Clear topic filter**.
+- Zero matches show an explanation and a route to reset the filters.
+- Summary states that it includes all review items, grouped by topic.
+
+Preserve these behaviors during the card work. The remaining per-hand action
+labels are listed in proposal 3; they must continue using the same header
+styling as every other round.
+
+### Proposal 5 — Explain essential table numbers locally (UI-03, UI-06)
+
+Under acceptance comparisons, show this caption:
+
+> Shared counts are tile copies accepted by every compared option. Extra
+> counts are copies accepted only by that option.
+
+Add **Explain these numbers**, a tappable and keyboard-accessible control
+for further definitions. Keep essential interpretation visible without
+opening it. Describe EV using its verified evaluation semantics; do not
+present it as points actually lost in the game.
+
+Update Help against the current renderer: replace obsolete star-rating,
+Mortal-Q-row, and 1–15 defense-scale descriptions with the grades, comparisons,
+and defense metrics actually shown. Use a current annotated card to explain
+the reading order, and link contextual help to the relevant part.
+
+Implementation: [ev-table.js](../../static/js/ev-table.js),
+[mistake-card.js](../../static/js/mistake-card.js), and
+[account.js](../../static/js/account.js), `showHelp`.
+
+### Acceptance checks for the follow-ups
+
+- Check straightforward, defense, trade-off, and unexplained comparisons.
+  Both choices and the evidence for every visible claim must be identifiable.
+- Inspect desktop and phone layouts, expanded/collapsed details, keyboard
+  operation, and touch access to definitions.
+- Verify that filters, per-hand overrides, and mistake links still reveal
+  the intended cards, with accurate counts and preserved disclosure state.
+- Verify note/report actions and the read-only shared/demo variants.
+- Run relevant regression checks and the full Python suite for implementation
+  changes. Use the comprehension study below before attributing any retention
+  improvement to the redesign.
+
+## Remaining implementation priorities
 
 Priorities below are hypotheses to validate, not effort estimates or a promise
 that any individual change will improve retention.
 
-1. **P1 — Simplify one real review screen (UI-01–03).** Prototype the compact
-   overview and a card with a clear reading order. Show just the evidence
-   needed to understand the comparison, with discoverable detail controls.
-   Include both a straightforward comparison and a defense/trade-off case so
-   the prototype does not succeed only by selecting easy content.
-2. **P1 — Make meanings consistent (UI-04, UI-06, UI-07).** Correct Help, filter
-   scope/reset labels, and uncertainty wording. Add visible definitions for
+1. **P1 — Simplify the decision card (UI-02–03).** The navigation and layout
+   above the rounds are implemented. Build proposal 2's reading order and
+   proposal 5's local definitions while retaining the current comparison
+   table. Include both a straightforward comparison and a defense/trade-off
+   case so the prototype does not succeed only by selecting easy content.
+2. **P1 — Make meanings consistent (UI-04, UI-06, UI-07).** Correct Help,
+   remaining per-hand action labels, and uncertainty wording. Add visible definitions for
    the essential numbers. Check the rounds, summary, and shared card variants.
 3. **P2 — Test a small review session (UI-05).** Build on the simplified card;
    compare it with freely scrolling the same content before committing to a
