@@ -210,7 +210,6 @@ function renderMistakeCard(m, opts = {}) {
     if (m.id) html += renderReportRow(m);
   }
 
-  html += renderScoreDetails(m);
   html += `</div>`;
   return html;
 }

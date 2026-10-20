@@ -369,7 +369,7 @@ function renderBoardContext(m) {
       html += `<summary>Discards</summary>`;
       for (const d of sortedDiscards) {
         const seatMelds = meldsBySeat[d.seat];
-        if (!d.discards.length && !seatMelds) continue;
+        if (!d.discards.length && !seatMelds && b.scores?.[d.seat] == null) continue;
         const seatName = seatWindLabel(d.seat);
         const isYou = playerSeat != null && d.seat === playerSeat;
         // Open-threat signal for an opponent (not you): the same trigger the
@@ -403,8 +403,12 @@ function renderBoardContext(m) {
         if (isDanger) rowCls += " danger-row";
         if (isRiichiOpp) rowCls += " riichi-row";
         html += `<div class="${rowCls}">`;
-        html += `<span class="discard-label">${seatName}`;
+        html += `<span class="discard-label"><span class="discard-seat">${seatName}`;
         if (isYou) html += `<span class="you-tag">(you)</span>`;
+        html += `</span>`;
+        if (b.scores?.[d.seat] != null) {
+          html += `<span class="discard-score">${b.scores[d.seat].toLocaleString()}</span>`;
+        }
         if (isRiichiOpp) html += `<span class="riichi-tag">RIICHI</span>`;
         if (isOppThreat && openMeldCount > 0) {
           // Every open opponent gets one disclosure, including quiet one-call
@@ -490,31 +494,4 @@ function renderBoardContext(m) {
   }
 
   return html ? `<div class="board-context">${html}</div>` : "";
-}
-
-// Optional placement context, kept at the end of the decision card.
-function renderScoreDetails(m) {
-  const b = m.board_state;
-  if (!b) return "";
-  let html = "";
-  if (b.scores && b.scores.length) {
-    const WINDS = ["E", "S", "W", "N"];
-    const playerSeat = mistakeActorSeat(m);
-    let oya = null;
-    if (playerSeat != null && b.seat_wind) {
-      const pw = WINDS.indexOf(b.seat_wind);
-      if (pw >= 0) oya = ((playerSeat - pw) % 4 + 4) % 4;
-    }
-    html += `<details class="score-details"><summary>Scores</summary><div class="scores-bar">`;
-    for (let i = 0; i < b.scores.length; i++) {
-      const name = oya != null
-        ? WIND_DISPLAY[WINDS[(i - oya + 4) % 4]]
-        : (SEAT_NAMES[i] || `P${i}`);
-      const youTag = playerSeat === i ? '<span class="you-tag">(you)</span>' : '';
-      html += `<span class="score-item"><span class="score-seat">${name}${youTag}</span> ${b.scores[i].toLocaleString()}</span>`;
-    }
-    html += `</div></details>`;
-  }
-
-  return html;
 }

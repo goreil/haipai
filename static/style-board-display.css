@@ -272,10 +272,11 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   flex: 0 0 110px;
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  line-height: 11px;
   align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
+  column-gap: 4px;
 }
 
 .you-tag {
@@ -283,6 +284,31 @@
   font-weight: 600;
   text-transform: lowercase;
   letter-spacing: 0;
+}
+
+.discard-seat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.discard-score {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 9px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  letter-spacing: 0;
+}
+
+.discard-label > .riichi-tag,
+.discard-label > .danger-tag {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  justify-self: start;
 }
 
 .danger-tag {
@@ -475,46 +501,6 @@
   border: 1px solid color-mix(in srgb, var(--threat-riichi) 50%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--threat-riichi) 10%, transparent);
-}
-
-.scores-bar {
-  display: flex;
-  gap: 12px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-  padding: 2px 0;
-}
-
-.score-details {
-  margin-top: 10px;
-  font-size: 11px;
-  color: var(--text-dim);
-}
-
-.score-details > summary {
-  width: fit-content;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  cursor: pointer;
-}
-
-.score-details > summary:hover { color: var(--text); }
-.score-details > summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.score-item {
-  font-size: 12px;
-  color: var(--text);
-}
-
-.score-seat {
-  color: var(--text-dim);
-  font-size: 10px;
-  text-transform: uppercase;
-  margin-right: 2px;
 }
 
 .inline-melds {
