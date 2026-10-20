@@ -39,12 +39,12 @@ test('deal-in values identify every opponent while collapsed, including a single
         check(cells.length===2, 'two comparison columns');
         for (const cell of cells) {
           const details = [...cell.querySelectorAll('details')];
-          check(details.length===3, 'one disclosure per opponent');
+          check(details.length===(cell===cells[0]?3:2), 'one disclosure per opponent');
           check(details.every(d=>!d.open), 'calculations initially collapsed');
-          check([...cell.querySelectorAll('summary .dealin-threat-seat')].map(e=>e.textContent).join(',')==='E,W,N', 'visible winds in round order');
+          check([...cell.querySelectorAll('.dealin-threat-seat')].map(e=>e.textContent).join(',')==='E,W,N', 'visible winds in round order');
           check(!cell.textContent.includes('all threats'), 'no aggregate total');
           details[1].querySelector('summary').click();
-          check(details[1].open && !details[0].open && !details[2].open, 'independent expansion');
+          check(details[1].open && details.every((d,i)=>i===1 || !d.open), 'independent expansion');
         }
         check(cells[0].querySelector('summary').textContent.includes('20.0%'), 'individual risk rather than aggregate');
         check(cells[1].textContent.includes('Safe*'), 'soft safe preserved per opponent');
@@ -53,8 +53,25 @@ test('deal-in values identify every opponent while collapsed, including a single
         check(host.querySelectorAll('summary .dealin-threat-seat').length===2, 'single opponent keeps wind in both columns');
         check(host.querySelector('summary .dealin-threat-seat').textContent==='E', 'dealer East remains visible');
         check(renderWinFeatPill({dim:'deal_in',pct:5,threat:{seat:0,kind:'riichi'}},0).includes('(E)'), 'dealer summary pill keeps wind');
-        m.per_threat.push({seat:2,kind:'open',dealin_rates:rates(0,0)});
+        m.per_threat[0].dealin_rates = rates(0, 0);
+        m.per_threat[0].genbutsu = ['5pr'];
+        m.per_threat[0].soft_safe = [m.actual.pai];
+        m.per_threat[0].wait_breakdowns = {
+          [m.expected.pai]:[{type:'ryanmen',left:[0,3],tiles:['5p','6p'],rate:0}],
+        };
         draw();
+        const safeValue = host.querySelector('.dealin-safe-value');
+        check(safeValue?.querySelector('.dealin-threat-rate').textContent==='Safe', 'red-five genbutsu uses Safe before soft-safe');
+        check(!safeValue.closest('details') && !safeValue.querySelector('.dealin-details-caret'), 'Safe has no expander');
+        const deadWait = host.querySelector('.dealin-details');
+        check(deadWait.querySelector('summary .dealin-threat-rate').textContent==='0.0%', 'dead wait stays numeric');
+        check(deadWait.textContent.includes('0×3'), 'zero-combination breakdown preserved');
+        deadWait.querySelector('summary').click();
+        check(deadWait.open, 'zero-combination wait is expandable');
+        m.per_threat.push({seat:2,kind:'open',dealin_rates:rates(0,0),soft_safe:[m.expected.pai]});
+        draw();
+        const softValue = [...host.querySelectorAll('.dealin-safe-value')].find(e=>e.textContent.includes('Safe*'));
+        check(softValue && !softValue.closest('details'), 'Safe* has no expander');
         document.body.innerHTML = document.body.innerHTML.replaceAll('src="/tiles/', 'src="file://${root}/riichi-mahjong-tiles/Regular/');
         document.body.dataset.result='passed';
       } catch(e) {document.body.dataset.result=e.stack}});

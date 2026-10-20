@@ -2154,6 +2154,8 @@
    its calculation independently, keeping the initial comparison compact. */
 .dealin-details > summary { list-style: none; }
 .dealin-details > summary::-webkit-details-marker { display: none; }
+.ukeire-shared-pill.dealin-safe-value { cursor: default; }
+.ukeire-shared-pill.dealin-safe-value:hover { color: var(--text-dim); border-color: var(--border); }
 .dealin-total-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .dealin-details-caret { font-size: 9px; }
 .dealin-details[open] .dealin-details-caret { transform: rotate(90deg); }
