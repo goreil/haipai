@@ -506,12 +506,3 @@
 .tile.tsumogiri-tile {
   opacity: 0.4;
 }
-
-/* KD-driven hand highlight: "Safe" = green underline; unsafe tiles get
-   an HSL gradient via inline style set by renderHand. */
-.tile.hand-tile-safe { border-bottom: 3px solid var(--sev-minor); }
-
-/* Soft-safe ("Safe*") hand tile: dealin-0 only by the behavioural
-   tsumogiri-extended-genbutsu read, not a rules-guaranteed safe tile. Dashed
-   teal underline distinguishes it from the solid-green hard "Safe". */
-.tile.hand-tile-soft-safe { border-bottom: 3px dashed rgba(38, 198, 218, 0.9); }

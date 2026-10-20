@@ -106,49 +106,12 @@ function mistakeOya(m) {
   return ((playerSeat - pw) % 4 + 4) % 4;
 }
 
-function renderHand(tiles, draw, mistake, doraTiles) {
+function renderHand(tiles, draw) {
   if (!tiles || !tiles.length) return "";
-  // KD-derived deal-in colouring — tooltip is "<tile> — Type · X.X%" and the
-  // underline matches the EV table's green / yellow-red gradient. Skipped
-  // when there's no active threat (no per_threat / dealin_rates).
-  const useKd = mistake
-    && mistake.dealin_rates
-    && Object.keys(mistake.dealin_rates).length > 0;
   return tiles.map((t, i) => {
-    let extra = "";
-    let title = null;
-    let extraAttrs = "";
-    if (draw && i === tiles.length - 1 && t === draw) extra = "draw";
-    // Dora highlight is applied automatically by renderTile (active-dora set).
-    if (useKd) {
-      const rate = getFieldForTile(mistake.dealin_rates, t);
-      const coarse = coarseSafetyLabelForTile(mistake, t);
-      const fine = fineLabelForTile(mistake, t);
-      if (rate != null && coarse) {
-        const isSafe = rate === 0 || coarse === "genbutsu" || fine === "genbutsu";
-        // Soft-safe: dealin-0 only because the tile passed while an open
-        // opponent's wait was frozen (tsumogiri-extended genbutsu). Behavioural,
-        // not rules-guaranteed — render `Safe*` and gate on genbutsu absence so
-        // a tile that's also hard-safe stays plain "Safe".
-        const isSoftSafe = isSafe && coarse !== "genbutsu" && fine !== "genbutsu"
-          && softSafeForTile(mistake, t);
-        if (isSoftSafe) {
-          title = `${t} — Safe* · passed while their wait was frozen `
-            + `(a competent opp would have ronned a winning tile) — `
-            + `behavioural, not a guaranteed safe tile`;
-          extra += " hand-tile-soft-safe";
-        } else {
-          const labelText = isSafe ? "Safe" : (fine || dealinLabelText(coarse));
-          title = `${t} — ${labelText} · ${rate.toFixed(1)}%`;
-          if (isSafe) {
-            extra += " hand-tile-safe";
-          } else {
-            extraAttrs = `style="border-bottom:3px solid ${dealinColor(rate)}"`;
-          }
-        }
-      }
-    }
-    return renderTile(t, extra, title, extraAttrs);
+    const extra = draw && i === tiles.length - 1 && t === draw ? "draw" : "";
+    // Dora and yakuhai highlights are applied automatically by renderTile.
+    return renderTile(t, extra);
   }).join("");
 }
 

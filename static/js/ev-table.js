@@ -155,7 +155,7 @@ function renderWinFeatPill(w, oya) {
 function renderEvComparison(m, options) {
   options = options || {};
   // Deal-in defense always shows the combined picture: the aggregated deal-in %
-  // per discard, decomposed into one row per live opponent inside the Deal-in
+  // per discard, with an expandable per-opponent calculation inside the Deal-in
   // cell (see threatLines below). The old per-seat view toggle was retired once
   // that per-opponent breakdown made it redundant.
   const ukeireDora = getDoraTiles(m.board_state);
@@ -521,7 +521,7 @@ function renderEvComparison(m, options) {
     }
 
     return { tile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
-             acc, mortal, shanten, shantenVal, dealin, typeCell, waits, threatLines, isSoftSafe };
+             acc, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe };
   });
 
   // Feature-summary pills. The win-vector is now computed once by the shared
@@ -616,14 +616,18 @@ function renderEvComparison(m, options) {
   // already shows the EV loss, so a per-pick EV row just repeats it. (The
   // per-column `c.mortal` is still computed in case it's needed elsewhere.)
   if (useKd) {
-    // Single Deal-in row: the rate on top, the wait breakdown stacked beneath
-    // it per column. The "Type" row is hidden for now (c.typeCell still
-    // computed in case it's wanted back).
+    // Show only each pick's total until its pill opens the calculation.
+    // Native details provides mouse and keyboard activation without extra state.
     html += rowFor(
       "Deal-in",
-      ` title="Probability this tile deals in — aggregated across all riichi threats — with the contributing wait shapes beneath."`,
+      ` title="Probability this tile deals in across all live threats. Click a total to show or hide its calculation."`,
       "dealin-col",
       c => {
+        if (!c.dealinCls) return c.dealin;
+        const calculation = body => `<details class="dealin-details">`
+          + `<summary class="ukeire-shared-pill dealin-total-pill" title="Show or hide the deal-in calculation">`
+          + c.dealin + `<span class="dealin-details-caret" aria-hidden="true">▸</span></summary>`
+          + `<div class="dealin-calculation">${body}</div></details>`;
         // Multi-threat combined view: one row per opponent — seat wind, that
         // opponent's wait shapes, and its own deal-in % — stacked, with the
         // aggregated total on the "=" line at the bottom. Lets the student read
@@ -655,14 +659,14 @@ function renderEvComparison(m, options) {
             +    `<span class="dealin-sum-eq">=</span>`
             +    c.dealin
             +  `</div></div>`;
-          return s;
+          return calculation(s);
         }
         // Soft-safe (single threat): the 0% is behavioural — the tile passed
         // while the open opp's wait was frozen — not a live-wait calculation.
         // Skip the wait equation and show just the Safe* mark (c.dealin already
         // carries the "Safe*" text and the explanatory tooltip).
         if (c.isSoftSafe) {
-          return `<div class="dealin-stack"><div class="dealin-rate-line">${c.dealin}</div></div>`;
+          return calculation(`<span class="dealin-safe-note">${SOFT_SAFE_TITLE}</span>`);
         }
         // When wait shapes exist, render the deal-in cell as an equation:
         // the per-wait pills are addends (pill + pill + …) and the tile's total
@@ -678,10 +682,11 @@ function renderEvComparison(m, options) {
             +    `</span>`
             +  `</div>`;
         } else {
-          s += `<div class="dealin-rate-line">${c.dealin}</div>`;
+          s += `<div class="dealin-rate-line">${c.dealin}</div>`
+            + `<span class="dealin-safe-note">No wait breakdown available.</span>`;
         }
         s += `</div>`;
-        return s;
+        return calculation(s);
       },
     );
   }

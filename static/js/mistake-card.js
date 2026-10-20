@@ -133,7 +133,7 @@ function renderMistakeCard(m, opts = {}) {
   if (m.hand && m.hand.length) {
     html += `<div class="hand-row">
       <span class="label">Hand</span>
-            <span class="tiles">${renderHand(m.hand, m.draw, m, doraTiles)}</span>`;
+            <span class="tiles">${renderHand(m.hand, m.draw)}</span>`;
     if (m.melds && m.melds.length) {
       const playerSeat = mistakeActorSeat(m);
       const oya = mistakeOya(m);
