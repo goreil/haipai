@@ -140,7 +140,7 @@
 
 .game-header .log-link a:hover { text-decoration: underline; }
 
-/* The overview, rounds, and summary have equal prominence in the navigation. */
+/* Preset and saved filters share one wrapping tab strip. */
 .game-header-compact,
 .game-header-actions,
 .game-review-nav,
@@ -158,8 +158,111 @@
   border-bottom: 1px solid var(--border);
   margin-bottom: 12px;
 }
-.game-review-nav .game-tabs { margin: 0; border: 0; }
-.game-review-nav .game-tab { padding: 12px 14px; margin-bottom: -1px; }
+.game-review-nav .game-tabs { margin: 0; border: 0; flex-wrap: wrap; min-width: 0; gap: 4px; width: 100%; }
+.game-review-nav .review-tab {
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: -1px;
+  position: relative;
+}
+.review-tab:hover { background: rgba(255, 255, 255, 0.03); }
+.game-review-nav .review-tab.active { border-bottom-color: var(--accent); background: rgba(79, 195, 247, 0.05); }
+.game-review-nav .game-tab { padding: 12px 5px; margin: 0; border: 0; overflow-wrap: anywhere; min-width: 0; touch-action: manipulation; }
+.game-review-nav .review-tab.active .game-tab { color: var(--accent); }
+.review-tab-handle,
+.review-tab-close {
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  padding: 0;
+  width: 26px;
+  min-height: 42px;
+  font: inherit;
+  cursor: pointer;
+}
+.review-tab-handle { cursor: grab; touch-action: none; user-select: none; font-size: 17px; opacity: 0.55; }
+.review-tab-close { font-size: 18px; }
+.review-tab-close:hover { color: var(--sev-major); }
+.review-tab-handle:hover, .review-tab-handle:focus-visible { opacity: 1; color: var(--accent); }
+.review-tab-dragging { opacity: 0.5; user-select: none; cursor: grabbing; }
+.review-tab-drop-before::before, .review-tab-drop-after::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.review-tab-drop-before::before { left: -3px; }
+.review-tab-drop-after::after { right: -3px; }
+.review-tab-name-input {
+  width: 170px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 5px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+}
+.review-add-menu { position: relative; margin-left: auto; align-self: center; }
+.review-add-menu > summary { list-style: none; cursor: pointer; text-align: center; border-radius: 6px; }
+.review-add-menu > summary::-webkit-details-marker { display: none; }
+.game-review-nav .game-tab-add { font-size: 24px; min-width: 44px; padding: 6px 10px; color: var(--accent); }
+.review-add-menu[open] > summary, .review-add-menu > summary:hover { background: var(--bg-card-hover); }
+.review-add-options {
+  position: absolute;
+  z-index: 15;
+  right: 0;
+  top: calc(100% + 5px);
+  width: 220px;
+  max-width: calc(100vw - 40px);
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.review-add-options button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.review-add-options button:hover { background: var(--bg-card-hover); }
+.review-add-heading { display: block; padding: 8px 10px 4px; font-size: 11px; color: var(--text-dim); }
+.review-add-options .review-add-new { color: var(--accent); }
+.review-overview-toggle { margin-bottom: 12px; }
+.review-filter-options { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; }
+.review-filter-options label { display: flex; flex: 1 1 200px; flex-direction: column; gap: 7px; font-size: 12px; color: var(--text-dim); }
+.review-filter-options select {
+  min-width: 0;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.review-filter-hint { margin: 18px 0 0; }
+.review-filter-error { color: var(--sev-major); font-size: 13px; }
+.review-mistake-list .round-label { font-weight: 600; color: var(--text); }
 .review-disclosure,
 .review-link,
 .review-topic {

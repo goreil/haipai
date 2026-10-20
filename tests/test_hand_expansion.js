@@ -41,6 +41,7 @@ test('review counts include hand overrides and Show all clears both filter restr
     { mistakes: [] },
   ] };
   const context = vm.createContext({
+    saveActiveReviewFilter: () => {},
     state: { currentGameData: game, sevLevel: 1, conceptFilters: [{ group: 'Speed' }] },
     haipaiConceptBreakdown: {
       mistakeTouchesConcept: (mistake, _compare, filter) => mistake.topic === filter.group,

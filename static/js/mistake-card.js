@@ -1,5 +1,5 @@
 // Single-mistake card: header + hand + board + EV table + annotation note +
-// category-report row. Used by game-list (rounds & summary views), trends
+// category-report row. Used by game-list (filtered & rounds views), trends
 // (top-mistakes panel), and the "open as user" admin flow.
 
 // Expand a stored round name ("E1", "S3-2") into beginner-friendly text
@@ -76,7 +76,7 @@ function mortalRaisedShanten(m) {
 
 function renderMistakeCard(m, opts = {}) {
   const showDate = opts.gameDate;
-  const showLink = opts.gameId;
+  const showLink = opts.gameId && !opts.inline;
   const sc = sevClass(m);
   const doraTiles = getDoraTiles(m.board_state);
   // Arm the ambient active-dora set for the whole card so every renderTile()
@@ -89,13 +89,16 @@ function renderMistakeCard(m, opts = {}) {
   // number.
   const catGrpColor = m.skillArea ? skillAreaColor(m.skillArea) : null;
   const cardStyle = catGrpColor ? ` style="border-left-color:${catGrpColor}"` : "";
-  let html = `<div class="mistake ${sc}"${cardStyle}>`;
+  const locationAttrs = opts.inline
+    ? ` data-game="${opts.gameId}" data-round="${escapeHtml(opts.round)}" data-turn="${m.turn}" data-index="${opts.index}"` : "";
+  let html = `<div class="mistake ${sc}"${cardStyle}${locationAttrs}${m.id ? ` data-mid="${m.id}"` : ""}>`;
   html += `<div class="mistake-top">`;
   if (showDate) {
     const d = new Date(showDate + "T00:00:00").toLocaleDateString("en-US", {month: "short", day: "numeric"});
     html += `<span class="mistake-date">${d}</span>`;
   }
-  if (m.round_name) html += `<span class="round-label">${formatRoundLabel(m.round_name)}</span>`;
+  const roundName = opts.round || m.round_name;
+  if (roundName) html += `<span class="round-label">${escapeHtml(formatRoundLabel(roundName))}</span>`;
   if (m.is_all_last) {
     html += `<span class="all-last-badge" title="Final round of the hand — placement matters more than raw EV here.">All last</span>`;
   }
@@ -171,8 +174,10 @@ function renderMistakeCard(m, opts = {}) {
     html += `</div>`;
   }
 
-  // Note input + report row — shared between the rounds view and the summary
-  // view. Both read/write the same mistake objects via state.currentGameData,
+  if (opts.inline) html += trainerBubbleHtml(m);
+
+  // Note input + report row — shared between filtered and rounds views.
+  // Both read/write the same mistake objects via state.currentGameData,
   // so edits in one view propagate to the other on re-render.
   if (opts.annotate && opts.gameId && opts.round != null && opts.index != null) {
     const attrs = `data-game="${opts.gameId}" data-round="${opts.round}" data-turn="${m.turn}" data-index="${opts.index}"`;

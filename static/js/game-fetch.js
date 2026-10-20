@@ -83,7 +83,8 @@ async function fetchGame(id) {
   state.currentGameData = await res.json();
   if (mres.ok) state.currentGameData.mortal_data = await mres.json();
   state.currentGame = id;
-  state.gameView = state.scrollToMistakeId != null ? "rounds" : "overview";
+  state.gameView = null;
+  state.reviewLinkedMistake = state.scrollToMistakeId != null;
   state.conceptFilters = []; // the breakdown is per-game; don't carry filters across games
   // Normalize the URL to the canonical game hash — unless we arrived via a
   // #m<id> mistake deep-link, in which case keep that hash so the URL stays
@@ -98,8 +99,9 @@ async function fetchGame(id) {
   recategorizeGameInPlace(state.currentGameData);
   state.currentGameData.summary = recomputeSummaryByCategory(state.currentGameData);
   state.prepProgress = _prepProgressInitial(state.currentGameData);
-  autoSetSeverityFilters(state.currentGameData);
+  state.sevLevel = 3;
   if (state.scrollToMistakeId != null) {
+    autoSetSeverityFilters(state.currentGameData);
     ensureMistakeVisible(state.currentGameData, state.scrollToMistakeId);
   }
   renderGame();

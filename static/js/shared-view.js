@@ -13,7 +13,9 @@ var state = {
   currentGame: null,
   currentGameData: null,
   sevLevel: 3,
-  gameView: "overview",
+  gameView: null,
+  reviewSort: "ev",
+  reviewLimit: 5,
   conceptFilters: [],
   readOnly: true,
 };
@@ -52,7 +54,6 @@ async function fetchSharedGame() {
   recategorizeGameInPlace(state.currentGameData);
   state.currentGameData.summary = recomputeSummaryByCategory(state.currentGameData);
   state.prepProgress = _prepProgressInitial(state.currentGameData);
-  autoSetSeverityFilters(state.currentGameData);
   renderGame();
   await refreshPrepAndRecategorize(state.currentGameData, state.currentGame);
 }

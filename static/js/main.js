@@ -37,10 +37,12 @@ var state = {
   // sidebar re-render that assumes an authenticated shell.
   readOnly: false,
   // Severity slider: a single cumulative threshold 0..3 over SEV_ORDER
-  // (0 = severe only, 1 = +mistake, 2 = +light, 3 = +unsure). Set per game by
-  // autoSetSeverityFilters; the summary bar + concept ledgers reflect it too.
+  // (0 = severe only, 1 = +mistake, 2 = +light, 3 = +unsure).
+  // The Rounds preset uses autoSetSeverityFilters to choose its initial level.
   sevLevel: 3,
-  gameView: "overview", // "overview", "rounds", or "summary"
+  gameView: null, // Active filter tab ID; the first tab is selected on game load.
+  reviewSort: "ev",
+  reviewLimit: 5,
   // Concept-breakdown pill filters (additive / OR). Array of
   // {side:"missed"|"you", group, dim:null|<win-vector dim>}. Empty = no filter;
   // a mistake shows when it touches ANY selected pill.
@@ -152,7 +154,7 @@ function navTab(slug) {
 
 // Route the current location.hash to a game load. #m<id> resolves to a
 // game via /api/mistakes/<id>/locate, stashes the target mistake id so
-// renderGame can scroll to it, and (in summary view) bounces to rounds so the
+// renderGame can scroll to it, and switches to rounds so the
 // target card is actually on screen.
 async function applyHashRoute() {
   const mistakeId = parseMistakeHash();
@@ -167,7 +169,11 @@ async function applyHashRoute() {
     }
     const loc = await res.json();
     state.scrollToMistakeId = mistakeId;
-    if (state.gameView !== "rounds") state.gameView = "rounds";
+    state.gameView = null;
+    state.reviewLinkedMistake = true;
+    state.reviewSort = "round";
+    state.reviewLimit = 0;
+    state.conceptFilters = [];
     if (loc.game_id !== state.currentGame) {
       await fetchGame(loc.game_id);
     } else {

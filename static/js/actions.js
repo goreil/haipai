@@ -68,6 +68,9 @@ var HAIPAI_CLICK_ACTIONS = {
   deleteGame: () => deleteGame(state.currentGame),
   toggleHandMistakes: (el) => toggleHandMistakes(Number(el.dataset.roundIndex)),
   switchGameView: (el) => switchGameView(el.dataset.view),
+  selectReviewTab: (el, event) => selectReviewTab(el, event),
+  addReviewFilter: (el) => addReviewFilter(el.dataset.kind),
+  deleteReviewFilter: (el) => deleteReviewFilter(el.dataset.view),
   scrollGameSection: (el) => document.getElementById(el.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" }),
   filterConcept: (el) => toggleConceptFilter(el.dataset.conceptSide, el.dataset.conceptGroup, el.dataset.conceptDim),
   clearConceptFilters: () => clearConceptFilters(),
@@ -134,11 +137,14 @@ var HAIPAI_CHANGE_ACTIONS = {
   adminReportKind: (el) => { adminState.reportKind = el.value; adminState.reportPage = 0; renderAdmin(); },
   adminSetReportPageSize: (el) => adminSetReportPageSize(el.value),
   onSevSlider: (el) => onSevSlider(el),
+  changeReviewOption: (el) => changeReviewOption(el),
 };
 
 document.addEventListener("click", (e) => {
   const gameMenu = document.querySelector(".game-actions-menu[open]");
   if (gameMenu && !gameMenu.contains(e.target)) gameMenu.open = false;
+  const reviewMenu = document.querySelector(".review-add-menu[open]");
+  if (reviewMenu && !reviewMenu.contains(e.target)) reviewMenu.open = false;
   const el = e.target.closest("[data-action]");
   if (!el) return;
   const fn = HAIPAI_CLICK_ACTIONS[el.dataset.action];
@@ -146,7 +152,33 @@ document.addEventListener("click", (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
+  const rename = e.target.closest("[data-rename-review-tab]");
+  if (rename && (e.key === "Enter" || e.key === "Escape")) {
+    e.preventDefault();
+    finishReviewRename(rename, e.key === "Escape");
+    return;
+  }
+  if (rename) return;
+  const tab = e.target.closest(".review-tab");
+  if (tab && e.key === "F2") {
+    e.preventDefault();
+    beginReviewRename(tab.dataset.reviewTab);
+    return;
+  }
+  if (tab && e.altKey && ["ArrowLeft", "ArrowRight"].includes(e.key)) {
+    e.preventDefault();
+    const tabs = reviewTabs();
+    const index = tabs.findIndex(f => f.id === tab.dataset.reviewTab);
+    const next = index + (e.key === "ArrowLeft" ? -1 : 1);
+    if (tabs[next]) moveReviewTab(tabs[index].id, tabs[next].id, next > index);
+    return;
+  }
   if (e.key !== "Escape") return;
+  const reviewMenu = document.querySelector(".review-add-menu[open]");
+  if (reviewMenu) {
+    reviewMenu.open = false;
+    reviewMenu.querySelector("summary").focus();
+  }
   const gameMenu = document.querySelector(".game-actions-menu[open]");
   if (!gameMenu) return;
   const restoreFocus = gameMenu.contains(document.activeElement);
@@ -169,4 +201,24 @@ document.addEventListener("submit", (e) => {
 
 document.addEventListener("input", (e) => {
   if (e.target.id === "admin-report-ids") e.target.setCustomValidity("");
+});
+
+document.addEventListener("dblclick", (e) => {
+  const tab = e.target.closest('[data-action="selectReviewTab"]');
+  if (tab) beginReviewRename(tab.dataset.view);
+});
+document.addEventListener("focusout", (e) => {
+  if (e.target.matches("[data-rename-review-tab]")) finishReviewRename(e.target, false, true);
+});
+document.addEventListener("pointerdown", (e) => {
+  if (e.target.closest(".review-tab")) reviewTabPointerDown(e);
+});
+document.addEventListener("pointermove", (e) => {
+  if (typeof reviewTabPointerMove === "function") reviewTabPointerMove(e);
+}, { passive: false });
+document.addEventListener("pointerup", (e) => {
+  if (typeof reviewTabPointerEnd === "function") reviewTabPointerEnd(e);
+});
+document.addEventListener("pointercancel", (e) => {
+  if (typeof reviewTabPointerEnd === "function") reviewTabPointerEnd(e);
 });

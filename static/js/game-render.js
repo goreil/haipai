@@ -1,5 +1,5 @@
 // Presentation layer for the game list/detail flow: sidebar list with date
-// separators + ratings, game-detail render (rounds + summary tabs),
+// separators + ratings, game-detail render (saved filters + rounds),
 // mistake/category-group rendering, view-toggle helpers, and the
 // navigate-home action that wipes the detail pane and re-renders the list.
 
@@ -336,9 +336,7 @@ function conceptFilterActive(side, group, dim) {
     f => f.side === side && f.group === group && (f.dim || null) === (dim || null));
 }
 
-// Toggle one concept-breakdown pill in/out of the additive filter set. Clicking
-// an active pill removes it; clicking a new one adds it (OR semantics). Filtering
-// only makes sense in the rounds view, so adding one snaps there.
+// Changes are saved directly to the active filter tab.
 function toggleConceptFilter(side, group, dim) {
   if (!side) return; // defensive; "Show all" uses clearConceptFilters
   dim = dim || null;
@@ -349,19 +347,22 @@ function toggleConceptFilter(side, group, dim) {
     cfs.splice(idx, 1);
   } else {
     cfs.push({ side, group, dim });
-    if (state.gameView !== "rounds") state.gameView = "rounds";
   }
+  saveActiveReviewFilter({ topics: cfs, topGroup: false });
   renderGame();
 }
 
 function clearConceptFilters() {
   state.conceptFilters = [];
+  saveActiveReviewFilter({ topics: [], topGroup: false });
   renderGame();
 }
 
 function showAllReviewItems() {
   state.sevLevel = 3;
   state.conceptFilters = [];
+  state.reviewLimit = 0;
+  saveActiveReviewFilter({ severity: 3, topics: [], topGroup: false, limit: 0 });
   renderGame();
 }
 
@@ -369,6 +370,7 @@ function showAllReviewItems() {
 function onSevSlider(el) {
   const v = parseInt(el.value, 10);
   state.sevLevel = Number.isFinite(v) ? Math.max(0, Math.min(3, v)) : 3;
+  saveActiveReviewFilter({ severity: state.sevLevel });
   renderGame();
 }
 
@@ -376,6 +378,7 @@ function onSevSlider(el) {
 // dragging the slider there).
 function setSevLevel(level) {
   state.sevLevel = Math.max(0, Math.min(3, level));
+  saveActiveReviewFilter({ severity: state.sevLevel });
   renderGame();
 }
 
@@ -572,6 +575,69 @@ function gamePanelOpen(game, panel) {
   return gameReviewPanels.get(game)?.has(panel) || false;
 }
 
+function reviewTopGroupFilter(topGroup) {
+  // The Defense preset reviews deal-in decisions. Safe-spare comparisons on
+  // Attack cards belong to the broader concept filter, not this focused preset.
+  const dim = topGroup.side === "missed" && topGroup.group === "Defense" ? "deal_in" : null;
+  return { side: topGroup.side === "box" ? "tradeoff" : topGroup.side, group: topGroup.group, dim };
+}
+
+function reviewTopGroup(game, agg, boxes) {
+  if (!agg?.groups.missed.Defense) return conceptTopGroup(agg, boxes);
+  const filter = reviewTopGroupFilter({ side: "missed", group: "Defense" });
+  const defenseMistakes = game.rounds.flatMap(round => round.mistakes).filter(m =>
+    haipaiConceptBreakdown.mistakeTouchesConcept(m, haipaiCompareDimensions.compareDimensions, filter));
+  // Rank the preset using the same membership it will display. In particular,
+  // a game with only safe-spare comparisons must not get an empty Defense tab.
+  const missed = { ...agg.groups.missed };
+  if (defenseMistakes.length) {
+    missed.Defense = { ...missed.Defense, ev: defenseMistakes.reduce((sum, m) => sum + m.ev_loss, 0) };
+  } else {
+    delete missed.Defense;
+  }
+  return conceptTopGroup({ groups: { ...agg.groups, missed } }, boxes);
+}
+
+function openReviewFilters() {
+  const game = state.currentGameData;
+  let panels = gameReviewPanels.get(game);
+  if (!panels) gameReviewPanels.set(game, panels = new Set());
+  panels.add("filters");
+}
+
+function reviewRoundLayout() {
+  return (state.reviewSort || "round") === "round" && !state.reviewLimit;
+}
+
+// Assign annotation indexes before filtering/sorting: two decisions may share a turn.
+function reviewEntries(game) {
+  const entries = [];
+  for (const [roundIndex, round] of game.rounds.entries()) {
+    const seen = {};
+    for (const [position, mistake] of round.mistakes.entries()) {
+      const index = seen[mistake.turn] || 0;
+      seen[mistake.turn] = index + 1;
+      if (mistakeVisible(mistake)) entries.push({ mistake, round: round.round, roundIndex, index, position });
+    }
+  }
+  if (activeReviewTab()?.topGroup && !state.conceptFilters.length) return [];
+  // A limit always means the highest-EV matches; sorting only changes their display order.
+  entries.sort((a, b) => (b.mistake.ev_loss || 0) - (a.mistake.ev_loss || 0)
+    || a.roundIndex - b.roundIndex || a.mistake.turn - b.mistake.turn || a.position - b.position);
+  const selected = state.reviewLimit ? entries.slice(0, state.reviewLimit) : entries;
+  if ((state.reviewSort || "round") === "round") {
+    selected.sort((a, b) => a.roundIndex - b.roundIndex || a.mistake.turn - b.mistake.turn || a.position - b.position);
+  }
+  return selected;
+}
+
+function renderGameReviewCard(entry) {
+  return renderMistakeCard(entry.mistake, {
+    inline: true, annotate: !state.readOnly, gameId: state.currentGame,
+    round: entry.round, index: entry.index,
+  });
+}
+
 // Toggle filters in place without rebuilding cards or losing notes.
 function toggleGamePanel(button) {
   const game = state.currentGameData;
@@ -588,6 +654,10 @@ function toggleGamePanel(button) {
 }
 
 function reviewItemCounts(game) {
+  if (!reviewRoundLayout()) {
+    return { total: game.rounds.reduce((sum, round) => sum + round.mistakes.length, 0),
+      shown: reviewEntries(game).length, revealed: 0 };
+  }
   let total = 0, shown = 0, revealed = 0;
   for (const [index, round] of game.rounds.entries()) {
     total += round.mistakes.length;
@@ -609,11 +679,9 @@ function reviewTopicLabel(filter) {
 }
 
 function renderReviewControls(game, agg, boxes) {
-  if (state.gameView === "overview") return "";
+  if (state.reviewLinkedMistake) return '<p class="review-summary-scope">Viewing a linked mistake. Select a filter tab to return to your filters.</p>';
+  if (!activeReviewTab()) return '<p class="review-empty">No filters yet. Use + to add a standard filter or create your own.</p>';
   const { total, shown, revealed } = reviewItemCounts(game);
-  if (state.gameView !== "rounds") {
-    return `<p class="review-summary-scope">Summary includes all ${total} review items, grouped by topic.</p>`;
-  }
   const filters = state.conceptFilters;
   const severity = ["Severe only", "Severe + Mistake", "Severe + Mistake + Light", "All severity levels"][state.sevLevel];
   const topics = filters.length ? filters.map(reviewTopicLabel).map(escapeHtml).join(", ") : "All topics";
@@ -629,37 +697,63 @@ function renderReviewControls(game, agg, boxes) {
     ...(boxes || []).map(box =>
       ({ side: "tradeoff", group: box.key, ev: box.ev, color: tradeoffColors[box.key] })),
   ].sort((a, b) => b.ev - a.ev);
+  // Keep saved topics removable even when this game has no matching mistakes.
+  for (const filter of filters) {
+    if (!choices.some(f => f.side === filter.side && f.group === filter.group && (f.dim || null) === (filter.dim || null))) {
+      const ev = game.rounds.flatMap(round => round.mistakes).filter(m =>
+        haipaiConceptBreakdown.mistakeTouchesConcept(m, haipaiCompareDimensions.compareDimensions, filter))
+        .reduce((sum, m) => sum + m.ev_loss, 0);
+      choices.push({ ...filter, ev });
+    }
+  }
   const topicButtons = choices.map(filter => `<button type="button" class="review-topic"
     style="--topic-color:${filter.color || "var(--text-dim)"}"
     data-action="filterConcept" data-concept-side="${filter.side}" data-concept-group="${escapeHtml(filter.group)}"
-    title="Total EV loss at the selected severity levels. Topics can overlap."
-    aria-pressed="${conceptFilterActive(filter.side, filter.group, null)}">
+    ${filter.dim ? `data-concept-dim="${escapeHtml(filter.dim)}"` : ""}
+    title="Total EV loss across this game. Topics can overlap."
+    aria-pressed="${conceptFilterActive(filter.side, filter.group, filter.dim || null)}">
       <span>${escapeHtml(reviewTopicLabel(filter))}</span>
       <span class="review-topic-ev">${filter.ev.toFixed(2)} EV</span>
     </button>`).join("");
   const open = gamePanelOpen(game, "filters");
+  const sortLabel = state.reviewSort === "ev" ? "Highest EV first" : "Round order";
   return `<div class="review-controls">
     <div class="review-scope">
       <strong>Showing ${shown} of ${total} review items</strong>
-      <span class="review-active-filters">${severity} · ${topics}</span>
+      <span class="review-active-filters">${severity} · ${topics} · ${sortLabel}${state.reviewLimit ? ` · Top ${state.reviewLimit}` : ""}</span>
       ${revealed ? `<span class="review-active-filters">Includes ${revealed} item${revealed === 1 ? "" : "s"} revealed in individual hands.</span>` : ""}
     </div>
     <div class="review-control-actions">
       <button type="button" class="review-disclosure" data-action="toggleGamePanel" data-panel="filters"
         aria-controls="game-review-filters" aria-expanded="${open}">Filters</button>
       <button type="button" class="review-link" data-action="showAllReviewItems"
-        ${state.sevLevel === 3 && !filters.length ? "disabled" : ""}>Show all review items</button>
+        ${state.sevLevel === 3 && !filters.length && !state.reviewLimit ? "disabled" : ""}>Show all review items</button>
     </div>
   </div>
   <div id="game-review-filters" class="review-filter-panel" ${open ? "" : "hidden"}>
+    <div class="review-filter-options">
+      <label>Sort
+        <select data-change-action="changeReviewOption" data-review-option="sort">
+          <option value="ev" ${state.reviewSort === "ev" ? "selected" : ""}>EV loss · highest first</option>
+          <option value="round" ${state.reviewSort !== "ev" ? "selected" : ""}>Round · chronological</option>
+        </select>
+      </label>
+      <label>Results
+        <select data-change-action="changeReviewOption" data-review-option="limit">
+          ${[[0, "All matching mistakes"], [5, "Top 5 by EV"], [10, "Top 10 by EV"], [20, "Top 20 by EV"]]
+            .map(([value, label]) => `<option value="${value}" ${(state.reviewLimit || 0) === value ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+      </label>
+    </div>
     ${renderFiltersPanel()}
     <div class="review-topics">
       <div class="filters-head">Topics · match any selected topic</div>
       <div class="review-topic-options">${topicButtons || '<span>No topics at this severity level.</span>'}</div>
       ${filters.length ? '<button type="button" class="review-link" data-action="clearConceptFilters">Clear topic filter</button>' : ""}
     </div>
+    <p class="review-active-filters review-filter-hint">Changes save to this tab automatically in this browser. Double-click its name to rename it.</p>
   </div>
-  ${!shown && total ? '<p class="review-empty">No review items match these filters. Use “Show all review items” to reset them, or reveal items in a hand below.</p>' : ""}`;
+  ${!shown ? `<p class="review-empty">${total ? 'No review items match this filter. Adjust the topics or severity, or choose “Show all review items”.' : "No mistakes to review in this game."}</p>` : ""}`;
 }
 
 function handMistakesExpanded(game, roundIndex) {
@@ -687,24 +781,31 @@ function renderGame() {
   const content = document.getElementById("content");
   // Filters rebuild the page. Keep keyboard users on the control they used.
   const active = document.activeElement;
+  const renaming = active?.dataset.renameReviewTab ? {
+    id: active.dataset.renameReviewTab, value: active.value,
+    start: active.selectionStart, end: active.selectionEnd,
+  } : null;
   const reviewFocus = active?.closest(".review-controls, .review-filter-panel, .game-review-nav, .filters-panel")
     ? Object.entries(active.dataset) : null;
 
   const s = game.summary || {};
   const tocItems = [];
 
-  // Concept aggregate, computed once over the slider-visible mistakes (so the
-  // ledgers + summary headline track the slider too): the summary-bar headline
-  // (top group) and the breakdown ledgers below both read it.
+  // Rank the leading group across the entire game, independent of tab filters.
   const conceptReady = (typeof haipaiConceptBreakdown !== "undefined"
       && typeof haipaiCompareDimensions !== "undefined");
   const conceptAgg = conceptReady
-    ? haipaiConceptBreakdown.aggregate(game, haipaiCompareDimensions.compareDimensions, sevTier, sliderVisible)
+    ? haipaiConceptBreakdown.aggregate(game, haipaiCompareDimensions.compareDimensions, sevTier)
     : null;
   const tradeoffBoxes = conceptReady
     ? haipaiConceptBreakdown.tradeoffBoxes(game, haipaiCompareDimensions.compareDimensions,
-        haipaiCompareDimensions.comparedTiles, sevTier, sliderVisible)
+        haipaiCompareDimensions.comparedTiles, sevTier)
     : null;
+
+  const topGroup = reviewTopGroup(game, conceptAgg, tradeoffBoxes);
+  syncReviewFilter(topGroup);
+  const hasReview = state.reviewLinkedMistake || !!activeReviewTab();
+  const roundLayout = hasReview && reviewRoundLayout();
 
   const dateObj = new Date(game.date + "T00:00:00");
   const displayDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -723,15 +824,10 @@ function renderGame() {
         </details>` : ""}
       </div>
     </div>
-    <div class="game-review-nav">
-      <div class="game-tabs">
-        ${[["overview", "Game overview"], ["rounds", "Rounds"], ["summary", "Summary"]].map(([view, label]) =>
-          `<button type="button" class="game-tab ${state.gameView === view ? "active" : ""}"
-            ${state.gameView === view ? 'aria-current="page"' : ""}
-            data-action="switchGameView" data-view="${view}">${label}</button>`).join("")}
-      </div>
-    </div>
-    ${state.gameView === "overview" ? `<section id="game-review-overview" class="game-review-overview" aria-label="Game overview">
+    <button type="button" class="review-disclosure review-overview-toggle" data-action="toggleGamePanel"
+      data-panel="overview" aria-controls="game-review-overview" aria-expanded="${gamePanelOpen(game, "overview")}">Game overview</button>
+    <section id="game-review-overview" class="game-review-overview" aria-label="Game overview"
+      ${gamePanelOpen(game, "overview") ? "" : "hidden"}>
       ${renderFinalScores(game.mortal_data)}
       <div class="summary-bar">
         <div class="stat ranking-stat">${renderRanking(s, "ranking-large")}<span class="label">Ranking</span></div>
@@ -741,10 +837,10 @@ function renderGame() {
         ${renderTopGroupStat(conceptAgg, tradeoffBoxes)}
       </div>
       ${renderTrainerTip(conceptAgg, tradeoffBoxes)}
-      <p class="review-summary-scope">Concept breakdowns follow the severity filter; game grades and totals include all evaluated decisions.</p>
-      ${renderFiltersPanel()}
+      <p class="review-summary-scope">Game totals and concept breakdowns include all review items.</p>
       ${renderConceptBreakdown(conceptAgg, tradeoffBoxes)}
-    </section>` : ""}
+    </section>
+    ${renderReviewTabs(topGroup)}
     ${renderReviewControls(game, conceptAgg, tradeoffBoxes)}
   `;
 
@@ -761,7 +857,7 @@ function renderGame() {
     </div>`;
   }
 
-  if (state.gameView === "rounds") {
+  if (roundLayout) {
   // Rounds
   for (const [roundIndex, rnd] of game.rounds.entries()) {
     const visible = rnd.mistakes.filter(mistakeVisible);
@@ -796,220 +892,25 @@ function renderGame() {
         ${expanded ? "Show less" : "Show all"}<span class="round-expand-chevron" aria-hidden="true"></span></button>` : ""}
     </div>`;
 
-    // Track turn index for duplicate turn disambiguation
-    const turnCounts = {};
-    for (const m of rnd.mistakes) {
-      const key = m.turn;
-      turnCounts[key] = (turnCounts[key] || 0) + 1;
-    }
     const turnSeen = {};
-
     for (const m of rnd.mistakes) {
-      const turnKey = m.turn;
-      const idx = turnSeen[turnKey] = (turnSeen[turnKey] || 0);
-      turnSeen[turnKey]++;
-
+      const index = turnSeen[m.turn] || 0;
+      turnSeen[m.turn] = index + 1;
       if (!expanded && !mistakeVisible(m)) continue;
-
-      const sc = sevClass(m);
-      const dataAttrs = `data-game="${state.currentGame}" data-round="${rnd.round}" data-turn="${m.turn}" data-index="${idx}"`;
-      const midAttr = m.id ? ` data-mid="${m.id}"` : "";
-      const catGrpColor = m.skillArea ? skillAreaColor(m.skillArea) : null;
-      const cardStyle = catGrpColor ? ` style="border-left-color:${catGrpColor}"` : "";
-
-      // Arm the ambient active-dora set up front so the action chips below
-      // (renderAction) and every later renderTile() in this card auto-highlight
-      // dora.
-      setActiveDora(getDoraTiles(m.board_state));
-      html += `<div class="mistake ${sc}" ${dataAttrs}${midAttr}${cardStyle}>`;
-      html += `<div class="mistake-top">`;
-      if (m.is_all_last) {
-        html += `<span class="all-last-badge" title="Final round of the hand — placement matters more than raw EV here.">All last</span>`;
-      }
-      html += formatTurnBadge(m.turn);
-      if (m.id) html += `<a class="dev-id" href="#m${m.id}" data-action="openHash" title="Deep-link to this mistake">#m${m.id}</a>`;
-      html += `<span class="severity ${sc}" title="${sevTooltip(m)}">${sevLabel(m)}</span>`;
-      html += `<span class="ev-loss" title="${EV_LOSS_TOOLTIP}">${m.ev_loss.toFixed(2)} EV</span>`;
-      const badge = mistakeBadge(m);
-      if (badge) {
-        html += `<span class="cat-badge" style="background:${badge.color}20;color:${badge.color};border:1px solid ${badge.color}40" title="${badge.desc}">${badge.label}</span>`;
-      }
-      if (m.bad_riichi_reason === "furiten") {
-        const tip = (m.furiten_tiles || []).length
-          ? `Already discarded ${m.furiten_tiles.join(", ")} — can't ron.`
-          : "Wait includes a tile you've already discarded — can't ron.";
-        html += `<span class="furiten-badge" title="${tip}">Furiten</span>`;
-      }
-      const raised = mortalRaisedShanten(m);
-      if (raised) {
-        const tip = `Your ${raised.userTile} keeps ${raised.userSh}-shanten; Mortal's ${raised.mortalTile} goes to ${raised.mortalSh}-shanten — Mortal is breaking up the hand for a strategic reason (likely yaku or value), not for tile efficiency.`;
-        html += `<span class="raised-shanten-badge" title="${tip}">Mortal raised shanten</span>`;
-      }
-      if (m.shanten != null) {
-        html += `<span class="shanten">${m.shanten}-shanten</span>`;
-      }
-      if (m.actual && m.expected) {
-        const actStr = formatAction(m.actual);
-        const expStr = formatAction(m.expected);
-        if (actStr !== expStr) {
-          html += `<span class="discard-comparison">
-            <span class="played">${renderAction(m.actual, "played")}</span>
-            <span class="arrow">&rarr;</span>
-            <span class="ai">${renderAction(m.expected, "ai")}</span>
-          </span>`;
-        }
-      }
-      html += `</div>`;
-
-      // Hand + melds on same row
-      if (m.hand && m.hand.length) {
-        const doraTiles = getDoraTiles(m.board_state);
-        html += `<div class="hand-row">
-          <span class="label">Hand</span>
-                    <span class="tiles">${renderHand(m.hand, m.draw, m, doraTiles)}</span>`;
-        if (m.melds && m.melds.length) {
-          const playerSeat = m.actual ? m.actual.actor : null;
-          const oya = mistakeOya(m);
-          html += `<span class="inline-melds">`;
-          for (const meld of m.melds) {
-            html += renderMeld(meld, "action-tile-sm", playerSeat, doraTiles, oya) + " ";
-          }
-          html += `</span>`;
-        }
-        html += `</div>`;
-      }
-
-      // Board context (dora, winds, all discards, scores, opponent melds)
-      html += renderBoardContext(m);
-      html += renderTenpaiWaitsRow(m);
-
-      // EV Comparison table (Mortal vs local shanten/ukeire)
-      if (m.top_actions && m.top_actions.length && m.discard_stats && m.discard_stats.length) {
-        html += renderEvComparison(m);
-      } else if (m.top_actions && m.top_actions.length) {
-        // Fallback: just show mortal top actions
-        html += `<div class="top-actions">`;
-        for (const a of m.top_actions) {
-          html += `<span class="top-action">${renderAction(a.action)} <b>${a.q_value.toFixed(2)}</b></span>`;
-        }
-        html += `</div>`;
-      }
-
-      // Trainer bubble: explanation + (on complex cards) the embedded
-      // complex-gap feedback funnel.
-      html += trainerBubbleHtml(m);
-
-      // Note input + report row: owner-only writes, not shown on the
-      // read-only shared/demo view.
-      if (!state.readOnly) {
-        html += `<div class="note-row">
-          <input type="text" class="note-input" placeholder="Add a note..." value="${(m.note || "").replace(/"/g, "&quot;")}"
-                 data-change-action="onAnnotate" ${dataAttrs}>
-          <span class="save-indicator">Saved</span>
-        </div>`;
-        if (m.id) html += renderReportRow(m);
-      }
-
-      html += `</div>`; // .mistake
+      html += renderGameReviewCard({ mistake: m, round: rnd.round, index });
     }
 
     html += `</div>`; // .round
   }
   } // end if rounds view
 
-  if (state.gameView === "summary") {
-  // Category summary - grouped by skill area, scoped to this game
-  {
-    // Collect all mistakes from this game — and remember each one's round
-    // name + per-turn index so the summary-view note/report inputs know where
-    // to write via the shared annotate handler.
-    const allMistakes = [];
-    const mistakeLoc = new Map();  // mistake obj -> {round, index}
-    for (const rnd of game.rounds || []) {
-      const byTurn = {};
-      for (const m of rnd.mistakes || []) {
-        const idx = byTurn[m.turn] || 0;
-        byTurn[m.turn] = idx + 1;
-        m.round_name = rnd.round;
-        allMistakes.push(m);
-        mistakeLoc.set(m, {round: rnd.round, index: idx});
-      }
-    }
-
-    // Roll mistakes up by skill area, then split each into facets (shape for
-    // discards, action label for meld/riichi/kan). No category codes — the
-    // grouping mirrors the {skill area} × {shape} card identity.
-    const groups = {};
-    for (const m of allMistakes) {
-      const sa = m.skillArea;
-      if (!sa) continue;
-      if (!groups[sa]) groups[sa] = { count: 0, ev: 0, subs: {}, mistakes: [] };
-      groups[sa].count += 1;
-      groups[sa].ev = Math.round((groups[sa].ev + (m.ev_loss || 0)) * 100) / 100;
-      groups[sa].mistakes.push(m);
-      const facet = mistakeFacet(m);
-      const fkey = facet.key || "—";
-      if (!groups[sa].subs[fkey]) {
-        groups[sa].subs[fkey] = { label: facet.label || "Other", desc: facet.desc, count: 0, ev: 0, mistakes: [] };
-      }
-      const sub = groups[sa].subs[fkey];
-      sub.count += 1;
-      sub.ev = Math.round((sub.ev + (m.ev_loss || 0)) * 100) / 100;
-      sub.mistakes.push(m);
-    }
-
-    if (Object.keys(groups).length) {
-      html += `<div class="game-summary"><h3>Mistake Breakdown</h3>`;
-
-      html += `<div class="category-groups">`;
-      for (const [sa, data] of Object.entries(groups).sort((a, b) => b[1].ev - a[1].ev)) {
-        const color = skillAreaColor(sa);
-        const grpName = skillAreaLabel(sa);
-        const grpId = sa.replace(/[\s_]/g, "-").toLowerCase();
-        html += `<div class="cat-group" style="border-left: 3px solid ${color}">
-          <div class="cat-group-header" data-action="toggleGameMistakes" data-group-id="${grpId}" style="cursor:pointer">
-            <span class="cat-group-name" style="color:${color}">${grpName}</span>
-            <span class="cat-group-stat">${data.count} mistakes &middot; ${data.ev.toFixed(2)} EV <span class="cat-expand">&#9660;</span></span>
-          </div>`;
-        // Facets (shape / action label)
-        const subs = Object.entries(data.subs).sort((a, b) => b[1].ev - a[1].ev);
-        for (const [, sub] of subs) {
-          const tiers = { severe: 0, mistake: 0, light: 0, unsure: 0 };
-          for (const m of sub.mistakes) tiers[sevTier(m.ev_loss)]++;
-          html += `<div class="cat-sub" title="${sub.desc || ""}">
-            <span class="cat-sub-label">${sub.label}</span>
-            <span class="cat-sub-count">${sub.count}</span>
-            <span class="cat-sub-ev">${sub.ev.toFixed(2)} EV</span>
-            <span class="tier-count sev-major" title="Severe">${tiers.severe} Severe</span>
-            <span class="tier-count sev-medium" title="Mistake">${tiers.mistake} Mistake</span>
-            <span class="tier-count sev-light" title="Light">${tiers.light} Light</span>
-            <span class="tier-count sev-minor" title="Unsure">${tiers.unsure} Unsure</span>
-          </div>`;
-        }
-        // Inline mistake list (hidden by default) with explanatory text
-        const sorted = [...data.mistakes].sort((a, b) => (b.ev_loss || 0) - (a.ev_loss || 0));
-        let panelHtml = sorted.map(m => {
-          const explSpan = trainerBubbleHtml(m);
-          const loc = mistakeLoc.get(m) || {};
-          const cardOpts = {
-            annotate: !state.readOnly,
-            gameId: state.currentGame,
-            round: loc.round,
-            index: loc.index,
-          };
-          return renderMistakeCard(m, cardOpts) + explSpan;
-        }).join("");
-        html += `<div id="game-mistakes-${grpId}" class="top-mistakes-panel" style="display:none">${panelHtml}</div>`;
-        html += `</div>`;
-      }
-      html += `</div></div>`;
-    }
+  if (hasReview && !roundLayout) {
+    html += `<div class="review-mistake-list">${reviewEntries(game).map(renderGameReviewCard).join("")}</div>`;
   }
-  } // end if summary view
 
   if (!state.readOnly) html += renderMakaRatings(game);
 
-  if (state.gameView === "rounds") {
+  if (roundLayout) {
     const toc = `<nav class="game-toc" aria-label="Game contents">
       <div class="game-toc-heading">Contents</div>
       <button type="button" class="game-toc-item game-toc-overview" data-action="scrollGameSection" data-target="game-overview">
@@ -1023,15 +924,23 @@ function renderGame() {
     html = `<div class="game-detail-layout"><div class="game-detail-body">${html}</div>${toc}</div>`;
   }
   content.innerHTML = html;
-  if (reviewFocus?.length) {
-    const controls = content.querySelectorAll(".review-controls button, .review-filter-panel [data-action], .filters-panel [data-action], .filters-panel input, .game-review-nav button");
+  if (renaming) {
+    beginReviewRename(renaming.id);
+    const input = document.querySelector("[data-rename-review-tab]");
+    if (input) {
+      input.value = renaming.value;
+      input.setSelectionRange(renaming.start, renaming.end);
+    }
+  }
+  if (reviewFocus?.length && !renaming) {
+    const controls = content.querySelectorAll(".review-controls button, .review-filter-panel [data-action], .review-filter-panel [data-change-action], .review-filter-panel [data-input-action], .filters-panel [data-action], .filters-panel input, .game-review-nav button");
     const replacement = [...controls].find(el => reviewFocus.every(([key, value]) => el.dataset[key] === value));
     // Reset/clear controls can disappear or become disabled after use.
     const target = replacement && !replacement.disabled ? replacement : content.querySelector('[data-panel="filters"]');
     target?.focus({ preventScroll: true });
   }
   content.removeEventListener("scroll", syncGameToc);
-  if (state.gameView === "rounds") {
+  if (roundLayout) {
     content.addEventListener("scroll", syncGameToc, { passive: true });
     requestAnimationFrame(syncGameToc);
   }
@@ -1042,14 +951,13 @@ function renderGame() {
   if (!state.readOnly) renderGameList();
 
   // Honour a pending scroll-to-mistake request from the #m<id>
-  // deep-link router. Only scrolls in the rounds view — the summary view
-  // collapses cards into expandable groups, so there's nothing to scroll to.
+  // deep-link router. Deep links switch to the rounds preset before rendering.
   // The flag is intentionally NOT cleared here: a deep-link load renders once
   // immediately and again after prep reflows the page, and we want the second
   // render to re-scroll to the settled position. The caller that set the flag
   // clears it once the view is settled (fetchGame after prep, applyHashRoute
   // for the already-loaded case).
-  if (state.scrollToMistakeId && state.gameView === "rounds") {
+  if (state.scrollToMistakeId && state.reviewLinkedMistake) {
     const target = state.scrollToMistakeId;
     requestAnimationFrame(() => {
       const el = document.querySelector(`.mistake[data-mid="${target}"]`);
@@ -1061,14 +969,7 @@ function renderGame() {
   }
 }
 
-function switchGameView(view) {
-  state.gameView = view;
-  // Topic filters govern only rounds. Overview and Summary describe the game.
-  if (view !== "rounds") state.conceptFilters = [];
-  renderGame();
-}
-
-// --- Toggles for group panels (game-summary + trends + top-mistakes) ---
+// --- Toggles for group panels (trends + top-mistakes) ---
 
 function toggleGameMistakes(grpId) {
   const panel = document.getElementById(`game-mistakes-${grpId}`);
