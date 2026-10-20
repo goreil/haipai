@@ -137,8 +137,9 @@ function renderWinFeatPill(w, oya) {
           + `<summary class="feat-pill ${c ? "feat-pill-grp" : "feat-pill-pos"}"`
           + (c ? ` style="--feat-grp:${c}"` : "")
           + ` title="Show or hide opponent details">`
-          + `<span class="feat-pill-label">-${w.pct.toFixed(1)}% deal-in${windTag}</span></summary>`
-          + `<span class="feat-pill-ctx">${ctx}</span></details>`;
+          + `<span class="feat-pill-label">-${w.pct.toFixed(1)}% deal-in${windTag}</span>`
+          + `<span class="feat-pill-ctx">${ctx}</span>`
+          + `<span class="feat-pill-caret" aria-hidden="true">›</span></summary></details>`;
       }
       return w.seat != null
         ? featPill("pos", `-${w.pct.toFixed(1)}% deal-in (${seatWindShort(w.seat)})`,

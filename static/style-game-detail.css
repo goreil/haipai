@@ -2160,7 +2160,7 @@
 .dealin-details-caret { font-size: 9px; }
 .dealin-details[open] .dealin-details-caret { transform: rotate(90deg); }
 .dealin-calculation { margin-top: 8px; }
-.dealin-opponents { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.dealin-opponents { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 6px; }
 .dealin-opponents > .dealin-details { max-width: 100%; }
 .dealin-safe-note { font-size: 11px; color: var(--text-dim); white-space: normal; }
 
@@ -2946,16 +2946,25 @@
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
-.feat-pill-disclosure[open] > summary {
-  border-radius: 10px 10px 4px 4px;
+.feat-pill-caret {
+  display: inline-block;
+  margin-left: 2px;
+  font-size: 13px;
+  line-height: 1;
+}
+.feat-pill-disclosure[open] .feat-pill-caret {
+  transform: rotate(90deg);
 }
 .feat-pill-ctx {
-  display: block;
-  padding: 3px 6px;
-  font-size: 11px;
+  display: none;
   font-weight: 600;
   opacity: 0.75;
-  text-align: center;
+}
+.feat-pill-disclosure[open] .feat-pill-ctx {
+  display: inline;
+}
+.feat-pill-ctx::before {
+  content: "· ";
 }
 .feat-pill-tiles {
   display: inline-flex;
