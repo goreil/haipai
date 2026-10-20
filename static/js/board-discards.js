@@ -46,33 +46,37 @@ function threatGuaranteedHan(yakuHan, doraCount) {
 
 // Popover breaking down an open threat's guaranteed han — a sibling of the yaku
 // strip's hover detail (board-yaku-panel.js). One row per guaranteed melded yaku (tile +
-// name + "+han"), one row for exposed dora (the tiles + "+N"), and, for a
-// dora-only hand, the "+1" yaku it still needs. Header carries the ≥N-han total.
-function renderThreatDetail(openMeldCount, turn, yakuList, doraTilesList, guaranteedHan) {
+// name + "N han"), one row for exposed dora (the tiles + "N han"), and, for a
+// dora-only hand, the "1 han" yaku it still needs. Header carries the ≥N-han total.
+function renderThreatDetail(openMeldCount, turn, yakuList, doraTilesList, guaranteedHan,
+    entries, isDanger = true) {
   let rows = "";
   for (const y of yakuList) {
     rows += `<div class="td-row">`
       + `<span class="td-tile">${y.tile ? renderTile(y.tile, "") : ""}</span>`
       + `<span class="td-name">${y.name}</span>`
-      + `<span class="td-han">+${y.han}</span></div>`;
+      + `<span class="td-han">${y.han} han</span></div>`;
   }
   if (doraTilesList.length) {
     const chips = doraTilesList.map(t => renderTile(t, "")).join("");
     rows += `<div class="td-row">`
       + `<span class="td-tile">${chips}</span>`
       + `<span class="td-name">Dora</span>`
-      + `<span class="td-han">+${doraTilesList.length}</span></div>`;
+      + `<span class="td-han">${doraTilesList.length} han</span></div>`;
   }
   if (!yakuList.length && doraTilesList.length) {
     rows += `<div class="td-row td-needed">`
       + `<span class="td-tile"></span>`
       + `<span class="td-name">Yaku to win</span>`
-      + `<span class="td-han">+1</span></div>`;
+      + `<span class="td-han">1 han</span></div>`;
   }
   return `<span class="threat-detail">`
-    + `<div class="td-head"><span class="td-title">⚠ Open threat</span>`
-    + `<span class="td-total">≥${guaranteedHan} han</span></div>`
-    + `<div class="td-rows">${rows}</div>`
+    + `<div class="td-head"><span class="td-title">${isDanger ? "⚠ " : ""}Open</span>`
+    + (guaranteedHan > 0 ? `<span class="td-total">≥${guaranteedHan} han</span>` : "")
+    + `</div>`
+    + (rows ? `<div class="td-section-label">Visible value</div><div class="td-rows">${rows}</div>` : "")
+    + (entries ? renderYakuStrip(entries, yakuList) : "")
+    + (!rows && !entries ? `<div class="td-empty">No guaranteed yaku or dora shown.</div>` : "")
     + `<div class="td-foot">${openMeldCount} open call${openMeldCount === 1 ? "" : "s"} by turn ${turn || 0}</div>`
     + `</span>`;
 }
@@ -388,23 +392,14 @@ function renderBoardContext(m) {
         html += `<span class="discard-label">${seatName}`;
         if (isYou) html += `<span class="you-tag">(you)</span>`;
         if (isRiichiOpp) html += `<span class="riichi-tag">RIICHI</span>`;
-        if (isMeldDanger) {
-          // Strip stays terse — "N calls" plus the guaranteed-han total once the
-          // strong floor (≥2 han) is reached. The breakdown (each yakuhai, the
-          // dora tiles, the yaku a dora-only hand still needs) lifts on hover via
-          // the threat-detail popover, the open-threat sibling of the yaku pills.
-          const detail = [`${openMeldCount} call${openMeldCount === 1 ? "" : "s"}`];
-          if (threatBand === "strong") detail.push(`≥${guaranteedHan} han`);
-          const hasBreakdown = yakuList.length || doraTilesList.length;
-          if (hasBreakdown) {
-            html += `<span class="danger-tag ${threatBand} has-detail">⚠ Open threat`
-              + renderThreatDetail(openMeldCount, m.turn, yakuList, doraTilesList, guaranteedHan)
-              + `</span>`;
-          } else {
-            const title = `Open threat — ${openMeldCount} open call${openMeldCount === 1 ? "" : "s"} by turn ${m.turn || 0}`;
-            html += `<span class="danger-tag ${threatBand}" title="${title}">⚠ Open threat</span>`;
-          }
-          html += `<span class="danger-detail">${detail.join(" · ")}</span>`;
+        if (isOppThreat && openMeldCount > 0) {
+          // Every open opponent gets one disclosure, including quiet one-call
+          // hands. Warning, band and row shading still use the original gate.
+          html += `<span class="danger-tag open-tag ${threatBand || "quiet"} has-detail" tabindex="0">`
+            + `${isDanger ? "⚠ " : ""}Open`
+            + renderThreatDetail(openMeldCount, m.turn, yakuList, doraTilesList, guaranteedHan,
+              b.yaku && b.yaku[d.seat], isDanger)
+            + `</span>`;
         } else if (isDoraDanger) {
           html += `<span class="danger-tag" title="${meldDora} dora exposed in melds">⚠ ${meldDora} dora</span>`;
         }
@@ -472,18 +467,6 @@ function renderBoardContext(m) {
             html += renderMeld(meld, "action-tile-sm", d.seat, doraTiles, oya) + " ";
           }
           html += `</span>`;
-        }
-        // Yaku panel (right-aside) for any OPPONENT that has opened. Never the
-        // player's own row — prep omits the player from board_state.yaku, and
-        // this guard keeps that intent explicit at the render site. Held back
-        // until a seat shows 2+ open calls: a single call leaves every yaku
-        // open, so the strip is noise; the second call is where the read starts
-        // to bite (reusing openMeldCount — the same 2-call threshold the
-        // open-defense threat trigger above fires on, so ankan-only hands stay
-        // quiet).
-        if (b.yaku && b.yaku[d.seat] && d.seat !== playerSeat
-            && openMeldCount >= 2) {
-          html += renderYakuStrip(b.yaku[d.seat]);
         }
         html += `</div>`;
       }

@@ -206,7 +206,7 @@
   gap: 6px;
   padding: 2px 4px;
   border-radius: 4px;
-  /* Let the trailing yaku-strip drop to its own line on narrow widths. */
+  /* Let melds wrap below the discards on narrow widths. */
   flex-wrap: wrap;
 }
 
@@ -228,6 +228,7 @@
 }
 
 .discard-label {
+  position: relative;
   font-size: 10px;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -264,47 +265,107 @@
   background: var(--threat-open);
   border-color: transparent;
 }
-/* Trailing detail after the chip: "2 calls · ≥3 han" (han = the guaranteed floor). */
-.danger-detail {
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--c-open-defense);
-  text-transform: none;
-  letter-spacing: 0;
-}
-.discard-row.danger-row.speculative .danger-detail {
+.open-tag.quiet {
   color: var(--text-dim);
+  background: transparent;
+  border-color: var(--border);
 }
 
-/* Open-threat han breakdown popover — the discard row's sibling of the yaku
-   strip's hover detail (.yp-detail in style-game-detail.css). Lifts above the
-   row on hover over a danger-tag that carries a breakdown. */
+/* The Open panel combines the guaranteed value and yaku candidates. Anchor
+   it to the seat label so it stays within narrow cards. */
 .danger-tag.has-detail {
-  position: relative;
   cursor: help;
+}
+.danger-tag.has-detail:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .threat-detail {
   position: absolute;
-  bottom: calc(100% + 6px);
+  top: 100%;
   left: 0;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
-  width: 200px;
+  width: min(310px, calc(100vw - 80px));
+  box-sizing: border-box;
+  max-height: 65vh;
+  overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   transition: opacity 0.12s ease;
   z-index: 50;
   text-align: left;
   white-space: normal;
   font-weight: 400;
+  line-height: 1.5;
   color: var(--text);
 }
-.danger-tag.has-detail:hover .threat-detail {
+.danger-tag.has-detail:hover .threat-detail,
+.danger-tag.has-detail:focus-within .threat-detail {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+}
+.threat-detail .td-section-label {
+  display: block;
+  margin: 8px 0 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.threat-detail .td-empty {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.threat-yakus {
+  display: block;
+}
+.threat-detail .td-yaku-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 5px 0;
+  font-size: 11px;
+}
+.threat-detail .td-han {
+  white-space: nowrap;
+}
+.td-yaku-more {
+  margin-top: 8px;
+}
+.td-yaku-more > summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.td-yaku-more > .yp {
+  margin-top: 5px;
+}
+/* Keep the existing tile evidence available without nesting a floating
+   tooltip outside the scrollable Open panel. */
+.threat-detail .yp {
+  flex-wrap: wrap;
+  border-radius: 8px;
+  min-width: 0;
+}
+.threat-detail .yp .yp-detail {
+  display: none;
+  position: static;
+  flex-basis: 100%;
+  width: auto;
+  padding: 6px 0 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  opacity: 1;
+}
+.threat-detail .yp:hover .yp-detail {
+  display: block;
 }
 .threat-detail .td-head {
   display: flex;
