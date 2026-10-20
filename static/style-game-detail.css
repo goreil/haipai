@@ -1102,7 +1102,7 @@
   padding: 10px 14px;
   background: var(--bg-card);
   border-radius: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 12px;
   border-left: 3px solid var(--sev-color, var(--border));
   transition: border-color 0.15s;
 }
