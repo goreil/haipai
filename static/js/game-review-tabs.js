@@ -214,7 +214,7 @@ function moveReviewTab(id, targetId, after = false) {
 
 function focusReviewTab(id) {
   const tab = document.querySelector(`[data-action="selectReviewTab"][data-view="${id}"]`);
-  (tab || document.querySelector(".review-add-menu summary"))?.focus({ preventScroll: true });
+  (tab || document.querySelector('[data-action="addReviewFilter"]'))?.focus({ preventScroll: true });
 }
 
 function selectReviewTab(el, event) {
@@ -262,14 +262,13 @@ function finishReviewRename(input, cancel = false, blurred = false) {
   delete input.dataset.renameReviewTab;
   if (blurred && tab) {
     // Keep the clicked control connected: rebuilding the nav on blur would
-    // swallow a following click on another tab, its ×, or the + menu.
+    // swallow a following click on another tab, its ×, or New filter.
     const template = document.createElement("template");
     template.innerHTML = renderReviewTabs(state.reviewTopGroup);
     const next = template.content.querySelector(`[data-action="selectReviewTab"][data-view="${tab.id}"]`);
     input.replaceWith(next);
     const close = next.closest(".review-tab").querySelector(".review-tab-close");
     close.setAttribute("aria-label", `Delete ${reviewTabName(tab)}`);
-    document.querySelector(".review-add-options")?.replaceWith(template.content.querySelector(".review-add-options"));
     const nav = document.querySelector(".game-review-nav");
     const notice = nav.nextElementSibling?.matches(".review-filter-error") ? nav.nextElementSibling : null;
     if (state.reviewFilterError) {
@@ -304,12 +303,8 @@ function renderReviewTabs(topGroup) {
           aria-label="Delete ${name}" title="Delete filter">×</button>`}
       </div>`;
     }).join("")}
-    <details class="review-add-menu">
-      <summary class="game-tab-add" aria-label="Add filter" title="Add filter">+</summary>
-      <div class="review-add-options">
-        <button type="button" class="review-add-new" data-action="addReviewFilter" data-kind="new">+ New filter</button>
-      </div>
-    </details>
+    <button type="button" class="game-tab review-add-new"
+      data-action="addReviewFilter" data-kind="new">+ New filter</button>
   </div></nav>
   ${state.reviewFilterError ? `<p class="review-filter-error" role="alert">${escapeHtml(state.reviewFilterError)}</p>` : ""}`;
 }

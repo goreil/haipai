@@ -213,40 +213,8 @@
   border: 1px solid var(--accent);
   border-radius: 4px;
 }
-.review-add-menu { position: relative; margin-left: auto; align-self: center; }
-.review-add-menu > summary { list-style: none; cursor: pointer; text-align: center; border-radius: 6px; }
-.review-add-menu > summary::-webkit-details-marker { display: none; }
-.game-review-nav .game-tab-add { font-size: 24px; min-width: 44px; padding: 6px 10px; color: var(--accent); }
-.review-add-menu[open] > summary, .review-add-menu > summary:hover { background: var(--bg-card-hover); }
-.review-add-options {
-  position: absolute;
-  z-index: 15;
-  right: 0;
-  top: calc(100% + 5px);
-  width: 220px;
-  max-width: calc(100vw - 40px);
-  padding: 6px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-.review-add-options button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 10px;
-  background: none;
-  border: 0;
-  border-radius: 4px;
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-.review-add-options button:hover { background: var(--bg-card-hover); }
-.review-add-heading { display: block; padding: 8px 10px 4px; font-size: 11px; color: var(--text-dim); }
-.review-add-options .review-add-new { color: var(--accent); }
+.game-review-nav .review-add-new { color: var(--accent); white-space: nowrap; }
+.review-add-new:hover { background: var(--bg-card-hover); }
 .review-overview-toggle { margin-bottom: 12px; }
 .review-filter-options { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; }
 .review-filter-options label { display: flex; flex: 1 1 200px; flex-direction: column; gap: 7px; font-size: 12px; color: var(--text-dim); }

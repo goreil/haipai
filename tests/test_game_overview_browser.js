@@ -111,7 +111,7 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
           check(!document.querySelector('[data-review-tab="top5"] .review-tab-close'), 'standard not deletable');
           beginReviewRename('top5');
           check(!document.querySelector('[data-rename-review-tab]'), 'standard not renamable');
-          addReviewFilter('new');
+          click('[data-action="addReviewFilter"]');
           const customId = state.gameView;
           const input = document.querySelector('[data-rename-review-tab]');
           input.value = 'My study';

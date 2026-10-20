@@ -149,8 +149,6 @@ var HAIPAI_CHANGE_ACTIONS = {
 document.addEventListener("click", (e) => {
   const gameMenu = document.querySelector(".game-actions-menu[open]");
   if (gameMenu && !gameMenu.contains(e.target)) gameMenu.open = false;
-  const reviewMenu = document.querySelector(".review-add-menu[open]");
-  if (reviewMenu && !reviewMenu.contains(e.target)) reviewMenu.open = false;
   const el = e.target.closest("[data-action]");
   if (!el) return;
   const fn = HAIPAI_CLICK_ACTIONS[el.dataset.action];
@@ -180,11 +178,6 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key !== "Escape") return;
-  const reviewMenu = document.querySelector(".review-add-menu[open]");
-  if (reviewMenu) {
-    reviewMenu.open = false;
-    reviewMenu.querySelector("summary").focus();
-  }
   const gameMenu = document.querySelector(".game-actions-menu[open]");
   if (!gameMenu) return;
   const restoreFocus = gameMenu.contains(document.activeElement);
