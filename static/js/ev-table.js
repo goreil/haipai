@@ -10,9 +10,8 @@
 const SHOW_SPEED_ROW = false;
 
 // Shanten pill colour: a continuous grey→gold gradient keyed on the shanten
-// value, rather than a 3-state gold/grey/red split. Tenpai (0) lands exactly on
-// the "Mortal raised shanten" badge's gold/orange; each higher shanten steps
-// further toward neutral grey. Raises get no special (red) treatment anymore —
+// value, rather than a 3-state gold/grey/red split. Tenpai (0) lands on
+// gold/orange; each higher shanten steps further toward neutral grey. Raises get no special (red) treatment anymore —
 // the distance is conveyed purely by where the colour sits on the ramp.
 const SHANTEN_PILL_RAMP = 4; // shanten that reaches the fully-grey end
 
@@ -26,8 +25,8 @@ const SOFT_SAFE_TITLE = "Safe* · passed while their wait was frozen "
 function shantenPillStyle(shanten) {
   const t = Math.max(0, Math.min(1, shanten / SHANTEN_PILL_RAMP));
   const lerp = (a, b) => Math.round(a + (b - a) * t);
-  // Gold end (t=0): text #ffcb80, bg orange@0.12, border orange@0.5 — matches
-  // .raised-shanten-badge. Grey end (t=1): text --text-dim #8892a4, bg white@.08.
+  // Gold end (t=0): text #ffcb80, bg orange@0.12, border orange@0.5.
+  // Grey end (t=1): text --text-dim #8892a4, bg white@.08.
   const tr = lerp(255, 136), tg = lerp(203, 146), tb = lerp(128, 164); // text
   const br = lerp(255, 255), bg = lerp(165, 255), bb = lerp(0, 255);   // fill/border hue
   const fillA = (0.12 + (0.08 - 0.12) * t).toFixed(3);

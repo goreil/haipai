@@ -149,13 +149,6 @@ function renderMistakeCard(m, opts = {}) {
       : "Wait includes a tile you've already discarded — can't ron.";
     html += `<span class="furiten-badge" title="${tip}">Furiten</span>`;
   }
-  const raised = mortalRaisedShanten(m);
-  if (raised) {
-    const reason = m.category === "5A"
-      ? `Your ${raised.userTile} keeps ${raised.userSh}-shanten and declares riichi; Mortal's ${raised.mortalTile} goes to ${raised.mortalSh}-shanten — Mortal would rather break tenpai for a better wait, more hand value, or room to defend than lock the hand with riichi.`
-      : `Your ${raised.userTile} keeps ${raised.userSh}-shanten; Mortal's ${raised.mortalTile} goes to ${raised.mortalSh}-shanten — Mortal is breaking up the hand for a strategic reason (likely yaku or value), not for tile efficiency.`;
-    html += `<span class="raised-shanten-badge" title="${reason}">Mortal raised shanten</span>`;
-  }
   if (m.id) {
     html += `<a class="dev-id mistake-permalink" href="#m${m.id}" data-action="openHash" title="Deep-link to this mistake">#m${m.id}</a>`;
   }
