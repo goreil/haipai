@@ -106,12 +106,63 @@ function mistakeOya(m) {
   return ((playerSeat - pw) % 4 + 4) % 4;
 }
 
-function renderHand(tiles, draw) {
+// Mark one physical copy per choice, preserving red-five identity and the draw gap.
+function handChoiceMarkers(m) {
+  const markers = new Map();
+  if (!m) return markers;
+  const actualTile = m.actual?.type === "dahai" ? m.actual.pai
+    : m.actual?.type === "reach" ? m.actual_riichi_tile || m.actual.pai : null;
+  const expectedTile = m.expected?.type === "dahai" ? m.expected.pai
+    : m.expected?.type === "reach" ? m.expected.pai || actualTile : null;
+  const add = (tile, cls, label, title) => {
+    if (!TILE_FILE[tile]) return;
+    if (!markers.has(tile)) markers.set(tile, []);
+    markers.get(tile).push(`<span class="hand-choice-tab ${cls}" title="${title}">${label}</span>`);
+  };
+  const actualQ = (m.top_actions || []).find(a => a.action?.type === m.actual?.type
+    && (m.actual?.type === "reach" || a.action.pai === actualTile))?.q_value;
+  const bestQ = Math.max(...(m.top_actions || []).map(a => a.q_value).filter(Number.isFinite));
+  const loss = Number.isFinite(actualQ) && Number.isFinite(bestQ) ? Math.max(0, bestQ - actualQ)
+    : Number.isFinite(m.ev_loss) ? m.ev_loss : null;
+  const evLabel = loss == null ? "—" : loss < 0.0001 ? "0.00" : `-${loss.toFixed(2)}`;
+  add(actualTile, "hand-choice-you", `YOU<span>${evLabel}</span>`, "Your choice · EV relative to the best action");
+  add(expectedTile, "hand-choice-ai", "AI", "AI choice");
+  const ranked = (m.top_actions || []).filter(a => Number.isFinite(a.q_value))
+    .slice().sort((a, b) => b.q_value - a.q_value);
+  const discards = ranked.filter(a => a.action?.type === "dahai" && TILE_FILE[a.action.pai]);
+  const seen = new Set();
+  const choices = discards.filter(a => {
+    if (seen.has(a.action.pai)) return false;
+    seen.add(a.action.pai);
+    return true;
+  });
+  choices.slice(1, 3).forEach((a, i) => {
+    if (a.action.pai === actualTile) return;
+    const rank = i === 0 ? "2nd" : "3rd";
+    const delta = a.q_value - ranked[0].q_value;
+    const ev = delta >= -0.0001 ? "0.00" : delta.toFixed(2);
+    add(a.action.pai, `hand-choice-rank hand-choice-rank-${i + 2}`,
+      `${rank}<span>${ev}</span>`, `${rank} best discard · ${ev} EV relative to the best action`);
+  });
+  return markers;
+}
+
+function renderHand(tiles, draw, mistake = null, comparisonKey = null) {
   if (!tiles || !tiles.length) return "";
+  const markers = handChoiceMarkers(mistake);
   return tiles.map((t, i) => {
     const extra = draw && i === tiles.length - 1 && t === draw ? "draw" : "";
     // Dora and yakuhai highlights are applied automatically by renderTile.
-    return renderTile(t, extra);
+    const tabs = i === tiles.lastIndexOf(t) ? markers.get(t) : null;
+    if (comparisonKey != null) {
+      return `<button type="button" class="hand-choice hand-choice-button ${extra}"`
+        + ` data-action="selectHandComparison" data-comparison-key="${comparisonKey}" data-choice-tile="${t}"`
+        + ` aria-label="Compare discarding ${t} with AI" aria-pressed="false">${renderTile(t)}`
+        + (tabs ? `<span class="hand-choice-tabs">${tabs.join("")}</span>` : "") + `</button>`;
+    }
+    if (!tabs) return renderTile(t, extra);
+    return `<span class="hand-choice ${extra}">${renderTile(t)}`
+      + `<span class="hand-choice-tabs">${tabs.join("")}</span></span>`;
   }).join("");
 }
 

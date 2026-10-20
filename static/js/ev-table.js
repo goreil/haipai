@@ -153,6 +153,13 @@ function renderWinFeatPill(w, oya) {
 
 function renderEvComparison(m, options) {
   options = options || {};
+  if (options.selectedTile) {
+    // Keep the stored decision intact; only the exploratory table uses this discard.
+    const expectedTile = m.expected?.pai || (m.expected?.type === "reach"
+      ? m.actual?.pai || m.actual_riichi_tile : null);
+    m = { ...m, actual: { type: "dahai", pai: options.selectedTile, actor: m.actual?.actor },
+      expected: { ...m.expected, ...(expectedTile ? { pai: expectedTile } : {}) } };
+  }
   // Each opponent gets a separate deal-in value with a persistent wind badge.
   // Expanding a value reveals only that opponent’s wait calculation.
   const ukeireDora = getDoraTiles(m.board_state);
@@ -321,7 +328,7 @@ function renderEvComparison(m, options) {
   // Column specs: normally one per shown tile, tagged as the You (actual) /
   // AI (expected) / other pick. For a same-tile riichi decision we emit two
   // specs sharing the tile so You and AI each get their own column.
-  const colSpecs = reachSameTile
+  const colSpecs = reachSameTile || (options.selectedTile && actualTile === expectedTile)
     ? [{ tile: actualTile, side: "actual" }, { tile: expectedTile, side: "expected" }]
     : colTiles.map(tile => ({
         tile,
@@ -345,7 +352,7 @@ function renderEvComparison(m, options) {
     else if (isExpected) colClass += " col-expected";
 
     const markers = [];
-    if (isActual) markers.push('<span class="marker played">You</span>');
+    if (isActual) markers.push(`<span class="marker played">${options.selectedTile ? "Selected" : "You"}</span>`);
     if (isExpected) markers.push('<span class="marker ai">AI</span>');
     const showSpeedMarker = SHOW_SPEED_ROW && (isBestDiscard
       || (isActual && speedAbsorbedByActual)

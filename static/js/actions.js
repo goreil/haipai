@@ -90,6 +90,7 @@ var HAIPAI_CLICK_ACTIONS = {
 
   // --- ev table ---
   toggleShared: (el) => toggleShared(el),
+  selectHandComparison: (el) => selectHandComparison(el),
 
   // --- account ---
   saveDisplayName: () => saveDisplayName(),

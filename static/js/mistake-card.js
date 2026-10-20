@@ -74,6 +74,41 @@ function mortalRaisedShanten(m) {
   return { userTile, mortalTile, userSh: u.shanten, mortalSh: ml.shanten };
 }
 
+var handComparisonContexts = new Map();
+var handComparisonKey = 0;
+var handComparisonCleanupPending = false;
+
+function registerHandComparison(m) {
+  const key = ++handComparisonKey;
+  handComparisonContexts.set(String(key), m);
+  if (!handComparisonCleanupPending && typeof requestAnimationFrame === "function") {
+    handComparisonCleanupPending = true;
+    requestAnimationFrame(() => {
+      const mounted = new Set([...document.querySelectorAll('[data-comparison-key]')]
+        .map(el => el.dataset.comparisonKey));
+      for (const oldKey of handComparisonContexts.keys()) {
+        if (!mounted.has(oldKey)) handComparisonContexts.delete(oldKey);
+      }
+      handComparisonCleanupPending = false;
+    });
+  }
+  return key;
+}
+
+function selectHandComparison(el) {
+  const m = handComparisonContexts.get(el.dataset.comparisonKey);
+  const card = el.closest('.mistake');
+  const comparison = card?.querySelector('.ev-comparison');
+  const tile = el.dataset.choiceTile;
+  if (!m || !comparison || !m.hand.includes(tile)) return;
+  const actualTile = m.actual?.type === "reach" ? m.actual_riichi_tile || m.actual.pai : m.actual?.pai;
+  const selectedTile = tile === actualTile ? null : tile;
+  comparison.outerHTML = renderEvComparison(m, { selectedTile });
+  for (const button of card.querySelectorAll('.hand-choice-button')) {
+    button.setAttribute('aria-pressed', String(selectedTile != null && button.dataset.choiceTile === tile));
+  }
+}
+
 function renderMistakeCard(m, opts = {}) {
   const showDate = opts.gameDate;
   const showLink = opts.gameId && !opts.inline;
@@ -133,7 +168,8 @@ function renderMistakeCard(m, opts = {}) {
   if (m.hand && m.hand.length) {
     html += `<div class="hand-row">
       <span class="label">Hand</span>
-            <span class="tiles">${renderHand(m.hand, m.draw)}</span>`;
+            <span class="tiles">${renderHand(m.hand, m.draw, m,
+              m.top_actions?.length && m.discard_stats?.length ? registerHandComparison(m) : null)}</span>`;
     if (m.melds && m.melds.length) {
       const playerSeat = mistakeActorSeat(m);
       const oya = mistakeOya(m);

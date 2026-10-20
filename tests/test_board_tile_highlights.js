@@ -49,3 +49,35 @@ test('unknown dealer does not assign the viewer wind to an opponent call', () =>
     .map(match => match[1]);
   assert.deepEqual(highlighted, ['S', 'S', 'S', 'P', 'P', 'P']);
 });
+
+test('hand tabs combine roles and ranked EV losses on one drawn copy', () => {
+  const m = {
+    actual: { type: 'dahai', pai: '2m' }, expected: { type: 'dahai', pai: '1m' },
+    top_actions: [
+      { action: { type: 'dahai', pai: '3m' }, q_value: 0.125 },
+      { action: { type: 'dahai', pai: '1m' }, q_value: 2 },
+      { action: { type: 'dahai', pai: '2m' }, q_value: 1.5 },
+    ],
+  };
+  const html = board.renderHand(['1m', '2m', '3m', '2m'], '2m', m);
+  assert.equal((html.match(/>YOU</g) || []).length, 1);
+  assert.match(html, /hand-choice draw/);
+  assert.match(html, /hand-choice-ai[^>]*>AI</);
+  assert.match(html, /YOU<span>-0.50<\/span>/);
+  assert.doesNotMatch(html, /2nd<span>/);
+  assert.match(html, /3rd<span>-1.88<\/span>/);
+  assert.equal((html.match(/<img /g) || []).length, 4);
+});
+
+test('hand tabs preserve red identity and support riichi on the same tile', () => {
+  const html = board.renderHand(['5p', '5pr'], null, {
+    actual: { type: 'dahai', pai: '5pr' }, expected: { type: 'reach' },
+  });
+  assert.match(html, /alt="5pr"[^>]*><span class="hand-choice-tabs">/);
+  assert.match(html, />YOU</);
+  assert.match(html, />AI</);
+  assert.doesNotMatch(board.renderHand(['1m'], null), /hand-choice/);
+  assert.doesNotMatch(board.renderHand(['1m'], null, {
+    actual: { type: 'chi', pai: '1m' }, expected: { type: 'pon', pai: '1m' },
+  }), /hand-choice/);
+});
