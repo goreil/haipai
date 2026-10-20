@@ -67,6 +67,20 @@ test('an open hand with yakuhai still scores ron and tsumo', () => {
   assert.equal(groups[0].noYaku, false);
 });
 
+test('value cells combine yakuhai into one short label without changing other yaku', () => {
+  const yakuhai = ['yakuhai (hatsu)', 'yakuhai (round east)', 'yakuhai (seat east)'];
+  for (const count of [1, 2, 3]) {
+    const html = context.renderRiichiScoreCell([{
+      yaku: ['toitoi', ...yakuhai.slice(0, count)], tiles: [], dora: 3,
+    }], false);
+    assert.match(html, new RegExp(`>yakuhai${count > 1 ? ` ${count}` : ''}</span>`));
+    assert.equal((html.match(/>yakuhai/g) || []).length, 1);
+    assert.doesNotMatch(html, /yakuhai \(/);
+    assert.match(html, />toitoi<\/span>/);
+    assert.match(html, />dora 3<\/span>/);
+  }
+});
+
 test('mixed waits retain both the chanta win and the no-yaku completion', () => {
   const m = {
     ...mistake,

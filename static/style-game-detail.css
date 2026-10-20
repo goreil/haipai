@@ -993,6 +993,14 @@
 }
 
 /* Round */
+/* Shared card width leaves room for a full hand and five full-size dora. */
+.mistake,
+.round-header {
+  width: 800px;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
 .round {
   margin-bottom: 16px;
 }
@@ -2126,6 +2134,32 @@
   font-weight: 600;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .ev-table .rsc {
+    grid-template-columns: auto auto;
+    gap: 4px;
+    max-width: 100%;
+  }
+  .ev-table .rsc-yaku {
+    grid-column: 1 / -1;
+    justify-content: center;
+    justify-self: center;
+  }
+  .ev-table .rsc-tiles {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .ev-table .rsc-line {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 0 4px;
+  }
+  .ev-table .rsc-mode { min-width: 0; }
+  .ev-table .rsc-hanfu {
+    grid-column: 1 / -1;
+    white-space: nowrap;
+  }
 }
 /* Riichi column reads gold/committed; dama quieter blue — matching the header
    riichi/dama pills. */

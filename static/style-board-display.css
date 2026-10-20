@@ -191,7 +191,10 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
+
+.dora-section > .tile { flex-shrink: 0; }
 
 .hand-row .dora-section {
   margin-left: 10px;
@@ -521,6 +524,31 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+/* Keep discard pools aligned and reserve two kan-sized slots for calls. */
+.mistake .board-context { container-type: inline-size; }
+
+@container (min-width: 520px) {
+  .mistake .discard-row {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr) 228px;
+    align-items: start;
+  }
+  .mistake .discard-row > .tiles {
+    min-width: 0;
+  }
+  .mistake .discard-row > .inline-melds {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    margin-left: 0;
+    min-width: 0;
+  }
+  .mistake .discard-row > .inline-melds > .meld-group {
+    margin-right: 0;
+    justify-self: start;
+  }
 }
 
 /* Called tile (taken from this discard pool by an opponent's chi/pon/kan).

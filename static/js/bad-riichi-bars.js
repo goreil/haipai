@@ -654,8 +654,18 @@ function renderRiichiScoreCell(groups, riichi) {
     // own pill — even alongside natural yaku — so the +1 han is explicit.
     const tagParts = [];
     if (riichi) tagParts.push(`<span class="yaku-tag riichi-yaku">riichi</span>`);
-    const hasYaku = g.yaku && g.yaku.length;
-    if (hasYaku) for (const y of g.yaku) tagParts.push(`<span class="yaku-tag">${y}</span>`);
+    const yaku = g.yaku || [];
+    const yakuhaiCount = yaku.filter(y => y.startsWith("yakuhai")).length;
+    let shownYakuhai = false;
+    for (const y of yaku) {
+      if (y.startsWith("yakuhai")) {
+        if (shownYakuhai) continue;
+        shownYakuhai = true;
+        tagParts.push(`<span class="yaku-tag">yakuhai${yakuhaiCount > 1 ? ` ${yakuhaiCount}` : ""}</span>`);
+      } else {
+        tagParts.push(`<span class="yaku-tag">${y}</span>`);
+      }
+    }
     if (g.dora) tagParts.push(`<span class="yaku-tag dora-tag">dora ${g.dora}</span>`);
     if (g.aka) tagParts.push(`<span class="yaku-tag dora-tag">aka ${g.aka}</span>`);
     const yakuTags = `<span class="rsc-yaku">${tagParts.join(" ")}</span>`;
