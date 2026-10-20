@@ -2931,17 +2931,31 @@
   background: color-mix(in srgb, var(--feat-grp) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--feat-grp) 40%, transparent);
 }
-/* Push/fold context clause on a deal-in pill ("· dealer riichi", "· open 3han").
-   Muted + lighter weight so it reads as a qualifier of the deal-in %, not a
-   second number. The leading middot is drawn here so it never shows without
-   context. */
+/* Native disclosure keeps opponent context compact and keyboard accessible. */
+.feat-pill-disclosure {
+  display: inline-block;
+}
+.feat-pill-disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.feat-pill-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.feat-pill-disclosure > summary:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.feat-pill-disclosure[open] > summary {
+  border-radius: 10px 10px 4px 4px;
+}
 .feat-pill-ctx {
+  display: block;
+  padding: 3px 6px;
+  font-size: 11px;
   font-weight: 600;
   opacity: 0.75;
-}
-.feat-pill-ctx::before {
-  content: " · ";
-  opacity: 0.6;
+  text-align: center;
 }
 .feat-pill-tiles {
   display: inline-flex;

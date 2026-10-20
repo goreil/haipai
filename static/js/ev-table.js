@@ -123,24 +123,25 @@ function renderWinFeatPill(w, oya) {
         "Its wait accepts more live dora than the other pick",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
     case "deal_in": {
-      // Push/fold context (w.threat): what you'd be folding to — riichi vs open,
-      // dealer-ness, and open-hand han. This is the deciding info for the call,
-      // so it rides on the deal-in pill itself (both the EV table and the
-      // trade-off boxes). Keep the wind visible for dealers too.
+      // Keep the risk and wind visible; disclose the existing hand context on demand.
       const th = w.threat;
       if (th) {
         const dealer = oya != null && th.seat != null
           && (((th.seat - oya + 4) % 4) === 0);
-        const windTag = (th.seat != null) ? ` (${seatWindShort(th.seat)})` : "";
+        const seat = th.seat ?? w.seat;
+        const windTag = seat != null ? ` (${seatWindShort(seat)})` : "";
         const kindWord = th.kind === "open"
           ? (th.han ? `open ${th.han}han` : "open") : "riichi";
-        const ctx = `${dealer ? "dealer " : ""}${kindWord}${windTag}`;
-        return featPill("pos",
-          `-${w.pct.toFixed(1)}% deal-in<span class="feat-pill-ctx">${ctx}</span>`,
-          `Deals in ${w.pct.toFixed(1)}% less often than the other pick — you'd be folding to ${ctx}`, "", c);
+        const ctx = `${dealer ? "dealer " : ""}${kindWord}`;
+        return `<details class="feat-pill-disclosure">`
+          + `<summary class="feat-pill ${c ? "feat-pill-grp" : "feat-pill-pos"}"`
+          + (c ? ` style="--feat-grp:${c}"` : "")
+          + ` title="Show or hide opponent details">`
+          + `<span class="feat-pill-label">-${w.pct.toFixed(1)}% deal-in${windTag}</span></summary>`
+          + `<span class="feat-pill-ctx">${ctx}</span></details>`;
       }
       return w.seat != null
-        ? featPill("pos", `-${w.pct.toFixed(1)}% deal-in ${seatWindShort(w.seat)}`,
+        ? featPill("pos", `-${w.pct.toFixed(1)}% deal-in (${seatWindShort(w.seat)})`,
             `Deals in ${w.pct.toFixed(1)}% less often than the other pick against ${seatWindFor(w.seat)}`, "", c)
         : featPill("pos", `-${w.pct.toFixed(1)}% deal-in`,
             `Deals in ${w.pct.toFixed(1)}% less often than the other pick`, "", c);
