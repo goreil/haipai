@@ -40,7 +40,7 @@ var state = {
   // (0 = severe only, 1 = +mistake, 2 = +light, 3 = +unsure). Set per game by
   // autoSetSeverityFilters; the summary bar + concept ledgers reflect it too.
   sevLevel: 3,
-  gameView: "rounds", // "rounds" or "summary"
+  gameView: "overview", // "overview", "rounds", or "summary"
   // Concept-breakdown pill filters (additive / OR). Array of
   // {side:"missed"|"you", group, dim:null|<win-vector dim>}. Empty = no filter;
   // a mistake shows when it touches ANY selected pill.

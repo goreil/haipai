@@ -71,6 +71,8 @@ var HAIPAI_CLICK_ACTIONS = {
   scrollGameSection: (el) => document.getElementById(el.dataset.target)?.scrollIntoView({ behavior: "smooth", block: "start" }),
   filterConcept: (el) => toggleConceptFilter(el.dataset.conceptSide, el.dataset.conceptGroup, el.dataset.conceptDim),
   clearConceptFilters: () => clearConceptFilters(),
+  showAllReviewItems: () => showAllReviewItems(),
+  toggleGamePanel: (el) => toggleGamePanel(el),
   toggleTrendsConceptExpand: (el) => toggleTrendsConceptExpand(el.dataset.scope, el.dataset.conceptSide, el.dataset.conceptGroup),
   toggleTrendsExpandAll: (el) => toggleTrendsConceptExpandAll(el.dataset.scope, el.dataset.side, el.dataset.groups),
   setSevLevel: (el) => setSevLevel(parseInt(el.dataset.level, 10)),
@@ -135,10 +137,21 @@ var HAIPAI_CHANGE_ACTIONS = {
 };
 
 document.addEventListener("click", (e) => {
+  const gameMenu = document.querySelector(".game-actions-menu[open]");
+  if (gameMenu && !gameMenu.contains(e.target)) gameMenu.open = false;
   const el = e.target.closest("[data-action]");
   if (!el) return;
   const fn = HAIPAI_CLICK_ACTIONS[el.dataset.action];
   if (fn) fn(el, e);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const gameMenu = document.querySelector(".game-actions-menu[open]");
+  if (!gameMenu) return;
+  const restoreFocus = gameMenu.contains(document.activeElement);
+  gameMenu.open = false;
+  if (restoreFocus) gameMenu.querySelector("summary").focus();
 });
 
 document.addEventListener("change", (e) => {

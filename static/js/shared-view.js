@@ -13,7 +13,7 @@ var state = {
   currentGame: null,
   currentGameData: null,
   sevLevel: 3,
-  gameView: "rounds",
+  gameView: "overview",
   conceptFilters: [],
   readOnly: true,
 };

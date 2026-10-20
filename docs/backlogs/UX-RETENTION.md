@@ -1,6 +1,24 @@
 # UX: Help overwhelmed users understand Haipai and return
 
-Status: open. Added and investigated 2026-10-19. UI changes are proposed, not implemented.
+Status: partially implemented. Added and investigated 2026-10-19.
+
+2026-10-20: Implemented the compact layout above the rounds (UI-01 and the
+controls needed for it): date/share/overflow header; Game overview/Rounds/Summary
+navigation, opening on Game overview with scores, statistics, trainer tip, and concept
+breakdowns; expandable severity/topic filters with visible scope and a full
+reset. All round headers retain the same styling, including rounds whose
+items are filtered out. Round topic filters show EV totals, use the overview's
+concept colors, and run from highest to lowest EV across topics and trade-offs.
+Maka contributions now follow the active view. Filter disclosure state survives rerenders of the
+loaded game. The rounds count includes individually revealed items; Summary
+states its full-game scope. Decision-card layouts and explanations are
+unchanged; the remaining proposals below are still open.
+
+Rechecked the same fixture in Chromium at 1280 × 900 and 390 × 844 with local
+API fixtures and external resources blocked. The first card starts at about
+284 px on desktop and 366 px on mobile in Rounds, with 9 of 23 items shown.
+Game overview is the default first tab; mistake deep links open Rounds directly.
+These are layout checks, not evidence of improved comprehension or retention.
 
 User feedback identifies two groups: users who understand Haipai and keep
 using it, and users who feel that it is too complicated, do not understand

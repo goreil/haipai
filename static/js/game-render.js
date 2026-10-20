@@ -359,6 +359,12 @@ function clearConceptFilters() {
   renderGame();
 }
 
+function showAllReviewItems() {
+  state.sevLevel = 3;
+  state.conceptFilters = [];
+  renderGame();
+}
+
 // Severity slider input handler: clamp to 0..3 and re-render.
 function onSevSlider(el) {
   const v = parseInt(el.value, 10);
@@ -390,7 +396,7 @@ function renderFiltersPanel() {
       title="Show down to ${label.toLowerCase()}">${label}</span>`;
   }).join("");
   return `<div class="filters-panel">
-    <div class="filters-head">Filters</div>
+    <div class="filters-head">Severity · include these levels</div>
     <div class="filters-row">
       <input type="range" class="sev-slider" min="0" max="3" step="1" value="${state.sevLevel}"
         aria-label="Severity threshold" data-change-action="onSevSlider">
@@ -560,6 +566,101 @@ function syncGameToc() {
 // Expansion belongs to the loaded game, so it survives re-renders without
 // carrying round indexes into another game's review.
 const expandedHandMistakes = new WeakMap();
+const gameReviewPanels = new WeakMap();
+
+function gamePanelOpen(game, panel) {
+  return gameReviewPanels.get(game)?.has(panel) || false;
+}
+
+// Toggle filters in place without rebuilding cards or losing notes.
+function toggleGamePanel(button) {
+  const game = state.currentGameData;
+  const panel = document.getElementById(button.getAttribute("aria-controls"));
+  if (!game || !panel) return;
+  let open = gameReviewPanels.get(game);
+  if (!open) gameReviewPanels.set(game, open = new Set());
+  const key = button.dataset.panel;
+  if (open.has(key)) open.delete(key);
+  else open.add(key);
+  panel.hidden = !open.has(key);
+  button.setAttribute("aria-expanded", String(open.has(key)));
+  requestAnimationFrame(syncGameToc);
+}
+
+function reviewItemCounts(game) {
+  let total = 0, shown = 0, revealed = 0;
+  for (const [index, round] of game.rounds.entries()) {
+    total += round.mistakes.length;
+    for (const mistake of round.mistakes) {
+      if (mistakeVisible(mistake)) shown++;
+      else if (handMistakesExpanded(game, index)) { shown++; revealed++; }
+    }
+  }
+  return { total, shown, revealed };
+}
+
+function reviewTopicLabel(filter) {
+  const groups = conceptMetaMap();
+  const dimensions = (typeof haipaiConceptBreakdown !== "undefined"
+    && haipaiConceptBreakdown.CONCEPT_META) || {};
+  const trades = { push_fold: "Push vs. Fold", speed_value: "Speed vs. Value", other: "Other trade-offs" };
+  const group = filter.side === "tradeoff" ? trades[filter.group] : groups[filter.group]?.label;
+  return filter.dim ? (dimensions[filter.dim]?.label || filter.dim) : (group || filter.group);
+}
+
+function renderReviewControls(game, agg, boxes) {
+  if (state.gameView === "overview") return "";
+  const { total, shown, revealed } = reviewItemCounts(game);
+  if (state.gameView !== "rounds") {
+    return `<p class="review-summary-scope">Summary includes all ${total} review items, grouped by topic.</p>`;
+  }
+  const filters = state.conceptFilters;
+  const severity = ["Severe only", "Severe + Mistake", "Severe + Mistake + Light", "All severity levels"][state.sevLevel];
+  const topics = filters.length ? filters.map(reviewTopicLabel).map(escapeHtml).join(", ") : "All topics";
+  const metadata = conceptMetaMap();
+  const tradeoffColors = {
+    push_fold: metadata.Defense?.color,
+    speed_value: metadata.Speed?.color,
+    other: "var(--text-dim)",
+  };
+  const choices = [
+    ...Object.entries(agg?.groups.missed || {}).map(([group, entry]) =>
+      ({ side: "missed", group, ev: entry.ev, color: metadata[group]?.color })),
+    ...(boxes || []).map(box =>
+      ({ side: "tradeoff", group: box.key, ev: box.ev, color: tradeoffColors[box.key] })),
+  ].sort((a, b) => b.ev - a.ev);
+  const topicButtons = choices.map(filter => `<button type="button" class="review-topic"
+    style="--topic-color:${filter.color || "var(--text-dim)"}"
+    data-action="filterConcept" data-concept-side="${filter.side}" data-concept-group="${escapeHtml(filter.group)}"
+    title="Total EV loss at the selected severity levels. Topics can overlap."
+    aria-pressed="${conceptFilterActive(filter.side, filter.group, null)}">
+      <span>${escapeHtml(reviewTopicLabel(filter))}</span>
+      <span class="review-topic-ev">${filter.ev.toFixed(2)} EV</span>
+    </button>`).join("");
+  const open = gamePanelOpen(game, "filters");
+  return `<div class="review-controls">
+    <div class="review-scope">
+      <strong>Showing ${shown} of ${total} review items</strong>
+      <span class="review-active-filters">${severity} · ${topics}</span>
+      ${revealed ? `<span class="review-active-filters">Includes ${revealed} item${revealed === 1 ? "" : "s"} revealed in individual hands.</span>` : ""}
+    </div>
+    <div class="review-control-actions">
+      <button type="button" class="review-disclosure" data-action="toggleGamePanel" data-panel="filters"
+        aria-controls="game-review-filters" aria-expanded="${open}">Filters</button>
+      <button type="button" class="review-link" data-action="showAllReviewItems"
+        ${state.sevLevel === 3 && !filters.length ? "disabled" : ""}>Show all review items</button>
+    </div>
+  </div>
+  <div id="game-review-filters" class="review-filter-panel" ${open ? "" : "hidden"}>
+    ${renderFiltersPanel()}
+    <div class="review-topics">
+      <div class="filters-head">Topics · match any selected topic</div>
+      <div class="review-topic-options">${topicButtons || '<span>No topics at this severity level.</span>'}</div>
+      ${filters.length ? '<button type="button" class="review-link" data-action="clearConceptFilters">Clear topic filter</button>' : ""}
+    </div>
+  </div>
+  ${!shown && total ? '<p class="review-empty">No review items match these filters. Use “Show all review items” to reset them, or reveal items in a hand below.</p>' : ""}`;
+}
 
 function handMistakesExpanded(game, roundIndex) {
   return expandedHandMistakes.get(game)?.has(roundIndex) || false;
@@ -584,6 +685,10 @@ function renderGame() {
   const game = state.currentGameData;
   if (!game) return;
   const content = document.getElementById("content");
+  // Filters rebuild the page. Keep keyboard users on the control they used.
+  const active = document.activeElement;
+  const reviewFocus = active?.closest(".review-controls, .review-filter-panel, .game-review-nav, .filters-panel")
+    ? Object.entries(active.dataset) : null;
 
   const s = game.summary || {};
   const tocItems = [];
@@ -604,32 +709,44 @@ function renderGame() {
   const dateObj = new Date(game.date + "T00:00:00");
   const displayDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   let html = `
-    <div class="game-header" id="game-overview">
-      <h2>${displayDate}<a class="dev-id" href="#g${state.currentGame}" data-action="openHash" title="Deep-link to this game">#g${state.currentGame}</a>
-        ${state.readOnly ? "" : `<button class="btn" data-action="showShareModal" title="Get a shareable link to this game">Share</button>
-        <button class="btn btn-delete" data-action="deleteGame" title="Delete game">Delete</button>`}
-      </h2>
-      ${game.log_url ? `<div class="log-link"><a href="${game.log_url}" target="_blank">${game.log_url}</a></div>` : ""}
+    <div class="game-header game-header-compact" id="game-overview">
+      <h2>${displayDate}</h2>
+      <div class="game-header-actions">
+        ${state.readOnly ? "" : '<button type="button" class="btn" data-action="showShareModal">Share</button>'}
+        ${!state.readOnly || game.log_url ? `<details class="game-actions-menu">
+          <summary aria-label="More game actions" title="More game actions">⋯</summary>
+          <div class="game-actions-popover">
+            ${game.log_url ? `<a href="${escapeHtml(game.log_url)}" target="_blank" rel="noopener">Original game ↗</a>` : ""}
+            ${state.readOnly ? "" : `<a href="#g${state.currentGame}" data-action="openHash">Game #${state.currentGame}</a>
+              <button type="button" class="btn-delete" data-action="deleteGame">Delete game</button>`}
+          </div>
+        </details>` : ""}
+      </div>
+    </div>
+    <div class="game-review-nav">
+      <div class="game-tabs">
+        ${[["overview", "Game overview"], ["rounds", "Rounds"], ["summary", "Summary"]].map(([view, label]) =>
+          `<button type="button" class="game-tab ${state.gameView === view ? "active" : ""}"
+            ${state.gameView === view ? 'aria-current="page"' : ""}
+            data-action="switchGameView" data-view="${view}">${label}</button>`).join("")}
+      </div>
+    </div>
+    ${state.gameView === "overview" ? `<section id="game-review-overview" class="game-review-overview" aria-label="Game overview">
       ${renderFinalScores(game.mortal_data)}
-    </div>
-
-
-    ${state.readOnly ? "" : renderMakaRatings(game)}
-    ${renderFiltersPanel()}
-
-    <div class="summary-bar">
-      <div class="stat ranking-stat">${renderRanking(s, "ranking-large")}<span class="label">Ranking</span></div>
-      ${s.total_decisions ? `<div class="stat" title="How many of your decisions Mortal reviewed this game."><span class="value">${s.total_decisions}</span><span class="label">Decisions</span></div>
-      <div class="stat" title="Average expected value lost per decision — lower is better."><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
-      ${renderMistakeStats(game.rounds.flatMap(rnd => rnd.mistakes))}
-      ${renderTopGroupStat(conceptAgg, tradeoffBoxes)}
-    </div>
+      <div class="summary-bar">
+        <div class="stat ranking-stat">${renderRanking(s, "ranking-large")}<span class="label">Ranking</span></div>
+        ${s.total_decisions ? `<div class="stat" title="How many of your decisions Mortal reviewed this game."><span class="value">${s.total_decisions}</span><span class="label">Decisions</span></div>
+        <div class="stat" title="Average expected value lost per decision — lower is better."><span class="value">${s.ev_per_decision.toFixed(4)}</span><span class="label">EV/Decision</span></div>` : ""}
+        ${renderMistakeStats(game.rounds.flatMap(rnd => rnd.mistakes))}
+        ${renderTopGroupStat(conceptAgg, tradeoffBoxes)}
+      </div>
+      ${renderTrainerTip(conceptAgg, tradeoffBoxes)}
+      <p class="review-summary-scope">Concept breakdowns follow the severity filter; game grades and totals include all evaluated decisions.</p>
+      ${renderFiltersPanel()}
+      ${renderConceptBreakdown(conceptAgg, tradeoffBoxes)}
+    </section>` : ""}
+    ${renderReviewControls(game, conceptAgg, tradeoffBoxes)}
   `;
-
-  // Trainer tip for this game's single biggest leak, then the concept-level
-  // EV ledger — both under the summary bar.
-  html += renderTrainerTip(conceptAgg, tradeoffBoxes);
-  html += renderConceptBreakdown(conceptAgg, tradeoffBoxes);
 
   // JS prep banner. Categorization itself runs in JS at render time
   // (see recategorizeGameInPlace); the only progress worth showing is the
@@ -644,57 +761,12 @@ function renderGame() {
     </div>`;
   }
 
-  // Concept-filter banner: shown when one or more breakdown pills are selected.
-  // It owns the messaging while active (the severity banner is suppressed) so the
-  // two filters don't show conflicting "X of Y" counts. Pills are additive (OR),
-  // so the banner lists every selected concept.
-  const cfs = state.conceptFilters;
-  if (cfs.length && state.gameView === "rounds") {
-    const gm = conceptMetaMap();
-    const subMeta = (typeof haipaiConceptBreakdown !== "undefined" && haipaiConceptBreakdown.CONCEPT_META) || {};
-    const matched = game.rounds.reduce((sum, r) => sum + r.mistakes.filter(mistakeVisible).length, 0);
-    const pills = cfs.map((f) => {
-      const tradeoffMeta = {
-        push_fold: { label: "Push vs. Fold", color: (gm.Defense || {}).color },
-        speed_value: { label: "Speed vs. Value", color: (gm.Speed || {}).color },
-        other: { label: "Other", color: "var(--text-dim)" },
-      };
-      const meta = (f.side === "tradeoff" ? tradeoffMeta[f.group] : gm[f.group])
-        || { label: f.group, color: "var(--text)" };
-      const label = f.dim ? ((subMeta[f.dim] || {}).label || f.dim) : meta.label;
-      return `<span class="concept-pill" style="--grp:${meta.color}">${label}</span>`;
-    }).join("");
-    const lead = cfs.length === 1 ? "in" : "in any of";
-    html += `<div class="filter-banner concept-filter-banner">
-      <span class="concept-filter-text">Filters match ${matched} mistake${matched === 1 ? "" : "s"} ${lead}</span>
-      ${pills}
-      <button class="concept-filter-clear" data-action="clearConceptFilters">Show all</button>
-    </div>`;
-  } else {
-    // Filter banner (7b): show when severity filters hide some mistakes
-    const totalMistakes = game.rounds.reduce((sum, r) => sum + r.mistakes.length, 0);
-    const visibleMistakes = game.rounds.reduce((sum, r) => sum + r.mistakes.filter(mistakeVisible).length, 0);
-    if (totalMistakes > 0 && visibleMistakes < totalMistakes && state.gameView === "rounds") {
-      const hidden = totalMistakes - visibleMistakes;
-      html += `<div class="filter-banner">Filters match ${visibleMistakes} of ${totalMistakes} mistakes. Expand a hand to see its ${hidden === 1 ? "hidden mistake" : "hidden mistakes"}.</div>`;
-    }
-  }
-
-  // View tabs
-  html += `<div class="game-tabs">
-    <button class="game-tab ${state.gameView === "rounds" ? "active" : ""}" data-action="switchGameView" data-view="rounds">Rounds</button>
-    <button class="game-tab ${state.gameView === "summary" ? "active" : ""}" data-action="switchGameView" data-view="summary">Summary</button>
-  </div>`;
-
   if (state.gameView === "rounds") {
   // Rounds
   for (const [roundIndex, rnd] of game.rounds.entries()) {
     const visible = rnd.mistakes.filter(mistakeVisible);
     const expanded = handMistakesExpanded(game, roundIndex);
     const hiddenCount = rnd.mistakes.length - visible.length;
-    // With a concept filter active a clean/non-matching round carries nothing to
-    // show, so drop it entirely rather than render an empty "Clean" card.
-    if (state.conceptFilters.length && visible.length === 0 && !expanded) continue;
 
     const outcomeStr = rnd.outcome ? (OUTCOME_EMOJI[rnd.outcome] || rnd.outcome) : "";
     // Prefer the decision count; old games stored before it existed only
@@ -935,6 +1007,8 @@ function renderGame() {
   }
   } // end if summary view
 
+  if (!state.readOnly) html += renderMakaRatings(game);
+
   if (state.gameView === "rounds") {
     const toc = `<nav class="game-toc" aria-label="Game contents">
       <div class="game-toc-heading">Contents</div>
@@ -949,6 +1023,13 @@ function renderGame() {
     html = `<div class="game-detail-layout"><div class="game-detail-body">${html}</div>${toc}</div>`;
   }
   content.innerHTML = html;
+  if (reviewFocus?.length) {
+    const controls = content.querySelectorAll(".review-controls button, .review-filter-panel [data-action], .filters-panel [data-action], .filters-panel input, .game-review-nav button");
+    const replacement = [...controls].find(el => reviewFocus.every(([key, value]) => el.dataset[key] === value));
+    // Reset/clear controls can disappear or become disabled after use.
+    const target = replacement && !replacement.disabled ? replacement : content.querySelector('[data-panel="filters"]');
+    target?.focus({ preventScroll: true });
+  }
   content.removeEventListener("scroll", syncGameToc);
   if (state.gameView === "rounds") {
     content.addEventListener("scroll", syncGameToc, { passive: true });
@@ -982,8 +1063,7 @@ function renderGame() {
 
 function switchGameView(view) {
   state.gameView = view;
-  // The concept filters only govern the rounds view; leaving the Summary tab
-  // would otherwise keep stale pills lit with nothing to filter.
+  // Topic filters govern only rounds. Overview and Summary describe the game.
   if (view !== "rounds") state.conceptFilters = [];
   renderGame();
 }
