@@ -262,3 +262,91 @@ def test_historical_attribution_uses_metadata_not_the_reporters_text():
             '<span class="quote-attr">— your report on mistake #456, 2026-01-01</span></blockquote>')
     assert quoted_report(body, 123) is None
     assert quoted_report(body, 456) == 'Another case — your report on mistake #123'
+
+
+@pytest.mark.parametrize('kind', ['wrong_text', 'complex_gap'])
+def test_submission_reward_immediate_repeat_undo_and_fix(client, kind):
+    conn, uid, _, mid, rid = setup_report(client)
+    url = f'/api/mistakes/{mid}/report'
+    first = client.post(url, json={'kind': kind, 'reason': 'My read'}).get_json()
+    assert first['coins_earned'] == 7  # 10 × .655, half up
+    assert first['balance'] == 7
+    assert client.get('/api/me').get_json()['community_coins'] == 7
+    assert client.post(url, json={'kind': kind}).get_json()['coins_earned'] == 0
+    assert client.delete(url).status_code == 200
+    assert client.post(url, json={'kind': kind}).get_json()['coins_earned'] == 0
+    rid = client.post(url, json={'kind': kind}).get_json()['id']
+    with conn:
+        assert coins.award_report(conn, rid)['amount'] == 66
+        db.fix_category_report(conn, rid)
+    assert client.post(url, json={'kind': kind}).get_json()['coins_earned'] == 0
+    assert coins.balance(conn, uid) == 73
+    history = client.get('/api/me/coins').get_json()
+    assert {e['kind'] for e in history['entries']} == {'report_submit', 'report_fix'}
+    conn.close()
+
+
+def test_submission_award_failure_rolls_back_report(client, monkeypatch):
+    conn, uid, _, mid, rid = setup_report(client)
+    conn.execute('DELETE FROM category_reports WHERE id = ?', (rid,))
+    conn.commit()
+    def fail(*args):
+        raise ValueError('Invalid EV')
+    monkeypatch.setattr(coins, 'award_submission', fail)
+    assert client.post(f'/api/mistakes/{mid}/report', json={'kind': 'wrong_text'}).status_code == 400
+    assert conn.execute('SELECT COUNT(*) FROM category_reports').fetchone()[0] == 0
+    assert coins.balance(conn, uid) == 0
+    conn.close()
+
+
+def test_maka_immediate_reward_response(client):
+    conn, uid, gid, _, _ = setup_report(client)
+    url = f'/api/games/{gid}/maka-ratings'
+    response = client.post(url, json={'overall': 'A', 'matches': ['B']})
+    assert response.headers['X-Coins-Earned'] == '10'
+    assert response.headers['X-Coins-Balance'] == '10'
+    assert client.post(url, json={'overall': 'S', 'matches': ['A']}).headers['X-Coins-Earned'] == '0'
+    conn.close()
+
+
+def test_gain_candidates_private_sorted_unreported_and_unpaid(client):
+    conn, uid, _, reported_mid, _ = setup_report(client)
+    from tests.fixtures import make_game, make_round, make_mistake
+    gid = db.add_game(conn, uid, make_game(rounds=[make_round(mistakes=[make_mistake() for _ in range(8)])]))
+    mids = [r[0] for r in conn.execute('SELECT id FROM mistakes WHERE game_id = ?', (gid,))]
+    for i, mid in enumerate(mids):
+        conn.execute('UPDATE mistakes SET ev_loss = ? WHERE id = ?', (i + .655, mid))
+    conn.commit()
+    paid_mid = mids[-1]
+    client.post(f'/api/mistakes/{paid_mid}/report', json={'kind': 'wrong_text'})
+    client.delete(f'/api/mistakes/{paid_mid}/report')
+    other = db.create_user(conn, 'other-gain', 'unused')
+    _, other_mid = insert_game(other)
+    result = client.get(f'/api/me/coins/gain?user_id={other}').get_json()['candidates']
+    assert [r['id'] for r in result] == list(reversed(mids[:-1]))
+    assert not {reported_mid, paid_mid, other_mid} & {r['id'] for r in result}
+    assert result[0]['coins'] == 67
+    client.get('/logout')
+    assert client.get('/api/me/coins/gain').status_code == 401
+    conn.close()
+
+
+def test_ledger_migration_preserves_awards_and_sequence(client):
+    conn, uid, _, _, rid = setup_report(client)
+    with conn:
+        coins.award_report(conn, rid)
+    old_sql = conn.execute("SELECT sql FROM sqlite_master WHERE name='community_coins'").fetchone()[0]
+    with conn:
+        conn.execute('ALTER TABLE community_coins RENAME TO old_ledger')
+        conn.execute(old_sql.replace("'report_fix', 'report_submit', 'maka_grade'", "'report_fix', 'maka_grade'"))
+        conn.execute('INSERT INTO community_coins SELECT * FROM old_ledger')
+        conn.execute('DROP TABLE old_ledger')
+        conn.execute("UPDATE sqlite_sequence SET seq = 99 WHERE name = 'community_coins'")
+    db.init_db(conn)
+    db.init_db(conn)
+    with conn:
+        award = coins.award_submission(conn, rid)
+    assert award['id'] == 100 and award['amount'] == 7
+    assert coins.balance(conn, uid) == 73
+    assert not conn.execute('PRAGMA foreign_key_check').fetchall()
+    conn.close()

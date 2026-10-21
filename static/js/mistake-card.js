@@ -429,7 +429,12 @@ async function saveReport(mistakeId, kind, suggested, reason) {
       if (status) { status.textContent = body.error || "Error"; status.className = "report-status err"; }
       return false;
     }
-    if (status) { status.textContent = "Saved"; status.className = "report-status ok"; }
+    updateCoinBalance(body.balance);
+    if (status) {
+      status.innerHTML = body.coins_earned > 0
+        ? `Saved · <span aria-label="${body.coins_earned.toLocaleString()} community coins">+${body.coins_earned.toLocaleString()} ${coinMark()}</span>` : "Saved";
+      status.className = "report-status ok";
+    }
     return true;
   } catch (e) {
     if (status) { status.textContent = "Network error"; status.className = "report-status err"; }

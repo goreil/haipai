@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS category_reports (
 CREATE TABLE IF NOT EXISTS community_coins (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    kind TEXT NOT NULL CHECK(kind IN ('report_fix', 'maka_grade')),
+    kind TEXT NOT NULL CHECK(kind IN ('report_fix', 'report_submit', 'maka_grade')),
     source_key TEXT NOT NULL,
     amount INTEGER NOT NULL CHECK(amount >= 0),
     title TEXT NOT NULL,
@@ -176,6 +176,26 @@ def migrate(conn):
     def _has_column(table, column):
         cols = conn.execute(f"PRAGMA table_info({table})").fetchall()
         return any(c["name"] == column for c in cols)
+
+    # SQLite CHECK constraints require rebuilding the ledger to add an award kind.
+    ledger_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'community_coins'"
+    ).fetchone()
+    if ledger_sql and "'report_submit'" not in ledger_sql["sql"]:
+        with conn:
+            # Start before DDL so a failed rebuild rolls the rename back too.
+            conn.execute("SAVEPOINT expand_report_rewards")
+            sequence = conn.execute("SELECT seq FROM sqlite_sequence WHERE name = 'community_coins'").fetchone()
+            conn.execute("ALTER TABLE community_coins RENAME TO community_coins_old")
+            conn.execute(ledger_sql["sql"].replace(
+                "'report_fix', 'maka_grade'", "'report_fix', 'report_submit', 'maka_grade'"))
+            conn.execute("INSERT INTO community_coins SELECT * FROM community_coins_old")
+            conn.execute("DROP TABLE community_coins_old")
+            if sequence:
+                conn.execute("UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = 'community_coins'",
+                             (sequence["seq"],))
+            conn.execute("CREATE INDEX idx_community_coins_user ON community_coins(user_id, id DESC)")
+            conn.execute("RELEASE SAVEPOINT expand_report_rewards")
 
     altered = False
     for table in ('games', 'mistakes'):

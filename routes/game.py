@@ -316,10 +316,18 @@ def api_report_category(mistake_id):
     # `complex_gap` rides its quick-tags in `suggested_category`; `wrong_text`
     # never sends one (the legacy category-code path is gone), so it stays None.
     stored_suggested = suggested if kind == "complex_gap" else None
-    report_id = db.submit_category_report(conn, uid, mistake_id,
-                                          kind=kind, suggested_category=stored_suggested,
-                                          reason=reason)
-    return jsonify({"ok": True, "id": report_id})
+    from db import coins
+    try:
+        with conn:
+            report_id = db.submit_category_report(conn, uid, mistake_id,
+                                                  kind=kind, suggested_category=stored_suggested,
+                                                  reason=reason, commit=False)
+            award = coins.award_submission(conn, report_id)
+            balance = coins.balance(conn, uid)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"ok": True, "id": report_id,
+                    "coins_earned": award["amount"] if award["awarded"] else 0, "balance": balance})
 
 
 @games_bp.route("/api/mistakes/<int:mistake_id>/report", methods=["DELETE"])
@@ -537,5 +545,9 @@ def api_save_maka_ratings(game_id):
         ratings = {"overall": normalize(data["overall"]), "matches": [normalize(v) for v in matches]}
     except ValueError:
         return jsonify({"error": "Use letter grades such as B+, A, or S, or leave blank"}), 400
-    db.save_maka_ratings(conn, game_id, current_user.id, ratings)
-    return jsonify(ratings)
+    from db import coins
+    awards = db.save_maka_ratings(conn, game_id, current_user.id, ratings, return_awards=True)
+    response = jsonify(ratings)
+    response.headers["X-Coins-Earned"] = str(sum(a["amount"] for a in awards if a["awarded"]))
+    response.headers["X-Coins-Balance"] = str(coins.balance(conn, current_user.id))
+    return response

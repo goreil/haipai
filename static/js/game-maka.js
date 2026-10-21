@@ -47,9 +47,10 @@ function bindMakaRatings(game) {
       const response = await apiPost(`/api/games/${game.id}/maka-ratings`, payload);
       if (!response.ok) throw new Error("Save failed");
       game.maka_ratings = await response.json();
-      refreshCoinBalance();
-      game._makaStatus = JSON.stringify(payload) === JSON.stringify(game._makaDraft)
-        ? "Saved" : "Unsaved changes";
+      const earned = Number(response.headers.get("X-Coins-Earned") || 0);
+      updateCoinBalance(Number(response.headers.get("X-Coins-Balance")));
+      game._makaStatus = (JSON.stringify(payload) === JSON.stringify(game._makaDraft)
+        ? "Saved" : "Unsaved changes") + (earned > 0 ? ` · +${earned.toLocaleString()} coins` : "");
     } catch (_) {
       game._makaStatus = "Could not save. Please try again.";
     } finally {

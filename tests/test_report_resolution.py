@@ -44,7 +44,8 @@ def test_fix_hides_from_user_preserves_history_and_awards_once(client):
     assert coins.balance(conn, uid) == 66
     # Withdrawing/re-reporting after resolution cannot change archived feedback.
     assert client.delete(f'/api/mistakes/{mid}/report').get_json()['removed'] is False
-    client.post(f'/api/mistakes/{mid}/report', json={'kind': 'wrong_text', 'reason': 'A new issue'})
+    submitted = client.post(f'/api/mistakes/{mid}/report', json={'kind': 'wrong_text', 'reason': 'A new issue'})
+    assert submitted.get_json()['coins_earned'] == 7
     new_id = db.list_category_reports(conn)[0]['id']
     assert new_id != rid
     client.post(f'/api/mistakes/{mid}/report', json={'kind': 'wrong_text', 'reason': 'Updated new issue'})
@@ -53,7 +54,7 @@ def test_fix_hides_from_user_preserves_history_and_awards_once(client):
     assert db.list_category_reports(conn, status='fixed')[0]['reason'] == 'Incorrect comparison'
     second = client.post(f'/api/admin/category-reports/{new_id}/fix', json={}).get_json()
     assert second['fixed'] and not second['awarded']
-    assert coins.balance(conn, uid) == 66
+    assert coins.balance(conn, uid) == 73  # Existing fix award plus the first submission reward.
     conn.close()
 
 

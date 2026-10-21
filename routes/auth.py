@@ -278,6 +278,13 @@ def api_my_coins():
     return jsonify(coins.history(get_conn(), current_user.id, int(raw) if raw is not None else None))
 
 
+@auth_bp.route("/api/me/coins/gain")
+@login_required
+def api_coin_gain():
+    from app import get_conn
+    return jsonify({"candidates": coins.gain_candidates(get_conn(), current_user.id)})
+
+
 @auth_bp.route("/api/me/display-name", methods=["POST"])
 @login_required
 def api_set_display_name():

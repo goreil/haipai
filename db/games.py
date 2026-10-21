@@ -344,7 +344,7 @@ def get_trends(conn, user_id):
     return games
 
 
-def save_maka_ratings(conn, game_id, user_id, ratings):
+def save_maka_ratings(conn, game_id, user_id, ratings, *, return_awards=False):
     """Persist manual ratings independently of computed analysis data."""
     row = conn.execute(
         "SELECT maka_ratings_json, maka_ratings_added_at_json FROM games WHERE id = ? AND user_id = ?",
@@ -376,5 +376,5 @@ def save_maka_ratings(conn, game_id, user_id, ratings):
             "UPDATE games SET maka_ratings_json = ?, maka_ratings_added_at_json = ? WHERE id = ? AND user_id = ?",
             (json.dumps(ratings), json.dumps(dates), game_id, user_id),
         )
-        award_maka(conn, game_id, user_id, ratings)
-    return cur.rowcount > 0
+        awards = award_maka(conn, game_id, user_id, ratings)
+    return awards if return_awards else cur.rowcount > 0

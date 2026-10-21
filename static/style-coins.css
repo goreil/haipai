@@ -36,6 +36,7 @@
 .coins-load { text-align: center; margin-top: 20px; }
 .coins-load p { font-size: 12px; color: #a3b0c4; margin-top: 8px; }
 .report-coin-awarded { color: #e8ca8e; font-size: 12px; }
+.report-status .coin-mark { width: 16px; height: 16px; font-size: 10px; box-shadow: inset 0 0 0 2px #3b3329; vertical-align: middle; }
 @media (max-width: 640px) {
   .coins-page { margin-top: 4px; }
   .coins-heading { align-items: flex-start; gap: 8px; }
@@ -55,3 +56,15 @@
 .coin-entry-body .coin-report-id { color: #8996ad; font-size: 10px; font-weight: 400; margin-left: 6px; }
 .coin-entry-body blockquote { margin: 10px 0 0; padding-left: 11px; border-left: 2px solid #50627e; color: #d2dbe9; font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .coin-maka-summary { align-items: center; }
+.coins-gain { margin: 0 0 28px; padding: 22px; border: 1px solid #655335; border-radius: 14px; background: linear-gradient(135deg, #302d3655, #152039); }
+.coins-gain h3 { font: 500 22px 'Outfit', sans-serif; color: #f4dfaf; }
+.coins-gain p, #coins-gain-list { color: #a3b0c4; font-size: 12px; line-height: 1.7; }
+.coins-gain p { margin: 8px 0 16px; }
+.coins-gain-hands { list-style: none; padding: 0; margin: 0; }
+.coins-gain-hands li + li { border-top: 1px solid #344056; }
+.coins-gain-hands a { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 8px; color: #e1e6ef; text-decoration: none; border-radius: 6px; }
+.coins-gain-hands a:hover { background: #ffffff08; }
+.coins-gain-hands a:focus-visible { outline: 2px solid #f4cf83; outline-offset: 2px; }
+.coins-gain-hands strong { font-weight: 500; font-size: 13px; }
+.coins-gain-hands small { display: block; color: #8996ad; font-size: 11px; }
+@media (max-width: 640px) { .coins-gain { padding: 18px 12px; } }

@@ -14,7 +14,7 @@ from db.mistakes import row_to_mistake
 REPORT_KINDS = ("wrong_text", "complex_gap")
 
 
-def submit_category_report(conn, user_id, mistake_id, kind, suggested_category=None, reason=None):
+def submit_category_report(conn, user_id, mistake_id, kind, suggested_category=None, reason=None, *, commit=True):
     """Upsert the open report for a user and mistake, preserving fixed history.
 
     kind: 'wrong_text' — the trainer explanation reads wrong for this mistake
@@ -37,7 +37,8 @@ def submit_category_report(conn, user_id, mistake_id, kind, suggested_category=N
            RETURNING id""",
         (user_id, mistake_id, suggested_category, reason, kind),
     ).fetchone()
-    conn.commit()
+    if commit:
+        conn.commit()
     return row["id"]
 
 

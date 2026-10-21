@@ -13,15 +13,31 @@ disclaimer that coins have no use yet.
 
 ## Earning coins
 
+- Submitting any category-report issue earns **10 × its stored EV loss**,
+  rounded to whole coins with half-up rounding. The save confirmation shows
+  the coins earned immediately and updates the balance. Each user earns this
+  once per mistake; edits, Undo, and resubmissions do not pay again. Reporting
+  and its award commit together. This applies to new submissions, without a
+  historical backfill.
 - A category report that contributes to a fix earns **100 × its stored EV
-  loss**, rounded to whole coins with half-up rounding. An admin awards it
+  loss** in addition, rounded to whole coins with half-up rounding. An admin awards it
   after the fix. All reporters, including admins, are eligible.
 - Each filled Maka overall or per-hand grade earns **5 coins**, once per
   field. Saving a grade and awarding its coins happen in the same transaction.
   Editing, clearing, and re-entering a grade do not earn additional coins.
+  The save confirmation shows the newly earned amount immediately.
 - Awards preserve the amount and explanation at issuance. Later changes to
   rates, grades, or EV do not rewrite earned balances. A missing, negative,
   nonfinite, or implausibly large EV requires review; zero EV earns zero.
+
+The **Gain coins** card shows up to five of the viewer's own unreported complex
+hands, ordered by EV loss, with the reporting reward and a direct hand link.
+Hands with prior reports or reporting awards are excluded. The browser prepares
+and categorizes games with the same live pipeline as the game view, searching
+all eligible hands rather than limiting results to a page of games. Analysis
+stops once the five highest-EV complex hands are found; leaving the page stops
+further game loads. Analysis failures show an error instead of a partial ranking.
+Accounts with many games may take longer to analyze.
 
 ## Awarding a fix from Codex or a terminal
 
@@ -46,7 +62,7 @@ with the same options. Schema initialization is owned by app startup;
 coins** button calls `POST /api/admin/category-reports/<report_id>/award`,
 which accepts an optional JSON `reason`. Admin authentication and CSRF apply.
 
-Award before deleting a fixed report. The log survives deletion of games,
+Keep fixed reports as resolution history. The log survives deletion of games,
 reports, and historical messages, and is deleted with the recipient's account.
 It is included in account data exports. Coin balances and history are not
 part of public shared-game responses.

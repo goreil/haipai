@@ -9,12 +9,12 @@ from lib.report_quotes import quoted_report
 MAKA_COINS = 5
 
 
-def report_coins(ev_loss):
+def report_coins(ev_loss, *, rate=100):
     try:
         ev = Decimal(str(ev_loss))
         if not ev.is_finite() or ev < 0 or ev > 10**12:
             raise ValueError
-        return int((ev * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+        return int((ev * rate).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
     except (InvalidOperation, ValueError):
         raise ValueError('Report has no valid EV loss; review it before awarding coins') from None
 
@@ -65,6 +65,40 @@ def award_report(conn, report_id, *, reason=None):
                 + (f" · {reason.strip()}" if reason and reason.strip() else "")),
         game_id=row['game_id'], mistake_id=row['mistake_id'], report_id=report_id,
     )
+
+
+def award_submission(conn, report_id):
+    """Pay once per reporter and stable hand identity, independently of fix awards."""
+    row = conn.execute(
+        """SELECT r.user_id, r.mistake_id, m.game_id, m.ev_loss FROM category_reports r
+           JOIN mistakes m ON m.id = r.mistake_id WHERE r.id = ?""", (report_id,),
+    ).fetchone()
+    if row is None:
+        raise LookupError(f'Report R-{report_id} not found')
+    return _award(
+        conn, user_id=row['user_id'], kind='report_submit',
+        source_key=_source_key(conn, 'mistakes', row['mistake_id']),
+        amount=report_coins(row['ev_loss'], rate=10),
+        title=f'Report R-{report_id} submitted',
+        detail=f"10 × {row['ev_loss']:g} EV · mistake #{row['mistake_id']}",
+        game_id=row['game_id'], mistake_id=row['mistake_id'], report_id=report_id,
+    )
+
+
+def gain_candidates(conn, user_id):
+    """All eligible own hands in EV order; the browser computes the live shape."""
+    rows = conn.execute(
+        """SELECT m.id, m.game_id, m.round_name, m.turn, m.ev_loss
+           FROM mistakes m JOIN games g ON g.id = m.game_id
+           WHERE g.user_id = ? AND m.ev_loss > 0
+             AND NOT EXISTS (SELECT 1 FROM category_reports r
+                             WHERE r.user_id = ? AND r.mistake_id = m.id)
+             AND NOT EXISTS (SELECT 1 FROM community_coins c
+                             WHERE c.user_id = ? AND c.kind = 'report_submit' AND c.source_key = m.coin_key)
+           ORDER BY m.ev_loss DESC, m.id DESC""", (user_id, user_id, user_id),
+    ).fetchall()
+    return [{**dict(row), 'coins': report_coins(row['ev_loss'], rate=10)} for row in rows
+            if report_coins(row['ev_loss'], rate=10) > 0]
 
 
 def award_maka(conn, game_id, user_id, ratings, *, historical=False):
@@ -148,7 +182,7 @@ def history(conn, user_id, before=None):
            LEFT JOIN messages msg ON msg.id = c.message_id
              AND msg.audience_user_id = c.user_id AND msg.type = 'thanks'
              AND msg.created_at <= c.created_at
-           WHERE c.user_id = ? AND c.kind = 'report_fix' AND (? IS NULL OR c.id < ?)
+           WHERE c.user_id = ? AND c.kind IN ('report_fix', 'report_submit') AND (? IS NULL OR c.id < ?)
            ORDER BY c.id DESC LIMIT 31""",
         (user_id, before, before),
     ).fetchall()
