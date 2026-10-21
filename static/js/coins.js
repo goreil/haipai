@@ -125,7 +125,7 @@ async function loadMoreCoins() {
 }
 
 // Own modal state keeps report edits independent of the game behind the window.
-var coinGain = { hands: [], worker: null, timer: null, opener: null, before: null, loading: false };
+var coinGain = { hands: [], worker: null, opener: null, before: null, loading: false };
 
 function coinGainHtml(hands) {
   return hands.map(hand => `<article class="coins-gain-card">
@@ -138,7 +138,6 @@ function coinGainHtml(hands) {
 function stopCoinGain() {
   coinGain.worker?.terminate();
   coinGain.worker = null;
-  clearTimeout(coinGain.timer);
   coinGain.loading = false;
 }
 
@@ -182,16 +181,11 @@ function nextCoinGain() {
   document.getElementById("coins-gain-status").textContent = "Finding the next complex hand…";
   document.getElementById("coins-gain-dialog").scrollTop = 0;
   const finish = (message, exhausted = false) => {
-    clearTimeout(coinGain.timer);
     coinGain.loading = false;
     button.disabled = exhausted;
     document.getElementById("coins-gain-status").textContent = message;
     document.getElementById("coins-gain-list").innerHTML = coinGainHtml(coinGain.hands);
   };
-  coinGain.timer = setTimeout(() => {
-    stopCoinGain();
-    finish("No match within the time limit. Choose Next to continue searching.");
-  }, 1800);
   try {
     if (!coinGain.worker) coinGain.worker = new Worker("/static/js/coins-worker.js");
     coinGain.worker.onmessage = ({data}) => {

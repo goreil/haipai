@@ -35,8 +35,8 @@ test('coins card and immediate report/Maka rewards work on desktop and mobile',
         constructor() { workerCount++; }
         postMessage({before}) {
           if (stalled) {
-            this.onmessage({data:{before:{id:3,ev_loss:13.55}}});
-            return;
+            before = {id:3,ev_loss:13.55};
+            this.onmessage({data:{before}});
           }
           setTimeout(() => {
             const c = candidates.find(c => !before || c.id > before.id);
@@ -46,7 +46,7 @@ test('coins card and immediate report/Maka rewards work on desktop and mobile',
               actual:{type:'dahai',pai:'1m'}, expected:{type:'dahai',pai:'9m'},
               hand:['1m','2m','3m','4m','5m','6m','7m','8m','9m','1p','2p','3p','E','E'],
               shape:'complex', skillArea:'attack', wins:[]}}}});
-          }, 0);
+          }, stalled ? 2100 : 0);
         }
         terminate() {terminated++;}
       };
@@ -86,16 +86,14 @@ test('coins card and immediate report/Maka rewards work on desktop and mobile',
           closeCoinGain();
           check(!document.querySelector('#coins-gain-dialog'), 'close removes window');
           stalled = true;
-          const started = performance.now();
           showCoinGain();
           await new Promise(resolve => setTimeout(resolve, 1850));
-          check(performance.now()-started < 2000, 'deadline under two seconds');
-          check(document.querySelector('#coins-gain-status').textContent.includes('time limit'), 'slow request ends with useful status');
-          check(terminated === 2, 'timeout terminates worker');
+          check(document.querySelector('#coins-gain-status').textContent.includes('Finding'), 'slow search keeps running');
+          check(document.querySelector('#coins-gain-next').disabled, 'Next waits for current search');
+          check(terminated === 1, 'slow search does not terminate the worker');
           stalled = false;
-          document.querySelector('#coins-gain-next').click();
-          await new Promise(resolve => setTimeout(resolve, 20));
-          check(_findMistakeById(4)?.id === 4, 'timeout resumes from last checked hand');
+          await new Promise(resolve => setTimeout(resolve, 300));
+          check(_findMistakeById(4)?.id === 4, 'result after two seconds appears automatically');
           document.querySelector('#coins-gain-next').click();
           await new Promise(resolve => setTimeout(resolve, 20));
           document.querySelector('#coins-gain-next').click();
