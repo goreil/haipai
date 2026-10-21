@@ -76,6 +76,8 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
             === 'top5,top-group,rounds', 'consistent shortcuts start with the top mistake');
           check(document.querySelector('.overview-round-grade').textContent.includes(gameRating({total_decisions:30,total_ev_loss:11}).letter), 'worst round grade');
           const dialog = document.querySelector('dialog');
+          check(dialog.querySelector('[data-preference="skip"]') && dialog.querySelector('[data-preference="default"]'),
+            'opening preferences appear on the first page');
           check(dialog.querySelector('.trainer-tip').compareDocumentPosition(dialog.querySelector('.overview-highlights'))
             & Node.DOCUMENT_POSITION_FOLLOWING, 'trainer above category');
           check(dialog.querySelector('.overview-mistake .overview-label').textContent === 'Worst mistake', 'worst mistake label');
@@ -91,11 +93,13 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
           check(Math.abs((rect.left + rect.right) / 2 - innerWidth / 2) < 2, 'centered horizontally');
           check(Math.abs((rect.top + rect.bottom) / 2 - innerHeight / 2) < 2, 'centered vertically');
           click('[data-action="changeGameOverviewPage"][data-page="1"]');
+          check(!dialog.querySelector('.overview-preferences'), 'opening preferences do not appear on the second page');
           check(dialog.textContent.includes('Category breakdown') && dialog.textContent.includes('Efficiency'), 'detailed categories');
           check(dialog.textContent.includes('Push vs. Fold') && dialog.textContent.includes('Should fold'), 'tradeoff directions');
           renderGame();
           check(document.querySelector('dialog').textContent.includes('Category breakdown'), 'refresh retains detail page');
           click('[data-action="changeGameOverviewPage"][data-page="0"]');
+          check(dialog.querySelector('.overview-preferences'), 'returning to the first page restores opening preferences');
           const swipe = (dx, dy) => {
             const target = document.querySelector('dialog');
             target.dispatchEvent(new TouchEvent('touchstart', {touches:[new Touch({identifier:1,target,clientX:100,clientY:100})]}));

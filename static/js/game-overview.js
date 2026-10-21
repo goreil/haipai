@@ -134,7 +134,7 @@ function renderGameOverview(game, topGroup) {
       <span role="status">${details ? "2" : "1"} / 2</span>
       <button type="button" class="btn" data-action="changeGameOverviewPage" data-page="1" ${details ? "disabled" : ""}>Next page ›</button>
     </nav>
-    <footer class="overview-preferences">
+    ${details ? "" : `<footer class="overview-preferences">
       <label class="overview-skip"><input type="checkbox" data-change-action="changeReviewOpeningPreference" data-preference="skip"
         ${prefs.skipOverview ? "checked" : ""}> Skip overview when opening games</label>
       <label class="overview-default">Default filter
@@ -143,7 +143,7 @@ function renderGameOverview(game, topGroup) {
         </select>
       </label>
       <p id="overview-preference-status" role="status">${escapeHtml(state.reviewOpeningError || "")}</p>
-    </footer>`;
+    </footer>`}`;
 }
 
 function updateGameOverview() {
