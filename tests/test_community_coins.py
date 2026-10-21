@@ -350,3 +350,84 @@ def test_ledger_migration_preserves_awards_and_sequence(client):
     assert coins.balance(conn, uid) == 73
     assert not conn.execute('PRAGMA foreign_key_check').fetchall()
     conn.close()
+
+
+def test_gain_candidates_paginate_all_games_without_repeating_reported_hands(client):
+    from tests.fixtures import make_game, make_round, make_mistake
+    conn, uid, _, _, _ = setup_report(client)
+    gids = []
+    for _ in range(4):
+        gid = db.add_game(conn, uid, make_game(rounds=[make_round(mistakes=[make_mistake() for _ in range(20)])]))
+        gids.append(gid)
+    conn.commit()
+    first = client.get('/api/me/coins/gain').get_json()['candidates']
+    assert len(first) == 30
+    assert all('round_idx' in row and 'mistake_idx' in row for row in first)
+    # Submitting a report between pages must not shift the remaining results.
+    assert client.post(f"/api/mistakes/{first[0]['id']}/report", json={'kind': 'complex_gap'}).status_code == 200
+    result = first[:]
+    page = first
+    while page:
+        page = client.get(f"/api/me/coins/gain?before={page[-1]['id']}&before_ev={page[-1]['ev_loss']}").get_json()['candidates']
+        result.extend(page)
+    assert len(result) == 80
+    assert len({row['id'] for row in result}) == 80
+    assert {row['game_id'] for row in result} == set(gids)
+    assert [row['id'] for row in result] == sorted((row['id'] for row in result), reverse=True)
+    assert first[0]['id'] not in {row['id'] for row in client.get('/api/me/coins/gain').get_json()['candidates']}
+    conn.close()
+
+
+@pytest.mark.parametrize('cursor', ['0', '-1', 'bad', '1.2', '9223372036854775808'])
+def test_gain_candidates_reject_invalid_cursor(client, cursor):
+    _login(client)
+    assert client.get(f'/api/me/coins/gain?before={cursor}').status_code == 400
+
+
+def test_gain_paging_skips_zero_coin_hands_before_applying_page_limit(client):
+    from tests.fixtures import make_game, make_round, make_mistake
+    conn, uid, _, _, _ = setup_report(client)
+    gid = db.add_game(conn, uid, make_game(rounds=[make_round(mistakes=[make_mistake() for _ in range(35)])]))
+    mids = [row[0] for row in conn.execute('SELECT id FROM mistakes WHERE game_id = ? ORDER BY id', (gid,))]
+    conn.execute('UPDATE mistakes SET ev_loss = 0.001 WHERE game_id = ?', (gid,))
+    conn.execute('UPDATE mistakes SET ev_loss = 0.05 WHERE id = ?', (mids[0],))
+    conn.commit()
+    result = client.get('/api/me/coins/gain').get_json()['candidates']
+    assert [row['id'] for row in result] == [mids[0]]
+    assert result[0]['coins'] == 1
+    conn.close()
+
+
+def test_gain_prioritizes_high_ev_across_all_games_with_stable_tied_pagination(client):
+    from tests.fixtures import make_game, make_round, make_mistake
+    conn, uid, _, _, _ = setup_report(client)
+    gids = [db.add_game(conn, uid, make_game(rounds=[make_round(mistakes=[make_mistake() for _ in range(40)])]))
+            for _ in range(4)]
+    conn.execute('UPDATE mistakes SET ev_loss = 0.05 WHERE game_id IN (?, ?, ?, ?)', gids)
+    high_ids = [row[0] for row in conn.execute('SELECT id FROM mistakes WHERE game_id = ? ORDER BY id', (gids[0],))]
+    for index, mid in enumerate(high_ids):
+        conn.execute('UPDATE mistakes SET ev_loss = ? WHERE id = ?', (2.5 if index < 35 else 8.125, mid))
+    conn.commit()
+    result = []
+    url = '/api/me/coins/gain'
+    while True:
+        page = client.get(url).get_json()['candidates']
+        if not page:
+            break
+        result.extend(page)
+        url = f"/api/me/coins/gain?before={page[-1]['id']}&before_ev={page[-1]['ev_loss']}"
+    assert len(result) == 160
+    assert len({row['id'] for row in result}) == 160
+    assert [row['id'] for row in result[:40]] == list(reversed(high_ids))
+    assert all(row['ev_loss'] >= 2.5 for row in result[:40])
+    assert all(row['ev_loss'] == 0.05 for row in result[40:])
+    conn.close()
+
+
+@pytest.mark.parametrize('query', [
+    'before=1', 'before_ev=1', 'before=1&before_ev=nan', 'before=1&before_ev=inf',
+    'before=1&before_ev=bad', 'before=1&before_ev=-1', 'before=1&before_ev=0.001',
+])
+def test_gain_rejects_incomplete_or_invalid_ev_cursor(client, query):
+    _login(client)
+    assert client.get(f'/api/me/coins/gain?{query}').status_code == 400

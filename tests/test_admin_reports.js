@@ -116,6 +116,8 @@ test("report links route to admin and show all requested IDs beyond 50 on one pa
   const hash = `#admin?report_ids=${ids.join(",")}`;
   const context = reportLinkContext(hash);
   Object.assign(context.adminState, { reportKind: "wrong_text", reportPageSize: 10, reportPage: 4 });
+  let closedGainWindow = false;
+  context.closeCoinGain = () => { closedGainWindow = true; };
   let routedHash;
   context.showAdmin = async value => {
     routedHash = value;
@@ -123,6 +125,7 @@ test("report links route to admin and show all requested IDs beyond 50 on one pa
   };
   await context.applyHashRoute();
   assert.equal(routedHash, hash);
+  assert.equal(closedGainWindow, true);
   assert.equal(context.adminState.reportScope, "all");
   assert.equal(context.adminState.reportStatus, "all");
   assert.equal(context.adminState.reportKind, "");

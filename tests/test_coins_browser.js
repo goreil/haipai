@@ -12,14 +12,14 @@ test('coins card and immediate report/Maka rewards work on desktop and mobile',
     const style = name => `<link rel="stylesheet" href="file://${path.resolve('static', name + '.css')}">`;
     const html = `<!doctype html><html><head><meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      ${['style-theme', 'style-layout', 'style-coins'].map(style).join('')}
+      ${['style-theme', 'style-layout', 'style-game-detail', 'style-board-display', 'style-coins'].map(style).join('')}
       <style>body{overflow:auto}#content{padding:16px;width:100%;overflow:visible}</style>
       </head><body><main id="content"></main>
-      ${['html-escape', 'coins', 'mistake-card', 'game-maka'].map(script).join('')}
+      ${[...fs.readFileSync('static/index.html','utf8').matchAll(/<script src="\/static\/js\/([^"]+)\.js"/g)].map(m => m[1]).filter(n => !['main','ui'].includes(n)).map(script).join('')}
       <script>
-      const state = {};
+      var state = {};
       const parseTabHash = () => 'coins';
-      const renderGameList = () => {};
+      window.renderGameList = () => {};
       const check = (value, message) => {if (!value) throw new Error(message);};
       const data = {balance: 476, entries: [], next_before: null, totals: {maka_grade: 10}, maka_rate: 5};
       const candidates = Array.from({length:5}, (_, i) => ({id:i+1, game_id:1, round_name:'East 1',
@@ -30,8 +30,26 @@ test('coins card and immediate report/Maka rewards work on desktop and mobile',
         if (url.includes('/games/')) return {rounds:[{mistakes:candidates.map(c => ({id:c.id, shape:'complex'}))}]};
         return data;
       }});
-      const haipaiPrep = {prepGameAsync: async () => {}};
-      const recategorizeGameInPlace = () => {};
+      let workerCount = 0, terminated = 0, stalled = false;
+      window.Worker = class {
+        constructor() { workerCount++; }
+        postMessage({before}) {
+          if (stalled) {
+            this.onmessage({data:{before:{id:3,ev_loss:13.55}}});
+            return;
+          }
+          setTimeout(() => {
+            const c = candidates.find(c => !before || c.id > before.id);
+            if (!c) {this.onmessage({data:{done:true}}); return;}
+            this.onmessage({data:{before:{id:c.id,ev_loss:c.ev_loss}}});
+            this.onmessage({data:{hand:{...c, mistake:{...c,
+              actual:{type:'dahai',pai:'1m'}, expected:{type:'dahai',pai:'9m'},
+              hand:['1m','2m','3m','4m','5m','6m','7m','8m','9m','1p','2p','3p','E','E'],
+              shape:'complex', skillArea:'attack', wins:[]}}}});
+          }, 0);
+        }
+        terminate() {terminated++;}
+      };
       window.apiPost = async url => ({ok:true, headers: new Headers({'X-Coins-Earned':'10','X-Coins-Balance':'476'}),
         json:async () => url.endsWith('/report') ? {coins_earned:16,balance:466} : {overall:'A', matches:['B']}});
       document.addEventListener('DOMContentLoaded', async () => {
@@ -50,8 +68,48 @@ test('coins card and immediate report/Maka rewards work on desktop and mobile',
           check(document.querySelector('.maka-status').textContent.includes('+10 coins'), 'immediate Maka reward');
           await showCoins();
           await new Promise(resolve => setTimeout(resolve, 20));
-          check(document.querySelectorAll('.coins-gain-hands li').length === 5, 'five opportunities');
-          check(document.querySelector('.coins-gain-hands a').getAttribute('href') === '#m1', 'hand link');
+          check(workerCount === 0, 'balance never starts analysis');
+          document.querySelector('[data-action="showCoinGain"]').click();
+          await new Promise(resolve => setTimeout(resolve, 20));
+          check(document.querySelector('#coins-gain-dialog').open, 'separate window');
+          check(document.querySelectorAll('.coins-gain-card .mistake').length === 1, 'one complete card');
+          check(document.querySelectorAll('.coins-gain-card .complex-gap-row').length === 1, 'inline report funnel');
+          document.querySelector('.complex-tag').click();
+          await new Promise(resolve => setTimeout(resolve, 20));
+          check(document.querySelector('.coins-gain-card .report-status').textContent.includes('+16'), 'inline award');
+          check(_findMistakeById(1).my_report.kind === 'complex_gap', 'report stored on modal hand');
+          check(terminated === 0, 'worker retained for Next');
+          document.querySelector('#coins-gain-next').click();
+          await new Promise(resolve => setTimeout(resolve, 20));
+          check(document.querySelectorAll('.coins-gain-card').length === 1, 'Next replaces the card');
+          check(_findMistakeById(2)?.id === 2 && !_findMistakeById(1), 'Next advances without stale report state');
+          closeCoinGain();
+          check(!document.querySelector('#coins-gain-dialog'), 'close removes window');
+          stalled = true;
+          const started = performance.now();
+          showCoinGain();
+          await new Promise(resolve => setTimeout(resolve, 1850));
+          check(performance.now()-started < 2000, 'deadline under two seconds');
+          check(document.querySelector('#coins-gain-status').textContent.includes('time limit'), 'slow request ends with useful status');
+          check(terminated === 2, 'timeout terminates worker');
+          stalled = false;
+          document.querySelector('#coins-gain-next').click();
+          await new Promise(resolve => setTimeout(resolve, 20));
+          check(_findMistakeById(4)?.id === 4, 'timeout resumes from last checked hand');
+          document.querySelector('#coins-gain-next').click();
+          await new Promise(resolve => setTimeout(resolve, 20));
+          document.querySelector('#coins-gain-next').click();
+          await new Promise(resolve => setTimeout(resolve, 20));
+          check(document.querySelector('#coins-gain-next').disabled, 'end of search disables Next');
+          closeCoinGain();
+          stalled = false;
+          showCoinGain();
+          await new Promise(resolve => setTimeout(resolve, 20));
+          for (const img of document.querySelectorAll('img')) {
+            const src = img.getAttribute('src');
+            if (src.startsWith('/tiles/')) img.src = 'file://${path.resolve('riichi-mahjong-tiles/Regular')}/' + src.slice(7);
+            if (src === '/static/mascot.svg') img.src = 'file://${path.resolve('static/mascot.svg')}';
+          }
           check(document.documentElement.scrollWidth <= innerWidth, 'no horizontal overflow');
           document.body.dataset.result = 'passed';
         } catch(error) {document.body.dataset.result = error.stack;}

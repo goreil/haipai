@@ -60,11 +60,18 @@
 .coins-gain h3 { font: 500 22px 'Outfit', sans-serif; color: #f4dfaf; }
 .coins-gain p, #coins-gain-list { color: #a3b0c4; font-size: 12px; line-height: 1.7; }
 .coins-gain p { margin: 8px 0 16px; }
-.coins-gain-hands { list-style: none; padding: 0; margin: 0; }
-.coins-gain-hands li + li { border-top: 1px solid #344056; }
-.coins-gain-hands a { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 8px; color: #e1e6ef; text-decoration: none; border-radius: 6px; }
-.coins-gain-hands a:hover { background: #ffffff08; }
-.coins-gain-hands a:focus-visible { outline: 2px solid #f4cf83; outline-offset: 2px; }
-.coins-gain-hands strong { font-weight: 500; font-size: 13px; }
-.coins-gain-hands small { display: block; color: #8996ad; font-size: 11px; }
 @media (max-width: 640px) { .coins-gain { padding: 18px 12px; } }
+
+#coins-gain-dialog { width: min(1050px, calc(100% - 32px)); max-height: calc(100dvh - 40px); margin: auto; padding: 24px; color: var(--text); background: #152039; border: 1px solid #655335; border-radius: 16px; overflow-y: auto; }
+#coins-gain-dialog::backdrop { background: #050b18cc; }
+.coins-gain-window-heading, .coins-gain-reward { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.coins-gain-window-heading h2 { font: 500 26px 'Outfit', sans-serif; color: #f4dfaf; }
+.coins-gain-scope, #coins-gain-status { color: #a3b0c4; font-size: 12px; line-height: 1.7; margin: 14px 0; }
+.coins-gain-card { padding: 18px 0 24px; border-top: 1px solid #344056; }
+.coins-gain-reward { margin-bottom: 12px; color: #a3b0c4; font-size: 12px; }
+#coins-gain-dialog .mascot-speech { margin-bottom: 0; }
+@media (max-width: 640px) {
+  #coins-gain-dialog { width: calc(100% - 16px); max-height: calc(100dvh - 16px); padding: 16px 10px; }
+}
+.coins-gain-navigation { display: flex; justify-content: flex-end; padding-top: 12px; }
+.coins-gain-navigation .btn { min-width: 110px; }

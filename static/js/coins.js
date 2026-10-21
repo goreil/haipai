@@ -81,8 +81,8 @@ async function showCoins() {
       <p class="coins-rates">Report an issue: 10 × EV · Reports that lead to fixes: an additional 100 × EV · Maka ranks: ${data.maka_rate} coins per grade</p>
       <section class="coins-gain" aria-labelledby="coins-gain-title">
         <h3 id="coins-gain-title">Gain coins</h3>
-        <p>Your top 5 hands by EV loss with no Haipai explanation. Open a hand and share your read to earn coins, once per hand.</p>
-        <div id="coins-gain-list" role="status">Finding your highest-EV complex hands…</div>
+        <p>Review complex hands and share your read to earn coins.</p>
+        <button class="btn" data-action="showCoinGain">Gain coins ↗</button>
       </section>
       <div class="coins-log-heading"><h3>Activity</h3></div>
       <ul class="coin-log" id="coin-log">${coinMakaSummaryHtml(data.totals.maka_grade || 0)}${coinEntriesHtml(data.entries)}${
@@ -90,7 +90,6 @@ async function showCoins() {
       <div class="coins-load"><button class="btn" id="coins-more" data-action="loadMoreCoins" ${data.next_before ? "" : "hidden"}>Show more activity</button>
         <p id="coins-status" role="status"></p></div>
     </section>`;
-    loadCoinGain(generation);
   } catch (_) {
     if (generation === coinHistory.generation && parseTabHash() === "coins") {
       content.innerHTML = '<div class="coins-page empty-state">Could not load your coins. <button class="btn" data-action="showCoins">Try again</button></div>';
@@ -125,57 +124,92 @@ async function loadMoreCoins() {
   }
 }
 
+// Own modal state keeps report edits independent of the game behind the window.
+var coinGain = { hands: [], worker: null, timer: null, opener: null, before: null, loading: false };
+
 function coinGainHtml(hands) {
-  if (!hands.length) return '<p class="coins-gain-empty">No unreported complex hands available. Add more games to find new opportunities.</p>';
-  return `<ol class="coins-gain-hands">${hands.map(hand => `
-    <li><a href="#m${hand.id}">
-      <span><strong>${escapeHtml(hand.round_name)} · Turn ${hand.turn}</strong>
-        <small>Game #${hand.game_id} · ${hand.ev_loss.toLocaleString(undefined, {maximumFractionDigits: 3})} EV loss</small></span>
-      <span class="coin-earned">+${hand.coins.toLocaleString()}<small>coins ↗</small></span>
-    </a></li>`).join("")}</ol>`;
+  return hands.map(hand => `<article class="coins-gain-card">
+    <div class="coins-gain-reward"><span>Game #${hand.game_id}</span>
+      <span class="coin-earned">+${hand.coins.toLocaleString()}<small>coins for your report</small></span></div>
+    ${renderMistakeCard(hand.mistake)}${trainerBubbleHtml(hand.mistake)}
+  </article>`).join("");
 }
 
-// Candidates span all own games in EV order. Prepare each game once and stop
-// only after finding the five highest-EV complex hands.
-async function findCoinGain(candidates, loadGame, isCurrent) {
-  const games = new Map();
-  const hands = [];
-  for (const candidate of candidates) {
-    if (!isCurrent()) return null;
-    if (!games.has(candidate.game_id)) {
-      const game = await loadGame(candidate.game_id);
-      // Retain IDs only; full prepared games and Mortal logs can be large.
-      games.set(candidate.game_id, new Set((game.rounds || []).flatMap(round => round.mistakes || [])
-        .filter(m => !m.my_report && m.shape === "complex").map(m => m.id)));
-    }
-    if (!isCurrent()) return null;
-    if (games.get(candidate.game_id).has(candidate.id)) hands.push(candidate);
-    if (hands.length === 5) break;
-  }
-  return hands;
+function stopCoinGain() {
+  coinGain.worker?.terminate();
+  coinGain.worker = null;
+  clearTimeout(coinGain.timer);
+  coinGain.loading = false;
 }
 
-async function loadCoinGain(generation) {
-  const isCurrent = () => generation === coinHistory.generation && parseTabHash() === "coins";
+function closeCoinGain() {
+  stopCoinGain();
+  document.getElementById("coins-gain-dialog")?.remove();
+  coinGain.hands = [];
+  coinGain.opener?.focus();
+  coinGain.opener = null;
+}
+
+function showCoinGain() {
+  if (document.getElementById("coins-gain-dialog")) return;
+  coinGain.opener = document.activeElement;
+  coinGain.hands = [];
+  coinGain.before = null;
+  const dialog = document.createElement("dialog");
+  dialog.id = "coins-gain-dialog";
+  dialog.setAttribute("aria-labelledby", "coins-gain-window-title");
+  dialog.innerHTML = `<div class="coins-gain-window-heading"><h2 id="coins-gain-window-title">Gain coins</h2>
+    <button class="btn" data-action="closeCoinGain" aria-label="Close gain coins">Close ×</button></div>
+    <p class="coins-gain-scope">Review one unreported complex hand at a time, highest EV loss first.
+      Share your read to earn coins, or choose Next to keep searching through your games.</p>
+    <p id="coins-gain-status" role="status">Finding complex hands…</p>
+    <div id="coins-gain-list"></div>
+    <div class="coins-gain-navigation"><button class="btn" id="coins-gain-next" data-action="nextCoinGain">Next →</button></div>`;
+  dialog.addEventListener("cancel", event => { event.preventDefault(); closeCoinGain(); });
+  dialog.addEventListener("click", event => { if (event.target === dialog) closeCoinGain(); });
+  document.body.append(dialog);
+  dialog.showModal();
+  nextCoinGain();
+}
+
+function nextCoinGain() {
+  if (coinGain.loading) return;
+  coinGain.loading = true;
+  coinGain.hands = [];
+  const button = document.getElementById("coins-gain-next");
+  button.disabled = true;
+  document.getElementById("coins-gain-list").innerHTML = "";
+  document.getElementById("coins-gain-status").textContent = "Finding the next complex hand…";
+  document.getElementById("coins-gain-dialog").scrollTop = 0;
+  const finish = (message, exhausted = false) => {
+    clearTimeout(coinGain.timer);
+    coinGain.loading = false;
+    button.disabled = exhausted;
+    document.getElementById("coins-gain-status").textContent = message;
+    document.getElementById("coins-gain-list").innerHTML = coinGainHtml(coinGain.hands);
+  };
+  coinGain.timer = setTimeout(() => {
+    stopCoinGain();
+    finish("No match within the time limit. Choose Next to continue searching.");
+  }, 1800);
   try {
-    const response = await fetch("/api/me/coins/gain");
-    if (!response.ok) throw new Error("Could not load opportunities");
-    const data = await response.json();
-    const hands = await findCoinGain(data.candidates, async id => {
-      const [res, mres] = await Promise.all([
-        fetch(`/api/games/${id}`), fetch(`/api/games/${id}/mortal?v=2`),
-      ]);
-      if (!res.ok || !mres.ok) throw new Error("Could not analyze game");
-      const game = await res.json();
-      game.mortal_data = await mres.json();
-      if (!game.mortal_data) throw new Error("Game analysis unavailable");
-      await haipaiPrep.prepGameAsync(game, game.mortal_data);
-      recategorizeGameInPlace(game);
-      return game;
-    }, isCurrent);
-    if (isCurrent() && hands) document.getElementById("coins-gain-list").innerHTML = coinGainHtml(hands);
+    if (!coinGain.worker) coinGain.worker = new Worker("/static/js/coins-worker.js");
+    coinGain.worker.onmessage = ({data}) => {
+      if (data.before) coinGain.before = data.before;
+      if (data.hand) { coinGain.hands = [data.hand]; finish(""); }
+      if (data.done) finish("You've reached the end of your unreported hands.", true);
+      if (data.error) {
+        stopCoinGain();
+        finish("Could not analyze your hands. Choose Next to try again.");
+      }
+    };
+    coinGain.worker.onerror = () => {
+      stopCoinGain();
+      finish("Could not analyze your hands. Choose Next to try again.");
+    };
+    coinGain.worker.postMessage({before: coinGain.before});
   } catch (_) {
-    if (isCurrent()) document.getElementById("coins-gain-list").textContent =
-      "Could not analyze your hands. Reopen Community coins to try again.";
+    stopCoinGain();
+    finish("Could not start analysis. Choose Next to try again.");
   }
 }

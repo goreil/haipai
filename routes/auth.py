@@ -2,6 +2,7 @@
 """Auth routes: login/register/logout, OAuth (discord + google), /api/me + /api/me/*."""
 
 import json
+import math
 import os
 import re
 import secrets
@@ -282,7 +283,20 @@ def api_my_coins():
 @login_required
 def api_coin_gain():
     from app import get_conn
-    return jsonify({"candidates": coins.gain_candidates(get_conn(), current_user.id)})
+    raw = request.args.get('before')
+    if raw is not None and (len(raw) > 19 or not raw.isascii() or not raw.isdigit() or not 0 < int(raw) < 2**63):
+        return jsonify({'error': 'Invalid gain cursor'}), 400
+    raw_ev = request.args.get('before_ev')
+    if (raw is None) != (raw_ev is None):
+        return jsonify({'error': 'Gain cursor requires both before and before_ev'}), 400
+    try:
+        before_ev = float(raw_ev) if raw_ev is not None else None
+        if before_ev is not None and (not math.isfinite(before_ev) or not 0.05 <= before_ev <= 10**12):
+            raise ValueError
+    except ValueError:
+        return jsonify({'error': 'Invalid gain EV cursor'}), 400
+    return jsonify({"candidates": coins.gain_candidates(
+        get_conn(), current_user.id, int(raw) if raw is not None else None, before_ev)})
 
 
 @auth_bp.route("/api/me/display-name", methods=["POST"])

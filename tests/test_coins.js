@@ -34,32 +34,69 @@ test('Maka renders as one total, with no grade lines or invented date', () => {
   assert.equal(ctx.coinMakaSummaryHtml(0), '');
 });
 
-test('gain list skips explained and reported hands, ranks across games, and prepares each once', async () => {
-  const candidates = Array.from({length: 12}, (_, i) => ({id: i + 1, game_id: i < 8 ? 1 : 2}));
-  const loads = [];
-  const hands = await ctx.findCoinGain(candidates, async id => {
-    loads.push(id);
-    return {rounds: [{mistakes: candidates.filter(c => c.game_id === id).map(c => ({
-      id: c.id, shape: c.id < 5 ? 'speed' : 'complex', my_report: c.id === 6 ? {} : null,
-    }))}]};
-  }, () => true);
-  assert.deepEqual(Array.from(hands, h => h.id), [5, 7, 8, 9, 10]);
-  assert.deepEqual(loads, [1, 2]);
-});
-
-test('gain list stops when navigating away', async () => {
-  let current = true;
-  const hands = await ctx.findCoinGain([{id: 1, game_id: 2}], async () => {
-    current = false;
-    return {rounds: []};
-  }, () => current);
-  assert.equal(hands, null);
-});
-
-test('gain rows link directly to hands and escape labels', () => {
-  const html = ctx.coinGainHtml([{id: 12, game_id: 2, round_name: '<East 1>', turn: 3, ev_loss: 1.55, coins: 16}]);
-  assert.match(html, /href="#m12"/);
-  assert.match(html, /&lt;East 1&gt;/);
+test('gain cards embed the full mistake and report funnel', () => {
+  ctx.renderMistakeCard = m => `<div class="mistake">${m.id}</div>`;
+  ctx.trainerBubbleHtml = m => `<div class="report-row">report ${m.id}</div>`;
+  const html = ctx.coinGainHtml([{id:12, game_id:2, coins:16, mistake:{id:12}}]);
+  assert.match(html, /class="mistake"/);
+  assert.match(html, /class="report-row"/);
   assert.match(html, /\+16/);
-  assert.match(ctx.coinGainHtml([]), /No unreported complex hands/);
+});
+
+test('worker finds one hand per Next, skips reports, pages beyond five and reuses game payloads', async () => {
+  const candidates = Array.from({length:16}, (_,i) => ({id:16-i, game_id:i<8?2:1,
+    round_idx:0, mistake_idx:i, ev_loss:(16-i)/10}));
+  const messages = [], loads = [], preps = [];
+  const worker = vm.createContext({
+    importScripts: () => {},
+    postMessage: message => messages.push(message),
+    fetch: async url => {
+      loads.push(url);
+      const before = Number(new URL(url, 'https://test').searchParams.get('before')) || Infinity;
+      return {ok:true, json:async () => url.includes('/coins/gain')
+        ? {candidates:candidates.filter(c => c.id < before).slice(0,3)}
+        : url.includes('/mortal') ? {} : {rounds:[{mistakes:candidates.map(c => ({id:c.id,
+          shape:c.id>12?'obvious':'complex', my_report:c.id===10?{}:null}))}]}};
+    },
+    haipaiPrep: {prepReport:(m,md,ri,mi) => preps.push([m.id,ri,mi])},
+    haipaiCategorize: {categorize:m => ({shape:m.shape})},
+  });
+  vm.runInContext(fs.readFileSync('static/js/coins-worker.js','utf8'),worker);
+  assert.equal(loads.length,0, 'idle until Next requested');
+  let before = null;
+  for (let i=0; i<12; i++) {
+    const previous = messages.filter(m => m.hand).length;
+    await worker.onmessage({data:{before}});
+    const hands = messages.filter(m => m.hand);
+    assert.ok(hands.length-previous <= 1, 'at most one result per request');
+    for (const message of messages) if (message.before) before = message.before;
+  }
+  assert.deepEqual(messages.filter(m => m.hand).map(m => m.hand.id),[12,11,9,8,7,6,5,4,3,2,1]);
+  assert.equal(messages.at(-1).done,true);
+  assert.equal(loads.filter(url => url.includes('/games/')).length,4);
+  assert.equal(preps.length,15);
+  assert.deepEqual(preps[0],[16,0,0]);
+});
+
+test('worker imports and runs the real prep and categorizer without browser DOM globals', async () => {
+  const mortal = JSON.parse(fs.readFileSync('tests/fixtures/win_m323.json','utf8'));
+  const entry = mortal.review.kyokus[0].entries[0];
+  const mistake = {id:323, hand:entry.state.tehai, melds:entry.state.fuuros,
+    actual:entry.actual, expected:entry.expected, draw:entry.tile, turn:entry.junme,
+    ev_loss:2.42, top_actions:entry.details};
+  const messages = [];
+  const worker = vm.createContext({console, onmessage:null, postMessage:m => messages.push(m),
+    fetch:async url => ({ok:true,json:async () => url.includes('/coins/gain')
+      ? {candidates:url.includes('?') ? [] : [{id:323,game_id:1,round_idx:0,mistake_idx:0}]}
+      : url.includes('/mortal') ? mortal : {rounds:[{mistakes:[mistake]}]}}),
+  });
+  worker.self = worker;
+  worker.importScripts = (...paths) => {
+    for (const path of paths) vm.runInContext(fs.readFileSync('static/js/'+path,'utf8'),worker);
+  };
+  vm.runInContext(fs.readFileSync('static/js/coins-worker.js','utf8'),worker);
+  await worker.onmessage({data:{before:null}});
+  if (!messages.at(-1)?.done) await worker.onmessage({data:{before:{id:323,ev_loss:2.42}}});
+  assert.equal(messages.at(-1).done,true, JSON.stringify(messages));
+  assert.equal(messages.some(m => m.error),false);
 });

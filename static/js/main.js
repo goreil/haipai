@@ -157,6 +157,7 @@ function navTab(slug) {
 // renderGame can scroll to it, and switches to rounds so the
 // target card is actually on screen.
 async function applyHashRoute() {
+  closeCoinGain();
   const mistakeId = parseMistakeHash();
   if (mistakeId != null) {
     const res = await fetch(`/api/mistakes/${mistakeId}/locate`);

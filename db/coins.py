@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from lib.report_quotes import quoted_report
 
 MAKA_COINS = 5
+GAIN_CANDIDATE_LIMIT = 30
 
 
 def report_coins(ev_loss, *, rate=100):
@@ -85,17 +86,19 @@ def award_submission(conn, report_id):
     )
 
 
-def gain_candidates(conn, user_id):
-    """All eligible own hands in EV order; the browser computes the live shape."""
+def gain_candidates(conn, user_id, before=None, before_ev=None):
+    """Page through eligible hands by highest EV loss, without a total search limit."""
     rows = conn.execute(
-        """SELECT m.id, m.game_id, m.round_name, m.turn, m.ev_loss
+        """SELECT m.id, m.game_id, m.round_name, m.round_idx, m.mistake_idx, m.turn, m.ev_loss
            FROM mistakes m JOIN games g ON g.id = m.game_id
-           WHERE g.user_id = ? AND m.ev_loss > 0
+           WHERE g.user_id = ? AND m.ev_loss >= 0.05
+             AND (? IS NULL OR m.ev_loss < ? OR (m.ev_loss = ? AND m.id < ?))
              AND NOT EXISTS (SELECT 1 FROM category_reports r
                              WHERE r.user_id = ? AND r.mistake_id = m.id)
              AND NOT EXISTS (SELECT 1 FROM community_coins c
                              WHERE c.user_id = ? AND c.kind = 'report_submit' AND c.source_key = m.coin_key)
-           ORDER BY m.ev_loss DESC, m.id DESC""", (user_id, user_id, user_id),
+           ORDER BY m.ev_loss DESC, m.id DESC LIMIT ?""",
+        (user_id, before_ev, before_ev, before_ev, before, user_id, user_id, GAIN_CANDIDATE_LIMIT),
     ).fetchall()
     return [{**dict(row), 'coins': report_coins(row['ev_loss'], rate=10)} for row in rows
             if report_coins(row['ev_loss'], rate=10) > 0]

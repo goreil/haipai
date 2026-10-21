@@ -361,6 +361,10 @@ function renderComplexGapFunnel(m) {
 }
 
 function _findMistakeById(mid) {
+  if (typeof coinGain !== "undefined") {
+    const hand = coinGain.hands.find(h => h.id === mid);
+    if (hand) return hand.mistake;
+  }
   if (!state.currentGameData) return null;
   for (const rnd of state.currentGameData.rounds || []) {
     for (const m of rnd.mistakes || []) {
@@ -485,6 +489,8 @@ async function onReportClear(mid) {
     if (status) { status.textContent = "Network error"; status.className = "report-status err"; }
     return;
   }
+  const mistake = _findMistakeById(mid);
+  if (mistake) mistake.my_report = null;
   // Drop the report from the in-memory mistake so re-renders match the new state.
   if (state.currentGameData) {
     for (const rnd of state.currentGameData.rounds || []) {
