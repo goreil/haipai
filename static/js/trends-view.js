@@ -10,6 +10,20 @@
 // Persisted past snapshots loaded from /api/trends/snapshots. Cached for the
 // SPA session; refreshed after a fresh analysis auto-saves a new row.
 var trendsSnapshots = null;
+var trendsChartGames = [];
+
+function updateTrendsGameLimit(value) {
+  const limit = Number(value);
+  if (![10, 20, 50].includes(limit)) return;
+  const chart = document.getElementById("trends-ev-chart");
+  if (!chart) return;
+  // Slice before filtering so the limit counts games without decision data too.
+  const games = trendsChartGames.slice(-limit).filter(g => Number.isFinite(g.ev_per_decision));
+  chart.innerHTML = games.length ? renderLineChart(games, "ev_per_decision", {
+    color: "#4fc3f7",
+    yLabel: "Grade",
+  }) : '<div class="empty-state">No decision data in these games.</div>';
+}
 
 async function fetchTrends() {
   const res = await fetch("/api/trends");
@@ -93,26 +107,24 @@ function renderTrends(games) {
     </div>`;
   }
 
-  // Chart 1: EV per decision over time
+  // Chart range affects only this chart; summaries and analysis use all games.
   if (gamesWithDecisions.length >= 2) {
     html += `<div class="trend-chart-card">
-      <h3>EV Loss per Decision</h3>
-      <div class="trend-chart">${renderLineChart(gamesWithDecisions, "ev_per_decision", {
-        color: "#4fc3f7",
-        avgColor: "#4fc3f740",
-        format: v => v.toFixed(3),
-        yLabel: "EV/Decision",
-      })}</div>
+      <div class="trend-chart-header">
+        <h3>EV Loss per Decision</h3>
+        <label class="trend-game-limit">Games shown
+          <select data-change-action="updateTrendsGameLimit" aria-label="Games shown in EV loss chart">
+            <option value="10" selected>Last 10 games</option>
+            <option value="20">Last 20 games</option>
+            <option value="50">Last 50 games</option>
+          </select>
+        </label>
+      </div>
+      <div id="trends-ev-chart" class="trend-chart"></div>
     </div>`;
   }
 
-  // Chart 2: Severity breakdown over time
-  html += `<div class="trend-chart-card">
-    <h3>Mistakes by Severity</h3>
-    <div class="trend-chart">${renderStackedBarChart(games)}</div>
-  </div>`;
-
-  // Chart 3: personalized recommendation + concept-level ledger/trade-off
+  // Personalized recommendation + concept-level ledger/trade-off
   // breakdown (same shape as a single game's summary — see
   // docs/backlogs/MISTAKE-DIMENSIONS-EXTRAS.md, EXTRAS-C). The per-game
   // win-vector rollup is computed client-side (the JS categorizer overrides
@@ -126,6 +138,8 @@ function renderTrends(games) {
   html += `<div id="snapshots-history">${renderSnapshotsHistory(trendsSnapshots || [])}</div>`;
 
   content.innerHTML = html;
+  trendsChartGames = games;
+  updateTrendsGameLimit(10);
 }
 
 // Wrapper that shows either the stashed analysis panels (cache hit + a

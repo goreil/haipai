@@ -130,6 +130,7 @@ var HAIPAI_CLICK_ACTIONS = {
 
 // name -> fn(el, event), for the `change` event (selects, checkboxes).
 var HAIPAI_CHANGE_ACTIONS = {
+  updateTrendsGameLimit: (el) => updateTrendsGameLimit(el.value),
   setTerminology: (el) => {
     const saved = HaipaiTerminology.setLanguage(el.value);
     document.getElementById("terminology-status").textContent = saved

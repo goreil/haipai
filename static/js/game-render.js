@@ -3,6 +3,11 @@
 // mistake/category-group rendering, view-toggle helpers, and the
 // navigate-home action that wipes the detail pane and re-renders the list.
 
+// Inverse of the grade curve, shared by rating tooltips and trend axes.
+function gameRatingBoundary(index) {
+  return ((21.124813514948926 - index) / 24.895305056375324) ** 2;
+}
+
 // Shared fixed scale for games and hands; always uses all evaluated mistakes.
 function gameRating(summary) {
   if (!summary || !Number.isFinite(summary.total_decisions) || summary.total_decisions <= 0
@@ -14,7 +19,7 @@ function gameRating(summary) {
   const letter = letters[Math.floor(index / 3)];
   const modifier = ["−", "", "+"][index % 3];
   // Half-step boundaries invert the same curve used above, including the capped ends.
-  const boundary = value => ((21.124813514948926 - value) / 24.895305056375324) ** 2;
+  const boundary = gameRatingBoundary;
   const threshold = index === 17 ? `≤ ${boundary(16.5).toFixed(4)}`
     : index === 1 ? `> ${boundary(1.5).toFixed(4)}`
     : `${boundary(index + 0.5).toFixed(4)}–${boundary(index - 0.5).toFixed(4)}`;
