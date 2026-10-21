@@ -4,7 +4,10 @@
 
 **Updated**: 2026-10-21
 
-**Status**: Investigated; design proposed; implementation not started.
+**Status**: HP-01 structural engine implemented and tested; no consumers yet.
+See [the engine contract](../hand-blocks.md) for API, retention and profiling.
+The proposed WASM integration overhead target is not met; optimize before
+eager per-decision integration.
 
 **Scope**: A shared client-side decomposition engine, a beginner-facing block
 view, and subsequent improvements to structural explanations.
@@ -289,19 +292,29 @@ During investigation, these existing checks passed: **16 tests**.
 node --test tests/test_yaku_guards.js tests/test_dora_acceptance.js tests/test_double_yakuhai.js
 ```
 
-No engine, UI, regression tests, coin awards or report status changes have
-been implemented as part of this design work. During implementation, run the
+At the end of the design investigation, no engine, UI, regression tests, coin
+awards or report status changes had been implemented. The subsequent HP-01
+implementation adds the pure engine, isolated fixtures/tests, and a repeatable
+benchmark; application prep, UI and comparison consumers remain future stages.
+During implementation, run the
 full Python suite and relevant JavaScript/component checks, inspect the UI,
 and record comparable before/after timings. Report-driven fixes must also
 follow `AGENTS.md` and the category-reports skill, including preserved fixtures,
 eligible coin awards and fully resolved report history.
 
-## Decisions to settle during HP-01
+## HP-01 decisions and remaining consumer work
 
-- Candidate pruning and retention limits that preserve meaningful alternatives
-  without uncontrolled enumeration.
-- A deterministic default view and how many alternatives beginners should see.
+The engine contract defines canonical allocation/head equivalence, exhaustive
+enumeration with bounded retained samples, deterministic geometric ordering,
+and an instance-local bounded LRU. Context-dependent availability is evaluated
+separately, without caching board state. Truncated samples explicitly cannot
+establish that another interpretation is impossible. The JavaScript engine is
+implemented first; benchmark results and limitations belong in the contract.
+
+These consumer decisions remain open:
+
+- How many retained alternatives beginners should see in the default view.
 - Exact criteria for a genuine spare, a useful improvement opportunity and
   sufficient block quality, including live tiles and competing head choices.
 - Evidence required to display early-hand yaku development before tenpai.
-- Cache scope, invalidation and whether profiling justifies a native/WASM path.
+- Whether integration profiling justifies further pruning or a native/WASM path.
