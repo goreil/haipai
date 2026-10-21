@@ -6,8 +6,78 @@ no-use-yet disclaimer, admin award action, and Codex-friendly batch CLI.
 See [Community coins operations](../COMMUNITY-COINS.md) and the repository's
 `AGENTS.md` for the implemented behavior and award commands.
 
-The proposal and payout review below are retained as planning history;
-the previously undecided rate and implementation items have been resolved.
+The feature-request proposal below is backlog work, not implemented behavior.
+The original coin proposal and payout review that follow it are retained as
+planning history; their previously undecided rate and implementation items
+have been resolved.
+
+## Backlog: public feature requests supported with coins
+
+Added 2026-10-21. Give community coins a meaningful use by letting contributors
+submit feature requests and support existing ones. All requests are visible to
+everyone. More committed coins place a request higher in the feature-request
+list. Rejected requests refund their contributors.
+
+### Proposed first version
+
+- Require **100 coins to create a request** as an initial threshold. Allow
+  smaller contributions to existing requests; choose that minimum before
+  implementation. Encourage searching for an existing request before posting.
+- Rank by the **total coins committed by all supporters**, including the
+  creator. Show both coins and distinct supporter count, for example
+  **500 coins · 12 supporters**.
+- Offer **Most supported**, **Newest**, and **Recently updated** views so new
+  requests can be discovered alongside established ones.
+- Show a clear status: **Open**, **Planned**, **In progress**, **Shipped**,
+  **Declined**, or **Cancelled**. Keep decisions and a short explanation public.
+- Keep bug reporting free. Spending coins must never be required to have an
+  incorrect explanation or another defect investigated or fixed.
+
+### Proposed coin lifecycle
+
+- Reserve coins when a user creates or supports a request; show available
+  coins separately from reserved coins so they cannot be committed twice.
+- Allow withdrawal while a request is Open or Planned. When work begins,
+  lock contributions; explain this rule before the user contributes.
+- Spend reserved coins only when the feature ships. Acceptance or planning
+  alone does not spend them.
+- Automatically refund **every contributor** if a request is declined or
+  cancelled, including cancellation after work begins. Record refunds in the
+  user's private coin history and notify affected supporters.
+- Merge duplicate requests while preserving support and contribution history.
+  Let users reclaim duplicate contributions created by a merge.
+
+### Expectations and fairness
+
+Coin support expresses demand; it does not purchase a delivery commitment.
+Place this explanation beside the contribution action:
+
+> Coins help show which features the community wants. Higher support does not
+> guarantee development or a delivery date. Coins are refunded if the request
+> is declined or cancelled.
+
+Publish status updates and review requests regularly. An indefinitely pending
+request can leave users feeling their coins are trapped. Coin balances reflect
+past contributions and can be concentrated among a few people; supporter counts
+help distinguish broad interest from a large contribution by one person.
+Keep individual balances and private coin activity private when displaying
+public request totals.
+
+### Decisions and validation before implementation
+
+- Check the current balance distribution and typical effort needed to earn
+  100 coins before making the creation threshold permanent. Avoid excluding
+  most newer contributors.
+- Choose the minimum support amount, tie-breaking rule, and review cadence.
+- Define what counts as shipped, especially if only part of a request is
+  delivered; do not spend coins against materially changed scope without a
+  clear policy communicated before contribution.
+- Confirm withdrawal and locking rules, and decide how stale requests are
+  reviewed or closed with refunds.
+- Validate the create/support flow, insufficient-balance explanation,
+  withdrawal, status updates, duplicate merging, and refund experience on
+  desktop and mobile. Verify coin operations are transactional, cannot
+  overspend a balance, and cannot issue duplicate refunds.
 
 ## Intent
 
