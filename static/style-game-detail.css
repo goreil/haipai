@@ -2625,7 +2625,7 @@
 
 /* Category-report card. Each card is a wrapper that:
    1. Identifies the report (id / kind / user) in a top strip with the
-      Delete action.
+      completion action or fixed status.
    2. Shows the reporter's quoted reason (and optional category suggestion).
    3. Embeds the full mistake card the reporter actually saw, so the admin
       can review the same UI the user reported on.
@@ -2697,6 +2697,22 @@
   display: inline-flex;
   gap: 6px;
 }
+
+.report-fixed-badge {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.report-resolution {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.report-resolution .admin-meta { margin-left: 6px; }
+.report-resolution p { margin: 4px 0 0; white-space: pre-wrap; }
 
 .report-card .report-reason {
   padding: 10px 16px;

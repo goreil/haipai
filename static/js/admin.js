@@ -2,7 +2,7 @@
 // impersonation. Impersonate banner rendering also lives here.
 
 var adminState = { users: [], reports: [], reportKind: "", reportSort: "ev", reportScope: "others", reportsLoading: false,
-                   reportPageSize: 10, reportPage: 0, reportIds: [],
+                   reportPageSize: 10, reportPage: 0, reportIds: [], reportStatus: "open",
                    mau: 0, mauTrend: [],
                    makaRanks: { count: 0, undated: 0, since: "" },
                    userSort: { col: "latest_game", dir: "desc" },
@@ -26,7 +26,7 @@ async function showAdmin(reportHash = "") {
 
   const [statsRes, reportsRes] = await Promise.all([
     fetch("/api/admin/stats"),
-    fetch(`/api/admin/category-reports?scope=${encodeURIComponent(adminState.reportScope)}`),
+    fetch(adminReportsUrl()),
   ]);
   if (statsRes.status === 403) {
     content.innerHTML = '<div class="empty-state">Admin access required</div>';
@@ -61,12 +61,21 @@ async function loadSnapshotHistory() {
 
 // Re-fetch reports for the currently selected scope and re-render in place.
 // Used when the admin switches between "Other players" and "All reports".
+function adminReportsUrl() {
+  return `/api/admin/category-reports?scope=${encodeURIComponent(adminState.reportScope)}&status=${encodeURIComponent(adminState.reportStatus)}`;
+}
+
+async function adminSetReportStatus(status) {
+  adminState.reportStatus = status;
+  await reloadAdminReports(adminState.reportScope);
+}
+
 async function reloadAdminReports(scope) {
   adminState.reportScope = scope;
   adminState.reportPage = 0;
   adminState.reportsLoading = true;
   renderAdmin();
-  const res = await fetch(`/api/admin/category-reports?scope=${encodeURIComponent(scope)}`);
+  const res = await fetch(adminReportsUrl());
   const payload = res.ok ? await res.json() : { reports: [], mortal_data_by_game: {} };
   adminState.reports = payload.reports || [];
   prepAndCategorizeReports(adminState.reports, payload.mortal_data_by_game || {});
@@ -154,6 +163,7 @@ function applyAdminReportHash(hash) {
   if (!ids.length) throw new Error("Provide at least one report ID.");
   adminState.reportIds = ids;
   adminState.reportScope = "all";
+  adminState.reportStatus = "all";
   adminState.reportKind = "";
   adminState.reportPageSize = "unlimited";
   adminState.reportPage = 0;
@@ -312,9 +322,7 @@ function renderAdmin() {
   // whole admin render.
   html += `<div id="category-snapshot-panel">${snapshotPanelHtml()}</div>`;
 
-  // Category reports — each report embeds the full mistake card the
-  // reporting user saw; the admin's only action is Delete (after fixing
-  // the underlying category/copy via a Claude skill).
+  // Open feedback and preserved fix history share the same hand cards.
   const reports = adminState.reports || [];
   const reportKind = adminState.reportKind;
   const reportScope = adminState.reportScope;
@@ -330,6 +338,11 @@ function renderAdmin() {
   const counts = reports.reduce((a, r) => { a[r.kind] = (a[r.kind] || 0) + 1; return a; }, {});
   html += `<div class="game-header" style="margin-top:8px"><h2>Category reports <span class="admin-report-total">${reports.length}</span></h2></div>`;
   html += `<div id="admin-report-controls" class="admin-filters admin-report-controls">
+    <label>Report status<select data-change-action="adminSetReportStatus" ${adminState.reportsLoading ? "disabled" : ""}>
+      <option value="open" ${adminState.reportStatus === "open" ? "selected" : ""}>Open reports</option>
+      <option value="fixed" ${adminState.reportStatus === "fixed" ? "selected" : ""}>Fixed reports</option>
+      <option value="all" ${adminState.reportStatus === "all" ? "selected" : ""}>Open and fixed</option>
+    </select></label>
     <label>Players<select data-change-action="reloadAdminReports">
       <option value="others" ${reportScope==="others"?"selected":""}>Other player reports</option>
       <option value="all" ${reportScope==="all"?"selected":""}>All reports</option>
@@ -354,7 +367,7 @@ function renderAdmin() {
         <button class="btn btn-sm" type="submit">Apply filter</button>
         <button class="btn btn-sm" type="button" data-action="adminClearReportIds">Clear</button>
       </div>
-      <small id="admin-report-id-help">Separate IDs with commas or spaces. Applies within the selected players and report kind.</small>
+      <small id="admin-report-id-help">Separate IDs with commas or spaces. Applies within the selected status, players and report kind.</small>
     </form>
     <span class="admin-report-summary" aria-live="polite">${adminState.reportsLoading ? "Loading reports…" : `Showing ${page.total ? `${page.start}–${page.end}` : "0"} of ${page.total} reports`}
       <small>${adminState.reportSort === "date" ? "Newest reports first" : "Highest EV loss first"}${adminState.reportIds.length ? ` · ${adminState.reportIds.length} IDs selected` : ""}</small>
@@ -677,7 +690,7 @@ async function adminDeleteUser(userId) {
   showAdmin();
 }
 
-// Render one category report: top strip (id / kind / user / Delete) +
+// Render one category report: top strip (id / kind / user / resolution) +
 // reason quote + the full mistake card the reporter actually saw.
 function renderReportCard(r) {
   const date = new Date(r.created_at + "Z").toLocaleString();
@@ -698,12 +711,18 @@ function renderReportCard(r) {
       ${catBadge}
       <span class="report-by"><span class="user">@${escapeHtml(r.username)}</span><span class="date">${date}</span></span>
       <span class="report-actions">
-        ${r.awarded_coins != null
-          ? `<span class="report-coin-awarded">✓ ${r.awarded_coins.toLocaleString()} coins awarded</span>`
-          : `<button class="btn btn-sm" data-action="adminAwardReport" data-report-id="${r.id}">Fixed · award coins</button>`}
-        <button class="btn btn-sm btn-delete" data-action="adminDeleteReport" data-report-id="${r.id}">Delete</button>
+        ${r.awarded_coins != null ? `<span class="report-coin-awarded">✓ ${r.awarded_coins.toLocaleString()} coins awarded</span>` : ""}
+        ${r.fixed_at ? '<span class="report-fixed-badge">✓ Fixed</span>'
+          : `<button class="btn btn-sm" data-action="adminFixReport" data-report-id="${r.id}">${r.awarded_coins != null ? "Mark fixed" : "Fixed · award coins"}</button>`}
       </span>
     </div>`;
+
+  if (r.fixed_at) {
+    const fixedDate = new Date(r.fixed_at + "Z").toLocaleString();
+    html += `<div class="report-resolution"><strong>Fixed ${escapeHtml(fixedDate)}</strong>
+      <span class="admin-meta">${r.fixed_by_username ? `by @${escapeHtml(r.fixed_by_username)}` : ""}</span>
+      ${r.fix_note ? `<p>${escapeHtml(r.fix_note)}</p>` : ""}</div>`;
+  }
 
   if (r.reason || r.suggested_category) {
     html += `<div class="report-reason">
@@ -746,18 +765,6 @@ function renderReportCard(r) {
   return html;
 }
 
-async function adminDeleteReport(reportId) {
-  if (!window.confirm("Delete this category report? This cannot be undone.")) return;
-  const res = await apiDelete(`/api/admin/category-reports/${reportId}`);
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    alert(data.error || "Failed to delete report");
-    return;
-  }
-  adminState.reports = (adminState.reports || []).filter(x => x.id !== reportId);
-  renderAdmin();
-}
-
 async function adminStopImpersonate() {
   const res = await apiPost("/api/admin/impersonate/stop", {});
   if (!res.ok) {
@@ -789,18 +796,25 @@ function renderImpersonateBanner(me) {
 }
 
 
-async function adminAwardReport(reportId, button) {
+async function adminFixReport(reportId, button) {
+  const reason = window.prompt("Mark this report completely fixed and award any unpaid coins? Confirm the fix and regression tests are complete. Add an optional fix summary:", "");
+  if (reason === null) return;
   button.disabled = true;
   try {
-    const res = await apiPost(`/api/admin/category-reports/${reportId}/award`, {});
+    const res = await apiPost(`/api/admin/category-reports/${reportId}/fix`, { reason });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not award coins");
+    if (!res.ok) throw new Error(data.error || "Could not mark report fixed");
     const report = adminState.reports.find(r => r.id === reportId);
-    if (report) report.awarded_coins = data.amount;
+    if (report) Object.assign(report, { fixed_at: data.fixed_at, fixed_by: data.fixed_by,
+      fix_note: data.fix_note, awarded_coins: data.amount,
+      fixed_by_username: (window._meData?.impersonating?.admin_username || window._meData?.username) });
+    if (adminState.reportStatus === "open") {
+      adminState.reports = adminState.reports.filter(r => r.id !== reportId);
+    }
     if (parseTabHash() === "admin") renderAdmin();
     refreshCoinBalance();
   } catch (error) {
-    alert(error.message || "Could not award coins. Please try again.");
+    alert(error.message || "Could not mark report fixed. Please try again.");
   } finally {
     button.disabled = false;
   }

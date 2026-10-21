@@ -75,7 +75,8 @@ def test_maka_edit_clear_repeat_atomic(client, monkeypatch):
 
 def test_backfill_deleted_reports_dedup_and_rollback(client):
     conn, uid, gid, mid, rid = setup_report(client)
-    db.delete_category_report(conn, rid)
+    conn.execute('DELETE FROM category_reports WHERE id = ?', (rid,))
+    conn.commit()
     for _ in range(2):
         db.create_message(conn, type='thanks', audience_user_id=uid, title=f'Fixed #{mid}',
                           body=f'<p>your report on mistake #{mid}; commit #abcdef and color #123456</p>')
@@ -224,7 +225,8 @@ def test_report_history_paginates_without_maka_lines(client):
 def test_history_quotes_only_the_matching_historical_mistake(client):
     conn, uid, gid, mid, rid = setup_report(client)
     _, other_mid = insert_game(uid)
-    db.delete_category_report(conn, rid)
+    conn.execute('DELETE FROM category_reports WHERE id = ?', (rid,))
+    conn.commit()
     db.create_message(conn, type='thanks', audience_user_id=uid, title=f'Fixed #{mid} / #{other_mid}',
                       body=f'<blockquote>More &lt;tiles&gt;<br>please<span class="quote-attr">'
                            f'— your report on mistake #{mid}, 2026-01-01</span></blockquote><p>Fixed.</p>')

@@ -233,7 +233,7 @@ class TestCategoryReports:
             db.submit_category_report(conn, uid, mid, kind="agree")
 
     def test_delete_category_report(self, sample_user):
-        """delete_category_report removes the row and reports True."""
+        """Legacy delete resolves the report while preserving its history."""
         conn, uid = sample_user
         gid, mid = _add_game_with_mistake(conn, uid)
         rid = db.submit_category_report(conn, uid, mid, kind="wrong_text",
@@ -241,9 +241,11 @@ class TestCategoryReports:
 
         assert db.delete_category_report(conn, rid) is True
         assert conn.execute(
-            "SELECT COUNT(*) FROM category_reports WHERE id = ?", (rid,)
-        ).fetchone()[0] == 0
-        # Second delete reports False since the row is gone.
+            "SELECT fixed_at FROM category_reports WHERE id = ?", (rid,)
+        ).fetchone()[0] is not None
+        assert db.list_category_reports(conn) == []
+        assert db.list_category_reports(conn, status="fixed")[0]["id"] == rid
+        # Already fixed; a repeat makes no change.
         assert db.delete_category_report(conn, rid) is False
 
     def test_submit_category_report_upserts(self, sample_user):

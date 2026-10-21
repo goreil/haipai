@@ -124,6 +124,7 @@ test("report links route to admin and show all requested IDs beyond 50 on one pa
   await context.applyHashRoute();
   assert.equal(routedHash, hash);
   assert.equal(context.adminState.reportScope, "all");
+  assert.equal(context.adminState.reportStatus, "all");
   assert.equal(context.adminState.reportKind, "");
   assert.equal(context.adminState.reportPageSize, "unlimited");
   assert.equal(context.adminState.reportPage, 0);
@@ -131,6 +132,32 @@ test("report links route to admin and show all requested IDs beyond 50 on one pa
   const page = context.adminReportPage(ranked, context.adminState.reportPageSize, context.adminState.reportPage);
   assert.equal(page.reports.length, 63);
   assert.equal(page.pages, 1);
+});
+
+test("completing a report preserves its report ID in history and removes it from open work", async () => {
+  const context = vm.createContext({
+    window: { prompt: () => "Fixed the comparison", _meData: { username: "admin" } },
+    parseTabHash: () => "admin", refreshCoinBalance() {}, alert: message => { throw Error(message); },
+    apiPost: async (url, body) => {
+      assert.equal(url, "/api/admin/category-reports/42/fix");
+      assert.equal(body.reason, "Fixed the comparison");
+      return { ok: true, json: async () => ({ id: 999, amount: 100, fixed_at: "2026-10-21 12:00:00",
+        fixed_by: 1, fix_note: "Fixed the comparison" }) };
+    },
+  });
+  vm.runInContext(fs.readFileSync("static/js/admin.js", "utf8"), context);
+  context.renderAdmin = () => {};
+  const button = { disabled: false };
+  context.adminState.reports = [{ id: 42 }];
+  context.adminState.reportStatus = "all";
+  await context.adminFixReport(42, button);
+  assert.equal(context.adminState.reports[0].id, 42);
+  assert.equal(context.adminState.reports[0].awarded_coins, 100);
+  assert.equal(context.adminState.reports[0].fixed_by_username, "admin");
+  context.adminState.reportStatus = "open";
+  await context.adminFixReport(42, button);
+  assert.equal(context.adminState.reports.length, 0);
+  assert.equal(button.disabled, false);
 });
 
 test("report links decode and deduplicate IDs, and a second link replaces the first", () => {

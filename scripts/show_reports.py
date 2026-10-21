@@ -29,12 +29,16 @@ def pick_db():
     sys.exit("No DB found. Set DB_PATH or run from the repo root.")
 
 
-def fetch(db_path, kind=None, since=None, mistake_id=None, user_id=None):
+def fetch(db_path, kind=None, since=None, mistake_id=None, user_id=None, status="open"):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
     where = []
     params = []
+    if status not in ("open", "fixed", "all"):
+        raise ValueError("Report status must be open, fixed, or all")
+    if status != "all":
+        where.append("cr.fixed_at IS " + ("NULL" if status == "open" else "NOT NULL"))
     if kind:
         where.append("cr.kind = ?")
         params.append(kind)
@@ -51,6 +55,7 @@ def fetch(db_path, kind=None, since=None, mistake_id=None, user_id=None):
     sql = """
         SELECT cr.id, cr.user_id, u.username, cr.mistake_id, cr.kind,
                cr.suggested_category, cr.reason, cr.created_at,
+               cr.fixed_at, cr.fixed_by, cr.fix_note,
                m.game_id, m.turn, m.ev_loss, m.note
         FROM category_reports cr
         JOIN users u ON cr.user_id = u.id
@@ -60,7 +65,10 @@ def fetch(db_path, kind=None, since=None, mistake_id=None, user_id=None):
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY cr.created_at DESC"
 
-    return [dict(r) for r in conn.execute(sql, params).fetchall()]
+    try:
+        return [dict(r) for r in conn.execute(sql, params).fetchall()]
+    finally:
+        conn.close()
 
 
 def summarize(rows):
@@ -105,6 +113,8 @@ def pretty_print(rows):
         head = (f"  #{r['id']:<4} {ts}  u={r['username']}  mistake={r['mistake_id']} "
                 f"game={r['game_id']} turn={r['turn']} ev={r['ev_loss']}  kind={r['kind']}")
         print(head)
+        if r["fixed_at"]:
+            print(f"         fixed: {r['fixed_at']}  by: {r['fixed_by'] or 'CLI'}  note: {r['fix_note'] or ''}")
         if r["suggested_category"]:
             label = "tags" if r["kind"] == "complex_gap" else "suggested"
             print(f"         {label}: {r['suggested_category']}")
@@ -120,6 +130,8 @@ def main():
     ap.add_argument("--mistake", type=int, help="Filter to a specific mistake id.")
     ap.add_argument("--user", type=int, help="Filter to a specific user id.")
     ap.add_argument("--json", action="store_true", help="Emit JSON instead of a table.")
+    ap.add_argument("--status", choices=("open", "fixed", "all"), default="open",
+                    help="Open reports by default; fixed shows resolution history.")
     args = ap.parse_args()
 
     if args.since:
@@ -131,7 +143,7 @@ def main():
 
     db_path = pick_db()
     rows = fetch(db_path, kind=args.kind, since=args.since,
-                 mistake_id=args.mistake, user_id=args.user)
+                 mistake_id=args.mistake, user_id=args.user, status=args.status)
 
     if args.json:
         print(json.dumps(rows, indent=2, default=str))

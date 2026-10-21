@@ -282,10 +282,17 @@ def migrate(conn):
     cur = conn.execute("DELETE FROM category_reports WHERE kind = 'agree'")
     if cur.rowcount:
         altered = True
-    # One report per user per mistake, so we can upsert on edit.
+    # Keep resolved reports as history; only an open report can be edited.
+    for column, definition in (("fixed_at", "TIMESTAMP"),
+                               ("fixed_by", "INTEGER REFERENCES users(id) ON DELETE SET NULL"),
+                               ("fix_note", "TEXT")):
+        if not _has_column("category_reports", column):
+            conn.execute(f"ALTER TABLE category_reports ADD COLUMN {column} {definition}")
+            altered = True
+    conn.execute("DROP INDEX IF EXISTS idx_category_reports_user_mistake")
     conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_category_reports_user_mistake "
-        "ON category_reports(user_id, mistake_id)"
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_category_reports_open_user_mistake "
+        "ON category_reports(user_id, mistake_id) WHERE fixed_at IS NULL"
     )
     # Drop legacy practice-mode artifacts. Idempotent: skipped on fresh DBs.
     if conn.execute(

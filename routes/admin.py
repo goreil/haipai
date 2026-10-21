@@ -64,14 +64,20 @@ def api_admin_category_reports():
     category (both are computed client-side after the b2f migration).
 
     ``?scope=others`` (default) hides the effective admin's own reports so
-    the initial load stays small; ``?scope=all`` returns everything.
+    the initial load stays small; ``?scope=all`` includes all reporters.
+    ``?status=open`` is the default; ``fixed`` shows resolution history and
+    ``all`` includes both, including when opening an explicit report-ID link.
     """
     from app import get_conn
     from routes.game import load_slim_mortal_data
     conn = get_conn()
     scope = request.args.get("scope", "others")
     exclude_user_id = _effective_admin_id(conn) if scope == "others" else None
-    reports = db.list_category_reports(conn, exclude_user_id=exclude_user_id)
+    try:
+        reports = db.list_category_reports(conn, exclude_user_id=exclude_user_id,
+                                           status=request.args.get("status", "open"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     mortal_by_game = {}
     for r in reports:
@@ -90,11 +96,39 @@ def api_admin_category_reports():
 @admin_bp.route("/api/admin/category-reports/<int:report_id>", methods=["DELETE"])
 @require_admin
 def api_admin_delete_category_report(report_id):
+    """Legacy clients resolve reports instead of permanently deleting history."""
     from app import get_conn
     conn = get_conn()
-    if not db.delete_category_report(conn, report_id):
-        return jsonify({"error": "Report not found"}), 404
-    return jsonify({"ok": True})
+    try:
+        with conn:
+            result = db.fix_category_report(conn, report_id, fixed_by=_effective_admin_id(conn))
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify({"ok": True, **result})
+
+
+@admin_bp.route("/api/admin/category-reports/<int:report_id>/fix", methods=["POST"])
+@require_admin
+def api_admin_fix_category_report(report_id):
+    """Complete a validated fix and award its reporter in one transaction."""
+    from app import get_conn
+    from db.coins import award_report
+    conn = get_conn()
+    body = request.get_json(silent=True)
+    if body is None:
+        body = {}
+    if not isinstance(body, dict):
+        return jsonify({"error": "Expected an object"}), 400
+    try:
+        with conn:
+            award = award_report(conn, report_id, reason=body.get("reason"))
+            result = db.fix_category_report(conn, report_id, fixed_by=_effective_admin_id(conn),
+                                            reason=body.get("reason"))
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify({"ok": True, **award, **result})
 
 
 # --- Global category-shape snapshot ---

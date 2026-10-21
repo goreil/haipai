@@ -4,11 +4,14 @@
 Examples (from the repository root):
   .venv/bin/python scripts/community_coins.py --db games.db --report-ids 12,34
   docker compose exec -T app python scripts/community_coins.py --report-ids 12,34 --apply
+  docker compose exec -T app python scripts/community_coins.py --report-ids 12,34 --mark-fixed --apply
   docker compose exec -T app python scripts/community_coins.py --backfill-thanks --backfill-maka --apply
 
 Default is a read-only preview against an in-memory copy of the database.
 Output is JSON, including each new award and per-user balances. --apply is
 transactional and idempotent; missing sources abort the entire award batch.
+Use --mark-fixed only after all issues in the selected reports are fixed and
+regression tests pass. It also preserves each report in the admin fixed history.
 """
 
 import argparse
@@ -36,11 +39,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--db', default=os.environ.get('DB_PATH', str(db.DB_FILE)))
     parser.add_argument('--report-ids', type=parse_ids, default=[])
+    parser.add_argument('--mark-fixed', action='store_true',
+                        help='After a fully validated fix, also archive these reports as fixed atomically')
     parser.add_argument('--backfill-thanks', action='store_true')
     parser.add_argument('--backfill-maka', action='store_true')
     parser.add_argument('--reason', help='Optional short fix description retained in the award record (not shown in Activity)')
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
+    if args.mark_fixed and (not args.report_ids or args.backfill_thanks or args.backfill_maka):
+        parser.error('--mark-fixed requires --report-ids and cannot be combined with historical backfills')
     if not (args.report_ids or args.backfill_thanks or args.backfill_maka):
         parser.error('Choose --report-ids, --backfill-thanks, and/or --backfill-maka')
     path = Path(args.db).resolve()
@@ -67,6 +74,10 @@ def main():
         previous_id = conn.execute('SELECT COALESCE(MAX(id), 0) FROM community_coins').fetchone()[0]
         result = backfill(conn, report_ids=args.report_ids, thanks=args.backfill_thanks,
                           maka=args.backfill_maka, reason=args.reason)
+        if args.mark_fixed:
+            result['fixed_report_ids'] = [
+                rid for rid in args.report_ids if db.fix_category_report(conn, rid, reason=args.reason)['fixed']
+            ]
         entries = [dict(r) for r in conn.execute(
             '''SELECT c.id, c.user_id, u.username, c.kind, c.amount, c.title, c.detail
                FROM community_coins c JOIN users u ON u.id = c.user_id WHERE c.id > ? ORDER BY c.id''',

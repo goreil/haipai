@@ -73,7 +73,7 @@ def get_game(conn, game_id, user_id=None):
         placeholders = ",".join("?" * len(mids))
         for r in conn.execute(
             f"SELECT mistake_id, kind, suggested_category, reason "
-            f"FROM category_reports WHERE user_id = ? AND mistake_id IN ({placeholders})",
+            f"FROM category_reports WHERE user_id = ? AND fixed_at IS NULL AND mistake_id IN ({placeholders})",
             [user_id, *mids],
         ).fetchall():
             my_reports[r["mistake_id"]] = {
