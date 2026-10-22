@@ -92,3 +92,18 @@ revisit when more independent contributors and games are available.
 
 This review used read-only database access. It changes no stored grades,
 coins, or report statuses.
+
+## Review checkpoints
+
+Use [the calibration skill](../.claude/skills/maka-calibration/SKILL.md) for the
+complete analysis and completion workflow. The script now compares shared,
+separate, and overall-only refits automatically, including pending-grade
+evaluation and contributor coverage per scope. Its optional `--record-review
+--conclusion "..."` completion command stores the analyzed grade snapshot and
+aggregate metrics in `maka_rank_reviews`.
+
+The admin card counts new or changed grade slots since that snapshot. A
+completed review clears already reviewed grades even when thresholds stay
+unchanged. New submissions or edits during analysis remain pending; undated
+legacy grades are tracked without inflating the pending count. The actual
+threshold-change date remains independent of the review checkpoint.

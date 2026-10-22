@@ -1027,6 +1027,16 @@
   color: var(--text-dim);
 }
 
+.admin-maka-panel .admin-meta {
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+.admin-maka-conclusion {
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
 .btn-sm {
   padding: 4px 10px;
   font-size: 12px;

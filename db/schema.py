@@ -54,6 +54,15 @@ CREATE TABLE IF NOT EXISTS mistakes (
     FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS maka_rank_reviews (
+    id INTEGER PRIMARY KEY,
+    captured_at TEXT NOT NULL,
+    completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    conclusion TEXT NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    analysis_json TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS category_reports (
     id INTEGER PRIMARY KEY,
     user_id INTEGER NOT NULL,

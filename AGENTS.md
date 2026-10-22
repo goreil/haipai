@@ -6,6 +6,13 @@
 
 The repository also contains independent components: the Elm client in `riichi-mahjong-trainer/`, the Rust/WASM shanten engine in `wasm/haipai-shanten/`, and browser extensions in `extension/` and `extension-firefox/`. Read nearby documentation before changing these areas.
 
+## Maka grading calibration
+
+For Maka grade analysis or grading-threshold calibration, read
+[the maka-calibration skill](.claude/skills/maka-calibration/SKILL.md).
+Complete its admin review checkpoint after a finished analysis, including
+when thresholds remain unchanged; keep explicitly read-only investigations read-only.
+
 ## Report-driven fixes and regression tests
 
 When investigating or fixing a category-report issue, read

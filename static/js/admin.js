@@ -258,6 +258,21 @@ function renderMauPanel() {
     </div>`;
 }
 
+function renderMakaRankPanel(maka) {
+  const reviewDate = maka.since ? new Date(maka.since.replace(" ", "T") + "Z")
+    .toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "unknown";
+  return `<div class="admin-card admin-maka-panel" style="margin-bottom:16px">
+    <div class="admin-card-header"><b>Maka grades awaiting review</b></div>
+    <div>${!maka.reviewed && maka.undated ? "At least " : ""}<strong>${maka.count}</strong>
+      ${maka.reviewed ? `new or changed grades (${maka.overall} overall, ${maka.hand} hand)` : "overall and hand grades"}</div>
+    ${maka.reviewed
+      ? `<div class="admin-meta">Last calibration review: ${reviewDate} · ${maka.reviewed_grades} usable grades reviewed.</div>
+         <div class="admin-maka-conclusion">${escapeHtml(maka.conclusion)}</div>`
+      : `<div class="admin-meta">No calibration review recorded. Counting dated grades since the threshold update on ${reviewDate}.</div>`}
+    ${maka.undated ? `<div class="admin-meta">${maka.undated} existing grades have unknown save dates${maka.reviewed ? "; unchanged reviewed grades are excluded from the pending count" : ""}.</div>` : ""}
+  </div>`;
+}
+
 function renderAdmin() {
   const content = document.getElementById("content");
 
@@ -268,15 +283,7 @@ function renderAdmin() {
 
   html += renderMauPanel();
 
-  const maka = adminState.makaRanks;
-  const rankDate = maka.since ? new Date(maka.since.replace(" ", "T") + "Z")
-    .toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "last update";
-  html += `<div class="admin-card" style="margin-bottom:16px">
-    <div class="admin-card-header"><b>Maka ranks added since Haipai rank update</b>
-      <span class="admin-meta">&middot; ${rankDate}</span></div>
-    <div>${maka.undated ? "At least " : ""}<strong>${maka.count}</strong> overall and match grades</div>
-    ${maka.undated ? `<div class="admin-meta">${maka.undated} existing grades on older games have unknown save dates.</div>` : ""}
-  </div>`;
+  html += renderMakaRankPanel(adminState.makaRanks);
 
   // User stats (with View-as button for impersonation). Sortable by any
   // column — click a header to toggle; default is latest_game desc.

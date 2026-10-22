@@ -3,6 +3,7 @@
 import json
 
 from db.schema import HAIPAI_RANK_UPDATED_AT
+from db.maka import grade_snapshot, latest_review
 
 
 def is_admin(conn, user_id):
@@ -70,18 +71,23 @@ def admin_mau_stats(conn):
 
 
 def admin_maka_rank_stats(conn):
-    """Count filled Maka grades added since the latest Haipai ranking change.
-
-    Existing grades on games uploaded before timestamp tracking began have an
-    unknown save date. Report those separately rather than claiming they are
-    new. One overall grade and each match grade count as separate entries.
-    """
+    """Count grades awaiting calibration review, with the old date-based fallback."""
+    review = latest_review(conn)
+    snapshot = grade_snapshot(conn)
+    if review:
+        pending = [key for key, value in snapshot.items() if review["snapshot"].get(key) != value]
+        overall = sum(key.endswith(":0") for key in pending)
+        return {"count": len(pending), "overall": overall, "hand": len(pending) - overall,
+                "undated": sum(value[1] is None for value in snapshot.values()),
+                "since": review["captured_at"], "reviewed": True, "conclusion": review["conclusion"],
+                "reviewed_grades": review["analysis"]["usable_grades"],
+                "rank_updated_at": HAIPAI_RANK_UPDATED_AT}
     count = undated = 0
-    for row in conn.execute(
+    for ratings_json, added_json in conn.execute(
         "SELECT maka_ratings_json, maka_ratings_added_at_json FROM games WHERE maka_ratings_json IS NOT NULL"
     ):
-        ratings = json.loads(row["maka_ratings_json"])
-        added = json.loads(row["maka_ratings_added_at_json"]) if row["maka_ratings_added_at_json"] else {}
+        ratings = json.loads(ratings_json)
+        added = json.loads(added_json) if added_json else {}
         grades = [ratings.get("overall"), *ratings.get("matches", [])]
         dates = [added.get("overall"), *added.get("matches", [])]
         for i, grade in enumerate(grades):
@@ -92,4 +98,5 @@ def admin_maka_rank_stats(conn):
                 undated += 1
             elif date >= HAIPAI_RANK_UPDATED_AT:
                 count += 1
-    return {"count": count, "undated": undated, "since": HAIPAI_RANK_UPDATED_AT}
+    return {"count": count, "undated": undated, "since": HAIPAI_RANK_UPDATED_AT,
+            "reviewed": False, "rank_updated_at": HAIPAI_RANK_UPDATED_AT}
