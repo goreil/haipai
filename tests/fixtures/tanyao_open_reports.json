@@ -1,0 +1,96 @@
+[
+  {
+    "report_ids": [
+      278
+    ],
+    "mistake": {
+      "hand": [
+        "3m",
+        "3m",
+        "4m",
+        "5m",
+        "5m",
+        "1p",
+        "2p",
+        "6p",
+        "6p",
+        "7p",
+        "5s"
+      ],
+      "melds": [
+        {
+          "type": "chi",
+          "target": 2,
+          "pai": "3s",
+          "consumed": [
+            "4s",
+            "5sr"
+          ]
+        }
+      ],
+      "shanten": 1,
+      "draw": "3s",
+      "actual": {
+        "type": "dahai",
+        "actor": 3,
+        "pai": "5s",
+        "tsumogiri": false
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 3,
+        "pai": "1p",
+        "tsumogiri": false
+      },
+      "id": 4976,
+      "turn": 6
+    }
+  },
+  {
+    "report_ids": [
+      240
+    ],
+    "mistake": {
+      "hand": [
+        "2m",
+        "3m",
+        "4m",
+        "6m",
+        "7m",
+        "5p",
+        "6p",
+        "8p",
+        "3s",
+        "4s",
+        "1m"
+      ],
+      "melds": [
+        {
+          "type": "chi",
+          "target": 0,
+          "pai": "6s",
+          "consumed": [
+            "7s",
+            "8s"
+          ]
+        }
+      ],
+      "shanten": 2,
+      "draw": "1m",
+      "actual": {
+        "type": "dahai",
+        "actor": 1,
+        "pai": "1m",
+        "tsumogiri": true
+      },
+      "expected": {
+        "type": "dahai",
+        "actor": 1,
+        "pai": "8p",
+        "tsumogiri": false
+      },
+      "id": 33292,
+      "turn": 15
+    }
+  }
+]

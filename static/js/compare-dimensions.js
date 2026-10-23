@@ -53,7 +53,7 @@
 
   // tanyao_kept fires only on an already-simple-heavy hand — a realistic
   // all-simples shape, not an incidental terminal cut from a terminal-heavy
-  // hand. The pre-discard hand is 14 tiles; ">= 11 simples" leaves at most 3
+  // hand. Count concealed and meld tiles; ">= 11 simples" leaves at most 3
   // non-simples (terminals/honors) to clear for tanyao.
   const TANYAO_MIN_SIMPLES = 11;
   // honitsu_kept: of the 14 tiles, >= 10 share one suit-or-honors — a committed
@@ -275,7 +275,7 @@
     // shapes. The pill's "N/14" is the simples the winning pick preserves — cutting
     // a non-simple keeps every simple, so that's just the pre-discard simple count.
     const hand = m.hand || [];
-    const simples = hand.reduce((n, t) => n + (isValueTileMjai(t) ? 0 : 1), 0);
+    const simples = allHandTiles(m).reduce((n, t) => n + (isValueTileMjai(t) ? 0 : 1), 0);
     if (simples >= TANYAO_MIN_SIMPLES && actualTile && expectedTile
         && !meldBlocksTanyao(m.melds)) {
       const aNon = isValueTileMjai(actualTile);
