@@ -2,9 +2,10 @@
 
 **Created**: 2026-06-15
 
-**Updated**: 2026-10-21
+**Updated**: 2026-10-23
 
-**Status**: HP-01 structural engine implemented and tested; no consumers yet.
+**Status**: HP-01 and HP-02 done. HP-03 and HP-04 comparison consumers,
+and HP-05 engine/distribution refinement, remain pending.
 See [the engine contract](../hand-blocks.md) for API, retention and profiling.
 The proposed WASM integration overhead target is not met; optimize before
 eager per-decision integration.
@@ -155,26 +156,49 @@ rather than recomputing partitions on every render.
 
 ## Staged backlog
 
-### HP-01: Structural engine and validation
+### HP-01: Structural engine and validation — Done
 
-- Define the contract, candidate equivalence, pruning rules and retention limits.
-- Implement normalized decomposition with fixed melds, explicit pair roles,
+- [x] Define the contract, candidate equivalence, pruning rules and retention limits.
+- [x] Implement normalized decomposition with fixed melds, explicit pair roles,
   incomplete sets, singles and separate special-hand handling.
-- Establish deterministic output and bounded caches.
-- Validate correctness and performance before changing visible comparisons.
+- [x] Establish deterministic output and bounded caches.
+- [x] Validate correctness and profile performance before changing visible comparisons.
 
-### HP-02: Five-/six-block view
+Correctness and profiling are complete. The proposed eager-integration overhead
+budget is not achieved; the completed view uses on-demand computation instead.
+This completion does not imply that eager per-decision integration is ready.
 
-- Show a stable default grouping with meaningful alternatives available.
-- Display complete sets, head candidates, incomplete blocks and leftover tiles.
-- Highlight changes after selected and recommended discards.
-- Make missing/excess blocks and wait types understandable to beginners.
-- Integrate near `mistake-card.js`, `ev-table.js`, `board-melds.js` and `tiles.js`;
-  keep computation in prep rather than rendering functions.
-- Inspect desktop and mobile layouts visually. Text must explain only evidence
-  represented in the visible blocks, badges and comparisons.
+### HP-02: Five-/six-block view — Done
 
-### HP-03: Safe-spare and versatility consumers
+- [x] Show a stable default grouping with alternatives available on demand.
+- [x] Group the full pre-discard hand in place, preserving physical tile identities
+  and fixed melds, including kans.
+- [x] Add a **Blocks** toggle with a fixed label and active color; place **<-** /
+  **->** controls beneath it, with wraparound in both directions.
+- [x] Show only the grouping category (**5 blocks**, **6 blocks**, **7 pairs**,
+  **13 orphans**, etc.); keep individual block roles in hover titles.
+- [x] Preserve selected-discard interaction and You/AI/EV badges without removing
+  the selected tile from the full-hand grouping.
+- [x] Keep decomposition and interpretation selection in prep; reuse existing
+  tile/meld rendering and the EV comparison.
+- [x] Inspect desktop and mobile layouts visually. Remove the **Hand** label,
+  preserve original tile sizes and support local scrolling on narrow screens.
+- [x] Add isolated prep/browser coverage, run the full suites, and document
+  performance measurements and remaining limitations.
+
+Implemented on normal and shared review pages. Computation runs only when
+blocks are enabled, outside game prep/categorization; cycling and toggling reuse
+prepared results. The view currently offers up to eight standard groupings plus
+two separate special models. Text describes only displayed structural evidence.
+See [implementation and measurements](../hand-blocks.md#hp-02-on-demand-view).
+
+The final UI scope uses the full hand rather than a separate post-discard
+comparison panel, and category-only text rather than detailed missing/excess
+and wait explanations. Compound groups and a more relevant distribution picker
+remain follow-up work under HP-05; the current ten-option cap is not the final
+selection policy.
+
+### HP-03: Safe-spare and versatility consumers — Pending
 
 - Establish whether a retained tile is spare, necessary for the head, part of
   a useful block, or a candidate for a missing block.
@@ -187,7 +211,7 @@ rather than recomputing partitions on every render.
 - Update the shared comparator, feature pills and text together. Preserve
   complex/unexplained outcomes when visible evidence is insufficient.
 
-### HP-04: Yaku development consumers
+### HP-04: Yaku development consumers — Pending
 
 - Evaluate relevant alternative configurations, starting with outside-hand
   compatibility and suit-based plans.
@@ -198,6 +222,35 @@ rather than recomputing partitions on every render.
 - Do not infer Mortal's intent from a compatible partition or add speculative
   reasons to text. Suppressed dimensions remain absent from visuals and text.
 - Review consumers individually rather than changing every category at once.
+
+### HP-05: Revamp compound blocks and distribution selection — Pending
+
+- [ ] Extend the structural engine to represent larger connected groups, such as
+  **`334m` as one compound block**, instead of always splitting it into a pair
+  and singleton or a two-tile wait and singleton. Cover related shapes such as
+  `344` and `2334`, retaining their meaningful internal allocations.
+- [ ] Define how compound groups map to formed blocks, head candidates and set
+  slots so the five-/six-block categories remain accurate. Conserve every
+  physical tile and red-five identity without counting overlapping allocations
+  twice; do not silently treat `334` as a complete set.
+- [ ] Replace the current up-to-ten-view cycle with **only relevant block
+  distributions**. Define relevance and equivalence, remove redundant or
+  inferior variants, and retain alternatives that materially change the head,
+  connected shape or five-/six-block plan. Do not fill the picker to ten just
+  because that many configurations are available.
+- [ ] Include seven-pairs and thirteen-orphans views only when relevant under
+  the same explicit selection policy, keeping their models separate.
+- [ ] Add concrete regression fixtures for compound groups and redundant
+  distributions. Verify a deterministic default, relevance across competing
+  heads and special models, correct block counts, and a shorter useful cycle.
+- [ ] Profile ambiguous hands and cache growth before integrating the revised
+  engine. Keep on-demand prep and avoid changing numerical shanten/ukeire or
+  introducing unsupported strategic claims.
+
+This is engine and interpretation-selection work, not just hiding additional
+buttons in the renderer. Define the relevance criteria before pruning; a short
+visible list must not restrict the alternatives needed by future HP-03/HP-04
+consumers or imply that omitted interpretations are impossible.
 
 ## Performance baseline: measured 2026-10-21
 
@@ -228,7 +281,8 @@ Headless Chromium 155, using the served web WASM artifact and actual
 Browser timings include real event-loop yields between rounds. They exclude
 network fetching, WASM initialization and DOM rendering. These are host
 measurements, not mobile-device estimates. Neither benchmark reported prep
-warnings. No after-implementation measurement exists yet.
+warnings. These figures are the original baseline; subsequent implementation
+measurements are recorded in [the engine/view contract](../hand-blocks.md).
 
 ### Reproduction and before/after requirements
 
@@ -295,7 +349,8 @@ node --test tests/test_yaku_guards.js tests/test_dora_acceptance.js tests/test_d
 At the end of the design investigation, no engine, UI, regression tests, coin
 awards or report status changes had been implemented. The subsequent HP-01
 implementation adds the pure engine, isolated fixtures/tests, and a repeatable
-benchmark; application prep, UI and comparison consumers remain future stages.
+benchmark; application prep and comparison consumers remain future stages. HP-02 now
+adds the separate on-demand view described above.
 During implementation, run the
 full Python suite and relevant JavaScript/component checks, inspect the UI,
 and record comparable before/after timings. Report-driven fixes must also
@@ -313,7 +368,9 @@ implemented first; benchmark results and limitations belong in the contract.
 
 These consumer decisions remain open:
 
-- How many retained alternatives beginners should see in the default view.
+- HP-05 must replace the current eight-standard-plus-two-special display cap
+  with compound groups and a justified relevance policy. Consumers must still
+  inspect structural results independently.
 - Exact criteria for a genuine spare, a useful improvement opportunity and
   sufficient block quality, including live tiles and competing head choices.
 - Evidence required to display early-hand yaku development before tenpai.

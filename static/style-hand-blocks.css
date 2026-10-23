@@ -1,0 +1,37 @@
+.block-view-controls {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 4px 6px;
+  flex-shrink: 0;
+}
+.block-view-toggle { grid-column: 1; grid-row: 1; }
+.block-view-navigation { display: flex; grid-column: 1; grid-row: 2; gap: 4px; }
+.block-view-toggle, .block-view-prev, .block-view-next {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid var(--border, #354055);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.block-view-toggle[aria-pressed="true"] { color: #ffcb80; border-color: #a77f45; }
+.block-view-toggle:hover, .block-view-prev:hover, .block-view-next:hover { background: rgba(255,255,255,.06); }
+.block-view-toggle:focus-visible, .block-view-prev:focus-visible, .block-view-next:focus-visible { outline: 2px solid #ffcb80; outline-offset: 2px; }
+.block-view-counter { grid-column: 2; grid-row: 1 / span 2; color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+.hand-row .block-view-body { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border, #354055) transparent; }
+/* Explicit hidden rules keep flex containers out of the normal hand view. */
+.hand-normal-tiles[hidden], .block-view-body[hidden], .block-view-navigation[hidden], .block-view-prev[hidden], .block-view-next[hidden], .block-view-counter[hidden] { display: none; }
+.block-view-blocks { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px; width: max-content; padding: 4px 0; }
+.hand-block { display: inline-flex; flex-shrink: 0; }
+.hand-block-tiles { display: flex; gap: 1px; align-items: flex-start; }
+.hand-block .hand-choice.draw { margin-left: 0; }
+.block-view-prev, .block-view-next { padding: 4px 6px; min-width: 28px; }
+@media (max-width: 600px) {
+  .hand-row .block-view-body { flex: 1 1 100%; }
+  .block-view-blocks { gap: 4px; }
+  .block-view-controls { gap: 4px; }
+}

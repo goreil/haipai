@@ -22,6 +22,8 @@ function option(name, fallback) {
   return index < 0 ? fallback : args[index + 1];
 }
 const reps = Number(option('--reps', 3));
+const selectedMode = option('--mode', 'both');
+if (!['both', 'wasm', 'js'].includes(selectedMode)) throw new Error('--mode must be both, wasm or js');
 if (!Number.isInteger(reps) || reps < 1) throw new Error('--reps must be positive');
 const percentile = (xs, p) => xs.slice().sort((a, b) => a - b)[Math.ceil(xs.length * p) - 1];
 function summary(xs) {
@@ -86,7 +88,34 @@ console.log(JSON.stringify({ node: process.version, cpu: cpus()[0].model, reps, 
   cache: engine.cacheInfo(), retainedHeapBytes: process.memoryUsage().heapUsed - heapBefore,
   gcAvailable: Boolean(global.gc) }, null, 2));
 
-// This is a benchmark-only simulated consumer. Application prep is unchanged.
+// --view measures the installed collapsed-view eligibility check instead of
+// simulated eager decomposition. Expanding the panel is a separate operation.
+const viewModuleStart = performance.now();
+const viewPrep = args.includes('--view') ? require('../static/js/prep/hand-block-view.js') : null;
+if (viewPrep) {
+  const viewModuleInitMs = performance.now() - viewModuleStart;
+  viewPrep.clearCache();
+  global.gc?.();
+  const heap = process.memoryUsage().heapUsed;
+  const cold = [], cached = [];
+  for (const tiles of corpus) {
+    // The presentation path only accepts complete pre-discard hands.
+    const hand = tiles.length === 14 ? tiles : [...tiles, ID_TO_MJAI[33]];
+    if (hand.filter(t => t === ID_TO_MJAI[33]).length > 4) continue;
+    const mistake = { hand, actual: { type: 'dahai', pai: hand[0] },
+      expected: { type: 'dahai', pai: hand[hand.length - 1] } };
+    let start = performance.now();
+    viewPrep.prepareHand(mistake);
+    cold.push(performance.now() - start);
+    start = performance.now();
+    viewPrep.prepareHand(mistake);
+    cached.push(performance.now() - start);
+  }
+  global.gc?.();
+  console.log(JSON.stringify({ view: { moduleInitMs: viewModuleInitMs, cold: summary(cold), cached: summary(cached),
+    cache: viewPrep.cacheInfo(), retainedHeapBytes: process.memoryUsage().heapUsed - heap } }, null, 2));
+}
+// Application prep remains unchanged.
 // Load the same 49-game sample used by the design baseline, read-only.
 if (args.includes('--db')) {
   const { DatabaseSync } = await import('node:sqlite');
@@ -128,7 +157,7 @@ if (args.includes('--db')) {
   const endToEnd = {};
   let lastCache;
   try {
-    for (const mode of ['wasm', 'js']) {
+    for (const mode of (selectedMode === 'both' ? ['wasm', 'js'] : [selectedMode])) {
       global.self = { haipaiPrepUseWasm: mode === 'wasm', haipaiPrepShantenCalcWasm: wasm };
       const measured = { baseline: [], withBlocks: [] };
       function run(input, withBlocks) {
@@ -138,7 +167,8 @@ if (args.includes('--db')) {
         const start = performance.now();
         prep.prepGame(game, input.mortal);
         for (const round of game.rounds) for (const mistake of round.mistakes) {
-          if (withBlocks) {
+          if (withBlocks && viewPrep) viewPrep.canGroup(mistake);
+          if (withBlocks && !viewPrep) {
             const hand = mistake.hand || [], melds = mistake.melds || [];
             if (hand.length === 14 - 3 * melds.length) {
               for (const action of [mistake.actual, mistake.expected]) {
@@ -169,5 +199,6 @@ if (args.includes('--db')) {
   } finally { global.self = originalSelf; }
   console.log(JSON.stringify({ databaseSha256: createHash('sha256').update(readFileSync(dbPath)).digest('hex'),
     games: sample.length, decisions, missingGames, gameIds: sample.map(s => s.game.id),
+    consumer: viewPrep ? "collapsed HP-02 view" : "simulated eager HP-01",
     endToEnd, lastCache }, null, 2));
 }

@@ -1,9 +1,10 @@
-# Hand-block engine contract (HP-01)
+# Hand-block engine and view contract
 
 The pure module is `static/js/prep/hand-blocks.js`. Node exports and the browser
 global `haipaiHandBlocks` have the same API. In a browser, load `prep/tiles.js`
-first. This change deliberately has no application consumers: no script tag,
-prep integration, comparator, explanatory text, or UI has been added.
+first. HP-01 introduced the engine independently; HP-02 now loads it for an
+on-demand card view. The comparator and explanation generator do not consume
+its results.
 
 ## API
 
@@ -223,8 +224,8 @@ games. Times below are full prep plus categorization, not cached categorization.
 engine favors exhaustive structural correctness and explicit retention over
 search pruning. Further profiling/optimization is required before eager
 per-decision integration. Host timings vary; these are not mobile estimates.
-No application path currently pays this cost. Browser/mobile rendering and
-interaction latency remain unmeasured because no consumer or view was added.
+These are HP-01 eager-integration measurements. HP-02 avoids eager analysis;
+its browser interaction measurements are recorded below.
 
 Validation: 14 isolated engine tests pass, including 250 seeded closed/open
 standard-shanten comparisons plus concrete dense/special-hand fixtures.
@@ -233,3 +234,98 @@ Python suite passed 303 tests; full JavaScript passed 114/115, with the existing
 card browser test failing its `quiet header` assertion in `mistake-card.js`,
 outside the added engine files. Repository Ruff reported 30 errors outside
 the added files. JavaScript syntax checks and whitespace checks passed.
+
+## HP-02 on-demand view
+
+The **Blocks** button at the start of the hand row switches the original tiles to
+an in-place grouping of the entire pre-discard hand. **<-** and **->** cycle
+backward/forward through the retained alternatives, wrapping at both ends;
+Clicking **Blocks** again restores the original tile order. Its label stays
+unchanged; only its color and pressed state indicate whether grouping is active.
+The arrows sit directly below the button, and the visible **Hand** label is removed. Only the category is displayed
+(e.g. **5 blocks**, **6 blocks**, **7 pairs**, **13 orphans**). The grouping index
+is available in the category tooltip. There is
+no separate post-discard comparison panel.
+
+`static/js/prep/hand-block-view.js` owns eligibility, whole-hand analysis and
+interpretation selection. `static/js/hand-block-view.js` renders the prepared
+allocations. Both normal and shared review pages load these modules. Eligibility
+requires 14 concealed tiles, or `14 - 3 * fixedMelds.length` with fixed sets.
+It does not depend on which action was played or recommended. Fixed melds stay
+visible once in the hand row; each kan occupies one set slot.
+
+Initial rendering performs no decomposition. Enabling blocks yields once to the
+event loop, then analyzes the full hand through a bounded 32-hand LRU. Cycling
+or toggling back on reuses the prepared allocation. Per-row state uses a WeakMap;
+removing the row allows its results to be collected. Closing before queued prep
+runs cancels that work. Cold exhaustive analysis still blocks the main thread
+after the initial yield; a worker or faster engine would help slower devices.
+
+The grouped tiles reuse the normal hand's rendering primitive, preserving red
+identities, dora/yakuhai highlights, draw identity and You/AI/EV badges. Each
+concealed physical tile appears once in the visible hand. Tiles remain selectable
+when the original hand supported discard comparison. Selecting a discard updates
+the EV table and selection highlights without removing a tile or changing the
+current full-hand grouping. Selection survives cycling and toggling views.
+
+The default is the engine's deterministic standard grouping unless a special
+model has strictly lower shanten. At most eight standard interpretations are
+offered, prioritizing different block counts within one shanten of the default,
+then filling in engine order with distinct heads and incomplete blocks. Seven
+pairs and thirteen orphans remain separate models and are unavailable with fixed
+melds. The visible category counts formed blocks; singletons do not count. Per-block
+descriptions and the detailed summary are omitted. Block roles remain available
+as hover titles; wait types describe shape, not tile availability. The category
+tooltip states that alternatives are sampled. This view
+does not infer spare status, defense, yaku or the AI's intent.
+
+### Reproduction
+
+```bash
+node --test tests/test_hand_block_view.js tests/test_hand_block_view_browser.js tests/test_hand_comparison_browser.js
+HAIPAI_BLOCK_PREVIEW=/tmp/hand-block-view node --test tests/test_hand_block_view_browser.js
+node scripts/hand_block_view_browser_bench.mjs
+node scripts/hand_block_view_browser_bench.mjs --cpu-rate 4
+node --expose-gc scripts/hand_blocks_bench.mjs --view
+node --expose-gc scripts/hand_blocks_bench.mjs --db .cache/category-stats/games.db --view
+```
+
+The preview saves desktop/mobile screenshots and a standalone HTML fixture
+outside the repository. The real-clock Chromium benchmark measures baseline
+rendering without controls, normal rendering with controls, cold grouping
+insertion/paint, cycling and cached re-enabling at 1100px and 390px. It uses
+reviewed/six-block/dense fixtures without production data. CPU throttling is a
+simulation; physical mobile hardware remains unmeasured. The optional database
+benchmark alternates full prep plus categorization with and without the cheap
+normal-view eligibility check. Previous HP-02 measurements of a pair of
+post-discard hands describe the superseded comparison UI.
+
+Validation covers full-hand conservation and cache reuse, red identity,
+competing heads, six blocks, separate special models, fixed kan slots, lazy
+work, cycle wraparound, exact normal-order restoration, grouped-tile comparison,
+selection persistence, keyboard focus, rapid toggling, backward/forward
+wraparound and a single row of tiles on desktop/mobile. Desktop controls share
+the tile row; mobile controls sit above it. Grouped tiles retain the normal
+hand’s tile size on every viewport. A thin local horizontal scrollbar is
+available when a full row exceeds the available width; the page does not overflow.
+
+Full-hand view measurements before the compact arrow controls (2026-10-23),
+Chromium 155 on Neoverse-N1,
+three real-clock passes after warmup:
+
+| Viewport | Reviewed cold grouping | Six-block cold grouping | Dense cold grouping |
+| --- | ---: | ---: | ---: |
+| 1100px | 41.6 ms | 31.3 ms | 68.3 ms |
+| 390px | 20.5 ms | 22.1 ms | 72.5 ms |
+
+These are medians through allocation insertion. Worst cold insertion across
+all passes was 100.8 ms. Median cycle times ranged from 1.2–4.1 ms, and cached
+re-enabling from 0.9–1.6 ms. No viewport overflow was detected. Normal rendering
+still performs no structural search. These host results do not estimate a
+physical phone's performance or establish the eager-integration target.
+
+All three full-hand prep tests and both targeted browser tests pass. The full
+Python suite passes 324 tests; full JavaScript passes 122/123 with the same
+pre-existing `quiet header` failure in `test_mistake_card_browser.js`. Desktop
+and mobile screenshots were inspected visually; syntax and whitespace checks
+pass.

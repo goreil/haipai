@@ -154,16 +154,21 @@ function renderHand(tiles, draw, mistake = null, comparisonKey = null) {
     const extra = draw && i === tiles.length - 1 && t === draw ? "draw" : "";
     // Dora and yakuhai highlights are applied automatically by renderTile.
     const tabs = i === tiles.lastIndexOf(t) ? markers.get(t) : null;
-    if (comparisonKey != null) {
-      return `<button type="button" class="hand-choice hand-choice-button ${extra}"`
-        + ` data-action="selectHandComparison" data-comparison-key="${comparisonKey}" data-choice-tile="${t}"`
-        + ` aria-label="Compare discarding ${t} with AI" aria-pressed="false">${renderTile(t)}`
-        + (tabs ? `<span class="hand-choice-tabs">${tabs.join("")}</span>` : "") + `</button>`;
-    }
-    if (!tabs) return renderTile(t, extra);
-    return `<span class="hand-choice ${extra}">${renderTile(t)}`
-      + `<span class="hand-choice-tabs">${tabs.join("")}</span></span>`;
+    return renderHandTile(t, extra, tabs, comparisonKey);
   }).join("");
+}
+
+// Shared by the normal hand and the grouped hand, preserving choice markers.
+function renderHandTile(t, extra, tabs, comparisonKey) {
+  if (comparisonKey != null) {
+    return `<button type="button" class="hand-choice hand-choice-button ${extra}"`
+      + ` data-action="selectHandComparison" data-comparison-key="${comparisonKey}" data-choice-tile="${t}"`
+      + ` aria-label="Compare discarding ${t} with AI" aria-pressed="false">${renderTile(t)}`
+      + (tabs ? `<span class="hand-choice-tabs">${tabs.join("")}</span>` : "") + `</button>`;
+  }
+  if (!tabs) return renderTile(t, extra);
+  return `<span class="hand-choice ${extra}">${renderTile(t)}`
+    + `<span class="hand-choice-tabs">${tabs.join("")}</span></span>`;
 }
 
 function renderTenpaiWaitsRow(m) {
