@@ -6,7 +6,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const chromium = spawnSync('chromium', ['--version'], { encoding: 'utf8' });
-test('decision cards keep evidence, explanations, feedback and disclosure state in reading order',
+test('decision cards show evidence before explanations and keep feedback editable only in game views',
   { skip: chromium.status !== 0 }, () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'haipai-cards-'));
     const root = path.resolve(__dirname, '..');
@@ -15,7 +15,7 @@ test('decision cards keep evidence, explanations, feedback and disclosure state 
       .map(match => match[1]);
     scripts.splice(scripts.indexOf('/static/js/mistake-card.js') + 1);
     const fixture = require('./fixtures/dora_acceptance_m35078.json');
-    const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+    const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
       ${['theme', 'game-detail', 'board-display'].map(name =>
         '<link rel="stylesheet" href="file://' + root + '/static/style-' + name + '.css">').join('')}
       <style>body {padding: 16px; overflow:auto} main {max-width:920px;margin:auto}</style>
@@ -36,62 +36,73 @@ test('decision cards keep evidence, explanations, feedback and disclosure state 
           .replaceAll('src="/tiles/', 'src="file://${root}/riichi-mahjong-tiles/Regular/');
         return host.querySelector('.mistake');
       };
-      const before = (a,b) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const before = (a,b) => !!(a && b && (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING));
       window.addEventListener('load', async () => {
         try {
           let card = draw();
           check(card.querySelectorAll('.mistake-top .cat-badge').length === 1, 'single category badge');
-          check(!card.querySelector('.mistake-top .severity, .mistake-top .ev-loss, .mistake-top .dev-id'), 'quiet header');
-          check(card.querySelector('.decision-choices').textContent.includes('Your choice')
-            && card.querySelector('.decision-choices').textContent.includes('Mortal’s choice'), 'explicit labels');
-          const sections = ['.mistake-top','.decision-choices','.decision-hand','.decision-comparison','.mascot-speech','.decision-extras'];
+          check(card.querySelector('.mistake-top .severity').textContent.includes('3.42 EV'), 'visible evaluation');
+          check(card.querySelector('.mistake-top .dev-id').getAttribute('href') === '#m35078', 'mistake permalink');
+          check(card.querySelector('.col-actual .marker').textContent === 'You'
+            && card.querySelector('.col-expected .marker').textContent === 'AI', 'explicit comparison labels');
+          check(card.querySelector('.hand-choice-you') && card.querySelector('.hand-choice-ai'), 'choices marked on hand');
+          const sections = ['.mistake-top','.hand-row','.board-context','.ev-comparison','.mascot-speech','.note-row','.report-row'];
           sections.slice(1).forEach((selector,i) => check(before(card.querySelector(sections[i]),card.querySelector(selector)), 'section order ' + selector));
-          check(!card.querySelector('.decision-board').open, 'attack board collapsed');
-          check(card.querySelector('.decision-extras .decision-board'), 'optional board after explanation');
-          check(card.querySelector('.decision-evaluation .severity') && card.querySelector('.decision-evaluation .dev-id'), 'evaluation metadata');
+          check(!card.querySelector('.all-discards').open, 'attack discards collapsed');
           const expectedTable = document.createElement('div');
           expectedTable.innerHTML = renderEvComparison(base);
           check(card.querySelector('table').textContent === expectedTable.querySelector('table').textContent, 'comparison contents preserved');
-          // Real native summary activation, then filter the card out and back in.
-          card.querySelector('.decision-evaluation > summary').click();
-          card.querySelector('.decision-notes > summary').click();
-          card.querySelector('.decision-board > summary').click();
+          // Exercise native disclosure in both directions.
+          card.querySelector('.all-discards > summary').click();
           await tick();
-          host.innerHTML = '';
+          check(card.querySelector('.all-discards').open, 'discards expand on click');
+          check(card.querySelector('.all-discards .discard-row'), 'expanded discard evidence');
+          card.querySelector('.all-discards > summary').click();
           await tick();
-          card = draw(structuredClone(base));
-          check([...card.querySelectorAll('details[data-disclosure]')].every(d => d.open), 'filter and refresh preserve expansion');
-          card.querySelector('.decision-notes').open = false;
-          card = draw();
-          check(!card.querySelector('.decision-notes').open, 'immediate rerender preserves collapse');
+          check(!card.querySelector('.all-discards').open, 'discards collapse on click');
+          const annotated = {...structuredClone(base), note:'Keep the dora',
+            my_report:{kind:'wrong_text',reason:'Please check the acceptance'}};
+          card = draw(annotated);
+          check(card.querySelector('.note-input').value === annotated.note, 'saved annotation restored');
+          check(card.querySelector('.report-reason').value === annotated.my_report.reason
+            && card.querySelector('.report-btn-wrong_text.active'), 'saved report restored');
           const defense = {...structuredClone(base), id:2, skillArea:'defense'};
           card = draw(defense);
-          check(card.querySelector('.decision-board').open, 'defense board open');
-          check(before(card.querySelector('.decision-board'),card.querySelector('.mascot-speech')), 'board evidence before explanation');
-          check(!card.querySelector('.decision-board details'), 'no hidden nested discards');
-          card.querySelector('.decision-board > summary').click();
+          check(card.querySelector('.all-discards').open, 'defense discards open');
+          check(before(card.querySelector('.board-context'),card.querySelector('.mascot-speech')), 'board evidence before explanation');
+          card.querySelector('.all-discards > summary').click();
           await tick();
-          card = draw(defense);
-          check(!card.querySelector('.decision-board').open, 'explicit collapse overrides defense default');
+          check(!card.querySelector('.all-discards').open, 'defense discards can be collapsed');
           const mixed = {...structuredClone(base), id:3, per_threat:[{seat:0,kind:'riichi',dealin_rates:{}}]};
-          check(draw(mixed).querySelector('.decision-board').open, 'mixed defense board open');
+          check(draw(mixed).querySelector('.all-discards').open, 'live threat expands discards');
           const furiten = {...structuredClone(base), id:4, bad_riichi_reason:'furiten',furiten_tiles:['5p']};
           card = draw(furiten);
-          check(card.querySelector('.decision-comparison .furiten-badge') && card.querySelector('.decision-board').open, 'furiten beside visible evidence');
-          check(draw({...structuredClone(base), id:5, is_all_last:true}).querySelector('.decision-board').open, 'score evidence visible');
-          const complex = {...structuredClone(base), id:6, shape:'complex'};
+          check(card.querySelector('.mistake-top .furiten-badge').title.includes('5p'), 'furiten wait identified');
+          check(draw({...structuredClone(base), id:5, is_all_last:true}).querySelector('.all-last-badge'), 'final-round context visible');
+          const complex = {...structuredClone(base), id:6, shape:'complex',
+            my_report:{kind:'complex_gap',suggested_category:'shape',reason:'Compare the blocks'}};
           card = draw(complex);
-          check(card.querySelector('.decision-notes .complex-gap-row'), 'complex feedback in notes');
-          check(!card.querySelector('.speech-bubble .report-row'), 'feedback outside teaching text');
-          check(before(card.querySelector('.mascot-speech'),card.querySelector('.complex-gap-row')), 'feedback follows explanation');
+          check(card.querySelectorAll('.complex-gap-row').length === 1, 'single complex feedback funnel');
+          check(card.querySelector('.speech-bubble .complex-gap-row'), 'complex feedback accompanies explanation');
+          check(card.querySelector('.complex-tag.active').dataset.tag === 'shape'
+            && card.querySelector('.complex-gap-reason').value === complex.my_report.reason, 'saved complex feedback restored');
+          state.readOnly = true;
+          card = draw(complex, {inline:true});
+          check(!card.querySelector('input, .report-row') && card.querySelectorAll('.mascot-speech').length === 1, 'shared card has explanation without feedback');
+          state.readOnly = false;
           card = draw(complex, {});
-          check(!card.querySelector('input, .report-row') && card.querySelectorAll('.mascot-speech').length === 1, 'admin read-only card');
-          card = draw({...structuredClone(base),id:7, actual:{type:'pon',actor:3,pai:'5p',consumed:['5p','5p']}});
-          check(card.querySelector('.decision-choices .action-meld'), 'call choice rendered');
-          card = draw({...structuredClone(base),id:8, actual:{type:'reach',actor:3},actual_riichi_tile:'5p'});
-          check(card.querySelector('.decision-choices .action-riichi'), 'riichi choice rendered');
+          check(!card.querySelector('input, .report-row, .mascot-speech') && card.querySelector('.ev-comparison'), 'admin card leaves explanation to its caller');
+          const call = {...structuredClone(base),id:7, discard_stats:[],
+            actual:{type:'pon',actor:3,pai:'5p',consumed:['5p','5p']}, expected:{type:'none'}};
+          call.top_actions = [{action:call.expected,q_value:2},{action:call.actual,q_value:1}];
+          card = draw(call);
+          check(card.querySelector('.top-actions .action-meld'), 'call choice rendered without discard statistics');
+          const riichi = {...structuredClone(base),id:8, actual:{type:'reach',actor:3},actual_riichi_tile:'5p'};
+          riichi.top_actions = [{action:riichi.expected,q_value:2},{action:riichi.actual,q_value:1}];
+          card = draw(riichi);
+          check(card.querySelector('.col-actual .reach-pill-riichi')
+            && card.querySelector('.col-actual .ev-tile').alt === '5p', 'riichi choice includes its discard');
           // Leave a representative attack card for desktop/mobile visual checks.
-          mistakeDisclosures.clear();
           card = draw();
           check(document.documentElement.scrollWidth <= innerWidth, 'no page overflow');
           document.body.dataset.result = 'passed';

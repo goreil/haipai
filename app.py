@@ -15,6 +15,14 @@ import os
 import sys
 
 import db
+from routes.auth import auth_bp
+from routes.pages import pages_bp
+from routes.game import games_bp
+from routes.admin import admin_bp
+from routes.mailbox import mailbox_bp
+from routes.waits import waits_bp
+from routes.defense import defense_bp
+from routes.efficiency import efficiency_bp
 
 DIR = Path(__file__).parent
 
@@ -132,15 +140,6 @@ def close_conn(_exception):
 
 
 # --- Register blueprints ---
-
-from routes.auth import auth_bp
-from routes.pages import pages_bp
-from routes.game import games_bp
-from routes.admin import admin_bp
-from routes.mailbox import mailbox_bp
-from routes.waits import waits_bp
-from routes.defense import defense_bp
-from routes.efficiency import efficiency_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(pages_bp)
