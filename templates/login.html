@@ -165,16 +165,19 @@ Continue with Google
 <p class="oauth-note">Google sign-in is temporarily unavailable while we finish moving to <strong>haipai-trainer.com</strong>. It'll be back shortly — your account and games are safe.</p>
 {% endif %}
 </div>
-<div class="oauth-divider">or</div>
+{% if not register %}<div class="oauth-divider">or</div>{% endif %}
+{% elif register %}
+<p class="oauth-note">Registration is temporarily unavailable. Please try again later.</p>
 {% endif %}
+{% if not register %}
 <form method="POST">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <label>Username</label><input name="username" required autofocus autocomplete="username">
-{% if register %}<label>Email</label><input name="email" type="email" required autocomplete="email">{% endif %}
-<label>Password</label><input name="password" type="password" required autocomplete="{{ 'new-password' if register else 'current-password' }}">
+<label>Password</label><input name="password" type="password" required autocomplete="current-password">
 {% if not register %}<label class="remember-label"><input type="checkbox" name="remember" checked> Remember me</label>{% endif %}
 <button>{{ title }}</button>
 </form>
+{% endif %}
 {% endif %}
 {% if register %}
 <div class="link">Already have an account? <a href="/login">Login</a></div>

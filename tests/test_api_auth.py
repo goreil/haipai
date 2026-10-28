@@ -3,13 +3,11 @@
 
 Shared `client` fixture and `insert_game` helper live in conftest.py.
 
-Registration now requires an email and gates login behind clicking the
-verification link (MAILBOX_USERNAME/PASSWORD aren't set in the test env, so
-the send itself silently no-ops — `_verify` reads the token straight out of
-the DB instead of an inbox).
+Existing unverified password accounts can still be verified and used.
 """
 
 import db
+from werkzeug.security import generate_password_hash
 
 
 def _login(client, username="testuser", password="testpass1"):
@@ -19,12 +17,11 @@ def _login(client, username="testuser", password="testpass1"):
     }, follow_redirects=True)
 
 
-def _register(client, username, password, email=None):
-    return client.post("/register", data={
-        "username": username,
-        "password": password,
-        "email": email or f"{username}@example.com",
-    }, follow_redirects=True)
+def _create_unverified(username, password):
+    conn = db.get_db()
+    db.create_user(conn, username, generate_password_hash(password), email=f"{username}@example.com",
+                   verify_token=f"token-{username}", verify_expires="2099-01-01 00:00:00")
+    conn.close()
 
 
 def _verify(client, username):
@@ -75,32 +72,24 @@ class TestAuth:
 # --- /register ---
 
 class TestRegistration:
-    def test_register_success(self, client):
+    def test_registration_only_offers_oauth(self, client, monkeypatch):
+        from app import oauth
+        monkeypatch.setitem(oauth._clients, "discord", object())
+        monkeypatch.setitem(oauth._clients, "google", object())
+        res = client.get("/register")
+        assert b'href="/auth/discord"' in res.data
+        assert b'href="/auth/google"' in res.data
+        assert b'name="password"' not in res.data
+        assert b'name="email"' not in res.data
+
+    def test_password_registration_is_rejected(self, client):
         res = client.post("/register", data={
             "username": "newuser", "password": "longpassword", "email": "newuser@example.com",
         })
-        assert res.status_code == 200  # stays on the "check your email" page, no auto-login
-        assert b"Check your email" in res.data
-
-    def test_register_short_password(self, client):
-        res = _register(client, "newuser", "short")
-        assert b"at least 8" in res.data
-
-    def test_register_empty_fields(self, client):
-        res = _register(client, "", "longpassword")
-        assert b"required" in res.data
-
-    def test_register_missing_email(self, client):
-        res = client.post("/register", data={"username": "noemail", "password": "longpassword"})
-        assert b"required" in res.data
-
-    def test_register_invalid_email(self, client):
-        res = _register(client, "bademail", "longpassword", email="not-an-email")
-        assert b"valid email" in res.data
-
-    def test_register_duplicate_username(self, client):
-        res = _register(client, "testuser", "longpassword")
-        assert b"already in use" in res.data
+        assert res.status_code == 405
+        conn = db.get_db()
+        assert db.get_user_by_username(conn, "newuser") is None
+        conn.close()
 
     def test_register_already_authenticated_redirects(self, client):
         _login(client)
@@ -125,45 +114,17 @@ class TestAuthEdgeCases:
         assert res.status_code == 200
         assert b"Invalid" in res.data
 
-    def test_register_short_password(self, client):
-        res = _register(client, "shortpw", "1234567")
-        assert res.status_code == 200
-        assert b"at least 8" in res.data
-
-    def test_register_duplicate_username(self, client):
-        res = _register(client, "testuser", "longpassword")
-        assert res.status_code == 200
-        assert b"already in use" in res.data
-
-    def test_register_missing_username(self, client):
-        res = _register(client, "", "longpassword")
-        assert res.status_code == 200
-        assert b"required" in res.data
-
-    def test_register_missing_password(self, client):
-        res = _register(client, "newuser", "")
-        assert res.status_code == 200
-        assert b"required" in res.data
-
-    def test_register_boundary_password_length(self, client):
-        """8-char password should succeed (but still needs verification, no auto-login)."""
-        res = client.post("/register", data={
-            "username": "exact8pw", "password": "12345678", "email": "exact8pw@example.com",
-        })
-        assert res.status_code == 200
-        assert b"Check your email" in res.data
-
     def test_login_blocked_before_verification(self, client):
-        """Registering doesn't log you in, and logging in is blocked until verified."""
-        _register(client, "newuser2", "longpassword")
+        """Existing unverified accounts cannot log in until verified."""
+        _create_unverified("newuser2", "longpassword")
         res = _login(client, "newuser2", "longpassword")
         assert b"verify your email" in res.data
         me = client.get("/api/me")
         assert me.status_code == 401
 
     def test_login_after_verification(self, client):
-        """Register, click the verification link, then log in with new credentials."""
-        _register(client, "newuser3", "longpassword")
+        """Verify an existing account, then log in with its credentials."""
+        _create_unverified("newuser3", "longpassword")
         _verify(client, "newuser3")
         client.get("/logout")
         res = _login(client, "newuser3", "longpassword")
@@ -177,7 +138,7 @@ class TestAuthEdgeCases:
         assert b"Invalid or already-used" in res.data
 
     def test_resend_verification(self, client):
-        _register(client, "newuser4", "longpassword")
+        _create_unverified("newuser4", "longpassword")
         res = client.post("/resend-verification", data={"username": "newuser4"}, follow_redirects=True)
         assert res.status_code == 200
         assert b"sent a new link" in res.data

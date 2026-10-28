@@ -4,14 +4,12 @@
 import json
 import math
 import os
-import re
 import secrets
-import sys
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, Response, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import check_password_hash
 
 import db
 from db import coins
@@ -19,7 +17,6 @@ from lib.mail import send_verification_email
 
 auth_bp = Blueprint("auth", __name__)
 
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 VERIFY_TOKEN_LIFETIME = timedelta(hours=24)
 
 def _utc_now_str():
@@ -65,44 +62,13 @@ def login():
                            has_google="google" in oauth._clients)
 
 
-@auth_bp.route("/register", methods=["GET", "POST"])
+@auth_bp.route("/register")
 def register():
-    from app import get_conn, oauth
+    from app import oauth
 
     if current_user.is_authenticated:
         return redirect("/")
-    error = None
-    info = None
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        email = request.form.get("email", "").strip().lower()
-        conn = get_conn()
-
-        if not username or not password or not email:
-            error = "Username, password, and email are required"
-        elif len(password) < 8:
-            error = "Password must be at least 8 characters"
-        elif not EMAIL_RE.match(email):
-            error = "Enter a valid email address"
-        else:
-            try:
-                pw_hash = generate_password_hash(password)
-                token = secrets.token_urlsafe(32)
-                db.create_user(conn, username, pw_hash, email=email,
-                               verify_token=token, verify_expires=_new_verify_expiry())
-            except Exception:
-                error = "Username or email already in use"
-            else:
-                verify_url = url_for("auth.verify_email", token=token, _external=True)
-                if not send_verification_email(email, username, verify_url):
-                    print(f"Failed to send verification email to {email!r} for new user {username!r}",
-                          file=sys.stderr)
-                return render_template("login.html", title="Register", register=True, hide_form=True,
-                                       info="Account created! Check your email for a link to activate it.",
-                                       has_discord="discord" in oauth._clients,
-                                       has_google="google" in oauth._clients)
-    return render_template("login.html", title="Register", error=error, info=info, register=True,
+    return render_template("login.html", title="Register", register=True,
                            has_discord="discord" in oauth._clients,
                            has_google="google" in oauth._clients)
 
