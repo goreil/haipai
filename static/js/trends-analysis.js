@@ -83,8 +83,8 @@ async function startWeaknessAnalysis() {
           await haipaiPrep.prepGameAsync(full, full.mortal_data);
           recategorizeGameInPlace(full);
           const byCat = {};
-          // Skill area -> facet (action code for meld/riichi/kan, shape for
-          // attack/defense/open_defense) -> totals. Same facet key as the
+          // Skill area -> facet (action code for meld/riichi/kan, headline for
+          // attack/defense/open_defense, unchanged Complex) -> totals. Same key as the
           // per-game Summary tab (categorize-metadata.js::mistakeFacet), so
           // the trends breakdown below can reuse its cat-group/cat-sub markup
           // instead of the old bars-over-time chart.
@@ -490,8 +490,8 @@ function renderConceptLedgers(agg, boxes, scope) {
 // facet totals, not every mistake object, across potentially hundreds of games.
 
 // One cat-group per skill area (attack/defense/open_defense/meld/riichi/kan),
-// sorted by EV desc, each with its cat-sub facet rows (shape for dahai,
-// action label for meld/riichi/kan — see categorize-metadata.js::mistakeFacet)
+// sorted by EV desc, each with its cat-sub facet rows (headline for dahai,
+// unchanged Complex/action labels — see categorize-metadata.js::mistakeFacet)
 // also sorted by EV desc. Returns "" when there's nothing to show.
 function renderSkillAreaGroups(bySkillFacet) {
   const groups = Object.entries(bySkillFacet || {})

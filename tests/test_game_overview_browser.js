@@ -42,8 +42,7 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
       const haipaiCompareDimensions = { compareDimensions: () => ({}), GROUP_META: {Speed:{label:'Efficiency', color:'#4fc3f7'}} };
       const haipaiConceptBreakdown = {
         aggregate: () => ({groups:{missed:{Speed:{group:'Speed',ev:14,tiers:{severe:1,mistake:3,light:2}}}}}), tradeoffBoxes: () => [{key:'push_fold',title:'Push vs. Fold',ev:6,
-          mistakes:[{ev:6,tier:'severe',betterWins:[{group:'Defense'}]}]}],
-        tradeoffDirection: () => 'Should fold',
+          mistakes:[{ev:6,tier:'severe',direction:'Should fold',betterWins:[{group:'Defense'}]}]}],
         mistakeTouchesConcept: (m, compare, f) => m.topic === f.group,
       };
       recategorizeGameInPlace = () => {};
@@ -95,7 +94,6 @@ test('overview entry, refresh, shortcuts, preferences, standard controls and key
           click('[data-action="changeGameOverviewPage"][data-page="1"]');
           check(!dialog.querySelector('.overview-preferences'), 'opening preferences do not appear on the second page');
           check(dialog.textContent.includes('Category breakdown') && dialog.textContent.includes('Efficiency'), 'detailed categories');
-          check(dialog.textContent.includes('Push vs. Fold') && dialog.textContent.includes('Should fold'), 'tradeoff directions');
           renderGame();
           check(document.querySelector('dialog').textContent.includes('Category breakdown'), 'refresh retains detail page');
           click('[data-action="changeGameOverviewPage"][data-page="0"]');

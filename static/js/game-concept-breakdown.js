@@ -29,11 +29,11 @@
 
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
-    module.exports = factory();
+    module.exports = factory(require("./categorize-metadata.js"));
   } else {
-    root.haipaiConceptBreakdown = factory();
+    root.haipaiConceptBreakdown = factory(root);
   }
-}(typeof self !== "undefined" ? self : this, function () {
+}(typeof self !== "undefined" ? self : this, function (metadata) {
 
   // Pill dim → display label (+ a one-line `hint` explaining the jargon for the
   // ledger sub-pill tooltip — user feedback flagged "Efficiency (versatility)"
@@ -231,14 +231,10 @@
   // the other. Each box is one axis and lists the individual mistakes on it,
   // showing what you favoured (left) vs what the better play favoured (right).
   //
-  // Assignment is priority-ordered so each mistake lands in exactly ONE box:
-  //   1. push_fold   — any Defense (deal_in) pole is present (over-pushed when
-  //                    Mortal won safety, over-folded when you did).
-  //   2. speed_value — Speed on one side and Value (Yaku or Dora) on the other.
-  //   3. other       — catch-all: yaku-vs-dora trades, single-pole over-favoring,
-  //                    and bad riichi/call/kan actions.
-  // Membership mirrors the old "you" ledger: a mistake must have at least one
-  // you-side win (or a bad-action pill) to be an over-favoring mistake at all.
+  // Discard-vs-discard rows with visible wins on both sides use the same
+  // headline axis and direction as mistake cards. Action and Complex rows
+  // retain the Other catch-all; membership still requires a you-side win or
+  // a bad-action pill.
   var BOX_DEFS = [
     { key: "push_fold",   title: "Push vs. Fold" },
     { key: "speed_value", title: "Speed vs. Value" },
@@ -258,32 +254,19 @@
     return ((actor - pw) % 4 + 4) % 4;
   }
 
-  // Which box a mistake belongs to, from the group sets present on each pole.
-  // `yg`/`bg` are {group->1} maps for the you / better sides (win-vector groups
-  // plus any action group). See BOX_DEFS.
-  //
-  // A trade-off needs two poles: something you favoured AND something the
-  // better play favoured instead. If one side is empty (e.g. you won ukeire
-  // AND safety with nothing on the other side explaining the EV loss — the
-  // "complex" case), there's no opposing pole to trade against, so it can't
-  // be push/fold or speed/value; it falls to the single-pole "other" catch-all.
-  function classifyBox(yg, bg) {
-    if (isEmptyGroupSet(yg) || isEmptyGroupSet(bg)) return "other";
-    if (yg.Defense || bg.Defense) return "push_fold";
-    var youValue = yg.Yaku || yg.Dora, betValue = bg.Yaku || bg.Dora;
-    if ((yg.Speed && betValue) || (youValue && bg.Speed)) return "speed_value";
-    return "other";
-  }
-
-  function isEmptyGroupSet(g) {
-    for (var k in g) { if (g.hasOwnProperty(k)) return false; }
-    return true;
+  // Share card headline semantics without changing the comparison win-vector.
+  // Actions and one-sided (Complex) comparisons have no discard trade-off.
+  function classifyBox(m, wins, youWins, betterWins) {
+    if (!m.actual || m.actual.type !== "dahai"
+        || !m.expected || m.expected.type !== "dahai"
+        || !youWins.length || !betterWins.length) return null;
+    return metadata.discardHeadline(wins);
   }
 
   // Walk every (visible) mistake and bucket the over-favoring ones into trade-off
   // boxes. Returns an ordered array of non-empty boxes:
   //   { key, title, ev, mistakes: [{
-  //       id, ev, tier,
+  //       id, ev, tier, direction, // shared card headline or Other trade-offs
   //       youWins, betterWins,   // raw win-vector entries (winner you / mortal),
   //                              // rendered with the SAME concrete pills as the
   //                              // EV-table summary (renderWinFeatPill).
@@ -307,32 +290,34 @@
         var m = mistakes[i];
         if (predicate && !predicate(m)) continue;
 
-        var youWins = [], betterWins = [], yg = {}, bg = {};
+        var wins = [], youWins = [], betterWins = [];
         if (typeof compareDimensions === "function") {
-          var wins = compareDimensions(m) || [];
+          wins = compareDimensions(m) || [];
           for (var w = 0; w < wins.length; w++) {
             var win = wins[w];
             if (!win || win.suppressed) continue;
-            if (win.winner === "you") { youWins.push(win); yg[win.group || "Other"] = 1; }
-            else if (win.winner === "mortal") { betterWins.push(win); bg[win.group || "Other"] = 1; }
+            if (win.winner === "you") youWins.push(win);
+            else if (win.winner === "mortal") betterWins.push(win);
           }
         }
         var cell = m && m.category && ACTION_CELL[m.category];
         var youAction = null, betterAction = null;
         if (cell) {
-          if (cell.side === "you") { youAction = cell.group; yg[cell.group] = 1; }
-          else { betterAction = cell.group; bg[cell.group] = 1; }
+          if (cell.side === "you") youAction = cell.group;
+          else betterAction = cell.group;
         }
 
         if (!youWins.length && !youAction) continue; // not an over-favoring mistake
 
-        var key = classifyBox(yg, bg);
+        var headline = classifyBox(m, wins, youWins, betterWins);
+        var key = headline ? headline.axis : "other";
         var t = (typeof comparedTiles === "function" && comparedTiles(m)) || {};
         var ev = m.ev_loss || 0;
         boxes[key].mistakes.push({
           id: m.id || null,
           ev: ev,
           tier: tier(m.ev_loss),
+          direction: headline ? headline.label : "Other trade-offs",
           oya: computeOya(m),
           youWins: youWins,
           betterWins: betterWins,
@@ -354,13 +339,6 @@
     return out;
   }
 
-  // Shared by the summary totals and rounds filters so direction membership agrees.
-  function tradeoffDirection(key, betterWins) {
-    var has = function (group) { return betterWins.some(function (win) { return win.group === group; }); };
-    if (key === "push_fold") return has("Defense") ? "Should fold" : "Should push";
-    if (key === "speed_value") return has("Speed") ? "Should favor speed" : "Should favor value";
-    return "Other trade-offs";
-  }
 
   // Does this mistake match a concept filter {side, group, dim}? A group-level
   // filter (dim null/falsy) checks the deduped cells; a sub-pill filter (dim
@@ -371,7 +349,7 @@
     if (f.side === "tradeoff") {
       var boxes = tradeoffBoxes({ rounds: [{ mistakes: [m] }] }, compareDimensions, null, function () {});
       return boxes.some(function (box) {
-        return box.key === f.group && (!f.dim || tradeoffDirection(box.key, box.mistakes[0].betterWins) === f.dim);
+        return box.key === f.group && (!f.dim || box.mistakes[0].direction === f.dim);
       });
     }
     if (!f.dim) return mistakeTouchesGroup(m, compareDimensions, f.side, f.group);
@@ -471,6 +449,6 @@
 
   return {
     CONCEPT_META, GROUP_HINT, PILL_META, ACTION_CELL, rawHits, cellsFor, aggregate, tradeoffBoxes,
-    mistakeTouchesGroup, mistakeTouchesConcept, tradeoffDirection, boxTotals, mergeAggregates, mergeBoxTotals,
+    mistakeTouchesGroup, mistakeTouchesConcept, boxTotals, mergeAggregates, mergeBoxTotals,
   };
 }));

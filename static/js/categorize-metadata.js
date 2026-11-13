@@ -29,11 +29,10 @@ var SKILL_AREA_INFO = {
   kan:          { label: "Kan",          color: "#22c55e" },
 };
 
-// The three discard shapes (derived from the win-vector topology). "n/a" is the
-// action-decision / non-dahai case — it never renders as a shape badge.
+// Stored shapes stay unchanged; discard badges describe their visible evidence.
 var SHAPE_INFO = {
-  obvious:     { label: "Obvious",   desc: "Mortal's pick strictly dominates — pure technique, one of the more learnable spots." },
-  "trade-off": { label: "Trade-off", desc: "A judgment call: your pick wins on one axis, Mortal's on another that's worth more here." },
+  obvious:     { label: "Visible improvements", desc: "The badge names Mortal's visible advantages: Efficiency, Value, Safety, or a combination." },
+  "trade-off": { label: "Main trade-off", desc: "The badge names one recommended direction supported by the displayed comparison." },
   complex:     { label: "Complex",   desc: "The visible stats (shanten, ukeire, value) don't explain Mortal's pick — a read on shape, wait, or score." },
   "n/a":       { label: "",          desc: "" },
 };
@@ -62,24 +61,85 @@ function skillAreaColor(sa) {
   return info ? info.color : "#888";
 }
 
-function shapeLabel(shape) {
-  const info = SHAPE_INFO[shape];
-  return info ? info.label : "";
+// Presentation only: never remove a win or change the categorizer's shape.
+// Shared with summary directions so the headline and its round filter agree.
+function discardHeadline(wins) {
+  const you = {}, better = {};
+  let youCount = 0, betterCount = 0;
+  let riskWinner = null, mixedRisk = false, maxRiskGap = 0, betterSpare = false;
+  for (const win of wins || []) {
+    if (win.suppressed || (win.winner !== "you" && win.winner !== "mortal")) continue;
+    if (win.winner === "you") {
+      you[win.group] = true;
+      youCount++;
+    } else {
+      better[win.group] = true;
+      betterCount++;
+      if (win.dim === "safe_spare_kept") betterSpare = true;
+    }
+    if (win.dim === "deal_in") {
+      if (riskWinner && riskWinner !== win.winner) mixedRisk = true;
+      riskWinner = win.winner;
+      maxRiskGap = Math.max(maxRiskGap, Number.isFinite(win.pct) ? win.pct : Infinity);
+    }
+  }
+  if (!betterCount) return null;
+  const headline = (label, desc, axis = "other") => ({ key: label, label, desc, axis });
+  if (!youCount) {
+    const improvements = [];
+    if (better.Speed) improvements.push("Efficiency");
+    if (better.Yaku || better.Dora) improvements.push("Value");
+    if (better.Defense) improvements.push("Safety");
+    if (!improvements.length) return null;
+    const label = improvements.join(" + ");
+    return headline(label, `Mortal's choice has these displayed advantages: ${label}.`);
+  }
+  const youValue = you.Yaku || you.Dora;
+  const betterValue = better.Yaku || better.Dora;
+  const speedValue = (youValue && better.Speed) || (you.Speed && betterValue);
+  if (mixedRisk) {
+    return headline("Safety trade-off",
+      "Mortal's choice is safer against one opponent but riskier against another.", "push_fold");
+  }
+  // A tiny risk difference only loses headline precedence when another
+  // visible trade-off can explain the recommendation. The risk stays visible.
+  if (riskWinner && !(speedValue && maxRiskGap + 1e-9 < 0.5)) {
+    const opposingProgress = riskWinner === "mortal" ? you.Speed || youValue : better.Speed || betterValue;
+    if (opposingProgress) {
+      return riskWinner === "mortal"
+        ? headline("Should fold", "Mortal's choice gives up efficiency or value for lower deal-in risk.", "push_fold")
+        : headline("Should push", "Mortal's choice accepts more deal-in risk for efficiency or value.", "push_fold");
+    }
+    return headline("Safety trade-off", "The displayed comparison trades one safety advantage for another.", "push_fold");
+  }
+  if (speedValue) {
+    return better.Speed
+      ? headline("Prioritize speed", "Mortal's choice favors efficiency over a visible value advantage.", "speed_value")
+      : headline("Prioritize value", "Mortal's choice favors value over a visible efficiency advantage.", "speed_value");
+  }
+  if (betterSpare) {
+    return headline("Prioritize safety", "Mortal's choice preserves a safer spare tile before a threat appears.");
+  }
+  if (better.Speed) return headline("Prioritize speed", "Mortal's choice preserves a visible efficiency advantage.");
+  if (betterValue) return headline("Prioritize value", "Mortal's choice preserves a visible value advantage.");
+  return null;
 }
 
-// The sub-facet that splits a skill area on the card / summary: the action
-// label for action decisions, otherwise the shape label. Returns
-// { key, label, desc } — `key` is stable for grouping, "" when there's nothing
-// to name (rare odd combos / missed agari with no shape).
+// Facet keys distinguish different headlines within the same stored shape,
+// so aggregated labels cannot depend on which mistake happened to come first.
 function mistakeFacet(m) {
   const act = m && m.category && ACTION_INFO[m.category];
   if (act) return { key: m.category, label: act.label, desc: act.desc };
+  if (m && (m.shape === "obvious" || m.shape === "trade-off")) {
+    const headline = discardHeadline(m.wins);
+    return headline || { key: "", label: "", desc: "" };
+  }
   const info = m && SHAPE_INFO[m.shape];
   if (info && info.label) return { key: m.shape, label: info.label, desc: info.desc };
   return { key: "", label: "", desc: "" };
 }
 
-// The badge for a mistake card: "{skill area} / {shape-or-action}" with the
+// The existing single badge: "{skill area} / {headline-or-action}".
 // skill-area color + a tooltip. Returns null when there's nothing to show
 // (no skill area and no facet).
 function mistakeBadge(m) {
@@ -92,4 +152,11 @@ function mistakeBadge(m) {
   else label = saLabel || facet.label;
   if (!label) return null;
   return { label, color, desc: facet.desc };
+}
+
+if (typeof module === "object" && module.exports) {
+  module.exports = {
+    SKILL_AREA_INFO, SHAPE_INFO, ACTION_INFO,
+    skillAreaLabel, skillAreaColor, discardHeadline, mistakeFacet, mistakeBadge,
+  };
 }

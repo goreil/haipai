@@ -135,7 +135,7 @@ function showHelp() {
 
   let html = `<div class="game-header"><h2>Help</h2></div>`;
 
-  // Skill-area legend: each mistake is {skill area} × {shape}.
+  // Skill-area legend; discard headlines name the visible improvement or trade.
   html += `<div class="help-group">`;
   html += `<div class="help-group-header">Skill areas</div>`;
   for (const [key, info] of Object.entries(SKILL_AREA_INFO)) {
@@ -145,9 +145,9 @@ function showHelp() {
   }
   html += `</div>`;
 
-  // Shape legend.
+  // Headline legend.
   html += `<div class="help-group">`;
-  html += `<div class="help-group-header">Mistake shapes</div>`;
+  html += `<div class="help-group-header">Mistake headlines</div>`;
   for (const shape of ["obvious", "trade-off", "complex"]) {
     const info = SHAPE_INFO[shape];
     html += `<div class="help-cat">
@@ -164,10 +164,11 @@ function showHelp() {
       <p>Every discard mistake is compared against <span style="color:#81c784"><b>Mortal AI</b></span> &mdash; a neural-network mahjong AI that considers the full game state: tile efficiency, defense, hand value, riichi timing, opponent behavior, and more. Mortal's pick is the reference for every comparison.</p>
       <p style="margin-top:8px"><b>The scene sets the skill area.</b></p>
       <p>What's happening on the board decides which skill the spot tests &mdash; <span style="color:#4a9eff">Attack</span> when your hand can move forward, <span style="color:#ff6b6b">Defense</span> when an opponent is in riichi, <span style="color:#f5b342">Open Defense</span> when a non-riichi open hand is threatening, and <span style="color:#ee5fa7">Meld</span> / <span style="color:#a855f7">Riichi</span> / <span style="color:#22c55e">Kan</span> for those call decisions.</p>
-      <p style="margin-top:8px"><b>The win-vector sets the shape.</b></p>
-      <p>For a discard we evaluate every dimension &mdash; speed (shanten, ukeire), value (yakuhai, dora), and safety (deal-in) &mdash; and see which tile wins each. The pattern of wins is the shape:</p>
-      <p style="padding-left:16px">&bull; <b>Obvious</b> &mdash; ${SHAPE_INFO["obvious"].desc}</p>
-      <p style="padding-left:16px">&bull; <b>Trade-off</b> &mdash; ${SHAPE_INFO["trade-off"].desc}</p>
+      <p style="margin-top:8px"><b>The comparison sets the headline.</b></p>
+      <p>Only advantages shown in the comparison count. When Mortal has all the visible advantages, the badge combines their concepts, such as <b>Efficiency + Value</b>. Otherwise it names one trade-off:</p>
+      <p style="padding-left:16px">&bull; <b>Should push / Should fold</b> &mdash; efficiency or value versus deal-in risk against a live threat.</p>
+      <p style="padding-left:16px">&bull; <b>Prioritize speed / Prioritize value</b> &mdash; efficiency versus hand value. When this trade-off also exists and the safety difference is below 0.5 percentage points, it takes headline priority; the safety evidence stays visible.</p>
+      <p style="padding-left:16px">&bull; <b>Prioritize safety</b> &mdash; preserve a safer spare before a threat appears. <b>Safety trade-off</b> means the safety differences against opponents point in conflicting directions.</p>
       <p style="padding-left:16px">&bull; <b>Complex</b> &mdash; ${SHAPE_INFO["complex"].desc}</p>
       <p>&bull; <b>Non-discard actions</b> (chi, pon, riichi, kan) carry no shape &mdash; the call itself (e.g. Bad Riichi, Missed Call) names the mistake.</p>
     </div>

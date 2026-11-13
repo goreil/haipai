@@ -266,19 +266,23 @@ function renderTradeoffBoxes(boxes, gm) {
   if (!boxes || !boxes.length) return "";
   gm = gm || conceptMetaMap();
   const definitions = {
-    push_fold: { color: (gm.Defense || {}).color, labels: ["Should push", "Should fold"] },
-    speed_value: { color: (gm.Speed || {}).color, labels: ["Should favor speed", "Should favor value"] },
-    other: { color: "var(--text-dim)", labels: ["Other trade-offs"] },
+    push_fold: { color: (gm.Defense || {}).color },
+    speed_value: { color: (gm.Speed || {}).color },
+    other: { color: "var(--text-dim)" },
   };
   const filtering = state.conceptFilters.length > 0;
   const rows = boxes.map(box => {
     const def = definitions[box.key] || definitions.other;
     const color = def.color || "var(--accent)";
-    const groups = def.labels.map(label => ({ label, ev: 0, mistakes: [] }));
+    const groups = [];
     const tiers = {};
     for (const mistake of box.mistakes) {
-      const direction = haipaiConceptBreakdown.tradeoffDirection(box.key, mistake.betterWins);
-      const group = groups.find(group => group.label === direction);
+      const direction = mistake.direction;
+      let group = groups.find(group => group.label === direction);
+      if (!group) {
+        group = { label: direction, ev: 0, mistakes: [] };
+        groups.push(group);
+      }
       group.ev += mistake.ev;
       group.mistakes.push(mistake);
       tiers[mistake.tier] = (tiers[mistake.tier] || 0) + 1;

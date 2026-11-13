@@ -15,6 +15,21 @@ test('decision cards show evidence before explanations and keep feedback editabl
       .map(match => match[1]);
     scripts.splice(scripts.indexOf('/static/js/mistake-card.js') + 1);
     const fixture = require('./fixtures/dora_acceptance_m35078.json');
+    const headlineCases = [
+      [6099, 'Attack / Efficiency + Value'],
+      [5502, 'Defense / Efficiency + Value + Safety'],
+      [6827, 'Defense / Prioritize value'],
+      [6077, 'Defense / Should fold'],
+      [2066, 'Defense / Should push'],
+      [6074, 'Attack / Prioritize safety'],
+      [6078, 'Defense / Safety trade-off'],
+      [6075, 'Attack / Complex'],
+      [6076, 'Meld / Bad Call'],
+    ];
+    const inputs = require('./fixtures/categorize_parity.json').fixtures;
+    const headlineFixtures = headlineCases.map(([id, label]) => ({
+      id, label, input: inputs.find(f => f.mistake_id === id).inputs,
+    }));
     const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
       ${['theme', 'game-detail', 'board-display'].map(name =>
         '<link rel="stylesheet" href="file://' + root + '/static/style-' + name + '.css">').join('')}
@@ -24,6 +39,7 @@ test('decision cards show evidence before explanations and keep feedback editabl
       <script>
       window.state = {readOnly:false};
       const base = ${JSON.stringify(fixture)};
+      const headlineFixtures = ${JSON.stringify(headlineFixtures)};
       Object.assign(base, {id:35078, ev_loss:3.42, round_name:'S1',
         top_actions:[{action:base.expected,q_value:2}, {action:base.actual,q_value:1}]});
       Object.assign(base, haipaiCategorize.categorize(base));
@@ -102,6 +118,16 @@ test('decision cards show evidence before explanations and keep feedback editabl
           card = draw(riichi);
           check(card.querySelector('.col-actual .reach-pill-riichi')
             && card.querySelector('.col-actual .ev-tile').alt === '5p', 'riichi choice includes its discard');
+          for (const fixture of headlineFixtures) {
+            const m = {...fixture.input, id:fixture.id, ev_loss:1, round_name:'E1',
+              ...haipaiCategorize.categorize(fixture.input)};
+            card = draw(m, {inline:true});
+            check(card.querySelectorAll('.cat-badge').length === 1, 'single replacement badge ' + fixture.id);
+            check(card.querySelector('.cat-badge').textContent === fixture.label, 'headline ' + fixture.id);
+            check(card.querySelectorAll(':scope > .mistake-top').length === 1
+              && card.querySelectorAll(':scope > .mascot-speech').length === 1, 'no added row or explanation ' + fixture.id);
+            check(document.documentElement.scrollWidth <= innerWidth, 'headline fits viewport ' + fixture.id);
+          }
           // Leave a representative attack card for desktop/mobile visual checks.
           card = draw();
           check(document.documentElement.scrollWidth <= innerWidth, 'no page overflow');

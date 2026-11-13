@@ -2,6 +2,21 @@
 
 Status: partially implemented. Added and investigated 2026-10-19.
 
+2026-11-13: Actionable discard headlines now replace the Obvious/Trade-off text
+inside the existing single badge; no extra badge, row, or explanation block.
+One-sided visible improvements combine Efficiency, Value (yaku and dora
+deduplicated), and Safety. Trade-offs select one direction: Should push/fold
+against a live threat, Prioritize speed/value, Prioritize safety for a safer
+spare before a threat, or Safety trade-off for conflicting opponent risks.
+Push/fold normally takes priority. If a speed/value alternative exists and
+the largest consistent opponent-risk difference is below 0.5 percentage
+points, speed/value takes headline priority instead; the risk evidence stays
+visible. Small risk differences without an alternative still retain push/fold.
+Cards, summary direction filters, and live trends facets share this presentation
+rule. Stored shapes, dimension calculations, grading, action labels, and Complex
+are unchanged; saved historical analyses are not rewritten.
+
+
 2026-10-20: Implemented the compact layout above the rounds (UI-01 and the
 controls needed for it): date/share/overflow header; Game overview/Rounds/Summary
 navigation, opening on Game overview with scores, statistics, trainer tip, and concept
@@ -330,7 +345,6 @@ thresholds, grading, and categorization:
 | --- | --- |
 | `Unsure` | `Small evaluation gap` |
 | `AI not confident` | `Mortal's evaluation gap is below 0.2.` |
-| `Obvious` | `Direct comparison` |
 | Per-hand `Show all` | `Show N hidden items` |
 | Per-hand `Show less` | `Hide items outside filters` |
 | Overview `Ranking` | `Full-game grade` |
