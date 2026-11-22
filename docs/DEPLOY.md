@@ -17,7 +17,7 @@ GitHub (push to main)
   127.0.0.1:5000)
 - **Domain**: haipai-trainer.com (A + AAAA -> server IP). The old
   haipai.ylue.de still resolves here — see "Domain migration" below.
-- **HTTPS**: Let's Encrypt via certbot container
+- **HTTPS**: Host Certbot; `certbot.timer` checks for renewals twice daily.
 - **Database**: SQLite in Docker volume (`app-data`)
 
 ## How Deploys Work
@@ -120,12 +120,7 @@ db.create_user(conn, 'ylue', generate_password_hash('YOUR_PASSWORD'))
 conn.close()
 "
 
-# 7. HTTPS (after DNS is set up)
-docker-compose run --rm --entrypoint "certbot" certbot certonly \
-  --webroot --webroot-path=/var/lib/letsencrypt -d haipai-trainer.com
-
-# Then uncomment the HTTPS block in nginx.conf and restart:
-docker-compose restart nginx
+# 7. HTTPS: configure the host nginx HTTP vhost and host Certbot as below.
 ```
 
 ## Domain migration (2026-08)
@@ -148,7 +143,9 @@ place on the server and diff before installing.
 Standing up the new domain (run as root on the server):
 
 ```bash
-# 1. Cert (webroot — the port-80 catch-all already serves the ACME challenge)
+# 1. Enable the port-80 vhost before issuance. Name both certificate hosts in
+# server_name; "_" is not a wildcard and another IPv4 vhost may be the default.
+# Serve /.well-known/acme-challenge/ from /var/lib/letsencrypt without redirect.
 certbot certonly --webroot --webroot-path=/var/lib/letsencrypt \
   -d haipai-trainer.com -d www.haipai-trainer.com
 
@@ -195,9 +192,12 @@ docker cp $(docker-compose ps -q app):/app/mortal_analysis ./mortal_backup/
 ```bash
 # View logs
 docker-compose logs -f app
-docker-compose logs -f nginx
+journalctl -u nginx -u certbot.service
 
-# Renew HTTPS cert manually
-docker-compose run --rm --entrypoint "certbot" certbot renew
-docker-compose restart nginx
+# Renew the Haipai certificate when due (host commands, as root).
+# Save the reload hook for future successful renewals of this lineage.
+certbot reconfigure --cert-name haipai-trainer.com \
+  --deploy-hook '/usr/sbin/nginx -t && /usr/bin/systemctl reload nginx'
+certbot renew --cert-name haipai-trainer.com
+systemctl list-timers certbot.timer
 ```
