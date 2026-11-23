@@ -27,6 +27,11 @@ function _iishantenWaits(hand, meldCounts, wall) {
   return waits;
 }
 
+// Value is peak legal points first, then mean points on a legal win.
+function _compareIishantenValue(a, b) {
+  return a.points - b.points || a.meanPoints - b.meanPoints;
+}
+
 function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
   const { base_mjai } = haipaiPrepTiles;
   const wall = m.iishanten_wall.slice();
@@ -55,24 +60,35 @@ function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
     const live = _expandWaitsForAka(waits, furitenSet).filter(w => w.count > 0);
     const groups = count ? _scoreTenpaiWaits(m, tenpai, live, false,
       "A wait is in your discard pool — ron is unavailable on every wait; tsumo is still possible.", riichiFlags) : [];
-    const points = groups?.reduce((max, g) => Math.max(max, g.ron?.ten ?? 0, g.tsumo?.ten ?? 0), 0);
-    branches.push({ discard, count, groups, points });
+    let points = 0, totalPoints = 0, outcomes = 0;
+    for (const group of groups ?? []) {
+      const copies = group.tiles.reduce((n, t) => n + t.count, 0);
+      for (const score of [group.ron, group.tsumo]) {
+        if (!score) continue;
+        points = Math.max(points, score.ten);
+        totalPoints += copies * score.ten;
+        outcomes += copies;
+      }
+    }
+    branches.push({ discard, count, groups, points, meanPoints: outcomes ? totalPoints / outcomes : 0 });
   }
 
   const widest = Math.max(...branches.map(b => b.count));
   const fastest = branches.filter(b => b.count === widest);
-  const highest = branches.every(b => b.groups !== null) ? Math.max(...branches.map(b => b.points)) : null;
-  const hasBest = highest > 0 && fastest.some(b => b.points === highest);
+  const highest = branches.length && branches.every(b => b.groups !== null)
+    ? branches.reduce((best, b) => _compareIishantenValue(b, best) > 0 ? b : best) : null;
+  const isHighest = b => highest?.points > 0 && _compareIishantenValue(b, highest) === 0;
+  const hasBest = fastest.some(isHighest);
   for (const b of branches) {
     const speed = b.count === widest && widest > 0;
-    const value = b.points === highest && highest > 0;
+    const value = isHighest(b);
     b.label = speed && value ? "Best" : !hasBest && speed ? "Speed" : !hasBest && value ? "Value" : "Cut";
   }
   // Keep the draw summary width-first, independent of which cut is inspected.
   let branch = fastest[0] ?? null;
   if (fastest.length > 1) {
     branch = fastest.some(b => b.groups === null) ? null
-      : fastest.reduce((best, b) => b.points > best.points ? b : best);
+      : fastest.reduce((best, b) => _compareIishantenValue(b, best) > 0 ? b : best);
   }
   const support = new Map();
   let outcomes = 0;

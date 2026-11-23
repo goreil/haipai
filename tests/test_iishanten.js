@@ -83,6 +83,19 @@ test('#m42402: only the selected widest wait contributes yaku to its draw', () =
   assert.equal(analyze(m, '7p'), mortal); // rerender does not rescore this card
 });
 
+test('#m42402: on a 1p draw only the cut with iipeikou on 2s earns Best', () => {
+  // Encounter the lower-value cut first; selection must not depend on hand order.
+  const m = prep([...hand42402].reverse(), { discards: rivers42402 });
+  const draw = analyze(m, '7p').find(d => d.tile === '1p');
+  const best = branch(draw, '1s'), other = draw.branches.find(b => b.discard === '4s');
+  assert.equal(best.count, other.count);
+  assert.equal(best.points, other.points);
+  assert.ok(on(best, '2s').ron.yaku.includes('iipeikou'));
+  assert.ok(!on(other, '2s').ron.yaku.includes('iipeikou'));
+  assert.equal(best.label, 'Best');
+  assert.equal(other.label, 'Cut');
+});
+
 test('a narrower discard can win more points without replacing the width-first summary', () => {
   const m = prep(hand42402, { discards: [...rivers42402, [1, '5pr']] });
   const draw = analyze(m, '3s').find(d => d.tile === '4p');
