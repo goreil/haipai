@@ -45,6 +45,7 @@ function scoredSharePercent(share) {
 function renderScoredProfile(profile, shanten) {
   if (!profile) return `<small class="dim">Value unavailable</small>`;
   const tags = Object.entries(profile.yaku).map(([name, share]) => {
+    if (name === "riichi") return "";
     return `<span class="yaku-tag" title="Share of weighted Value outcomes with this yaku">${escapeHtml(name)} ${scoredSharePercent(share)}</span>`;
   }).join("");
   const weights = shanten === 1

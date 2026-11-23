@@ -4,7 +4,7 @@ Personal Riichi Mahjong game analysis tool. Analyzes Tenhou replays via Mortal A
 
 ## Reviewing an iishanten discard
 
-On a discard card, **Tile acceptance** compares the shared draws and each discard’s extra tiles. **Value** compares the same physical tile across picks before grouping draws: matching yaku and bonuses are hidden, while `+` marks a yaku gained by one pick. A `?` means the yaku depends on the winning tile or win method. Unique draws keep their full yaku, and ordinary and red dora share one total or range (for example, `0–2 dora`). Each tile keeps its own unseen count.
+On a discard card, **Tile acceptance** compares the shared draws and each discard’s extra tiles. **Value** compares the same physical tile across picks before grouping draws: matching yaku and bonuses are hidden, while `+` marks a yaku gained by one pick. A `?` means the yaku depends on the winning tile or win method. Unique draws show their yaku except ordinary riichi, which is counted in scores but omitted from iishanten draw tags and Value percentages. A red **Furiten** badge marks blocked ron; unblocked waits need no label. Ordinary and red dora share one total or range (for example, `0–2 dora`). Each tile keeps its own unseen count.
 
 In the **Value** row, **N equal** counts unseen copies of draws with the same displayed yaku, dora range, and win status for both picks. A draw can count as shared for **Tile acceptance** but not equal for **Value**: in [#m607](https://haipai-trainer.com/#m607), drawing 3m or 7s leaves 2 dora for one discard and 2–3 for the other. Those differences appear side by side. Select either count to expand or collapse both draw lists.
 

@@ -18,6 +18,7 @@ test('decision cards show evidence before explanations and keep feedback editabl
     const reports = require('./fixtures/scored_value_reports.json');
     const scoredHand = reports.find(r => r.mistake.id === 42402).mistake;
     const doraHand = reports.find(r => r.mistake.id === 607).mistake;
+    const furitenHand = reports.find(r => r.report_ids.includes(205)).mistake;
     const headlineCases = [
       [6099, 'Attack / Efficiency + Value'],
       [5502, 'Defense / Efficiency + Value + Safety'],
@@ -146,6 +147,7 @@ test('decision cards show evidence before explanations and keep feedback editabl
           const sides = ['actual', 'expected'];
           for (const side of sides) {
             check(/iipeikou [\\d.]+%/.test(evidence(side)), 'per-pick iipeikou percentage in Value');
+            check(!evidence(side).includes('riichi'), 'Value percentages omit ordinary riichi');
           }
           const mountDraws = () => {
             const hosts = card.querySelectorAll('haipai-iishanten');
@@ -166,6 +168,7 @@ test('decision cards show evidence before explanations and keep feedback editabl
           let view = mountDraws();
           const check42402 = expanded => {
             checkPills(view, expanded ? ['16', '16'] : ['3 equal', '3 equal'], expanded);
+            check(!view.querySelector('.continuation-rows').innerText.includes('riichi'), 'draw tags omit ordinary riichi');
             for (const side of sides) {
               for (const tile of ['9p', '4s']) {
                 check(!!drawButton(view, side, tile) === expanded, side + ' equal draw ' + tile);
@@ -224,6 +227,13 @@ test('decision cards show evidence before explanations and keep feedback editabl
               'Tile acceptance still counts all shared draws after expanding Value');
           }
           check(document.documentElement.scrollWidth <= innerWidth, 'no page overflow');
+          const blocked = ${JSON.stringify(furitenHand)};
+          card = draw({ ...blocked, ...haipaiCategorize.categorize(blocked) }, {inline:true});
+          view = mountDraws();
+          const blockedRow = drawButton(view, 'actual', '4s').closest('.continuation');
+          check(blockedRow.querySelector('.furiten-badge')?.checkVisibility(), 'furiten draw shows the tenpai badge');
+          check(!view.querySelector('.col-expected .furiten-badge') && !view.innerText.includes('Live wait'),
+            'unblocked draws need no status label');
           document.body.dataset.result = 'passed';
         } catch(error) { document.body.dataset.result = error.stack; }
       });

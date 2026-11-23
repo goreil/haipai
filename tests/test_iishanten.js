@@ -428,11 +428,6 @@ test('compare physical waits first, then group equal displayed yaku across dora 
   assert.deepEqual(full[0].dora, bonuses.dora);
   assert.equal(full[0].maxHan, 3);
   assert.equal(groupValueRows([row('5pr', 1, 0)], [row('5pr', 0, 1)]).length, 0);
-  const [explicit] = groupValueRows([{ ...a[0], status: 'Furiten · tsumo only' }], [a[0]]);
-  assert.equal(explicit.status, 'Furiten · tsumo only');
-  assert.deepEqual(explicit.yaku, a[0].yaku);
-  const [dead] = groupValueRows([{ ...a[0], dead: true, status: 'Furiten · tsumo only' }]);
-  assert.equal(dead.status, 'No unseen winning tiles');
 
   const gains = groupValueRows(a.slice(0, 2), [row('5p', 0, 0, 'tanyao'), row('5pr', 0, 1, 'tanyao')]);
   assert.equal(gains.length, 2);

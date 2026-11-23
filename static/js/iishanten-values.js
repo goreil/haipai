@@ -2,11 +2,13 @@ const _valueRange = (lo, hi) => lo === hi ? `${hi}` : `${lo}–${hi}`;
 
 // Ranges describe legal wins, not all tiles in the hand. In particular a
 // no-yaku completion, a furiten ron and a dead wait cannot contribute dora.
-function _drawValueProfile({ yaku, groups, dead = false, unavailable = false, status = "" }) {
+function _drawValueProfile({ yaku, groups, dead = false, unavailable = false }) {
   let minDora = Infinity, maxDora = 0, minYakuhai = Infinity, maxYakuhai = 0;
   let maxHan = 0, maxYakuman = 0;
+  let furiten = false;
   if (!unavailable && !dead && groups) {
     for (const group of groups) {
+      if (group.furiten) furiten = true;
       for (const score of [group.ron, group.tsumo]) {
         if (!score) continue;
         maxHan = Math.max(maxHan, score.han);
@@ -20,15 +22,15 @@ function _drawValueProfile({ yaku, groups, dead = false, unavailable = false, st
       }
     }
   }
+  let status = "";
   if (unavailable) status = "Value unavailable";
   else if (dead) status = "No unseen winning tiles";
-  else if (!status) {
-    if (minDora === Infinity) status = "No yaku";
-    else if (groups.some(g => g.furiten)) status = "Furiten · tsumo only";
-    else if (groups.every(g => !g.ron)) status = "No yaku on ron";
+  else if (minDora === Infinity) status = "No yaku";
+  else if (!furiten) {
+    if (groups.every(g => !g.ron)) status = "No yaku on ron";
     else if (groups.some(g => !g.ron)) status = "No yaku on some ron waits";
   }
-  return { yaku, status, dead, unavailable, minDora, maxDora,
+  return { yaku, status, furiten, dead, unavailable, minDora, maxDora,
     minYakuhai: maxYakuhai ? minYakuhai : 0, maxYakuhai, maxHan, maxYakuman };
 }
 
@@ -48,21 +50,21 @@ function _displayValueYaku(profile, other) {
 // A delta only describes this side's gains. Null does not mean the two
 // results are equal: the other side can still have an additional yaku.
 function _displayValue(p, other) {
-  const shared = other && p.status === other.status;
+  const shared = other && p.status === other.status && p.furiten === other.furiten;
   const yaku = _displayValueYaku(p, shared ? other : null);
   const doraDelta = !!shared && (p.minDora !== other.minDora || p.maxDora !== other.maxDora);
   if (shared && !yaku.length && !doraDelta) return null;
   return { yaku, additional: !!shared && yaku.length > 0,
-    status: shared ? "" : p.status || (other ? "Live wait" : ""),
+    status: shared ? "" : p.status, furiten: !shared && p.furiten,
     doraDelta, showDora: shared ? doraDelta : p.maxDora > 0 };
 }
 
 function _valueGroupKey(p, display) {
-  return display && [display.yaku, display.additional, display.status, p.unavailable, p.dead, display.doraDelta];
+  return display && [display.yaku, display.additional, display.status, display.furiten, p.unavailable, p.dead, display.doraDelta];
 }
 
 function _addValueDraw(group, draw, p, display) {
-  if (!group) group = { draws: [], yaku: display.yaku, additional: display.additional, status: display.status,
+  if (!group) group = { draws: [], yaku: display.yaku, additional: display.additional, status: display.status, furiten: display.furiten,
     unavailable: p.unavailable, dead: p.dead, minDora: Infinity, maxDora: 0, showDora: false, maxHan: 0, maxYakuman: 0 };
   group.draws.push(draw);
   group.minDora = Math.min(group.minDora, p.minDora);
@@ -94,7 +96,8 @@ function groupValueRows(rows, compareRows = null, describe = row => row) {
 }
 
 function _describeIishanten(draw) {
-  return { yaku: draw.yaku, unavailable: draw.unavailable, dead: !draw.unavailable && draw.branch?.count === 0,
+  return { yaku: draw.yaku.filter(y => y.name !== "riichi"),
+    unavailable: draw.unavailable, dead: !draw.unavailable && draw.branch?.count === 0,
     groups: draw.branch?.groups };
 }
 

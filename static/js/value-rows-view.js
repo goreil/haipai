@@ -5,6 +5,7 @@ function renderValueRowTags(row) {
   return row.yaku.map(y => `<span class="yaku-tag">${row.additional ? "+" : ""}${escapeHtml(y.name)}`
     + `${y.confirmed ? "" : question}</span>`).join("")
     + (row.dora ? `<span class="yaku-tag dora-tag" title="Includes red fives">${escapeHtml(row.dora.label)}</span>` : "")
+    + (row.furiten ? '<span class="furiten-badge" title="Ron is blocked by furiten">Furiten</span>' : "")
     + (row.status ? `<small>${escapeHtml(row.status)}</small>` : "");
 }
 
@@ -17,7 +18,7 @@ function tenpaiValueRows(groups) {
     const yaku = [...names].map(name => ({ name, confirmed: methods.every(s => s.yaku.includes(name)) }));
     const scores = [group];
     return group.tiles.map(t => ({ tile: t.tile, count: t.count, yaku: t.count ? yaku : [], groups: scores,
-      status: group.noYaku && group.furiten ? "Furiten · no yaku" : "", dead: t.count === 0 }));
+      dead: t.count === 0 }));
   });
 }
 
