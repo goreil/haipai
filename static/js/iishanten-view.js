@@ -17,6 +17,14 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
   constructor() {
     super();
     this.addEventListener("click", event => {
+      const cut = event.target.closest("[data-cut]");
+      if (cut) {
+        const row = cut.closest(".continuation");
+        const drawIndex = row.querySelector('[data-draw-index][aria-expanded="true"]').dataset.drawIndex;
+        const draw = this.rows[row.dataset.row].draws[drawIndex];
+        this.showCut(row.querySelector(".continuation-panel"), draw.branches[cut.dataset.cut], draw);
+        return;
+      }
       const drawButton = event.target.closest("[data-draw-index]");
       if (!drawButton) return;
       const row = drawButton.closest(".continuation");
@@ -70,18 +78,24 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
   showHand(row, index) {
     const draw = this.rows[row.dataset.row].draws[index];
     const panel = row.querySelector(".continuation-panel");
-    const branch = draw.branch;
-    if (!branch) {
-      panel.textContent = draw.unavailable ? "Tenpai discard unavailable." : "No tenpai continuation available.";
+    if (!draw.branches.length) {
+      panel.textContent = "No tenpai continuation available.";
       return;
     }
     const m = this.mistake;
     setActiveDora(getDoraTiles(m.board_state), m.board_state);
+    panel.innerHTML = `<div class="continuation-label"></div>` + renderIishantenHand(m, this.dataset.discard, draw)
+      + `<div class="rsc-cell" aria-live="polite"></div>`;
+    this.showCut(panel, draw.branch ?? draw.branches[0], draw);
+  }
+  showCut(panel, branch, draw) {
+    setActiveDora(getDoraTiles(this.mistake.board_state), this.mistake.board_state);
+    for (const b of panel.querySelectorAll("[data-cut]")) {
+      b.setAttribute("aria-pressed", String(draw.branches[b.dataset.cut] === branch));
+    }
+    panel.querySelector(".continuation-label").textContent = `Discard ${branch.discard} · ${branch.count} unseen winning tiles`;
     const score = branch.groups?.length ? renderRiichiScoreCell(sortIishantenWaitGroups(branch.groups), false)
       : `<small>${branch.count === 0 ? "No unseen winning tiles" : "Value unavailable"}</small>`;
-    panel.innerHTML = `<div class="continuation-label">Discard ${escapeHtml(branch.discard)} · ${branch.count} unseen winning tiles</div>`
-      + renderIishantenHand(m, this.dataset.discard, draw)
-      + `<small class="continuation-note">The cut keeps the widest unseen wait. Ties go to the highest achievable points. Scores include riichi when legal.</small>`
-      + `<div class="rsc-cell">${score}</div>`;
+    panel.querySelector(".rsc-cell").innerHTML = score;
   }
 });

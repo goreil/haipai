@@ -78,8 +78,18 @@ test('#m42402: only the selected widest wait contributes yaku to its draw', () =
   const d = actual.find(d => d.tile === '4p');
   const pinfu = branch(d, '9p');
   assert.equal(pinfu.count, 7);
+  assert.equal(pinfu.label, 'Best');
   for (const t of ['5p', '5pr', '8p']) assert.deepEqual([...on(pinfu, t).ron.yaku].sort(), ['pinfu', 'riichi']);
   assert.equal(analyze(m, '7p'), mortal); // rerender does not rescore this card
+});
+
+test('a narrower discard can win more points without replacing the width-first summary', () => {
+  const m = prep(hand42402, { discards: [...rivers42402, [1, '5pr']] });
+  const draw = analyze(m, '3s').find(d => d.tile === '4p');
+  assert.equal(branch(draw, '9p').label, 'Speed');
+  assert.deepEqual(Object.fromEntries(draw.branches.map(b => [b.discard, [b.label, b.count, b.points]])), {
+    '6p': ['Value', 3, 4000], '7p': ['Cut', 3, 2000], '9p': ['Speed', 6, 2700],
+  });
 });
 
 test('even an exhausted wait in the river locks ron on every other wait', () => {

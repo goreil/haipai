@@ -32,8 +32,7 @@ function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
   const wall = m.iishanten_wall.slice();
   haipaiPrepBoardState.decrement_wall(wall, draw.tile);
   const drawnHand = [...hand, draw.tile];
-  let widest = -1;
-  const candidates = [];
+  const branches = [];
   // Identical copies are one choice, but keeping a red five scores
   // differently from keeping a regular five of the same suit.
   const shapes = new Map();
@@ -47,36 +46,34 @@ function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
       shapes.set(base, { waits, count: waits.reduce((n, w) => n + w.count, 0) });
     }
     const { waits, count } = shapes.get(base);
-    if (!waits.length || count < widest) continue;
-    if (count > widest) {
-      candidates.length = 0;
-      widest = count;
-    }
-    candidates.push({ discard, tenpai, base, waits });
-  }
-
-  let branch = null, bestPoints = -1;
-  for (const { discard, tenpai, base, waits } of candidates) {
+    if (!waits.length) continue;
     // Even a dead or no-yaku completion in the river locks ALL ron. The
     // current draw has cleared any earlier temporary pass; the original
     // decision's tenpai/furiten fields describe a different hand.
     const furiten = waits.some(w => w.tile === base || river.has(w.tile));
     const furitenSet = new Set(furiten ? waits.map(w => w.tile) : []);
     const live = _expandWaitsForAka(waits, furitenSet).filter(w => w.count > 0);
-    const groups = widest ? _scoreTenpaiWaits(m, tenpai, live, false,
+    const groups = count ? _scoreTenpaiWaits(m, tenpai, live, false,
       "A wait is in your discard pool — ron is unavailable on every wait; tsumo is still possible.", riichiFlags) : [];
-    if (groups === null) {
-      // A tied candidate with unknown value prevents choosing a winner.
-      branch = candidates.length === 1 ? { discard, count: widest, groups } : null;
-      return { tile: draw.tile, count: draw.count, yaku: [], unavailable: true, branch };
-    }
-    const points = groups.reduce((max, g) => Math.max(max, g.ron?.ten ?? 0, g.tsumo?.ten ?? 0), 0);
-    if (points > bestPoints) {
-      bestPoints = points;
-      branch = { discard, count: widest, groups };
-    }
+    const points = groups?.reduce((max, g) => Math.max(max, g.ron?.ten ?? 0, g.tsumo?.ten ?? 0), 0);
+    branches.push({ discard, count, groups, points });
   }
 
+  const widest = Math.max(...branches.map(b => b.count));
+  const fastest = branches.filter(b => b.count === widest);
+  const highest = branches.every(b => b.groups !== null) ? Math.max(...branches.map(b => b.points)) : null;
+  const hasBest = highest > 0 && fastest.some(b => b.points === highest);
+  for (const b of branches) {
+    const speed = b.count === widest && widest > 0;
+    const value = b.points === highest && highest > 0;
+    b.label = speed && value ? "Best" : !hasBest && speed ? "Speed" : !hasBest && value ? "Value" : "Cut";
+  }
+  // Keep the draw summary width-first, independent of which cut is inspected.
+  let branch = fastest[0] ?? null;
+  if (fastest.length > 1) {
+    branch = fastest.some(b => b.groups === null) ? null
+      : fastest.reduce((best, b) => b.points > best.points ? b : best);
+  }
   const support = new Map();
   let outcomes = 0;
   for (const group of branch?.groups ?? []) {
@@ -87,7 +84,7 @@ function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
     }
   }
   const yaku = Array.from(support, ([name, n]) => ({ name, confirmed: n === outcomes }));
-  return { tile: draw.tile, count: draw.count, yaku, unavailable: !branch, branch };
+  return { tile: draw.tile, count: draw.count, yaku, unavailable: branch?.groups == null, branch, branches };
 }
 
 // Null means missing/inapplicable data; [] means there are no unseen draws
@@ -139,7 +136,7 @@ function analyzeIishanten(m, discardTile, stat) {
       if (draw.count > 0) result.push(_iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags));
     }
   }
-  if (!result.some(d => d.unavailable)) {
+  if (!result.some(d => d.unavailable || d.branches.some(b => b.groups === null))) {
     const byDiscard = cached || new Map();
     byDiscard.set(discardTile, { stat, result });
     if (!cached) _iishantenCache.set(m, byDiscard);

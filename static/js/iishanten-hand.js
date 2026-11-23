@@ -7,17 +7,20 @@ function renderIishantenHand(m, firstDiscard, draw) {
   hand.sort((a, b) => order[a] - order[b] || a.length - b.length);
   hand.push(draw.tile);
 
-  const cutIndex = hand.lastIndexOf(draw.branch.discard);
+  const choices = new Map(draw.branches.map((branch, i) => [branch.discard, i]));
   let html = '<div class="continuation-hand" role="group" aria-label="Hand after drawing ' + draw.tile + '"><span class="tiles">';
   hand.forEach((t, i) => {
     const drawn = i === hand.length - 1;
-    if (i !== cutIndex) {
+    const index = choices.get(t);
+    if (index === undefined) {
       html += renderTile(t, drawn ? "tile-sm draw" : "tile-sm");
       return;
     }
-    html += `<span class="hand-choice${drawn ? " draw" : ""}">`
+    const { label } = draw.branches[index];
+    html += `<button type="button" class="hand-choice hand-choice-button${drawn ? " draw" : ""}" data-cut="${index}"`
+      + ` aria-label="${label}: discard ${t}" aria-pressed="false">`
       + renderTile(t, "tile-sm")
-      + '<span class="hand-choice-tabs"><span class="hand-choice-tab">Cut</span></span></span>';
+      + `<span class="hand-choice-tabs" aria-hidden="true"><span class="hand-choice-tab">${label}</span></span></button>`;
   });
   html += '</span>';
   if (m.melds?.length) {

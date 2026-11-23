@@ -6,7 +6,7 @@ Personal Riichi Mahjong game analysis tool. Analyzes Tenhou replays via Mortal A
 
 On a discard card, **Tile acceptance** compares the shared draws and each discard’s extra tiles. **Value** groups improving draws by yaku, total dora (including red fives), and maximum value. Yakuhai counts include both han for a double wind. Rows are sorted by the highest achievable han, with yakuman first. Each draw keeps its own unseen count. Hover or focus a `?` to see what can vary.
 
-Click a draw to see the selected tenpai discard and its ron/tsumo scores. Selection first maximizes the number of unseen winning copies, then breaks ties by the highest points achievable on a legal ron or tsumo. Only that discard contributes to the draw’s value and yaku badges. **Value unavailable** means the selection or score could not be determined.
+Click a draw, then any marked discard to inspect its waits and ron/tsumo scores. **Best** marks a discard with both the most unseen winning copies and the highest achievable points. When those differ, **Speed** marks the widest wait and **Value** marks the highest-scoring discard. Other tenpai discards are marked **Cut**. The draw’s summary still uses the widest wait, breaking ties by points; inspecting another cut does not change it. **Value unavailable** means the selection or score could not be determined.
 
 Scores include ordinary riichi when the hand is closed (concealed kans are allowed), the player has at least 1,000 points, and at least four live-wall tiles would remain after the next uninterrupted draw. They do not assume ippatsu or ura-dora.
 
