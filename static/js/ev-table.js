@@ -540,8 +540,10 @@ function renderEvComparison(m, options) {
       dealinCls = "";
       threatLines = null;
     }
+    const lookahead = shantenVal === 1 && !winMistake && Array.isArray(ca.necessary_tiles)
+      && (isActual ? m.actual.type === "dahai" : isExpected ? m.expected.type === "dahai" : true);
     return { tile, isWin, winScore, winTile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
-             acc, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe, isGenbutsu };
+             acc, lookahead, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe, isGenbutsu };
   });
 
   // Feature-summary pills. The win-vector is now computed once by the shared
@@ -626,10 +628,12 @@ function renderEvComparison(m, options) {
   // "N shared" expand pill — which belongs only on acceptance cells, never on a
   // value cell. The row label adapts to whichever mix the card carries.
   const isScored = c => c.winScore || (c.scoreGroups && c.scoreGroups.length);
-  const anyScore = cols.some(isScored);
-  const anyAcc = cols.some(c => !isScored(c) && c.acc && c.tile !== "none");
+  const anyScore = cols.some(c => isScored(c) || c.lookahead);
+  const anyAcc = cols.some(c => !isScored(c) && !c.lookahead && c.acc && c.tile !== "none");
   const valueLabel = anyScore ? (anyAcc ? "Value / acceptance" : "Value") : "Tile acceptance";
-  const valueTitle = anyScore
+  const valueTitle = cols.some(c => c.lookahead)
+    ? ` title="At one shanten, expand an improving draw to compare tenpai discards and their winning tiles. A ? marks conditional yaku."`
+    : anyScore
     ? ` title="Tenpai picks show their win value and waits; a pick still short of tenpai shows its tile acceptance instead — its “N shared” pill is the tiles every pick accepts, the “+N” the extra it alone accepts."`
     : ` title="Each cell's “N shared” pill is the tiles every pick accepts; the “+N” beside it is the extra tiles that pick alone accepts. Click the pill to expand the full list."`;
   html += rowFor(
@@ -638,6 +642,8 @@ function renderEvComparison(m, options) {
     "ukeire-col ukeire-acc-row score-col",
     c => isScored(c)
       ? `<div class="rsc-cell">${c.winScore || renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>`
+      : c.lookahead
+      ? `<haipai-iishanten data-discard="${escapeHtml(c.tile)}"><div class="ukeire-acc-cell">${c.acc}</div></haipai-iishanten>`
       : `<div class="ukeire-acc-cell">${c.acc}</div>`,
   );
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row

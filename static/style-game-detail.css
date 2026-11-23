@@ -2039,6 +2039,53 @@
    Replaces the tile-acceptance row on riichi decisions: each pick's column
    shows the point value of its own call (riichi vs dama), scored per wait. */
 .ev-table-cols .rsc-cell { display: flex; justify-content: center; }
+.ev-table haipai-iishanten {
+  display: block;
+  min-width: 0;
+  white-space: normal;
+  text-align: start;
+}
+.ev-table-cols .ukeire-acc-row:has(haipai-iishanten) td { vertical-align: top; }
+.continuation-heading { margin-bottom: 4px; font-size: 12px; font-weight: 600; }
+.continuation + .continuation { border-top: 1px solid var(--border); }
+.continuation summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 2px;
+  cursor: pointer;
+  list-style: none;
+}
+.continuation summary::-webkit-details-marker { display: none; }
+.continuation summary::before { content: "▸"; color: var(--text-dim); }
+.continuation[open] summary::before { content: "▾"; }
+.continuation-draw { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.continuation-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+.continuation-note, .continuation-tags small {
+  display: block;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.continuation-note { margin-top: 5px; }
+.continuation-panel { padding: 4px 0 8px; text-align: center; }
+.continuation-picker {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.continuation-panel select {
+  width: auto;
+  max-width: 100%;
+  padding: 3px;
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+}
+.continuation-panel .rsc-cell { margin-top: 6px; }
 /* 3-column grid — pills | wait tiles | point values — so the tile column
    left-aligns across every wait group (each group is `display: contents`, so
    its three children drop straight into the shared columns). Sized to content

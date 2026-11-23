@@ -16,6 +16,15 @@ function summary(mistakes) {
     comparator.comparedTiles, () => 'mistake');
 }
 
+// In the original iishanten position the tiny risk difference doesn't explain
+// Mortal's pick. For the precedence checks give it a concrete value advantage.
+function tinyRiskWithDora() {
+  const m = mistake(6827);
+  m.board_state.dora_indicators = ['6s'];
+  m.board_state.dora_tiles = ['7s'];
+  return Object.assign(m, categorize(m));
+}
+
 test('concrete one-sided comparisons combine visible improvements and deduplicate value', () => {
   assert.equal(mistakeFacet(mistake(6099)).label, 'Efficiency + Value');
   assert.equal(mistakeFacet(mistake(5502)).label, 'Efficiency + Value + Safety');
@@ -42,7 +51,8 @@ test('concrete trade-offs name one recommended direction, not the stored shape',
 });
 
 test('tiny risk only yields headline precedence when speed/value is another visible trade-off', () => {
-  const tinyWithAlternative = mistake(6827);
+  assert.equal(mistakeFacet(mistake(6827)).label, 'Complex');
+  const tinyWithAlternative = tinyRiskWithDora();
   const tinyWithoutAlternative = mistake(2066);
   assert.equal(mistakeFacet(tinyWithAlternative).label, 'Prioritize value');
   assert.equal(mistakeFacet(tinyWithoutAlternative).label, 'Should push');
@@ -52,7 +62,7 @@ test('tiny risk only yields headline precedence when speed/value is another visi
 
 test('half-percentage-point boundary gives push/fold precedence without changing risk evidence', () => {
   for (const [gap, label] of [[0.499, 'Prioritize value'], [0.5, 'Should push'], [0.501, 'Should push']]) {
-    const m = mistake(6827);
+    const m = tinyRiskWithDora();
     const actualTile = m.actual.pai, expectedTile = m.expected.pai;
     for (const rates of [m.dealin_rates, ...m.per_threat.map(t => t.dealin_rates)]) {
       rates[expectedTile] = rates[actualTile] + gap;
@@ -66,7 +76,7 @@ test('half-percentage-point boundary gives push/fold precedence without changing
 });
 
 test('summary directions and filters distinguish tiny-risk, pre-threat, and mixed-opponent decisions', () => {
-  const rows = [mistake(6827), mistake(2066), mistake(6074), mistake(6078)];
+  const rows = [tinyRiskWithDora(), mistake(2066), mistake(6074), mistake(6078)];
   const boxes = summary(rows);
   const expected = [
     [6827, 'speed_value', 'Prioritize value'],

@@ -73,11 +73,9 @@ function _formatRiichiTsumoHandStr(handTiles14, winTile) {
   return out;
 }
 
-// Collect a meld's physical tiles (mjai notation) for scoring an OPEN hand.
-// chi/pon/daiminkan are `consumed` + the called `pai`; ankan is its 4
-// `consumed` tiles; kakan upgrades a pon to a kan, so it's the pon base ×3
-// plus the added `pai` (the renderer trusts only consumed[0] for kakan, so we
-// don't rely on consumed.length there). Returns null on a shape we can't read.
+// Physical meld tiles, including the called tile of the original pon for a
+// kakan. Mortal stores that pon as two consumed tiles + previous_pon_pai;
+// raw mjai kakan events instead list all three in consumed.
 function _meldTiles(meld) {
   if (!meld) return null;
   const consumed = meld.consumed || [];
@@ -85,15 +83,11 @@ function _meldTiles(meld) {
     return consumed.length === 4 ? consumed.slice() : null;
   }
   if (meld.type === "kakan") {
-    const base = consumed[0] || meld.pai;
-    if (!base) return null;
-    const tiles = consumed.length >= 3 ? consumed.slice(0, 3) : [base, base, base];
-    if (meld.pai) tiles.push(meld.pai);
-    return tiles;
+    const pon = consumed.length === 2 ? [...consumed, meld.previous_pon_pai] : consumed;
+    return pon.length === 3 && pon.every(Boolean) && meld.pai ? [...pon, meld.pai] : null;
   }
-  const tiles = consumed.slice();
-  if (meld.pai) tiles.push(meld.pai);
-  return tiles.length >= 3 ? tiles : null;
+  const size = { chi: 2, pon: 2, daiminkan: 3 }[meld.type];
+  return consumed.length === size && meld.pai ? [...consumed, meld.pai] : null;
 }
 
 // One meld → a Riichi-lib furo group string (e.g. "123m", "0p", "1111z").
@@ -110,22 +104,26 @@ function _meldFuroStr(meld) {
   }
   const suit = conv[0][1];
   const rank = (r) => (r[0] === "0" ? 5 : parseInt(r[0], 10));
+  // The calculator encodes a concealed kan with TWO tiles. Retain the
+  // red five, if present: the short group implies four dora, but only one aka.
+  if (meld.type === "ankan") {
+    return (conv.some(r => r[0] === "0") ? "0" : String(rank(conv[0])))
+      + rank(conv[0]) + suit;
+  }
   conv.sort((a, b) => rank(a) - rank(b));
   return conv.map(r => r[0]).join("") + suit;
 }
 
 // `+`-separated furo suffix for the Riichi-lib `data` string, covering every
-// called meld in the hero's hand. "" for a closed hand. Note: the bundled lib
-// has no concealed-kan concept, so an ankan is treated as an open furo here —
-// it (mildly) suppresses menzen-only yaku, but open hands are the case that
-// matters and reach decisions never reach this with melds present.
+// called meld in the hero's hand (including concealed kans). "" for none.
 function _formatRiichiFuroSuffix(m) {
   const melds = (m && m.melds) || [];
   if (!melds.length) return "";
   let out = "";
   for (const meld of melds) {
     const f = _meldFuroStr(meld);
-    if (f) out += `+${f}`;
+    if (!f) return null;
+    out += `+${f}`;
   }
   return out;
 }
@@ -165,6 +163,7 @@ function _evalWaitScore(hand13, winTile, m, opts) {
   // Called melds feed the calc as extra furo groups so an OPEN hand scores its
   // full shape (and its meld dora/aka). Closed hands contribute "".
   const furoSuffix = _formatRiichiFuroSuffix(m);
+  if (furoSuffix === null) return null;
 
   let data;
   if (opts.tsumo) {
@@ -181,7 +180,11 @@ function _evalWaitScore(hand13, winTile, m, opts) {
 
   let result;
   try {
-    result = new window.Riichi(data).calc();
+    const calculator = new window.Riichi(data);
+    // The parser silently skips an invalid furo. Its result for that shortened
+    // hand isn't evidence of a no-yaku completion.
+    if (calculator.furo.length !== (m.melds || []).length) return null;
+    result = calculator.calc();
   } catch (e) {
     return null;
   }
@@ -558,10 +561,8 @@ function renderBadRiichiBars(m) {
 // complete waits without yaku; null means scoring data is unavailable.
 function evalDiscardScores(m, discardTile, waitEntries, riichi) {
   if (typeof window === "undefined" || !window.Riichi) return null;
-  // Open hands are scored too (silent value via _formatRiichiFuroSuffix); they
-  // just can't declare riichi, so force the dama branch when melds are present.
   const meldCount = (m.melds || []).length;
-  const useRiichi = riichi && meldCount === 0;
+  const useRiichi = riichi && (m.melds || []).every(meld => meld.type === "ankan");
   // Each called meld occupies one set (3 tiles) of the 13-tile structure, so the
   // concealed portion is 13 − 3·melds at tenpai (14 − 3·melds pre-discard).
   const tenpaiLen = 13 - 3 * meldCount;
@@ -589,22 +590,22 @@ function evalDiscardScores(m, discardTile, waitEntries, riichi) {
     ? "Passed ron — ron is unavailable until your next draw; tsumo is still possible."
     : "A wait is in your discard pool — ron is unavailable on every wait; tsumo is still possible.";
   const furitenSet = new Set(furiten ? waitEntries.map(w => w.tile) : []);
-  const waits = _expandWaitsForAka(
-    waitEntries.map(w => ({ tile: w.tile, count: w.count, aka_count: w.aka_count })),
-    furitenSet,
-  );
+  return _scoreTenpaiWaits(m, hand13, _expandWaitsForAka(waitEntries, furitenSet), useRiichi, furitenReason);
+}
+
+// Score physical waits, preserving a structural no-yaku result as distinct from
+// missing calculator data. Never infer a yaku from a failed evaluation.
+function _scoreTenpaiWaits(m, hand13, waits, useRiichi, furitenReason) {
   const rows = [];
   for (const w of waits) {
-    const ronEval = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: false, includeNoYaku: true });
+    const ronEval = !w.furiten && _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: false, includeNoYaku: true });
     const tsumoEval = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: true, includeNoYaku: true });
-    if (!ronEval && !tsumoEval) continue;
-    const ron = !furiten && ronEval && !ronEval.noYaku ? ronEval : null;
-    const tsumo = tsumoEval && !tsumoEval.noYaku ? tsumoEval : null;
-    const noYaku = !!(ronEval && ronEval.noYaku && tsumoEval && tsumoEval.noYaku);
-    if (!ron && !tsumo && !noYaku) continue;
+    if ((!w.furiten && !ronEval) || !tsumoEval) return null;
+    const ron = ronEval && !ronEval.noYaku ? ronEval : null;
+    const tsumo = !tsumoEval.noYaku ? tsumoEval : null;
+    const noYaku = !ron && !tsumo;
     const anyEval = ron || tsumo || {};
-    let yaku = (ron && ron.yaku) || (tsumo && tsumo.yaku) || [];
-    yaku = yaku.filter(y => y && y !== "立直" && y !== "ダブル立直");
+    const yaku = ron && tsumo ? ron.yaku.filter(y => tsumo.yaku.includes(y)) : anyEval.yaku || [];
     const bonus = useRiichi ? _badRiichiBonusEv(ron || tsumo) : 0;
     rows.push({
       tile: w.tile, count: w.count, furiten: w.furiten, furitenReason,
@@ -621,6 +622,7 @@ function _scoreRowSig(r) {
   return [
     _scoreSig(r.ron), _scoreSig(r.tsumo), r.bonus || 0,
     (r.yaku || []).slice().sort().join("|"), r.dora || 0, r.aka || 0,
+    (r.ron?.yaku || []).join("|"), (r.tsumo?.yaku || []).join("|"),
     r.furiten ? "f" : "",
     r.noYaku ? "no-yaku" : "",
   ].join("/");
@@ -645,10 +647,12 @@ function renderRiichiScoreCell(groups, riichi) {
   if (!groups || !groups.length) return "";
   const cls = (riichi ? "rsc rsc-riichi" : "rsc rsc-dama")
     + (groups.some(g => g.winning) ? " rsc-win" : "");
-  const line = (label, s) => s
+  const line = (label, s, sharedYaku) => s
     ? `<span class="rsc-line"><span class="rsc-mode">${label}</span>`
       + `<span class="rsc-pts">${s.ten.toLocaleString()}</span>`
-      + `<span class="rsc-hanfu">(${_fmtHanFu(s)})</span></span>`
+      + `<span class="rsc-hanfu">(${_fmtHanFu(s)})</span>`
+      + (s.yaku || []).filter(y => !sharedYaku.includes(y)).map(y => `<span class="yaku-tag">${y}</span>`).join("")
+      + `</span>`
     : "";
   const blocks = groups.map(g => {
     // Wait tiles with their live count (×N) — how many of each winning tile is
@@ -683,14 +687,17 @@ function renderRiichiScoreCell(groups, riichi) {
     const yakuTags = `<span class="rsc-yaku">${tagParts.join(" ")}</span>`;
 
     let body = "";
+    if (g.furiten) body += `<span class="rsc-line"><span class="rsc-mode">Ron</span>`
+      + `<span class="furiten-badge" title="${g.furitenReason}">Furiten</span></span>`;
     if (g.noYaku) {
-      body += `<span class="rsc-line rsc-noyaku" title="These tiles complete the hand, but it has no yaku. Ron or tsumo needs an additional yaku."><span class="rsc-mode">Ron / Tsumo</span><span class="rsc-pts">no yaku</span></span>`;
+      body += `<span class="rsc-line rsc-noyaku" title="These tiles complete the hand, but it has no yaku. A win needs an additional yaku."><span class="rsc-mode">${g.furiten ? "Tsumo" : "Ron / Tsumo"}</span><span class="rsc-pts">no yaku</span></span>`;
     } else {
-      if (g.furiten) body += `<span class="rsc-line"><span class="rsc-mode">Ron</span>`
-        + `<span class="furiten-badge" title="${g.furitenReason}">Furiten</span></span>`;
-      else if (g.ron) body += line("Ron", g.ron);
-      else if (!riichi && !g.winning) body += `<span class="rsc-line rsc-noyaku" title="No yaku — a dama hand can't ron, only menzen-tsumo wins"><span class="rsc-mode">Ron</span><span class="rsc-pts">no yaku</span></span>`;
-      body += line("Tsumo", g.tsumo);
+      if (g.ron) body += line("Ron", g.ron, yaku);
+      else if (!g.furiten && !riichi && !g.winning) {
+        const tip = g.tsumo?.yaku?.length ? "No yaku on a silent ron" : "No yaku — only menzen-tsumo wins";
+        body += `<span class="rsc-line rsc-noyaku" title="${tip}"><span class="rsc-mode">Ron</span><span class="rsc-pts">no yaku</span></span>`;
+      }
+      body += line("Tsumo", g.tsumo, yaku);
     }
     if (g.winning) {
       if (g.honba || g.kyotaku) {

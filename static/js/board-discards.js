@@ -158,7 +158,6 @@ function renderHand(tiles, draw, mistake = null, comparisonKey = null) {
   }).join("");
 }
 
-// Shared by the normal hand and the grouped hand, preserving choice markers.
 function renderHandTile(t, extra, tabs, comparisonKey) {
   if (comparisonKey != null) {
     return `<button type="button" class="hand-choice hand-choice-button ${extra}"`

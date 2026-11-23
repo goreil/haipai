@@ -18,7 +18,8 @@ test('decision cards show evidence before explanations and keep feedback editabl
     const headlineCases = [
       [6099, 'Attack / Efficiency + Value'],
       [5502, 'Defense / Efficiency + Value + Safety'],
-      [6827, 'Defense / Prioritize value'],
+      [6827, 'Defense / Complex'],
+      [6073, 'Attack / Prioritize value'],
       [6077, 'Defense / Should fold'],
       [2066, 'Defense / Should push'],
       [6074, 'Attack / Prioritize safety'],

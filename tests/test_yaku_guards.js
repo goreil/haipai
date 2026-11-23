@@ -14,6 +14,9 @@ const speculative = ['chanta_kept', 'ittsu_kept', 'honitsu_kept'];
 test('all 11 reported false yaku claims stop acting as winning dimensions', () => {
   for (const { report_id, mistake } of reports) {
     const wins = yaku(mistake);
+    if (mistake.discard_stats.some(stat => stat.shanten === 1)) {
+      assert.deepEqual(wins, [], `no heuristic yaku on iishanten report ${report_id}`);
+    }
     const disputed = [237, 272].includes(report_id) ? ['yakuhai_kept'] : speculative;
     assert.ok(!wins.some(w => disputed.includes(w.dim) && !w.suppressed), `report ${report_id}`);
     if ([227, 233, 237, 242, 253, 272].includes(report_id)) {
@@ -24,29 +27,29 @@ test('all 11 reported false yaku claims stop acting as winning dimensions', () =
   assert.equal(categorize(report(272)).shape, 'obvious');
 });
 
-test('a live singleton, a live pair and double yakuhai remain eligible', () => {
+test('neither a live singleton nor a live pair awards an iishanten yakuhai win', () => {
   const m = report(237);
   const row = m.board_state.all_discards.find(r => r.discards.some(d => d.tile === 'F'));
   row.discards = row.discards.filter(d => d.tile !== 'F');
-  assert.ok(yaku(m).some(w => w.dim === 'yakuhai_kept'));
+  assert.equal(yaku(m).length, 0);
   m.hand[m.hand.indexOf('1p')] = 'F';
-  assert.ok(yaku(m).some(w => w.dim === 'yakuhai_kept'));
-  const double = require('./fixtures/double_yakuhai_m35708.json');
-  assert.equal(yaku(double).find(w => w.dim === 'yakuhai_kept').han, 2);
+  assert.equal(yaku(m).length, 0);
 });
 
 test('dora indicators and opponent melds also make honor triplets unavailable', () => {
   for (const exposed of ['indicator', 'pon', 'ankan', 'kakan']) {
-    const m = report(237);
+    const m = structuredClone(require('./fixtures/double_yakuhai_m35708.json'));
+    m.expected.pai = '6m';
     m.board_state.all_discards = [];
     m.board_state.opponent_melds = [];
     m.board_state.dora_indicators = [];
+    assert.equal(yaku(m).find(w => w.dim === 'yakuhai_kept')?.winner, 'mortal');
     if (exposed === 'indicator') {
-      m.board_state.dora_indicators = ['F'];
-      m.board_state.all_discards = [{ seat: 1, discards: [{ tile: 'F' }] }];
+      m.board_state.dora_indicators = ['E'];
+      m.board_state.all_discards = [{ seat: 1, discards: [{ tile: 'E' }] }];
     } else {
-      const meld = exposed === 'ankan' ? { type: 'ankan', consumed: ['F', 'F', 'F', 'F'] }
-        : { type: exposed, pai: 'F', consumed: exposed === 'pon' ? ['F', 'F'] : ['F', 'F', 'F'] };
+      const meld = exposed === 'ankan' ? { type: 'ankan', consumed: ['E', 'E', 'E', 'E'] }
+        : { type: exposed, pai: 'E', consumed: exposed === 'pon' ? ['E', 'E'] : ['E', 'E', 'E'] };
       m.board_state.opponent_melds = [{ seat: 1, melds: [meld] }];
     }
     assert.ok(!yaku(m).some(w => w.dim === 'yakuhai_kept'), exposed);

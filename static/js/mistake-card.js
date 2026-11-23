@@ -104,18 +104,15 @@ function selectHandComparison(el) {
   const actualTile = m.actual?.type === "reach" ? m.actual_riichi_tile || m.actual.pai : m.actual?.pai;
   const selectedTile = tile === actualTile ? null : tile;
   comparison.outerHTML = renderEvComparison(m, { selectedTile });
-  const handRow = card.querySelector(".hand-row");
-  if (handRow) handRow.dataset.selectedTile = selectedTile || "";
   for (const button of card.querySelectorAll('.hand-choice-button')) {
     button.setAttribute('aria-pressed', String(selectedTile != null && button.dataset.choiceTile === tile));
   }
 }
 
 function renderMistakeCard(m, opts = {}) {
-  const blockChoices = typeof haipaiBlockViewPrep !== "undefined" && haipaiBlockViewPrep.canGroup(m);
   const selectableHand = m.top_actions?.length && m.discard_stats?.length
     && m.actual?.type !== "hora" && m.expected?.type !== "hora";
-  const comparisonKey = blockChoices || selectableHand ? registerHandComparison(m) : null;
+  const comparisonKey = selectableHand ? registerHandComparison(m) : null;
   const showDate = opts.gameDate;
   const showLink = opts.gameId && !opts.inline;
   const sc = sevClass(m);
@@ -167,10 +164,7 @@ function renderMistakeCard(m, opts = {}) {
   if (m.hand && m.hand.length) {
     html += `<div class="hand-row${m.win_context ? " win-opportunity-hand" : ""}"`
       + (comparisonKey ? ` data-comparison-key="${comparisonKey}"` : "") + ` role="group" aria-label="Hand">`;
-    if (blockChoices) html += renderHandBlockControls();
-    html += `<span class="tiles hand-normal-tiles">${renderHand(m.hand, m.draw, m,
-      selectableHand ? comparisonKey : null)}</span>`;
-    if (blockChoices) html += `<div class="block-view-body" hidden aria-live="polite"></div>`;
+    html += `<span class="tiles">${renderHand(m.hand, m.draw, m, comparisonKey)}</span>`;
     if (m.win_context && !m.win_context.tsumo) {
       html += `<span class="win-incoming"><span class="label">Opponent discard</span>`
         + renderTile(m.win_context.tile) + `</span>`;

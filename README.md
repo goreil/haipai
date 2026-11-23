@@ -2,6 +2,12 @@
 
 Personal Riichi Mahjong game analysis tool. Analyzes Tenhou replays via Mortal AI, stores structured mistake data, and provides a web UI for review and annotation.
 
+## Reviewing an iishanten discard
+
+In a decision card’s **Value** row, each improving draw shows its unseen copy count and natural yaku. Expand the draw to see the resulting tenpai discards, widest wait first. Selecting a discard shows its winning tiles and their ron/tsumo values without assuming riichi. `?` means the yaku occurs on some legal wins but not all; **Value unavailable** means the hand could not be scored.
+
+The lookahead uses the board as it was at the decision. It counts an improving draw once, even if several discards reach tenpai, and accounts for red fives and the hypothetical discard pool when scoring waits. It does not predict future discards or reconstruct Mortal’s EV.
+
 ## Optional editor language servers
 
 OMP's mixed-language configuration is in `.omp/lsp.json`. Install the servers

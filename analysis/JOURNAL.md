@@ -73,7 +73,7 @@ do this before writing anything custom.
   of the 13 tiles after each cut, threats, own discards (furiten heuristics),
   Mortal's top_actions with q-values. Also captures the categorize output for
   all 35 reported mistakes → feeds OVERLAP.md directly.
-- Found `docs/backlogs/HAND-PARTITION.md` (untracked, dated 2026-06-15): the
+- Found a hand-partition backlog note (untracked, dated 2026-06-15): the
   project already plans exactly the 5-block partition primitive this
   diagnostic is meant to size (HP-02 = "move cases out of Complex via block
   counting"). COMPLEX-ANATOMY.md is effectively the sizing study for HP-02.

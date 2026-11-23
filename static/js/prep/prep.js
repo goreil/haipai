@@ -102,21 +102,28 @@
       _compute_kd_defense_patch(mistake.hand || [], defenseCtx, tiles_left, wall));
   }
 
-  function _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry, allowComplete = false) {
+  // Preserve the decision-time wall the solver already used. Continuations are
+  // enumerated only when a card is opened, never by the game-wide prep walker.
+  function _attach_discard_stats(patch, stats, wall) {
+    if (!stats?.length) return;
+    patch.discard_stats = stats;
+    if (stats.some(s => s.shanten === 1)) patch.iishanten_wall = wall;
+  }
+
+  function _compute_shanten_stats(patch, mistake, mortalData, kyokuIdx, entry, allowComplete = false) {
     const hand = mistake.hand || [];
-    if (hand.length !== 14 - 3 * (mistake.melds || []).length) return [];
+    if (hand.length !== 14 - 3 * (mistake.melds || []).length) return;
     const tiles_left = entry ? entry.tiles_left : null;
-    if (tiles_left == null) return [];
+    if (tiles_left == null) return;
     try {
       const ctx = reconstruct_context(mortalData, kyokuIdx, tiles_left, entry);
       const wall = _clamp_wall(subtract_hand_from_wall(ctx.wall, hand));
       const response = allowComplete
         ? jsCalcShanten(hand, mistake.melds || [], wall, { allowComplete: true })
         : calcShanten(hand, mistake.melds || [], wall);
-      return response.stats || [];
+      _attach_discard_stats(patch, response.stats, wall);
     } catch (e) {
       _warn("discard_stats compute failed:", e);
-      return [];
     }
   }
 
@@ -347,6 +354,7 @@
           riichi_decision: !!riichi || pendingReach,
           ...(wall ? _compute_kd_defense_patch(hand, defenseCtx, left, wall) : {}),
         };
+        _attach_discard_stats(patch.win_continuation, stats, wall);
         break;
       }
       break;
@@ -372,8 +380,7 @@
       const patch = (at === "hora" || et === "hora")
         ? _win_patch(mistake, mortalData, kyokuIdx, entry, defenseCtx) : {};
       if (board_state) patch.board_state = board_state;
-      const stats = _compute_shanten_stats(mistake, mortalData, kyokuIdx, entry, at === "hora" || et === "hora");
-      if (stats && stats.length) patch.discard_stats = stats;
+      _compute_shanten_stats(patch, mistake, mortalData, kyokuIdx, entry, at === "hora" || et === "hora");
 
       _maybe_apply_defense_patch(patch, mistake, defenseCtx, mortalData,
                                  kyokuIdx, entry);
@@ -422,7 +429,7 @@
 
     const discard_stats = response.stats || [];
     if (discard_stats.length) {
-      patch.discard_stats = discard_stats;
+      _attach_discard_stats(patch, discard_stats, wall);
       patch.best_discard = discard_stats[0].tile;
     }
 

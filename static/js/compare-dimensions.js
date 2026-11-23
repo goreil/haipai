@@ -184,72 +184,10 @@
       riichiThreat, openOnlyThreat);
   }
 
-  function compareDimensions(m) {
-    // A terminal win has no discard-based shape or value tradeoffs.
-    if (m.actual?.type === "hora" || m.expected?.type === "hora") return [];
-    const wins = [];
-    const { actualTile, expectedTile } = comparedTiles(m);
-    const discardStats = m.discard_stats || [];
-
+  function addYakuPatterns(wins, m, actualTile, expectedTile) {
     const board = m.board_state || {};
-    const doraTiles = new Set(board.dora_tiles || []);
     const roundWind = board.round_wind || null;
     const seatWind = board.seat_wind || null;
-
-    const actualStat = findInStats(actualTile, discardStats);
-    const expectedStat = findInStats(expectedTile, discardStats);
-    const aSh = actualStat ? (actualStat.shanten ?? null) : null;
-    const eSh = expectedStat ? (expectedStat.shanten ?? null) : null;
-
-    // --- Speed / shanten — lower wins; only fires on a strict difference. ---
-    if (aSh != null && eSh != null && aSh !== eSh) {
-      wins.push({
-        dim: "shanten", group: "Speed", prio: 1,
-        winner: aSh < eSh ? "you" : "mortal",
-        magnitude: Math.abs(aSh - eSh),
-      });
-    }
-
-    // --- Speed / ukeire — more wins, GATED on tied shanten. ---
-    // When shanten differs the wider count is the seductive wide-but-slow
-    // shape: emit it suppressed, as context, never a winning pill.
-    const aNec = (actualStat && actualStat.necessary_count) || 0;
-    const eNec = (expectedStat && expectedStat.necessary_count) || 0;
-    if (actualStat && expectedStat && aNec !== eNec) {
-      const winner = aNec > eNec ? "you" : "mortal";
-      const sameShanten = aSh == null || eSh == null || aSh === eSh;
-      const entry = {
-        dim: "ukeire", group: "Speed", prio: 2,
-        winner, magnitude: Math.abs(aNec - eNec),
-      };
-      if (!sameShanten) {
-        entry.suppressed = true;
-      }
-      wins.push(entry);
-    }
-
-    // --- Speed / versatility_kept — GATED: only when shanten AND raw ukeire
-    // tie (aNec === eNec above never fired a win, so this is the tile-
-    // efficiency signal a tied ukeire count hides). Some floaters are more
-    // likely to turn into a good wait than others; Riichi Book 1's ranking —
-    // 3-7 > 2,8 > 1,9 > honor — counts how many kinds of protorun a tile can
-    // form. Convention matches every other *_kept dim: "you" keep expectedTile
-    // (Mortal's candidate discard, still in your hand since you threw
-    // something else), "mortal" keeps actualTile.
-    if (actualStat && expectedStat && aSh != null && eSh != null && aSh === eSh
-        && aNec === eNec && actualTile && expectedTile && actualTile !== expectedTile) {
-      const aTier = tileVersatilityTier(actualTile);
-      const eTier = tileVersatilityTier(expectedTile);
-      if (aTier != null && eTier != null && aTier !== eTier) {
-        const winner = aTier > eTier ? "mortal" : "you";
-        wins.push({
-          dim: "versatility_kept", group: "Speed", prio: 3, winner,
-          magnitude: Math.abs(aTier - eTier),
-          tiles: [winner === "mortal" ? actualTile : expectedTile],
-        });
-      }
-    }
-
     // --- Yaku / yakuhai_kept — the side that keeps a yakuhai the other drops. ---
     // ev-table's +yakuhai pill rides on the column NOT discarding the yakuhai;
     // the kept tile is the other column's discard.
@@ -409,6 +347,78 @@
         }
       }
     }
+  }
+
+  function compareDimensions(m) {
+    // A terminal win has no discard-based shape or value tradeoffs.
+    if (m.actual?.type === "hora" || m.expected?.type === "hora") return [];
+    const wins = [];
+    const { actualTile, expectedTile } = comparedTiles(m);
+    const discardStats = m.discard_stats || [];
+
+    const board = m.board_state || {};
+    const doraTiles = new Set(board.dora_tiles || []);
+
+    const actualStat = findInStats(actualTile, discardStats);
+    const expectedStat = findInStats(expectedTile, discardStats);
+    const aSh = actualStat ? (actualStat.shanten ?? null) : null;
+    const eSh = expectedStat ? (expectedStat.shanten ?? null) : null;
+
+    // --- Speed / shanten — lower wins; only fires on a strict difference. ---
+    if (aSh != null && eSh != null && aSh !== eSh) {
+      wins.push({
+        dim: "shanten", group: "Speed", prio: 1,
+        winner: aSh < eSh ? "you" : "mortal",
+        magnitude: Math.abs(aSh - eSh),
+      });
+    }
+
+    // --- Speed / ukeire — more wins, GATED on tied shanten. ---
+    // When shanten differs the wider count is the seductive wide-but-slow
+    // shape: emit it suppressed, as context, never a winning pill.
+    const aNec = (actualStat && actualStat.necessary_count) || 0;
+    const eNec = (expectedStat && expectedStat.necessary_count) || 0;
+    if (actualStat && expectedStat && aNec !== eNec) {
+      const winner = aNec > eNec ? "you" : "mortal";
+      const sameShanten = aSh == null || eSh == null || aSh === eSh;
+      const entry = {
+        dim: "ukeire", group: "Speed", prio: 2,
+        winner, magnitude: Math.abs(aNec - eNec),
+      };
+      if (!sameShanten) {
+        entry.suppressed = true;
+      }
+      wins.push(entry);
+    }
+
+    // --- Speed / versatility_kept — GATED: only when shanten AND raw ukeire
+    // tie (aNec === eNec above never fired a win, so this is the tile-
+    // efficiency signal a tied ukeire count hides). Some floaters are more
+    // likely to turn into a good wait than others; Riichi Book 1's ranking —
+    // 3-7 > 2,8 > 1,9 > honor — counts how many kinds of protorun a tile can
+    // form. Convention matches every other *_kept dim: "you" keep expectedTile
+    // (Mortal's candidate discard, still in your hand since you threw
+    // something else), "mortal" keeps actualTile.
+    if (actualStat && expectedStat && aSh != null && eSh != null && aSh === eSh
+        && aNec === eNec && actualTile && expectedTile && actualTile !== expectedTile) {
+      const aTier = tileVersatilityTier(actualTile);
+      const eTier = tileVersatilityTier(expectedTile);
+      if (aTier != null && eTier != null && aTier !== eTier) {
+        const winner = aTier > eTier ? "mortal" : "you";
+        wins.push({
+          dim: "versatility_kept", group: "Speed", prio: 3, winner,
+          magnitude: Math.abs(aTier - eTier),
+          tiles: [winner === "mortal" ? actualTile : expectedTile],
+        });
+      }
+    }
+
+    // Iishanten value is conditional on the next draw and discard. Leave it to
+    // the on-demand scorer; do not turn a tile-pattern hint into a winning pick.
+    const hasIishanten = (aSh ?? m.shanten) === 1 || (eSh ?? m.shanten) === 1;
+    if (!hasIishanten || aSh === 0 || eSh === 0) {
+      addYakuPatterns(wins, m, actualTile, expectedTile);
+    }
 
     // --- Dora / dora_kept — the side that keeps a dora the other drops. ---
     const aDora = tileIsDora(actualTile, doraTiles);
@@ -548,8 +558,10 @@
     // Tile concentration is a prospect, not proof of a scoring advantage.
     // Only live, completed tenpai shapes can verify these three yaku here.
     return wins.filter(w => {
-      if (!["chanta_kept", "ittsu_kept", "honitsu_kept"].includes(w.dim)) return true;
+      if (w.group !== "Yaku") return true;
       const stat = w.winner === "you" ? actualStat : expectedStat;
+      if (!["chanta_kept", "ittsu_kept", "honitsu_kept"].includes(w.dim)) return !hasIishanten;
+      if (hasIishanten && stat?.shanten !== 0) return false;
       const tile = w.winner === "you" ? actualTile : expectedTile;
       const otherStat = w.winner === "you" ? expectedStat : actualStat;
       const otherTile = w.winner === "you" ? expectedTile : actualTile;
