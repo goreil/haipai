@@ -11,7 +11,7 @@
 //
 //   Speed   — shanten, ukeire, versatility_kept, furiten_avoided (ukeire is
 //             GATED: only a real win at tied shanten; versatility_kept is
-//             GATED: only a real win at tied shanten AND tied ukeire)
+//             GATED: only at tied shanten of 2 or more AND tied ukeire)
 //   Yaku    — yakuhai_kept, tanyao_kept, honitsu_kept, ittsu_kept,
 //             toitoi_kept, chiitoi_kept, chanta_kept
 //             (tile-pattern prospects only beyond 1-shanten; speculative
@@ -411,15 +411,13 @@
       wins.push(entry);
     }
 
-    // --- Speed / versatility_kept — GATED: only when shanten AND raw ukeire
-    // tie (aNec === eNec above never fired a win, so this is the tile-
-    // efficiency signal a tied ukeire count hides). Some floaters are more
-    // likely to turn into a good wait than others; Riichi Book 1's ranking —
+    // --- Speed / versatility_kept — compare floaters only at 2+ shanten,
+    // when shanten and raw ukeire tie. Riichi Book 1's ranking —
     // 3-7 > 2,8 > 1,9 > honor — counts how many kinds of protorun a tile can
     // form. Convention matches every other *_kept dim: "you" keep expectedTile
     // (Mortal's candidate discard, still in your hand since you threw
     // something else), "mortal" keeps actualTile.
-    if (actualStat && expectedStat && aSh != null && eSh != null && aSh === eSh
+    if (aSh >= 2 && aSh === eSh
         && aNec === eNec && actualTile && expectedTile && actualTile !== expectedTile) {
       const aTier = tileVersatilityTier(actualTile);
       const eTier = tileVersatilityTier(expectedTile);
