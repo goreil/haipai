@@ -6,6 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { prepMistake } = require('../static/js/prep/prep.js');
 const { base_mjai } = require('../static/js/prep/tiles.js');
+const { groupIishantenValues, sortIishantenWaitGroups } = require('../static/js/iishanten-values.js');
 
 const ctx = vm.createContext({ renderTile: tile => tile });
 ctx.window = ctx.self = ctx;
@@ -62,6 +63,11 @@ test('#m42402: the wider iipeikou opportunity is a property of a particular bran
     assert.equal(d.unavailable, false);
     assert.equal(d.yaku.find(y => y.name === 'iipeikou').confirmed, false);
     assert.ok(d.branches.every((b, i) => !i || d.branches[i - 1].count >= b.count));
+    const paired = groupIishantenValues(draws).find(g => g.draws.includes(d));
+    assert.ok(paired.draws.includes(draws.find(draw => draw.tile === '1p')));
+    assert.equal(paired.maxHan, 3); // pinfu + iipeikou OR red, not both, on tsumo
+    assert.deepEqual(paired.bonuses, [{ label: 'aka 0–1', conditional: true }]);
+    assert.equal(paired.yaku.find(y => y.name === 'iipeikou').confirmed, false);
   }
   const wide = branch(mortal.find(d => d.tile === '4p'), '1s');
   assert.equal(wide.count, 7);
@@ -151,6 +157,9 @@ test('concealed kan preserves menzen, kan dora and one aka; an open kan cannot c
   assert.equal(g.ron.dora, 4);
   assert.equal(g.ron.aka, 1);
   assert.equal(g.tsumo.han, g.ron.han + 1);
+  assert.deepEqual(groupIishantenValues([analyze(m, 'C').find(d => d.tile === '4p')])[0].bonuses, [
+    { label: 'dora 4', conditional: false }, { label: 'aka 1', conditional: false },
+  ]);
   const kakan = { type: 'kakan', consumed: ['5m', '5m'], previous_pon_pai: '5mr', pai: '5m' };
   const open = prep(hand, { marker: '4m', melds: [kakan], discards: [[1, '5mr']], meldEvents: [
     { type: 'pon', actor: 3, target: 1, pai: '5mr', consumed: ['5m', '5m'] },
@@ -160,6 +169,11 @@ test('concealed kan preserves menzen, kan dora and one aka; an open kan cannot c
   assert.deepEqual([...draw.yaku], []);
   assert.equal(draw.unavailable, false);
   assert.equal(on(branch(draw, 'N'), '7s').noYaku, true);
+  // A physically present kan dora and red five do not score on a no-yaku win.
+  const [noYaku] = groupIishantenValues([draw]);
+  assert.deepEqual(noYaku.bonuses, []);
+  assert.equal(noYaku.maxHan, 0);
+  assert.equal(noYaku.dead, false);
   assert.equal(ctx._meldFuroStr(kakan), '5505m');
 });
 
@@ -191,4 +205,39 @@ test('ineligible and missing inputs stay unavailable; inconsistent draws do not 
   assert.equal(branch(draw, 'N').groups, null);
   assert.ok(branch(draw, 'N').count > 0);
   assert.deepEqual([...draw.yaku], []);
+});
+
+test('yakuman outranks ordinary han; ron and tsumo contribute only the bonuses they score', () => {
+  const m = prep('1m 1m 1m 7p 7p 7p 3s 3s 3s 5m 5m 2p N C'.split(' '), { marker: '4m' });
+  const draws = analyze(m, 'C');
+  const ordinary = draws.find(d => d.tile === '3p'), rich = draws.find(d => d.tile === '2p');
+  const [first, second] = groupIishantenValues([ordinary, rich]);
+  assert.equal(first.draws[0], rich);
+  assert.equal(first.maxYakuman, 1); // suuankou on tsumo only
+  assert.equal(first.maxHan, 8); // toitoi + sanankou + three dora + aka on red-five ron
+  assert.deepEqual(first.bonuses, [
+    { label: 'dora 0–3', conditional: true }, { label: 'aka 0–1', conditional: true },
+  ]);
+  assert.equal(second.maxYakuman, 0);
+  assert.equal(second.maxHan, 5);
+  assert.deepEqual(second.bonuses, [{ label: 'dora 2', conditional: false }]);
+
+  const shanpon = branch(rich, 'N');
+  // A separate tenpai (ordinary 1p wait) loses to every yakuman-capable
+  // wait; the shanpon ends tie on tsumo, so their legal ron han break ties.
+  const candidates = Object.freeze([on(branch(ordinary, 'N'), '1p'), on(shanpon, '2p'),
+    on(shanpon, '5m'), on(shanpon, '5mr')]);
+  assert.deepEqual(sortIishantenWaitGroups(candidates), [...candidates].reverse());
+});
+
+test('unavailable, dead, and live no-yaku draws stay distinct even when all have zero han', () => {
+  const empty = { yaku: [], unavailable: false };
+  const unknown = { ...empty, tile: 'E', unavailable: true, branches: [{ count: 1, groups: null }] };
+  const dead = { ...empty, tile: 'S', branches: [{ count: 0, groups: [] }] };
+  const noYaku = { ...empty, tile: 'W', branches: [{ count: 2, groups: [{ ron: null, tsumo: null }] }] };
+  const profiles = groupIishantenValues([unknown, noYaku, dead]);
+  assert.deepEqual(profiles.map(p => [p.draws[0].tile, p.dead, p.unavailable]), [
+    ['W', false, false], ['S', true, false], ['E', false, true],
+  ]);
+  assert.ok(profiles.every(p => p.maxHan === 0 && p.maxYakuman === 0 && !p.bonuses.length));
 });

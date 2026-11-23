@@ -104,7 +104,7 @@ function selectHandComparison(el) {
   const actualTile = m.actual?.type === "reach" ? m.actual_riichi_tile || m.actual.pai : m.actual?.pai;
   const selectedTile = tile === actualTile ? null : tile;
   comparison.outerHTML = renderEvComparison(m, { selectedTile });
-  for (const button of card.querySelectorAll('.hand-choice-button')) {
+  for (const button of card.querySelectorAll('[data-action="selectHandComparison"]')) {
     button.setAttribute('aria-pressed', String(selectedTile != null && button.dataset.choiceTile === tile));
   }
 }

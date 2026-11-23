@@ -2048,18 +2048,33 @@
 .ev-table-cols .ukeire-acc-row:has(haipai-iishanten) td { vertical-align: top; }
 .continuation-heading { margin-bottom: 4px; font-size: 12px; font-weight: 600; }
 .continuation + .continuation { border-top: 1px solid var(--border); }
-.continuation summary {
+.continuation-summary {
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
+  gap: 4px 8px;
   padding: 4px 2px;
-  cursor: pointer;
-  list-style: none;
 }
-.continuation summary::-webkit-details-marker { display: none; }
-.continuation summary::before { content: "▸"; color: var(--text-dim); }
-.continuation[open] summary::before { content: "▾"; }
-.continuation-draw { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.continuation-draws { display: flex; flex-wrap: wrap; align-items: end; gap: 4px; }
+.continuation-draw[aria-expanded="true"] img { box-shadow: 0 0 0 2px var(--accent); }
+.continuation-question { cursor: help; text-decoration: underline dotted; }
+.continuation-question:focus-visible { outline: 1px solid var(--accent); }
+.continuation-question:is(:hover, :focus)::after {
+  content: attr(aria-label);
+  position: absolute;
+  inset-inline-start: 0;
+  top: 100%;
+  z-index: 2;
+  width: max-content;
+  max-width: min(100%, 18em);
+  white-space: normal;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 4px;
+}
 .continuation-tags { display: flex; flex-wrap: wrap; gap: 3px; }
 .continuation-note, .continuation-tags small {
   display: block;
@@ -2068,22 +2083,11 @@
 }
 .continuation-note { margin-top: 5px; }
 .continuation-panel { padding: 4px 0 8px; text-align: center; }
-.continuation-picker {
-  display: grid;
-  justify-items: center;
-  gap: 3px;
+.continuation-label {
+  margin: 4px 0;
   color: var(--text-dim);
   font-size: 11px;
-}
-.continuation-panel select {
-  width: auto;
-  max-width: 100%;
-  padding: 3px;
-  background: var(--bg-input);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font: inherit;
+  font-weight: 600;
 }
 .continuation-panel .rsc-cell { margin-top: 6px; }
 /* 3-column grid — pills | wait tiles | point values — so the tile column
@@ -3342,3 +3346,30 @@
 .overview-pagination .btn:disabled { opacity: .4; cursor: default; }
 .game-overview-dialog .concept-ledger { background: var(--bg); border: 1px solid var(--border); }
 .game-overview-dialog .concept-breakdown { margin-bottom: 0; }
+
+/* Keep each meld intact, but let the concealed hand wrap tile by tile. */
+.continuation-hand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+.continuation-hand > .tiles, .continuation-hand > .inline-melds {
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 4px;
+}
+.continuation-hand > .inline-melds { margin-left: 0; }
+.continuation-hand .tiles .tile { --tile-size: 30px; }
+.continuation-hand .hand-choice-button { min-width: 24px; }
+.continuation-hand .hand-choice-tab {
+  flex-direction: row;
+  justify-content: center;
+  gap: 1px;
+  color: var(--text-dim);
+}
+.continuation-hand [aria-pressed="true"] .hand-choice-tab { color: var(--accent); }
+.continuation-hand [aria-pressed="true"] .hand-choice-tab::before { content: "✓"; }

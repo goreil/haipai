@@ -8,7 +8,7 @@ function renderMeld(meld, tileClass = "action-tile-sm", actorSeat, doraTiles, oy
   const type = meld.type;
   const consumed = meld.consumed || [];
   const pai = meld.pai;
-  const target = meld.target;
+  const target = type === "kakan" ? meld.previous_pon_target ?? meld.target : meld.target;
 
   // dora-highlight is applied automatically by renderTile (active-dora set), so
   // meld tiles highlight even when renderMeld is reached via renderAction (the
@@ -78,11 +78,12 @@ function renderMeld(meld, tileClass = "action-tile-sm", actorSeat, doraTiles, oy
   }
 
   if (type === "kakan") {
-    // Added kan: pon layout with 4th tile stacked on top of the rotated called tile
-    const tile = consumed[0] || pai;
-    const ct = `<span class="meld-called meld-kakan">${meldTile(tile)}<span class="meld-kakan-added">${meldTile(pai)}</span></span>`;
-    const t1 = meldTile(tile);
-    const t2 = meldTile(tile);
+    // Mortal snapshots keep the called pon tile separately; raw mjai lists
+    // all three pon tiles in consumed. Don't repeat a regular or red five.
+    const called = consumed.length === 2 ? meld.previous_pon_pai : consumed[2];
+    const ct = `<span class="meld-called meld-kakan">${called ? meldTile(called) : renderBackTile(tileClass)}<span class="meld-kakan-added">${meldTile(pai)}</span></span>`;
+    const t1 = consumed[0] ? meldTile(consumed[0]) : renderBackTile(tileClass);
+    const t2 = consumed[1] ? meldTile(consumed[1]) : renderBackTile(tileClass);
     if (relPos === 3) return `<span class="meld-group">${ct}${t1}${t2}${windSup}</span>`;
     if (relPos === 2) return `<span class="meld-group">${t1}${ct}${t2}${windSup}</span>`;
     return `<span class="meld-group">${t1}${t2}${ct}${windSup}</span>`;
@@ -119,8 +120,6 @@ function meldDoraTiles(melds, doraTiles) {
       // mjai lists all four tiles in consumed.
       tiles = consumed;
     } else if (meld.type === "kakan") {
-      // Pon upgraded to a kan: three copies of the base tile + the added pai,
-      // matching what renderMeld draws.
       const base = consumed[0] || meld.pai;
       tiles = base ? [base, base, base] : [];
       if (meld.pai) tiles.push(meld.pai);
