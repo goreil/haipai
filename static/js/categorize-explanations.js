@@ -74,12 +74,10 @@ function _scoredNarration(w, m) {
     return { intro, value: _joinClauses(clauses), coversUkeire: false, depth };
   }
 
-  const avg = Math.round(better.meanPoints), otherAvg = Math.round(other.meanPoints);
   const tiles = n => `${n} winning tile${n === 1 ? "" : "s"}`;
   const sameWait = better.maxWait === other.maxWait;
-  // Both cuts are in tenpai: waits are fixed and payouts are visible.
   let intro = "", width = "";
-  if (sameWait && avg > otherAvg) {
+  if (sameWait) {
     intro = `Both cuts leave ${tiles(better.maxWait)}.`;
   } else if (better.maxWait > other.maxWait) {
     width = `leaves ${tiles(better.maxWait)} instead of ${other.maxWait}`;
@@ -89,19 +87,8 @@ function _scoredNarration(w, m) {
   // repeat the width as a second advantage, or call a no-yaku tile a win.
   const coversUkeire = !!width && w.you.maxWait === you.necessary_count
     && w.mortal.maxWait === mortal.necessary_count;
-  let value;
-  if (!other.maxPoints) {
-    value = width || "has live winning tiles where the other cut has none";
-  } else if (avg > otherAvg) {
-    const high = avg.toLocaleString(), low = otherAvg.toLocaleString();
-    const payout = `averages ${high} points versus ${low}`;
-    value = width ? `${width} and ${payout}` : payout;
-  } else {
-    value = width || `has a higher wait value (${Math.round(better.waitValue).toLocaleString()}`
-      + ` versus ${Math.round(other.waitValue).toLocaleString()})`;
-    if (avg < otherAvg) value += " but pays less on average";
-  }
-  return { intro, value, coversUkeire, depth };
+  const gain = `gains +${w.magnitude.toLocaleString()} wait value overall`;
+  return { intro, value: width ? `${width} and ${gain}` : gain, coversUkeire, depth };
 }
 
 // One natural-language clause describing what a winning dimension gains, with

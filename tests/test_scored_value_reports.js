@@ -58,11 +58,11 @@ test('one-shanten summaries distinguish tiles reaching tenpai from tiles winning
   assert.doesNotMatch(wider, /average|maximum|points/i);
 });
 
-test('unexplained tenpai picks report the actual wait and average advantage only once', () => {
+test('unexplained tenpai picks report the actual wait and wait-value gain only once', () => {
   const text = summary(42417);
-  assert.match(text, /Your \[P\] cut leaves 3 winning tiles instead of 2 and averages 10,800 points versus 7,200/);
+  assert.match(text, /Your \[P\] cut leaves 3 winning tiles instead of 2 and gains \+18,000 wait value overall/);
   assert.match(text, /The comparison doesn't show why Mortal prefers \[6p\]/);
-  assert.doesNotMatch(text, /accepts|reaches tenpai|safer|easier/);
+  assert.doesNotMatch(text, /average|accepts|reaches tenpai|safer|easier/);
 });
 
 test('equal waits without a visible yaku difference report wait value without inventing a reason', () => {

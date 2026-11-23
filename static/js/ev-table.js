@@ -70,9 +70,8 @@ function renderScoredProfile(m, discard, stat, riichi, profile) {
   return `<div class="scored-profile">`
     + `<span class="score-metric" title="${finalWaitHint}">Final wait <b>${finalWaitLabel(profile)}</b></span>`
     + scoredMetric("Wait value", Math.round(profile.waitValue).toLocaleString(), equation(math.waitValue))
-    + (tenpai ? scoredMetric("Average", `${Math.round(profile.meanPoints).toLocaleString()} pts`, equation(math.meanPoints))
-      + scoredMetric("Max", `${profile.maxPoints.toLocaleString()} pts`,
-        profile.maxPoints ? renderMaxScoredHand(m, discard, stat, riichi, profile) : "") : "")
+    + (tenpai ? scoredMetric("Max", `${profile.maxPoints.toLocaleString()} pts`,
+      profile.maxPoints ? renderMaxScoredHand(m, discard, stat, riichi, profile) : "") : "")
     + (tags ? `<div>${tags}</div>` : "")
     + (!profile.maxPoints ? `<small class="dim">No live scoring wins</small>` : "") + `</div>`;
 }

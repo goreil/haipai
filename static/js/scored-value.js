@@ -67,20 +67,15 @@
   }
 
   const fmt = n => n.toLocaleString();
-  const calcHeading = {
-    waitValue: 'Unseen copies × (ron + tsumo) ÷ 2',
-    meanPoints: 'Unseen copies × legal win points ÷ legal wins',
-  };
+  const calcHeading = 'Unseen copies × (ron + tsumo) ÷ 2';
 
   // Use physical copies, not score rows: identical payouts can have different
-  // yaku (and thus different rows). A blocked method is zero for Wait value,
-  // but is absent from both the numerator and denominator for Average.
-  function waitCalculation(groups, metric) {
-    const average = metric === 'meanPoints';
+  // yaku (and thus different rows). A blocked method contributes zero.
+  function waitCalculation(groups) {
     const pairs = new Map();
     for (const group of groups) {
       const count = group.tiles.reduce((n, t) => n + t.count, 0);
-      if (!count || (average && !group.ron && !group.tsumo)) continue;
+      if (!count) continue;
       const ron = group.ron?.ten || 0, tsumo = group.tsumo?.ten || 0;
       const key = `${ron}:${tsumo}`;
       const pair = pairs.get(key);
@@ -88,21 +83,18 @@
       else pairs.set(key, { count, ron, tsumo });
     }
     if (!pairs.size) {
-      return { equation: average ? '0 legal wins → 0' : '0 live copies → 0', exact: '0' };
+      return { equation: '0 live copies → 0', exact: '0' };
     }
     const terms = [];
-    let numerator = 0, legalWins = 0;
+    let numerator = 0;
     for (const { count, ron, tsumo } of [...pairs.values()].sort((a, b) => a.ron - b.ron || a.tsumo - b.tsumo)) {
-      const payout = average && (!ron || !tsumo) ? fmt(ron || tsumo) : `(${fmt(ron)} + ${fmt(tsumo)})`;
-      terms.push(`${count} × ${payout}`);
+      terms.push(`${count} × (${fmt(ron)} + ${fmt(tsumo)})`);
       numerator += count * (ron + tsumo);
-      legalWins += count * (Number(ron > 0) + Number(tsumo > 0));
     }
-    const divisor = average ? legalWins : 2;
     const sum = terms.length === 1 ? terms[0] : `(${terms.join(' + ')})`;
     // This exact value is also an operand in the outer (draw-copy) average.
-    const exact = numerator % divisor ? `${fmt(numerator)}/${divisor}` : fmt(numerator / divisor);
-    return { equation: `${sum} ÷ ${divisor} = ${exact}`, exact };
+    const exact = numerator % 2 ? `${fmt(numerator)}/2` : fmt(numerator / 2);
+    return { equation: `${sum} ÷ 2 = ${exact}`, exact };
   }
 
   function projectedWaitCalculation(draws, result) {
@@ -110,13 +102,13 @@
     const details = new Map(), weights = new Map();
     let copies = 0;
     for (const draw of draws) {
-      const { equation, exact } = waitCalculation(draw.branch.groups, 'waitValue');
+      const { equation, exact } = waitCalculation(draw.branch.groups);
       if (!details.has(equation)) details.set(equation, []);
       details.get(equation).push(`${draw.tile} × ${draw.count}`);
       weights.set(exact, (weights.get(exact) || 0) + draw.count);
       copies += draw.count;
     }
-    const lines = [calcHeading.waitValue];
+    const lines = [calcHeading];
     for (const [equation, draws] of details) lines.push(`${draws.join(', ')}: ${equation}`);
     const terms = Array.from(weights, ([value, n]) => `${n} × ${value.includes('/') ? `(${value})` : value}`);
     lines.push(`By draw copies: (${terms.join(' + ')}) ÷ ${copies} ${Number.isInteger(result) ? '=' : '≈'} ${fmt(Math.round(result))}`);
@@ -125,21 +117,16 @@
 
   function calculations(m, discardTile, stat, riichi, value) {
     if (!value) return null;
-    const result = {};
     if (stat.shanten === 1) {
       const draws = analyzeIishanten(m, discardTile, stat);
       if (!draws || draws.some(d => !d.branch?.groups)) return null;
-      result.waitValue = projectedWaitCalculation(draws, value.waitValue);
-    } else {
-      const groups = evalDiscardScores(m, discardTile, stat.necessary_tiles, riichi);
-      if (!groups) return null;
-      for (const metric of Object.keys(calcHeading)) {
-        const { equation } = waitCalculation(groups, metric);
-        const rounded = Number.isInteger(value[metric]) ? '' : ` ≈ ${fmt(Math.round(value[metric]))}`;
-        result[metric] = `${calcHeading[metric]}\n${equation}${rounded}`;
-      }
+      return { waitValue: projectedWaitCalculation(draws, value.waitValue) };
     }
-    return result;
+    const groups = evalDiscardScores(m, discardTile, stat.necessary_tiles, riichi);
+    if (!groups) return null;
+    const { equation } = waitCalculation(groups);
+    const rounded = Number.isInteger(value.waitValue) ? '' : ` ≈ ${fmt(Math.round(value.waitValue))}`;
+    return { waitValue: `${calcHeading}\n${equation}${rounded}` };
   }
 
   return { profile, reachRole, calculations };
