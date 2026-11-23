@@ -9,9 +9,9 @@ const { base_mjai } = require('../static/js/prep/tiles.js');
 const { groupIishantenValues, sortIishantenWaitGroups } = require('../static/js/iishanten-values.js');
 
 const ctx = vm.createContext({ renderTile: tile => tile });
-ctx.window = ctx.self = ctx;
+ctx.self = ctx; // classic worker globals, no window or DOM
 for (const file of ['prep/tiles', 'prep/parse', 'prep/prep-board-state', 'vendor/riichi/riichi-bundle',
-  'categorize-yaku', 'bad-riichi-bars', 'iishanten']) {
+  'categorize-yaku', 'bad-riichi-bars', 'iishanten', 'scored-value']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js', `${file}.js`), 'utf8'), ctx);
 }
 
@@ -83,13 +83,43 @@ test('#m42402: only the selected widest wait contributes yaku to its draw', () =
   assert.equal(analyze(m, '7p'), mortal); // rerender does not rescore this card
 });
 
+test('the iishanten profile weights each selected wait first, then each physical draw', () => {
+  const m = prep(hand42402, { discards: rivers42402 });
+  const stat = m.discard_stats.find(s => s.tile === '7p');
+  const draws = analyze(m, '7p');
+  let points = 0, iipeikou = 0, maxPoints = 0, copies = 0;
+  for (const d of draws) {
+    let wins = 0, value = 0, matching = 0;
+    for (const group of d.branch.groups) {
+      for (const tile of group.tiles) {
+        for (const score of [group.ron, group.tsumo].filter(Boolean)) {
+          wins += tile.count;
+          value += tile.count * score.ten;
+          maxPoints = Math.max(maxPoints, score.ten);
+          if (score.yaku.includes('iipeikou')) matching += tile.count;
+        }
+      }
+    }
+    points += d.count * (wins ? value / wins : 0);
+    iipeikou += d.count * (wins ? matching / wins : 0);
+    copies += d.count;
+  }
+  const worker = ctx.haipaiScoredValue.profile(m, '7p', stat);
+  const node = require('../static/js/scored-value.js').profile(m, '7p', stat);
+  assert.deepEqual(structuredClone(worker), node);
+  assert.equal(node.meanPoints, points / copies);
+  assert.equal(node.maxPoints, maxPoints);
+  assert.equal(node.yaku.iipeikou, iipeikou / copies);
+  assert.ok(node.yaku.iipeikou > 0 && node.yaku.iipeikou < 1);
+});
+
 test('#m42402: on a 1p draw only the cut with iipeikou on 2s earns Best', () => {
   // Encounter the lower-value cut first; selection must not depend on hand order.
   const m = prep([...hand42402].reverse(), { discards: rivers42402 });
   const draw = analyze(m, '7p').find(d => d.tile === '1p');
   const best = branch(draw, '1s'), other = draw.branches.find(b => b.discard === '4s');
   assert.equal(best.count, other.count);
-  assert.equal(best.points, other.points);
+  assert.equal(best.profile.maxPoints, other.profile.maxPoints);
   assert.ok(on(best, '2s').ron.yaku.includes('iipeikou'));
   assert.ok(!on(other, '2s').ron.yaku.includes('iipeikou'));
   assert.equal(best.label, 'Best');
@@ -100,7 +130,7 @@ test('a narrower discard can win more points without replacing the width-first s
   const m = prep(hand42402, { discards: [...rivers42402, [1, '5pr']] });
   const draw = analyze(m, '3s').find(d => d.tile === '4p');
   assert.equal(branch(draw, '9p').label, 'Speed');
-  assert.deepEqual(Object.fromEntries(draw.branches.map(b => [b.discard, [b.label, b.count, b.points]])), {
+  assert.deepEqual(Object.fromEntries(draw.branches.map(b => [b.discard, [b.label, b.count, b.profile.maxPoints]])), {
     '6p': ['Value', 3, 4000], '7p': ['Cut', 3, 2000], '9p': ['Speed', 6, 2700],
   });
 });

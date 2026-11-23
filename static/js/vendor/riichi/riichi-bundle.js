@@ -8,9 +8,8 @@
  * inside a CommonJS-shim wrapper that provides `module`, `exports`, `require`.
  * A minimal `assert` stub (deepStrictEqual only) is provided for yaku.js.
  *
- * Exposes: window.Riichi = <constructor from riichi/index.js>
- *          window.RiichiSyanten = syanten module (rarely needed externally)
- *          window.RiichiAgari   = agari module
+ * Exposes Riichi, RiichiSyanten and RiichiAgari as CommonJS exports or
+ * as classic-script globals (browser and Web Worker).
  */
 (function () {
     'use strict';
@@ -1324,9 +1323,7 @@
         module.exports = Riichi
     });
 
-    if (typeof window !== 'undefined') {
-        window.Riichi        = _registry.riichi;
-        window.RiichiAgari   = _registry.agari;
-        window.RiichiSyanten = _registry.syanten;
-    }
+    var api = { Riichi: _registry.riichi, RiichiAgari: _registry.agari, RiichiSyanten: _registry.syanten };
+    if (typeof module === 'object' && module.exports) module.exports = api;
+    else Object.assign(globalThis, api);
 })();

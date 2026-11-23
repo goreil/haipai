@@ -1,16 +1,4 @@
-// Closed-hand yaku detection for the 5A (Bad Riichi) explanation card and
-// per-wait bars. Walks every tenpai wait, asks the bundled riichi calculator
-// what yaku the completed hand earns on ron, and returns the union of
-// natural-shape yaku as English/romaji labels.
-//
-// Also exposes the mjai → riichi-package tile/wind converters
-// (_mjaiToRiichiTile, _windToKazeInt, _formatRiichiHandStr) and the
-// situational-yaku filter set — both consumed by bad-riichi-bars.js too.
-//
-// Load order: depends on the riichi-bundle vendor script (window.Riichi).
-// categorize-metadata.js may also load first; this file does not depend on
-// CATEGORY_INFO directly but follows the metadata → yaku → explanations
-// convention for clarity.
+// Notation and display labels shared by the Value tab's wait scorer.
 
 // Convert our mjai tile notation to the riichi-package's notation
 // (1m–9m, 0m for red 5m, 1z–7z for honors E/S/W/N/P/F/C).
@@ -110,57 +98,6 @@ var _YAKU_LABEL = {
   "大七星": "daichisei",
 };
 
-// Detect closed-hand yaku that would resolve a dama win for a 5A (Bad Riichi)
-// mistake. Walks every tenpai wait, asks the bundled riichi calculator what
-// yaku the completed hand earns on ron, and returns the union of natural-shape
-// yaku as English/romaji labels. Situational yaku (riichi, ippatsu, tsumo,
-// haitei…) are stripped so the list only reflects "the hand is already worth
-// something without declaring."
-function detectClosedHandYaku(m) {
-  if (typeof window === "undefined" || !window.Riichi) return [];
-  let hand = (m.hand || []).slice();
-  // For 5A the pre-discard hand is 14 tiles; drop the riichi tile.
-  if (hand.length === 14) {
-    const riichiTile = m.actual_riichi_tile || (m.actual && m.actual.pai);
-    if (!riichiTile) return [];
-    const idx = hand.indexOf(riichiTile);
-    if (idx < 0) return [];
-    hand.splice(idx, 1);
-  }
-  if (hand.length !== 13) return [];
-  const waits = tenpaiWaitTiles(m);
-  if (!waits.length) return [];
-
-  const bs = m.board_state || {};
-  const bakaze = _windToKazeInt(bs.round_wind) || 1;
-  const jikaze = _windToKazeInt(bs.seat_wind) || 2;
-  const kazeSuffix = `${bakaze}${jikaze}`;
-
-  const handStr = _formatRiichiHandStr(hand);
-  const seen = new Set();
-  let minYakuhai = Infinity, maxYakuhai = 0;
-  for (const w of waits) {
-    if (!w || !w.tile) continue;
-    const winTile = _mjaiToRiichiTile(w.tile);
-    // `+<winTile>` flags ron in the parser, so menzen-tsumo doesn't trigger.
-    const data = `${handStr}+${winTile}+${kazeSuffix}`;
-    let result;
-    try {
-      result = new window.Riichi(data).calc();
-    } catch (e) {
-      continue;
-    }
-    if (!result?.isAgari || !(result.han || result.yakuman)) continue;
-    let yakuhai = 0;
-    for (const jp in result.yaku) {
-      if (_SITUATIONAL_YAKU.has(jp)) continue;
-      const label = _YAKU_LABEL[jp] || jp;
-      if (label.startsWith("yakuhai")) yakuhai++;
-      else seen.add(label);
-    }
-    minYakuhai = Math.min(minYakuhai, yakuhai);
-    maxYakuhai = Math.max(maxYakuhai, yakuhai);
-  }
-  if (maxYakuhai) seen.add(`yakuhai ${minYakuhai === maxYakuhai ? maxYakuhai : `${minYakuhai}–${maxYakuhai}`}`);
-  return Array.from(seen);
+if (typeof module === "object" && module.exports) {
+  module.exports = { _mjaiToRiichiTile, _windToKazeInt, _formatRiichiHandStr, _SITUATIONAL_YAKU, _YAKU_LABEL };
 }

@@ -1,11 +1,14 @@
-// Per-wait EV bars for 5A (Bad Riichi) and 5B (Missed Riichi) mistake cards.
-// Replaces the legacy chip strip with stacked Ron + Tsumo bars showing dama,
-// riichi premium, and an ippatsu/ura EV tail per wait. Built off the bundled
-// Riichi calculator already loaded for detectClosedHandYaku.
-//
-// Relies on globals from categorize-yaku.js (_mjaiToRiichiTile,
-// _windToKazeInt, _formatRiichiHandStr, _SITUATIONAL_YAKU, _YAKU_LABEL)
-// and tiles.js (renderTile).
+// One wait scorer for the Value tab, the categorizer, and the riichi EV bars.
+// Rendering functions use the card's tile helpers; scoring has no UI dependencies.
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) {
+    module.exports = factory(require("./vendor/riichi/riichi-bundle.js"),
+      require("./categorize-yaku.js"), require("./prep/tiles.js"));
+  } else {
+    Object.assign(root, factory(root, root, root.haipaiPrepTiles));
+  }
+}(globalThis, function (vendor, { _mjaiToRiichiTile, _windToKazeInt, _formatRiichiHandStr,
+  _SITUATIONAL_YAKU, _YAKU_LABEL }, tiles) {
 
 // Approximation for the ippatsu + uradora tail. Derived to match the
 // hand-tuned reference values in the design at typical 1-3 han hands; it
@@ -143,17 +146,19 @@ function _isDoubleRiichiContext(m) {
 
 // The projection starts at our discard and assumes no intervening calls.
 // Three opponents and our own next draw use four tiles; four must still
-// remain at declaration. Without the wall count or our score, don't credit
-// a riichi we can't establish. An ankan keeps the hand closed.
+// remain at declaration. An ankan keeps the hand closed. Distinguish a
+// known-ineligible hand (dama) from missing declaration data (unknown).
 function _iishantenRiichiFlags(m) {
   const board = m.board_state;
   const actor = m.actual?.actor ?? m.expected?.actor;
   const points = board?.scores?.[actor];
-  if (!Number.isFinite(points) || points < 1000 || !Number.isInteger(board.tiles_left)
-      || board.tiles_left < 8 || !(m.melds || []).every(meld => meld.type === "ankan")) return "";
+  if (!(m.melds || []).every(meld => meld.type === "ankan")
+      || Number.isFinite(points) && points < 1000
+      || Number.isInteger(board.tiles_left) && board.tiles_left < 8) return "";
   // The snapshot lists round-start scores; a player who has already
   // declared cannot place another stick.
-  return board.all_discards?.find(r => r.seat === actor)?.riichi_idx != null ? "" : "r";
+  if (board.all_discards.find(r => r.seat === actor)?.riichi_idx != null) return "";
+  return Number.isFinite(points) && Number.isInteger(board.tiles_left) ? "r" : null;
 }
 
 // One score evaluation. opts: { riichi: bool, tsumo: bool }.
@@ -162,8 +167,7 @@ function _iishantenRiichiFlags(m) {
 // (e.g. no yaku on dama ron). With opts.includeNoYaku, a complete shape
 // lacking yaku returns { noYaku: true } so the table can retain its waits.
 function _evalWaitScore(hand13, winTile, m, opts) {
-  if (typeof window === "undefined" || !window.Riichi) return null;
-  if (typeof _windToKazeInt !== "function" || typeof _formatRiichiHandStr !== "function") return null;
+  if (!vendor.Riichi) return null;
 
   const bs = m.board_state || {};
   const bakaze = _windToKazeInt(bs.round_wind) || 1;
@@ -195,7 +199,7 @@ function _evalWaitScore(hand13, winTile, m, opts) {
 
   let result;
   try {
-    const calculator = new window.Riichi(data);
+    const calculator = new vendor.Riichi(data);
     // The parser silently skips an invalid furo. Its result for that shortened
     // hand isn't evidence of a no-yaku completion.
     if (calculator.furo.length !== (m.melds || []).length) return null;
@@ -229,8 +233,7 @@ function _evalWaitScore(hand13, winTile, m, opts) {
       continue;
     }
     hasRealYaku = true;
-    if (_SITUATIONAL_YAKU && _SITUATIONAL_YAKU.has(jp) && !opts.includeSituational
-        && !(jp === "立直" && opts.flags === "r")) continue;
+    if (_SITUATIONAL_YAKU.has(jp) && !opts.includeSituational && jp !== "立直" && jp !== "ダブル立直") continue;
     const situational = { "立直": "riichi", "ダブル立直": "double riichi", "一発": "ippatsu",
       "門前清自摸和": "menzen tsumo", "嶺上開花": "rinshan", "搶槓": "chankan",
       "海底摸月": "haitei", "河底撈魚": "houtei", "天和": "tenhou", "地和": "chiihou" };
@@ -438,6 +441,7 @@ function _valueTags(yaku, dora = 0, aka = 0) {
   let yakuhai = 0;
   for (const y of yaku || []) {
     if (y.startsWith("yakuhai")) yakuhai++;
+    else if (y === "riichi" || y === "double riichi") tags.push(`<span class="yaku-tag riichi-yaku">${y}</span>`);
     else tags.push(`<span class="yaku-tag">${y}</span>`);
   }
   if (yakuhai) tags.push(`<span class="yaku-tag">yakuhai ${yakuhai}</span>`);
@@ -510,7 +514,7 @@ function _renderWaitRow(w, scaleMax, isDaburi) {
 function renderBadRiichiBars(m) {
   if (!m) return null;
   if (m.category !== "5A" && m.category !== "5B") return null;
-  if (typeof window === "undefined" || !window.Riichi) return null;
+  if (!vendor.Riichi) return null;
 
   const evals = _buildBadRiichiWaitEval(m);
   if (!evals) return null;
@@ -580,15 +584,20 @@ function renderBadRiichiBars(m) {
 // (plus the ippatsu/ura EV tail) vs. a silent dama win. Returns grouped rows
 // `[{ tiles, ron, tsumo, bonus, yaku, dora, aka, noYaku }]`, retaining
 // complete waits without yaku; null means scoring data is unavailable.
+const discardScoreCache = new WeakMap();
 function evalDiscardScores(m, discardTile, waitEntries, riichi) {
-  if (typeof window === "undefined" || !window.Riichi) return null;
+  if (!vendor.Riichi || !Array.isArray(waitEntries) || !waitEntries.length) return null;
+  const key = (riichi ? "riichi:" : "dama:") + discardTile;
+  let cached = discardScoreCache.get(m);
+  const hit = cached?.get(key);
+  if (hit?.waitEntries === waitEntries) return hit.groups;
   const meldCount = (m.melds || []).length;
   const useRiichi = riichi && (m.melds || []).every(meld => meld.type === "ankan");
   // Each called meld occupies one set (3 tiles) of the 13-tile structure, so the
   // concealed portion is 13 − 3·melds at tenpai (14 − 3·melds pre-discard).
   const tenpaiLen = 13 - 3 * meldCount;
   const preLen = 14 - 3 * meldCount;
-  const hand = (m.hand || []).slice();
+  const hand = m.hand || [];
   let hand13;
   if (hand.length === tenpaiLen) {
     hand13 = hand;
@@ -600,18 +609,30 @@ function evalDiscardScores(m, discardTile, waitEntries, riichi) {
   } else {
     return null;
   }
-  if (!Array.isArray(waitEntries) || !waitEntries.length) return null;
 
   // Furiten locks ron on every wait, including tiles other than the
   // discarded/passed tile. Tsumo remains legal and keeps its live counts.
-  const furiten = !!m.furiten_kind || (m.furiten_tiles || []).length > 0;
+  const { base_mjai } = tiles;
+  const river = ownDiscards(m);
+  const waits = new Set(waitEntries.map(w => base_mjai(w.tile)));
+  // The stored furiten_tiles describe the actual hand, not every candidate.
+  // Use the candidate's river (including its proposed cut) when available.
+  const furiten = m.furiten_kind === "riichi_pass" || m.furiten_kind === "temporary_pass"
+    || (hand.length === preLen && waits.has(base_mjai(discardTile)))
+    || (river ? river.some(d => waits.has(base_mjai(d.tile)))
+              : (m.furiten_tiles || []).some(t => waits.has(base_mjai(t))));
   const furitenReason = m.furiten_kind === "riichi_pass"
     ? "Passed ron after riichi — ron is unavailable for the rest of this hand; tsumo is still possible."
     : m.furiten_kind === "temporary_pass"
     ? "Passed ron — ron is unavailable until your next draw; tsumo is still possible."
     : "A wait is in your discard pool — ron is unavailable on every wait; tsumo is still possible.";
   const furitenSet = new Set(furiten ? waitEntries.map(w => w.tile) : []);
-  return _scoreTenpaiWaits(m, hand13, _expandWaitsForAka(waitEntries, furitenSet), useRiichi, furitenReason);
+  const groups = _scoreTenpaiWaits(m, hand13, _expandWaitsForAka(waitEntries, furitenSet), useRiichi, furitenReason);
+  if (groups) {
+    if (!cached) discardScoreCache.set(m, cached = new Map());
+    cached.set(key, { waitEntries, groups });
+  }
+  return groups;
 }
 
 // Score physical waits, preserving a structural no-yaku result as distinct from
@@ -688,12 +709,8 @@ function renderRiichiScoreCell(groups, riichi) {
       return `<span class="rsc-tile-entry">${tileHtml}<span class="${countCls}" title="${countTip}">×${t.count}</span></span>`;
     }).join("");
 
-    // Yaku / dora pills present on this wait (riichi token already stripped
-    // upstream). On a riichi column the declared riichi is always shown as its
-    // own pill — even alongside natural yaku — so the +1 han is explicit.
-    const riichiTag = riichi ? `<span class="yaku-tag riichi-yaku">riichi</span> ` : "";
     const yaku = g.yaku || [];
-    const yakuTags = `<span class="rsc-yaku">${riichiTag}${_valueTags(yaku, g.dora, g.aka)}</span>`;
+    const yakuTags = `<span class="rsc-yaku">${_valueTags(yaku, g.dora, g.aka)}</span>`;
 
     let body = "";
     if (g.furiten) body += `<span class="rsc-line"><span class="rsc-mode">Ron</span>`
@@ -746,3 +763,53 @@ function renderWinScore(m) {
     unknownUra: /[rw]/.test(ctx.flags) && !ctx.ura_tiles };
   return renderRiichiScoreCell([group], false);
 }
+
+// Both depths compare complete, physically identified discard snapshots.
+// In particular, the absence of a river is not evidence that ron is legal.
+function ownDiscards(m) {
+  const rivers = m.board_state?.all_discards;
+  const actor = m.actual?.actor ?? m.expected?.actor;
+  if (!Number.isInteger(actor) || !Array.isArray(rivers)) return null;
+  const entries = rivers.find(r => r?.seat === actor)?.discards;
+  return Array.isArray(entries) ? entries : null;
+}
+
+function scoringDiscardRiver(m, discard, stat) {
+  const { MJAI_TO_ID, base_mjai } = tiles;
+  const board = m.board_state, entries = ownDiscards(m);
+  const melds = m?.melds || [];
+  if (!entries || entries.some(d => MJAI_TO_ID[d?.tile] == null)
+      || !_windToKazeInt(board.round_wind) || !_windToKazeInt(board.seat_wind)
+      || !Array.isArray(board.dora_tiles) || board.dora_tiles.some(t => MJAI_TO_ID[t] == null)
+      || !Array.isArray(melds) || !Array.isArray(m.hand) || m.hand.length !== 14 - 3 * melds.length
+      || !m.hand.includes(discard) || m.hand.some(t => MJAI_TO_ID[t] == null)
+      || base_mjai(stat.tile) !== base_mjai(discard) || !Array.isArray(stat.necessary_tiles)
+      || stat.necessary_tiles.some(w => MJAI_TO_ID[w?.tile] == null)) return null;
+  return entries;
+}
+
+// A mean on legal wins, not an estimate of win probability. Red and normal
+// fives, dead waits, furiten ron, and no-yaku modes retain their UI semantics.
+function profileWaitScores(groups) {
+  if (!groups) return null;
+  const yaku = {};
+  let points = 0, maxPoints = 0, outcomes = 0;
+  for (const group of groups) {
+    const copies = group.tiles.reduce((n, t) => n + t.count, 0);
+    if (!copies) continue;
+    for (const score of [group.ron, group.tsumo]) {
+      if (!score) continue;
+      outcomes += copies;
+      points += copies * score.ten;
+      maxPoints = Math.max(maxPoints, score.ten);
+      for (const name of score.yaku) yaku[name] = (yaku[name] || 0) + copies;
+    }
+  }
+  for (const name in yaku) yaku[name] /= outcomes;
+  return { meanPoints: outcomes ? points / outcomes : 0, maxPoints, yaku };
+}
+
+return { evalDiscardScores, profileWaitScores, scoringDiscardRiver, renderWinScore, renderBadRiichiBars, renderRiichiScoreCell,
+  _meldTiles, _meldFuroStr, _evalWaitScore, _isDoubleRiichiContext, _iishantenRiichiFlags,
+  _AKA_TILE_FOR_BASE, _expandWaitsForAka, _scoreTenpaiWaits };
+}));

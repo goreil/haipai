@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const context = vm.createContext({ window: {}, renderTile: tile => tile });
-for (const file of ['vendor/riichi/riichi-bundle.js', 'categorize-yaku.js', 'bad-riichi-bars.js']) {
+const context = vm.createContext({ renderTile: tile => tile });
+for (const file of ['prep/tiles.js', 'vendor/riichi/riichi-bundle.js', 'categorize-yaku.js', 'bad-riichi-bars.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js', file), 'utf8'), context);
 }
 
@@ -98,13 +98,14 @@ test('mixed waits retain both the chanta win and the no-yaku completion', () => 
 });
 
 test('closed no-yaku ron retains its legal menzen-tsumo score', () => {
-  const m = { ...mistake, melds: [], hand: [...mistake.hand, 'E', 'E', 'E'] };
-  const groups = context.evalDiscardScores(m, '8p', [{ tile: '8p', count: 2 }], false);
+  // 8p is the winning tile; discard an unrelated tile to avoid self-furiten.
+  const m = { ...mistake, melds: [], hand: ['6m','7m','8m','3p','4p','5p','8p','7s','8s','9s','W','E','E','E'] };
+  const groups = context.evalDiscardScores(m, 'W', [{ tile: '8p', count: 2 }], false);
   assert.equal(groups[0].ron, null);
   assert.ok(groups[0].tsumo.ten > 0);
   assert.equal(groups[0].noYaku, false);
   assert.match(context.renderRiichiScoreCell(groups, false), /only menzen-tsumo wins/);
-  const reached = context.evalDiscardScores(m, '8p', [{ tile: '8p', count: 2 }], true);
+  const reached = context.evalDiscardScores(m, 'W', [{ tile: '8p', count: 2 }], true);
   assert.ok(reached[0].ron.ten > 0);
 });
 
@@ -113,12 +114,12 @@ test('invalid waits and unavailable scoring do not become no-yaku results', () =
   assert.equal(context.evalDiscardScores(mistake, '1m', [{ tile: '6p', count: 4 }], false), null);
   const hand = mistake.hand.slice(0, -1);
   assert.equal(context._evalWaitScore(hand, '6p', mistake, { tsumo: false, riichi: false }), null);
-  const calc = context.window.Riichi;
+  const calc = context.Riichi;
   try {
-    context.window.Riichi = class { calc() { throw new Error('unavailable'); } };
+    context.Riichi = class { calc() { throw new Error('unavailable'); } };
     assert.equal(context.evalDiscardScores(mistake, '3p', [{ tile: '6p', count: 4 }], false), null);
   } finally {
-    context.window.Riichi = calc;
+    context.Riichi = calc;
   }
 });
 
@@ -138,4 +139,29 @@ test('discard furiten blocks ron across all waits and preserves tsumo scoring', 
   assert.match(html,/furiten-badge/);
   assert.match(html,/discard pool/);
   assert.doesNotMatch(html,/no yaku/);
+});
+
+test('the shared tenpai profile weights legal modes and physical copies, including aka', () => {
+  const { profile } = require('../static/js/scored-value.js');
+  const hand = '1m 2m 3m 3m 3m 6m 7m 7p 7p 7p 5s 6s 7s W'.split(' ');
+  const m = { hand, actual: { type: 'dahai', actor: 2 }, melds: [], furiten_tiles: ['8m'],
+    board_state: { seat_wind: 'N', round_wind: 'S', dora_tiles: [], all_discards: [{ seat: 2, discards: [] }] } };
+  const stat = { shanten: 0, tile: 'W', necessary_tiles: [
+    { tile: '5m', count: 4, aka_count: 1 }, { tile: '8m', count: 1 },
+  ] };
+  const groups = context.evalDiscardScores(m, 'W', stat.necessary_tiles, true);
+  const wait = t => groups.find(g => g.tiles.some(w => w.tile === t));
+  const both = t => wait(t).ron.ten + wait(t).tsumo.ten;
+  const value = profile(m, 'W', stat, true);
+  assert.equal(value.meanPoints, (3 * both('5m') + both('5mr') + both('8m')) / 10);
+  assert.equal(value.maxPoints, Math.max(wait('5mr').ron.ten, wait('5mr').tsumo.ten));
+  assert.equal(value.yaku.riichi, 1);
+  assert.equal(profile(m, 'W', stat, true), value);
+
+  const blocked = { ...m, board_state: { ...m.board_state, all_discards: [{ seat: 2, discards: [{ tile: '5mr' }] }] } };
+  const tsumoOnly = (3 * wait('5m').tsumo.ten + wait('5mr').tsumo.ten + wait('8m').tsumo.ten) / 5;
+  assert.equal(profile(blocked, 'W', stat, true).meanPoints, tsumoOnly);
+  assert.equal(profile({ ...m, furiten_kind: 'temporary_pass' }, 'W', stat, true).meanPoints, tsumoOnly);
+  assert.equal(profile({ ...m, board_state: { ...m.board_state, all_discards: [] } }, 'W', stat, true), null);
+  assert.equal(profile(m, 'W', { ...stat, necessary_tiles: [{ tile: '5m' }] }, true), null);
 });

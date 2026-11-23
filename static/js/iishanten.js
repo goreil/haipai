@@ -1,3 +1,13 @@
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) {
+    module.exports = factory(require("./vendor/riichi/riichi-bundle.js"), require("./bad-riichi-bars.js"),
+      require("./prep/tiles.js"), require("./prep/prep-board-state.js"));
+  } else {
+    Object.assign(root, factory(root, root, root.haipaiPrepTiles, root.haipaiPrepBoardState));
+  }
+}(globalThis, function (vendor, { _AKA_TILE_FOR_BASE, _meldTiles, _expandWaitsForAka, _iishantenRiichiFlags,
+  _scoreTenpaiWaits, scoringDiscardRiver, profileWaitScores }, haipaiPrepTiles, haipaiPrepBoardState) {
+
 // One draw beyond a specific iishanten discard. The wall describes unseen
 // copies, not the actual wall order or a probability of winning. A draw is
 // counted once no matter how many tenpai discards it permits.
@@ -17,7 +27,7 @@ function _iishantenWaits(hand, meldCounts, wall) {
     const suit = suits[Math.floor(id / 9)], rank = id % 9;
     if (suit[rank] + meldCounts[id] >= 4) continue; // no fifth physical copy
     suit[rank]++;
-    if (window.RiichiAgari.checkAll(suits)) {
+    if (vendor.RiichiAgari.checkAll(suits)) {
       const tile = ID_TO_MJAI[id];
       const aka = _AKA_TILE_FOR_BASE[tile];
       waits.push({ tile, count: wall[id], aka_count: aka ? wall[MJAI_TO_ID[aka]] : 0 });
@@ -29,7 +39,7 @@ function _iishantenWaits(hand, meldCounts, wall) {
 
 // Value is peak legal points first, then mean points on a legal win.
 function _compareIishantenValue(a, b) {
-  return a.points - b.points || a.meanPoints - b.meanPoints;
+  return a.profile.maxPoints - b.profile.maxPoints || a.profile.meanPoints - b.profile.meanPoints;
 }
 
 function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
@@ -60,24 +70,14 @@ function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
     const live = _expandWaitsForAka(waits, furitenSet).filter(w => w.count > 0);
     const groups = count ? _scoreTenpaiWaits(m, tenpai, live, false,
       "A wait is in your discard pool — ron is unavailable on every wait; tsumo is still possible.", riichiFlags) : [];
-    let points = 0, totalPoints = 0, outcomes = 0;
-    for (const group of groups ?? []) {
-      const copies = group.tiles.reduce((n, t) => n + t.count, 0);
-      for (const score of [group.ron, group.tsumo]) {
-        if (!score) continue;
-        points = Math.max(points, score.ten);
-        totalPoints += copies * score.ten;
-        outcomes += copies;
-      }
-    }
-    branches.push({ discard, count, groups, points, meanPoints: outcomes ? totalPoints / outcomes : 0 });
+    branches.push({ discard, count, groups, profile: profileWaitScores(groups) });
   }
 
   const widest = Math.max(...branches.map(b => b.count));
   const fastest = branches.filter(b => b.count === widest);
   const highest = branches.length && branches.every(b => b.groups !== null)
     ? branches.reduce((best, b) => _compareIishantenValue(b, best) > 0 ? b : best) : null;
-  const isHighest = b => highest?.points > 0 && _compareIishantenValue(b, highest) === 0;
+  const isHighest = b => highest?.profile?.maxPoints > 0 && _compareIishantenValue(b, highest) === 0;
   const hasBest = fastest.some(isHighest);
   for (const b of branches) {
     const speed = b.count === widest && widest > 0;
@@ -90,42 +90,27 @@ function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
     branch = fastest.some(b => b.groups === null) ? null
       : fastest.reduce((best, b) => _compareIishantenValue(b, best) > 0 ? b : best);
   }
-  const support = new Map();
-  let outcomes = 0;
-  for (const group of branch?.groups ?? []) {
-    for (const score of [group.ron, group.tsumo]) {
-      if (!score) continue;
-      outcomes++;
-      for (const name of score.yaku) support.set(name, (support.get(name) || 0) + 1);
-    }
-  }
-  const yaku = Array.from(support, ([name, n]) => ({ name, confirmed: n === outcomes }));
+  const yaku = Object.entries(branch?.profile?.yaku ?? {}).map(([name, share]) => ({ name, confirmed: share === 1 }));
   return { tile: draw.tile, count: draw.count, yaku, unavailable: branch?.groups == null, branch, branches };
 }
 
 // Null means missing/inapplicable data; [] means there are no unseen draws
 // to examine. An empty branch.groups is known structural tenpai on dead waits.
 function analyzeIishanten(m, discardTile, stat) {
-  if (!m || stat?.shanten !== 1 || !Array.isArray(stat.necessary_tiles)
-      || typeof window === "undefined" || !window.RiichiAgari || !window.Riichi
-      || typeof haipaiPrepTiles === "undefined" || typeof haipaiPrepBoardState === "undefined"
-      || typeof _scoreTenpaiWaits !== "function") return null;
-  const { MJAI_TO_ID, ID_TO_MJAI, base_mjai, tile_id_to_base } = haipaiPrepTiles;
-  const melds = m.melds || [], wall = m.iishanten_wall, board = m.board_state;
-  const actor = m.actual?.actor ?? m.expected?.actor;
-  const discards = board?.all_discards?.find(r => r.seat === actor)?.discards;
-  if (!Array.isArray(discards) || !_windToKazeInt(board.round_wind) || !_windToKazeInt(board.seat_wind)
-      || !Array.isArray(board.dora_tiles) || !Array.isArray(wall) || wall.length !== 37
-      || !Array.isArray(m.hand) || m.hand.length !== 14 - 3 * melds.length
-      || base_mjai(stat.tile) !== base_mjai(discardTile) || !m.hand.includes(discardTile)) return null;
+  if (!m || stat?.shanten !== 1 || !vendor.RiichiAgari || !vendor.Riichi) return null;
+  const { MJAI_TO_ID, ID_TO_MJAI, tile_id_to_base, base_mjai } = haipaiPrepTiles;
+  const melds = m.melds || [], wall = m.iishanten_wall;
   const cached = _iishantenCache.get(m);
   const hit = cached?.get(discardTile);
   if (hit?.stat === stat) return hit.result;
+  const entries = scoringDiscardRiver(m, discardTile, stat);
+  if (!entries || !Array.isArray(wall) || wall.length !== 37) return null;
+  const river = new Set([base_mjai(discardTile)]);
+  for (const d of entries) river.add(base_mjai(d.tile));
   for (let i = 0; i < 37; i++) {
     if (!Number.isInteger(wall[i]) || wall[i] < 0 || wall[i] > (i < 34 ? 4 : 1)
         || (i >= 34 && wall[i] > wall[tile_id_to_base(i)])) return null;
   }
-  if (board.dora_tiles.some(t => MJAI_TO_ID[t] == null)) return null;
 
   const meldCounts = Array(34).fill(0);
   for (const meld of melds) {
@@ -133,19 +118,13 @@ function analyzeIishanten(m, discardTile, stat) {
     if (!tiles || tiles.some(t => MJAI_TO_ID[t] == null)) return null;
     for (const t of tiles) meldCounts[tile_id_to_base(MJAI_TO_ID[t])]++;
   }
-  const river = new Set([base_mjai(discardTile)]);
-  for (const entry of discards) {
-    if (MJAI_TO_ID[entry.tile] == null) return null;
-    river.add(base_mjai(entry.tile));
-  }
   const hand = m.hand.slice();
-  if (hand.some(t => MJAI_TO_ID[t] == null)) return null;
   hand.splice(hand.indexOf(discardTile), 1); // discarding does not replenish unseen copies
   const result = [];
   const riichiFlags = _iishantenRiichiFlags(m);
+  if (riichiFlags === null) return null;
   const bases = new Set(stat.necessary_tiles.map(w => tile_id_to_base(MJAI_TO_ID[w.tile])));
   for (const id of bases) {
-    if (id == null) return null;
     const tile = ID_TO_MJAI[id], aka = _AKA_TILE_FOR_BASE[tile];
     const waits = [{ tile, count: wall[id], aka_count: aka ? wall[MJAI_TO_ID[aka]] : 0 }];
     for (const draw of _expandWaitsForAka(waits, new Set())) {
@@ -159,3 +138,6 @@ function analyzeIishanten(m, discardTile, stat) {
   }
   return result;
 }
+
+return { analyzeIishanten };
+}));

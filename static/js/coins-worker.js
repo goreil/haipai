@@ -3,6 +3,8 @@ importScripts(
   'prep/tiles.js', 'prep/parse.js', 'prep/shanten.js', 'prep/defense_kd.js',
   'prep/shanten_calc.js', 'prep/furiten.js', 'prep/prep-board-state.js',
   'prep/prep-board-yaku.js', 'prep/defense.js', 'prep/prep.js',
+  'vendor/riichi/riichi-bundle.js', 'categorize-yaku.js', 'bad-riichi-bars.js',
+  'iishanten.js', 'scored-value.js',
   'categorize.js', 'compare-dimensions.js'
 );
 
