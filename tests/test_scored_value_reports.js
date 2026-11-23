@@ -121,3 +121,22 @@ test('R-280: wider waits outweigh lower points per win, including the reported 6
   assert.ok(value.mortal.waitValue > value.you.waitValue);
   assert.equal(value.winner, 'mortal');
 });
+
+for (const [id, firstDraw, blockedWaits, blockedCopies, expectedIndex] of [
+  [205, '4s', ['2p'], 10, 15250],
+  [265, '6s', ['1s', '4s'], 4, 8833],
+]) {
+  test(`R-${id}: losing ron on a projected wait reduces the discard's Value index`, () => {
+    const { m, value } = result(id);
+    const actual = drawsFor(m, m.actual);
+    const firstBlocked = actual.find(d => d.tile === firstDraw);
+    assert.deepEqual(liveWaits(firstBlocked), blockedWaits);
+    assert.ok(firstBlocked.branch.groups.every(g => g.furiten && !g.ron && g.tsumo));
+    assert.equal(actual.filter(d => d.branch.groups.some(g => g.furiten))
+      .reduce((n, d) => n + d.count, 0), blockedCopies);
+    assert.ok(drawsFor(m, m.expected).every(d => d.branch.groups.every(g => !g.furiten)));
+    // Blocked ron earns zero rather than redistributing its half to tsumo.
+    assert.equal(Math.round(value.you.waitValue), expectedIndex);
+    assert.equal(value.winner, 'mortal');
+  });
+}

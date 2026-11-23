@@ -106,6 +106,114 @@
     }
   },
   {
+    "report_ids": [205],
+    "mistake": {
+      "hand": ["3m","4m","5m","3p","1s","2s","3s","5sr","5s","6s","6s","F","F","1p"],
+      "melds": [],
+      "shanten": 1,
+      "draw": "1p",
+      "actual": {"type":"dahai","actor":0,"pai":"6s","tsumogiri":false},
+      "expected": {"type":"dahai","actor":0,"pai":"3p","tsumogiri":false},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":0,"pai":"3p","tsumogiri":false},"q_value":0.1909,"prob":0.8393},
+        {"action":{"type":"dahai","actor":0,"pai":"1p","tsumogiri":true},"q_value":0.0253,"prob":0.1604},
+        {"action":{"type":"dahai","actor":0,"pai":"6s","tsumogiri":false},"q_value":-0.6577,"prob":0.0002},
+        {"action":{"type":"dahai","actor":0,"pai":"5s","tsumogiri":false},"q_value":-0.7361,"prob":0.0001},
+        {"action":{"type":"dahai","actor":0,"pai":"1s","tsumogiri":false},"q_value":-0.9125,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"F","tsumogiri":false},"q_value":-0.9326,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"5m","tsumogiri":false},"q_value":-0.9539,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"5sr","tsumogiri":false},"q_value":-1.0227,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"3s","tsumogiri":false},"q_value":-1.0366,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"2s","tsumogiri":false},"q_value":-1.0897,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"3m","tsumogiri":false},"q_value":-1.1321,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"4m","tsumogiri":false},"q_value":-1.1471,"prob":0}
+      ],
+      "id": 20956,
+      "ev_loss": 0.85,
+      "turn": 10,
+      "board_state": {
+        "dora_indicators": ["4s"],
+        "dora_tiles": ["5s"],
+        "seat_wind": "W",
+        "round_wind": "S",
+        "scores": [25700,33000,28700,12600],
+        "all_discards": [{"seat":0,"discards":[{"tile":"E","tsumogiri":true},{"tile":"7p","tsumogiri":false},{"tile":"6m","tsumogiri":false},{"tile":"2p","tsumogiri":false},{"tile":"1p","tsumogiri":false},{"tile":"2s","tsumogiri":true},{"tile":"8s","tsumogiri":false},{"tile":"2m","tsumogiri":false},{"tile":"3s","tsumogiri":true}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"W","tsumogiri":false},{"tile":"P","tsumogiri":false},{"tile":"1m","tsumogiri":false},{"tile":"9s","tsumogiri":true},{"tile":"7p","tsumogiri":true},{"tile":"4m","tsumogiri":false},{"tile":"4m","tsumogiri":true},{"tile":"9p","tsumogiri":false},{"tile":"5s","tsumogiri":false}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"N","tsumogiri":false},{"tile":"W","tsumogiri":false},{"tile":"2p","tsumogiri":false},{"tile":"W","tsumogiri":true},{"tile":"E","tsumogiri":false},{"tile":"1m","tsumogiri":false},{"tile":"S","tsumogiri":false},{"tile":"C","tsumogiri":false},{"tile":"C","tsumogiri":true},{"tile":"9m","tsumogiri":false}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"9m","tsumogiri":false},{"tile":"N","tsumogiri":false},{"tile":"P","tsumogiri":false},{"tile":"N","tsumogiri":true},{"tile":"C","tsumogiri":true},{"tile":"E","tsumogiri":true},{"tile":"S","tsumogiri":false},{"tile":"1s","tsumogiri":false},{"tile":"9s","tsumogiri":true},{"tile":"1p","tsumogiri":true}],"riichi_idx":null}],
+        "opponent_melds": [],
+        "tiles_left": 31
+      },
+      "discard_stats": [
+        {"tile":"5sr","shanten":1,"necessary_count":13,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"4s","count":3},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"F","count":2}]},
+        {"tile":"1p","shanten":1,"necessary_count":12,"necessary_tiles":[{"tile":"4s","count":3},{"tile":"5s","count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"F","count":2}]},
+        {"tile":"3p","shanten":1,"necessary_count":12,"necessary_tiles":[{"tile":"4s","count":3},{"tile":"5s","count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"F","count":2}]},
+        {"tile":"6s","shanten":1,"necessary_count":12,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"4s","count":3},{"tile":"5s","count":1},{"tile":"7s","count":4},{"tile":"F","count":2}]},
+        {"tile":"F","shanten":1,"necessary_count":5,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"5s","count":1},{"tile":"6s","count":2}]},
+        {"tile":"3m","shanten":2,"necessary_count":20,"necessary_tiles":[{"tile":"3m","count":3},{"tile":"6m","count":3},{"tile":"2p","count":2},{"tile":"4s","count":3},{"tile":"5s","count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"F","count":2}]},
+        {"tile":"5m","shanten":2,"necessary_count":20,"necessary_tiles":[{"tile":"2m","count":3},{"tile":"5m","count":3,"aka_count":1},{"tile":"2p","count":2},{"tile":"4s","count":3},{"tile":"5s","count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"F","count":2}]},
+        {"tile":"1s","shanten":2,"necessary_count":16,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"1s","count":2},{"tile":"4s","count":3},{"tile":"5s","count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"F","count":2}]},
+        {"tile":"2s","shanten":2,"necessary_count":16,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"2s","count":2},{"tile":"4s","count":3},{"tile":"5s","count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"F","count":2}]},
+        {"tile":"3s","shanten":2,"necessary_count":16,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"3s","count":2},{"tile":"4s","count":3},{"tile":"5s","count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"F","count":2}]},
+        {"tile":"4m","shanten":2,"necessary_count":15,"necessary_tiles":[{"tile":"4m","count":1},{"tile":"2p","count":2},{"tile":"4s","count":3},{"tile":"5s","count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"F","count":2}]}
+      ],
+      "iishanten_wall": [2,3,3,1,3,3,4,4,2,1,2,3,4,4,4,2,4,3,2,2,2,3,1,2,4,3,2,1,2,1,1,2,2,1,1,1,0],
+      "best_discard": "5sr"
+    }
+  },
+  {
+    "report_ids": [265],
+    "mistake": {
+      "hand": ["3m","5m","6m","7m","8m","7p","8p","9p","3s","6s","6s","W","W","2s"],
+      "melds": [],
+      "shanten": 1,
+      "draw": "2s",
+      "actual": {"type":"dahai","actor":3,"pai":"3m","tsumogiri":false},
+      "expected": {"type":"dahai","actor":3,"pai":"2s","tsumogiri":true},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":3,"pai":"2s","tsumogiri":true},"q_value":-0.1583,"prob":0.5583},
+        {"action":{"type":"dahai","actor":3,"pai":"3s","tsumogiri":false},"q_value":-0.2652,"prob":0.1917},
+        {"action":{"type":"dahai","actor":3,"pai":"7m","tsumogiri":false},"q_value":-0.3289,"prob":0.1014},
+        {"action":{"type":"dahai","actor":3,"pai":"W","tsumogiri":false},"q_value":-0.358,"prob":0.0758},
+        {"action":{"type":"dahai","actor":3,"pai":"8m","tsumogiri":false},"q_value":-0.3738,"prob":0.0647},
+        {"action":{"type":"dahai","actor":3,"pai":"9p","tsumogiri":false},"q_value":-0.6083,"prob":0.0062},
+        {"action":{"type":"dahai","actor":3,"pai":"8p","tsumogiri":false},"q_value":-0.7542,"prob":0.0014},
+        {"action":{"type":"dahai","actor":3,"pai":"3m","tsumogiri":false},"q_value":-0.9511,"prob":0.0002},
+        {"action":{"type":"dahai","actor":3,"pai":"6s","tsumogiri":false},"q_value":-1.0443,"prob":0.0001},
+        {"action":{"type":"dahai","actor":3,"pai":"5m","tsumogiri":false},"q_value":-1.1311,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"7p","tsumogiri":false},"q_value":-1.2146,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"6m","tsumogiri":false},"q_value":-1.3253,"prob":0}
+      ],
+      "id": 36257,
+      "ev_loss": 0.79,
+      "turn": 9,
+      "board_state": {
+        "dora_indicators": ["3p"],
+        "dora_tiles": ["4p"],
+        "seat_wind": "W",
+        "round_wind": "E",
+        "scores": [24000,27400,24500,24100],
+        "all_discards": [{"seat":0,"discards":[{"tile":"9m","tsumogiri":false},{"tile":"9m","tsumogiri":true},{"tile":"E","tsumogiri":true,"called_by":2},{"tile":"1m","tsumogiri":true},{"tile":"2m","tsumogiri":false},{"tile":"8s","tsumogiri":false},{"tile":"9p","tsumogiri":false}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"1p","tsumogiri":true},{"tile":"9s","tsumogiri":false},{"tile":"2s","tsumogiri":false},{"tile":"1s","tsumogiri":false},{"tile":"3s","tsumogiri":true},{"tile":"9s","tsumogiri":true},{"tile":"8p","tsumogiri":false},{"tile":"7m","tsumogiri":true}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"8m","tsumogiri":false},{"tile":"N","tsumogiri":true},{"tile":"S","tsumogiri":false},{"tile":"6m","tsumogiri":false},{"tile":"6p","tsumogiri":false},{"tile":"2p","tsumogiri":false},{"tile":"1p","tsumogiri":false},{"tile":"1m","tsumogiri":true},{"tile":"4s","tsumogiri":true}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"N","tsumogiri":false},{"tile":"S","tsumogiri":false,"called_by":1},{"tile":"9s","tsumogiri":false},{"tile":"1s","tsumogiri":true},{"tile":"N","tsumogiri":true},{"tile":"1m","tsumogiri":false},{"tile":"2p","tsumogiri":false,"called_by":0},{"tile":"F","tsumogiri":true}],"riichi_idx":null}],
+        "opponent_melds": [{"seat":0,"melds":[{"type":"chi","consumed":["3p","4p"],"pai":"2p","target":3}]},{"seat":1,"melds":[{"type":"pon","consumed":["S","S"],"pai":"S","target":3}]},{"seat":2,"melds":[{"type":"pon","consumed":["E","E"],"pai":"E","target":0}]}],
+        "tiles_left": 40,
+        "yaku": {"0":[{"type":"yakuhai","state":"possible","locked":[],"possible":[{"tile":"P","count":4,"inHand":0,"note":null},{"tile":"F","count":3,"inHand":0,"note":null},{"tile":"C","count":4,"inHand":0,"note":null}],"dead":[{"tile":"E","unseen":1,"inHand":0,"note":null},{"tile":"N","unseen":1,"inHand":0,"note":"seat"}]},{"type":"tanyao","state":"possible","support":1},{"type":"honitsu","state":"possible","support":1,"suits":["p"],"chinitsuReachable":true},{"type":"sanshoku","state":"possible","seq":"234","progress":1,"rows":[{"suit":"m","melded":false,"tiles":[{"tile":"2m","count":3,"inHand":0,"zero":false,"dealIn":false},{"tile":"3m","count":3,"inHand":1,"zero":false,"dealIn":false},{"tile":"4m","count":4,"inHand":0,"zero":false,"dealIn":false}],"live":10,"dead":false,"deadTile":null},{"suit":"p","melded":true,"tiles":[{"tile":"2p","count":null,"inHand":0,"zero":false,"dealIn":false},{"tile":"3p","count":null,"inHand":0,"zero":false,"dealIn":false},{"tile":"4p","count":null,"inHand":0,"zero":false,"dealIn":false}],"live":null,"dead":false,"deadTile":null},{"suit":"s","melded":false,"tiles":[{"tile":"2s","count":2,"inHand":1,"zero":false,"dealIn":false},{"tile":"3s","count":2,"inHand":1,"zero":false,"dealIn":false},{"tile":"4s","count":3,"inHand":0,"zero":false,"dealIn":false}],"live":7,"dead":false,"deadTile":null}],"bottleneck":{"tile":"2s","count":2},"dealInTiles":[]}],"1":[{"type":"yakuhai","state":"possible","locked":[],"possible":[{"tile":"P","count":4,"inHand":0,"note":null},{"tile":"F","count":3,"inHand":0,"note":null},{"tile":"C","count":4,"inHand":0,"note":null}],"dead":[{"tile":"E","unseen":1,"inHand":0,"note":"round + seat"}]},{"type":"honitsu","state":"possible","support":1,"suits":["m","p","s"],"chinitsuReachable":false},{"type":"toitoi","state":"possible","support":1},{"type":"chanta","state":"possible","support":1,"junchanReachable":false}],"2":[{"type":"yakuhai","state":"locked","locked":[{"tile":"E","note":null}],"possible":[{"tile":"P","count":4,"inHand":0,"note":null},{"tile":"F","count":3,"inHand":0,"note":null},{"tile":"C","count":4,"inHand":0,"note":null}],"dead":[{"tile":"S","unseen":0,"inHand":0,"note":"seat"}]},{"type":"honitsu","state":"possible","support":1,"suits":["m","p","s"],"chinitsuReachable":false},{"type":"toitoi","state":"possible","support":1},{"type":"chanta","state":"possible","support":1,"junchanReachable":false}]}
+      },
+      "discard_stats": [
+        {"tile":"3m","shanten":1,"necessary_count":9,"necessary_tiles":[{"tile":"1s","count":2},{"tile":"4s","count":3},{"tile":"6s","count":2},{"tile":"W","count":2}]},
+        {"tile":"5m","shanten":1,"necessary_count":9,"necessary_tiles":[{"tile":"1s","count":2},{"tile":"4s","count":3},{"tile":"6s","count":2},{"tile":"W","count":2}]},
+        {"tile":"8m","shanten":1,"necessary_count":9,"necessary_tiles":[{"tile":"1s","count":2},{"tile":"4s","count":3},{"tile":"6s","count":2},{"tile":"W","count":2}]},
+        {"tile":"6s","shanten":1,"necessary_count":9,"necessary_tiles":[{"tile":"4m","count":4},{"tile":"1s","count":2},{"tile":"4s","count":3}]},
+        {"tile":"W","shanten":1,"necessary_count":9,"necessary_tiles":[{"tile":"4m","count":4},{"tile":"1s","count":2},{"tile":"4s","count":3}]},
+        {"tile":"2s","shanten":1,"necessary_count":8,"necessary_tiles":[{"tile":"4m","count":4},{"tile":"6s","count":2},{"tile":"W","count":2}]},
+        {"tile":"3s","shanten":1,"necessary_count":8,"necessary_tiles":[{"tile":"4m","count":4},{"tile":"6s","count":2},{"tile":"W","count":2}]},
+        {"tile":"9p","shanten":2,"necessary_count":18,"necessary_tiles":[{"tile":"4m","count":4},{"tile":"6p","count":3},{"tile":"9p","count":2},{"tile":"1s","count":2},{"tile":"4s","count":3},{"tile":"6s","count":2},{"tile":"W","count":2}]},
+        {"tile":"6m","shanten":2,"necessary_count":17,"necessary_tiles":[{"tile":"4m","count":4},{"tile":"6m","count":2},{"tile":"9m","count":2},{"tile":"1s","count":2},{"tile":"4s","count":3},{"tile":"6s","count":2},{"tile":"W","count":2}]},
+        {"tile":"7p","shanten":2,"necessary_count":16,"necessary_tiles":[{"tile":"4m","count":4},{"tile":"7p","count":3},{"tile":"1s","count":2},{"tile":"4s","count":3},{"tile":"6s","count":2},{"tile":"W","count":2}]},
+        {"tile":"7m","shanten":2,"necessary_count":15,"necessary_tiles":[{"tile":"4m","count":4},{"tile":"7m","count":2},{"tile":"1s","count":2},{"tile":"4s","count":3},{"tile":"6s","count":2},{"tile":"W","count":2}]},
+        {"tile":"8p","shanten":2,"necessary_count":15,"necessary_tiles":[{"tile":"4m","count":4},{"tile":"8p","count":2},{"tile":"1s","count":2},{"tile":"4s","count":3},{"tile":"6s","count":2},{"tile":"W","count":2}]}
+      ],
+      "iishanten_wall": [1,3,3,4,3,2,2,2,2,2,2,2,3,4,3,3,2,2,2,2,2,3,4,2,4,3,1,1,0,2,1,4,3,4,1,1,1],
+      "best_discard": "3m"
+    }
+  },
+  {
     "report_ids": [269],
     "mistake": {
       "hand": ["5m","6m","4p","4p","7p","8p","8p","2p"],

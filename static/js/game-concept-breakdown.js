@@ -52,7 +52,7 @@
     toitoi_kept:     { label: "Toitoi", hint: "Keeping every pair intact for an all-triplets hand." },
     chiitoi_kept:    { label: "Chiitoi", hint: "Keeping all distinct pairs toward seven pairs." },
     chanta_kept:     { label: "Chanta", hint: "Keeping every block terminal- or honor-flavored." },
-    scored_value:    { label: "Scored hand value", hint: "More value across the live winning copies, counting each copy at its average legal payout." },
+    scored_value:    { label: "Scored hand value", hint: "Live winning copies weighted by ron and tsumo payouts, with unavailable win methods counting as zero." },
     dora_kept:       { label: "Dora", hint: "Keeping a dora tile for extra hand value." },
     dora_acceptance: { label: "Dora acceptance", hint: "Keeping a wait that can still draw more dora tiles." },
     deal_in:         { label: "Defense (deal-in)", hint: "Risk of dealing into an opponent's hand." },

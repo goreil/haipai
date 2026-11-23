@@ -48,7 +48,7 @@ function renderScoredProfile(profile, shanten) {
     ? "Each improving draw is weighted by unseen copies. Its selected tenpai discard is scored across live winning copies and legal win methods; a draw with no scoring win contributes zero."
     : "Winning copies are weighted by how many are unseen, counting each legal win method.";
   const wait = profile.minWait === profile.maxWait ? profile.maxWait : `${profile.minWait}–${profile.maxWait}`;
-  return `<div class="scored-profile" title="${weights} Wait value sums the average legal payout for each unseen winning copy. It is an index, not a payout or Mortal EV.">`
+  return `<div class="scored-profile" title="${weights} Wait value counts each copy at half its ron points plus half its tsumo points; an unavailable method contributes zero. It is an index, not a payout or Mortal EV.">`
     + `<span>Wait value <b>${Math.round(profile.waitValue).toLocaleString()}</b></span> `
     + `<span>Winning copies <b>${wait}</b></span> `
     + `<span>Mean <b>${Math.round(profile.meanPoints).toLocaleString()} pts</b></span> `

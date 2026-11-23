@@ -797,11 +797,10 @@ function profileWaitScores(groups) {
   for (const group of groups) {
     const copies = group.tiles.reduce((n, t) => n + t.count, 0);
     if (!copies) continue;
-    // Count each physical copy once, even if both ron and tsumo are legal.
-    const modes = Number(!!group.ron) + Number(!!group.tsumo);
-    if (!modes) continue;
+    if (!group.ron && !group.tsumo) continue;
     liveCopies += copies;
-    waitValue += copies * ((group.ron?.ten || 0) + (group.tsumo?.ten || 0)) / modes;
+    // Unlike the mean payout on a legal win, losing ron must not raise the index.
+    waitValue += copies * ((group.ron?.ten || 0) + (group.tsumo?.ten || 0)) / 2;
     for (const score of [group.ron, group.tsumo]) {
       if (!score) continue;
       outcomes += copies;

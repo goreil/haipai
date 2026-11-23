@@ -171,8 +171,12 @@ test('the shared tenpai profile weights legal modes and physical copies, includi
 
   const blocked = { ...m, board_state: { ...m.board_state, all_discards: [{ seat: 2, discards: [{ tile: '5mr' }] }] } };
   const tsumoOnly = (3 * wait('5m').tsumo.ten + wait('5mr').tsumo.ten + wait('8m').tsumo.ten) / 5;
-  assert.equal(profile(blocked, 'W', stat, true).meanPoints, tsumoOnly);
-  assert.equal(profile({ ...m, furiten_kind: 'temporary_pass' }, 'W', stat, true).meanPoints, tsumoOnly);
+  for (const furiten of [blocked, { ...m, furiten_kind: 'temporary_pass' }]) {
+    const p = profile(furiten, 'W', stat, true);
+    assert.equal(p.meanPoints, tsumoOnly);
+    assert.equal(p.waitValue, 5 * tsumoOnly / 2);
+    assert.ok(p.waitValue < value.waitValue);
+  }
   assert.equal(profile({ ...m, board_state: { ...m.board_state, all_discards: [] } }, 'W', stat, true), null);
   assert.equal(profile(m, 'W', { ...stat, necessary_tiles: [{ tile: '5m' }] }, true), null);
 });
