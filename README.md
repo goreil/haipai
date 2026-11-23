@@ -16,6 +16,8 @@ The lookahead uses the board as it was at the decision. It counts an improving d
 
 At iishanten, **Final wait** counts unseen tiles that can win. A range means the wait depends on the draw that gets you to tenpai. At either depth, select **Wait value** to see the calculation for that pick.
 
+Percentage gains such as **+16.1% iipeikou** use the same blue as heuristic yaku pills. In the game summary, both count under **Yaku** and can be filtered by yaku name. Multiple yaku gains on the same side count the mistake’s EV only once toward Yaku.
+
 **Summary** shows the wait-value difference alongside any gains in yaku share. At iishanten, it also marks a higher minimum or maximum final wait. In [#m15192](https://haipai-trainer.com/#m15192), Mortal’s 3p discard has honitsu in 100% of its scored outcomes and a wait value 21,845 higher than the played discard. These shares describe the displayed routes, not the probability of winning the hand.
 
 When both picks can be scored, **wait value** determines the scored **Value** advantage. Each unseen winning copy contributes half its ron payout plus half its tsumo payout. An unavailable method contributes zero, so going furiten cannot improve the index. At 1-shanten, average these sums over improving draws, weighted by unseen copies. One copy paying 10,000 either way has wait value 10,000; twelve copies paying 8,000 either way have wait value 96,000. This index is not a payout or a probability. The headline and trainer use it instead of guessing yaku from tile patterns. In [#m42402](https://haipai-trainer.com/#m42402), the cuts tie on peak points, but discarding 7p keeps more outcomes with iipeikou than discarding 3s.

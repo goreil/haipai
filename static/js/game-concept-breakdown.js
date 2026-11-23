@@ -53,6 +53,7 @@
     chiitoi_kept:    { label: "Chiitoi", hint: "Keeping all distinct pairs toward seven pairs." },
     chanta_kept:     { label: "Chanta", hint: "Keeping every block terminal- or honor-flavored." },
     scored_value:    { label: "Scored hand value", hint: "Live winning copies weighted by ron and tsumo payouts, with unavailable win methods counting as zero." },
+    projected_value: { label: "Projected hand value", hint: "A higher final wait endpoint or an improving draw that keeps ron available." },
     dora_kept:       { label: "Dora", hint: "Keeping a dora tile for extra hand value." },
     dora_acceptance: { label: "Dora acceptance", hint: "Keeping a wait that can still draw more dora tiles." },
     deal_in:         { label: "Defense (deal-in)", hint: "Risk of dealing into an opponent's hand." },
@@ -128,10 +129,24 @@
         var win = wins[w];
         if (!win || win.suppressed) continue;
         if (win.winner !== "you" && win.winner !== "mortal") continue;
+        var side = win.winner === "mortal" ? "missed" : "you";
+        if (win.dim === "projected_value" || win.dim === "scored_value") {
+          // Each visible percentage pill belongs to its named yaku. Reuse the
+          // heuristic filter where one exists, including the yakuhai family.
+          for (var name of win.yaku) {
+            if (name === "riichi") continue;
+            var family = name.startsWith("yakuhai (") ? "yakuhai" : name === "chiitoitsu" ? "chiitoi" : name;
+            var kept = family + "_kept";
+            var label = CONCEPT_META[kept]?.label || name.charAt(0).toUpperCase() + name.slice(1);
+            hits.push({ side, group: "Yaku", dim: CONCEPT_META[kept] ? kept : label, label });
+          }
+          // A yaku-only projection has no separate Value pill to attribute.
+          if (win.dim === "projected_value" && !win.widerWait && !win.ronDraws.length) continue;
+        }
         var meta = CONCEPT_META[win.dim];
         if (!meta) continue;
         hits.push({
-          side: win.winner === "mortal" ? "missed" : "you",
+          side,
           group: win.group || "Other",
           dim: win.dim,
           label: meta.label,

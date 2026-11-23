@@ -151,7 +151,7 @@ function renderWinFeatPill(w, oya) {
       const [better, other] = w.winner === "you" ? [w.you, w.mortal] : [w.mortal, w.you];
       const yaku = w.yaku.filter(name => name !== "riichi").map(name => featPill("pos",
         `+${scoredSharePercent(better.yaku[name] - (other.yaku[name] || 0))} ${escapeHtml(name)}`,
-        "Percentage-point increase in the share of weighted Value outcomes with this yaku", "", c)).join("");
+        "Percentage-point increase in the share of weighted Value outcomes with this yaku", "", groupColors.Yaku?.color)).join("");
       return featPill("pos", `+${w.magnitude.toLocaleString()} wait value`,
         `${Math.round(better.waitValue).toLocaleString()} − ${Math.round(other.waitValue).toLocaleString()} = ${w.magnitude.toLocaleString()}`, "", c) + yaku;
     }

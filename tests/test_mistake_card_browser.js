@@ -205,6 +205,8 @@ test('decision cards show evidence before explanations and keep feedback editabl
           check(!summary.querySelector('.scored-profile') && summary.querySelector('.col-actual').textContent === '—'
             && gains.includes('+16.1% iipeikou') && gains.includes('+2475 wait value'),
             'Summary shows only relative advantages');
+          check(getComputedStyle(summary.querySelector('.col-expected .feat-pill')).getPropertyValue('--feat-grp').trim()
+            === haipaiCompareDimensions.GROUP_META.Yaku.color, 'scored yaku uses the heuristic yaku color');
           check(document.documentElement.scrollWidth <= innerWidth, 'iipeikou comparison fits viewport');
           card.querySelector('button[aria-label="Compare discarding 2p with AI"]').click();
           check(card.querySelector('.col-actual .ev-tile').alt === '2p', 'selected two-shanten counterpart');

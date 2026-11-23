@@ -118,6 +118,24 @@ test('R-282: the 3p cut trades ukeire for scored open honitsu', () => {
   assert.deepEqual(value.yaku, ['honitsu']);
 });
 
+test('game summary filters visible yaku by name and counts Value only for a separate value pill', () => {
+  const { aggregate, mistakeTouchesConcept } = require('../static/js/game-concept-breakdown.js');
+  const { compareDimensions } = trainer.haipaiCompareDimensions;
+  const pure = result(292).m, mixed = result(282).m, tenpai = result(291).m, multi = result(205).m;
+  const mistakes = [pure, mixed, tenpai, multi];
+  const { groups } = aggregate({ rounds: [{ mistakes }] }, compareDimensions, () => 'mistake');
+  assert.equal(groups.missed.Yaku.count, 3); // Two yaku on the same side still count once.
+  assert.equal(groups.missed.Yaku.subs.Iipeikou.count, 2);
+  assert.equal(groups.missed.Dora.count, 2); // Both also improve the final wait or preserve ron.
+  assert.equal(groups.you.Yaku.subs.tanyao_kept.count, 1);
+  for (const [m, side, dim] of [[mixed, 'missed', 'honitsu_kept'], [mixed, 'you', 'yakuhai_kept'],
+    [tenpai, 'you', 'tanyao_kept'], [pure, 'missed', 'Iipeikou']]) {
+    assert.ok(mistakeTouchesConcept(m, compareDimensions, { side, group: 'Yaku', dim }));
+  }
+  assert.ok(!mistakeTouchesConcept(pure, compareDimensions, { side: 'missed', group: 'Dora' }));
+  assert.ok(mistakeTouchesConcept(tenpai, compareDimensions, { side: 'you', group: 'Dora', dim: 'scored_value' }));
+});
+
 test('R-291: a white-dragon seven-pairs wait is not a yakuhai triplet', () => {
   const { shape, wins, value } = result(291);
   assert.equal(shape, 'complex'); // No evidence here ranks the honor wait easier to ron.
