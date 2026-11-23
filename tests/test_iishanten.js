@@ -6,7 +6,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { prepMistake } = require('../static/js/prep/prep.js');
 const { base_mjai } = require('../static/js/prep/tiles.js');
-const { groupValueRows, groupIishantenValues, sortIishantenWaitGroups } = require('../static/js/iishanten-values.js');
+const { groupValueRows, groupIishantenValues, compareIishantenValues, sortIishantenWaitGroups } =
+  require('../static/js/iishanten-values.js');
 
 const ctx = vm.createContext({ renderTile: tile => tile });
 ctx.self = ctx; // classic worker globals, no window or DOM
@@ -68,18 +69,22 @@ test('#m42402: only the selected widest wait contributes yaku to its draw', () =
     assert.deepEqual(paired.dora, { label: '0–1 dora' });
     assert.equal(paired.yaku.find(y => y.name === 'iipeikou')?.confirmed, draws === mortal ? false : undefined);
   }
-  const diff = groupIishantenValues(mortal, actual);
-  const gain = diff.find(g => g.draws.some(d => d.tile === '4p'));
-  assert.ok(gain.draws.includes(mortal.find(d => d.tile === '1p')));
+  const { rows } = compareIishantenValues(mortal, actual);
+  const [gain, omitted] = rows.find(([g]) => g?.draws.some(d => d.tile === '4p'));
+  assert.deepEqual(gain.draws.map(d => d.tile), ['1p', '4p']);
+  assert.equal(omitted, null);
   assert.ok(gain.additional);
   assert.deepEqual(Array.from(gain.yaku, y => [y.name, y.confirmed]), [['iipeikou', false]]);
   assert.equal(gain.dora, null); // both continuations can score the same aka
-  const reverse = groupIishantenValues(actual, mortal);
-  assert.ok(!reverse.some(g => g.draws.some(d => ['1p', '4p'].includes(d.tile))));
-  assert.deepEqual(groupIishantenValues(mortal, mortal), []);
-  for (const [mine, theirs, compact] of [[mortal, actual, diff], [actual, mortal, reverse]]) {
+  // The absence of a gain on one side doesn't make these six copies equal.
+  const weaker = actual.filter(d => ['1p', '4p'].includes(d.tile));
+  for (const [left, right] of [[weaker, gain.draws], [gain.draws, weaker]]) {
+    assert.equal(compareIishantenValues(left, right).equalCount, 0);
+  }
+  assert.deepEqual(compareIishantenValues(mortal, mortal), { equalCount: 16, rows: [] });
+  for (const [i, mine, theirs] of [[0, mortal, actual], [1, actual, mortal]]) {
     for (const d of mine.filter(d => !theirs.some(peer => peer.tile === d.tile))) {
-      const row = compact.find(g => g.draws.includes(d));
+      const row = rows.find(pair => pair[i]?.draws.includes(d))?.[i];
       assert.ok(row);
       assert.equal(row.additional, false);
       assert.deepEqual(row.yaku, groupIishantenValues([d])[0].yaku);
@@ -98,6 +103,65 @@ test('#m42402: only the selected widest wait contributes yaku to its draw', () =
   assert.equal(pinfu.label, 'Best');
   for (const t of ['5p', '5pr', '8p']) assert.deepEqual([...on(pinfu, t).ron.yaku].sort(), ['pinfu', 'riichi']);
   assert.equal(analyze(m, '7p'), mortal); // rerender does not rescore this card
+});
+
+test('#m607: 14 equal copies; the other five shared copies have different aka potential', () => {
+  const { mistake: m } = require('./fixtures/scored_value_reports.json').find(r => r.mistake.id === 607);
+  const actual = analyze(m, m.actual.pai), expected = analyze(m, m.expected.pai);
+  const compact = compareIishantenValues(actual, expected);
+  assert.equal(compact.equalCount, 14);
+  const [[left, right], ...unique] = compact.rows;
+  assert.deepEqual(left.draws.map(d => [d.tile, d.count]), [['3m', 3], ['7s', 2]]);
+  assert.deepEqual(right.draws.map(d => [d.tile, d.count]), [['3m', 3], ['7s', 2]]);
+  assert.equal(left.dora.label, '2 dora');
+  assert.equal(right.dora.label, '2–3 dora');
+  assert.ok(unique[0].every(Boolean), 'independent left and right groups share a grid row');
+  for (const [a, b] of unique) {
+    assert.ok(!a?.draws.some(d => expected.some(e => e.tile === d.tile)));
+    assert.ok(!b?.draws.some(d => actual.some(e => e.tile === d.tile)));
+  }
+
+  const full = compareIishantenValues(actual, expected, true);
+  assert.equal(full.equalCount, 14);
+  for (const [side, draws] of [[0, actual], [1, expected]]) {
+    const listed = full.rows.flatMap(pair => pair[side]?.draws ?? []);
+    assert.equal(listed.length, draws.length);
+    assert.ok(draws.every(d => listed.includes(d)), 'full mode retains original draw details');
+  }
+  for (const draw of actual.filter(d => expected.some(e => e.tile === d.tile))) {
+    const [a, b] = full.rows.find(([g]) => g?.draws.includes(draw));
+    assert.deepEqual(a.draws.map(d => d.tile), b.draws.map(d => d.tile));
+    if (draw.tile === '3m' || draw.tile === '7s') {
+      assert.equal(a.dora.label, '2 dora');
+      assert.equal(b.dora.label, '2–3 dora');
+    }
+  }
+});
+
+test('paired groups split by the opposite badges before bonus ranges are combined', () => {
+  function draw(tile, name, confirmed, dora) {
+    const score = { yaku: [name], han: 1 + dora, yakuman: 0, dora, aka: 0 };
+    return { tile, count: 1, unavailable: false, yaku: [{ name, confirmed }],
+      branch: { count: 2, groups: [{ ron: score, tsumo: score }] } };
+  }
+  const left = [draw('1m', 'pinfu', true, 0), draw('2m', 'pinfu', true, 1), draw('3m', 'pinfu', true, 1)];
+  const right = [draw('3m', 'tanyao', false, 2), draw('2m', 'tanyao', true, 2), draw('1m', 'tanyao', false, 1)];
+  for (const full of [false, true]) {
+    const { equalCount, rows } = compareIishantenValues(left, right, full);
+    assert.equal(equalCount, 0);
+    assert.equal(rows.length, 2);
+    const [a, b] = rows.find(([g]) => g.draws.includes(left[0]));
+    assert.deepEqual(a.draws, [left[0], left[2]]);
+    assert.deepEqual(b.draws, [right[2], right[0]]);
+    assert.equal(a.dora.label, '0–1 dora');
+    assert.equal(b.dora.label, '1–2 dora');
+  }
+  const certain = draw('3m', 'tanyao', true, 2);
+  const { equalCount, rows: [[omitted, gain]] } = compareIishantenValues([right[0]], [certain]);
+  assert.equal(equalCount, 0);
+  assert.equal(omitted, null);
+  assert.deepEqual(gain.yaku, [{ name: 'tanyao', confirmed: true }]);
+  assert.ok(gain.additional);
 });
 
 test('the iishanten profile weights each selected wait first, then each physical draw', () => {
@@ -323,7 +387,8 @@ test('unavailable, dead, and live no-yaku draws stay distinct even when all have
   assert.ok(profiles.every(p => p.maxHan === 0 && p.maxYakuman === 0 && p.dora === null));
   for (const [mine, peer, expected] of [[unknown, dead, 'Value unavailable'],
     [dead, noYaku, 'No unseen winning tiles'], [noYaku, unknown, 'No yaku']]) {
-    const [changed] = groupIishantenValues([mine], [{ ...peer, tile: mine.tile }]);
+    const { equalCount, rows: [[changed]] } = compareIishantenValues([mine], [{ ...peer, tile: mine.tile }]);
+    assert.equal(equalCount, 0);
     assert.equal(changed.status, expected);
     assert.equal(changed.additional, false);
   }

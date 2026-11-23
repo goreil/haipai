@@ -15,7 +15,9 @@ test('decision cards show evidence before explanations and keep feedback editabl
       .map(match => match[1]);
     scripts.splice(scripts.indexOf('/static/js/mistake-card.js') + 1);
     const fixture = require('./fixtures/dora_acceptance_m35078.json');
-    const scoredHand = require('./fixtures/scored_value_reports.json').find(r => r.report_ids.includes(292)).mistake;
+    const reports = require('./fixtures/scored_value_reports.json');
+    const scoredHand = reports.find(r => r.mistake.id === 42402).mistake;
+    const doraHand = reports.find(r => r.mistake.id === 607).mistake;
     const headlineCases = [
       [6099, 'Attack / Efficiency + Value'],
       [5502, 'Defense / Efficiency + Value + Safety'],
@@ -141,33 +143,86 @@ test('decision cards show evidence before explanations and keep feedback editabl
             'copy-weighted points shown for both discards');
           check(evidence('actual').includes('18319') && evidence('expected').includes('20794'),
             'Value shows live-copy-weighted value separately from win payouts');
-          for (const [side, counterpart] of [['actual', scored.expected], ['expected', scored.actual]]) {
+          const sides = ['actual', 'expected'];
+          for (const side of sides) {
             check(/iipeikou [\\d.]+%/.test(evidence(side)), 'per-pick iipeikou percentage in Value');
-            check(value.querySelector('.col-' + side + ' haipai-iishanten').dataset.compareDiscard === counterpart.pai,
-              'lookahead compares with the other discard');
           }
-          const [you, ai] = value.querySelectorAll('haipai-iishanten');
-          const pill = cell => cell.querySelector('[data-all-draws]');
-          const hasSharedDraw = cell => cell.querySelector('.continuation-draw img[alt="9p"]');
-          you.showDraws();
-          check(pill(you).textContent.includes('9 shared') && !hasSharedDraw(you),
-            'collapsed count is shared physical copies, not the number of tile types');
-          pill(you).click();
-          ai.showDraws(); // The second cell may be mounted lazily after the first click.
-          check([you, ai].every(cell => hasSharedDraw(cell) && pill(cell).getAttribute('aria-expanded') === 'true'),
-            'either Value pill opens the full draw list for both picks');
-          pill(ai).click();
-          check([you, ai].every(cell => !hasSharedDraw(cell) && pill(cell).textContent.includes('9 shared')
-            && pill(cell).getAttribute('aria-expanded') === 'false'), 'opposite pill collapses both picks');
+          const mountDraws = () => {
+            const hosts = card.querySelectorAll('haipai-iishanten');
+            check(hosts.length === 1, 'one Value draw view for #' + card.id);
+            hosts[0].showDraws();
+            return hosts[0];
+          };
+          const pill = (view, side) => view.querySelector('.col-' + side + ' button.ukeire-shared-pill');
+          const checkPills = (view, labels, expanded) => sides.forEach((side, i) => {
+            const button = pill(view, side);
+            check(button?.checkVisibility() && button.innerText.replace(/[▸◂]/g, '').trim() === labels[i]
+              && button.getAttribute('aria-expanded') === String(expanded), side + ' pill should show ' + labels[i]);
+          });
+          const drawButton = (view, side, tile) => {
+            const button = view.querySelector('.col-' + side + ' .continuation-draw:has(img[alt="' + tile + '"])');
+            return button?.checkVisibility() ? button : null;
+          };
+          let view = mountDraws();
+          const check42402 = expanded => {
+            checkPills(view, expanded ? ['16', '16'] : ['3 equal', '3 equal'], expanded);
+            for (const side of sides) {
+              for (const tile of ['9p', '4s']) {
+                check(!!drawButton(view, side, tile) === expanded, side + ' equal draw ' + tile);
+              }
+            }
+            if (!expanded) {
+              for (const tile of ['1p', '4p']) {
+                check(drawButton(view, 'expected', tile)?.closest('.continuation').innerText.includes('+iipeikou?'),
+                  tile + ' retains the conditional iipeikou gain');
+              }
+            }
+          };
+          check42402(false);
+          pill(view, 'actual').click();
+          check42402(true);
+          pill(view, 'expected').click();
+          check42402(false);
           const gains = summary.querySelector('.col-expected').textContent.replaceAll(',', '');
           check(!summary.querySelector('.scored-profile') && summary.querySelector('.col-actual').textContent === '—'
             && gains.trim() === '+16.1% iipeikou',
             'Summary shows only relative advantages');
-          expectedTable.innerHTML = renderEvComparison(scored, {selectedTile:'2p'});
-          check(expectedTable.querySelectorAll('haipai-iishanten').length === 1
-            && !expectedTable.querySelector('haipai-iishanten[data-compare-discard]'),
-            'ineligible discard is not compared as a lookahead');
+          check(document.documentElement.scrollWidth <= innerWidth, 'iipeikou comparison fits viewport');
+          card.querySelector('button[aria-label="Compare discarding 2p with AI"]').click();
+          check(card.querySelector('.col-actual .ev-tile').alt === '2p', 'selected two-shanten counterpart');
+          view = mountDraws();
+          check(card.querySelector('.score-col .col-expected').contains(view) && !view.querySelector('.ukeire-shared-pill'),
+            'unpaired one-shanten pick has no equality toggle');
+          const fullDraws = [...view.querySelectorAll('.continuation-draw')].filter(b => b.checkVisibility())
+            .map(b => b.querySelector('img').alt).sort();
+          check(fullDraws.join(' ') === '1p 2s 4p 4s 5s 5sr 9p', 'all AI draws visible without a counterpart');
           check(card.querySelector('.mascot-speech').textContent.includes('iipeikou'), 'trainer names visible scored yaku');
+          const dora = ${JSON.stringify(doraHand)};
+          card = draw({ ...dora, ...haipaiCategorize.categorize(dora) }, {inline:true});
+          view = mountDraws();
+          checkPills(view, ['14 equal', '14 equal'], false);
+          // Mounting draw rows is lazy, so load their local tile SVGs before measuring layout.
+          await Promise.all([...view.querySelectorAll('img[src^="/tiles/"]')].map(img => {
+            img.src = img.getAttribute('src').replace('/tiles/', 'file://${root}/riichi-mahjong-tiles/Regular/');
+            return img.decode();
+          }));
+          const doraRows = sides.map((side, i) => {
+            const three = drawButton(view, side, '3m'), seven = drawButton(view, side, '7s');
+            check(three?.innerText.trim() === '×3' && seven?.innerText.trim() === '×2', side + ' differing draw counts');
+            const row = three.closest('.continuation');
+            check(row === seven.closest('.continuation'), side + ' groups the two dora differences');
+            check(row.querySelector('.dora-tag')?.innerText === ['2 dora', '2–3 dora'][i], side + ' dora range');
+            return row.getBoundingClientRect();
+          });
+          check(doraRows[0].right <= doraRows[1].left && Math.abs(doraRows[0].top - doraRows[1].top) < 1,
+            'corresponding dora outcomes align side by side at viewport width ' + innerWidth);
+          pill(view, 'expected').click();
+          checkPills(view, ['38', '33'], true);
+          for (const side of sides) {
+            const acceptance = card.querySelector('.ukeire-acc-row .col-' + side + ' .ukeire-collapsed button');
+            check(acceptance.checkVisibility() && acceptance.innerText.includes('19 shared'),
+              'Tile acceptance still counts all shared draws after expanding Value');
+          }
           check(document.documentElement.scrollWidth <= innerWidth, 'no page overflow');
           document.body.dataset.result = 'passed';
         } catch(error) { document.body.dataset.result = error.stack; }

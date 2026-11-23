@@ -2050,6 +2050,14 @@
   white-space: normal;
   text-align: start;
 }
+.ev-table .value-draw-row > td { padding: 0; }
+.ev-table .value-draw-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.value-draw-grid .continuation-rows { display: contents; }
+.value-draw-grid :is(.col-actual, .col-expected) { min-width: 0; padding: 0 8px; }
+.value-draw-grid .continuation-rows > :nth-child(n+3) { border-top: 1px solid var(--border); }
 .ev-table-cols .score-col td { vertical-align: top; }
 .value-waits { white-space: normal; text-align: start; }
 .value-waits > details { margin-top: 4px; }

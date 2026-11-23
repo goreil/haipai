@@ -641,18 +641,24 @@ function renderEvComparison(m, options) {
       "ukeire-col ukeire-acc-row", c => `<div class="ukeire-acc-cell">${c.acc || (c.lookahead ? "0 tiles" : "")}</div>`);
   }
   if (winMistake || cols.some(c => c.valueSummary || c.lookahead || c.scoreGroups?.length)) {
+    const pairedDraws = cols.length === 2 && cols.every(c => c.lookahead);
     html += rowFor("Value",
-      ` title="Winning tiles and scores. At one shanten, select an improving draw to compare tenpai discards."`,
+      `${pairedDraws ? ' rowspan="2"' : ''} title="Winning tiles and scores. At one shanten, select an improving draw to compare tenpai discards."`,
       "score-col", c => {
         if (winMistake) return c.winScore || c.scoreGroups?.length
           ? `<div class="rsc-cell">${c.winScore || renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>` : c.acc;
         const other = c.side === "other" ? null : cols.find(col => col.side === (c.side === "actual" ? "expected" : "actual"));
         if (c.lookahead) {
-          const compare = other?.lookahead ? ` data-compare-discard="${escapeHtml(other.tile)}"` : "";
-          return c.valueSummary + `<haipai-iishanten data-discard="${escapeHtml(c.tile)}"${compare}></haipai-iishanten>`;
+          if (pairedDraws) return c.valueSummary;
+          return c.valueSummary + `<haipai-iishanten data-discard="${escapeHtml(c.tile)}"></haipai-iishanten>`;
         }
         return c.valueSummary + (c.scoreGroups?.length ? renderTenpaiValue(c.scoreGroups, c.scoreIsRiichi, other?.scoreGroups) : "");
       });
+    if (pairedDraws) {
+      html += `<tr class="value-draw-row"><td colspan="2"><haipai-iishanten class="value-draw-grid"`
+        + ` data-discard="${escapeHtml(cols[0].tile)}" data-compare-discard="${escapeHtml(cols[1].tile)}">`
+        + `</haipai-iishanten></td></tr>`;
+    }
   }
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row
   // already shows the EV loss, so a per-pick EV row just repeats it. (The

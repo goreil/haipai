@@ -19,18 +19,14 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
     this.addEventListener("click", event => {
       const toggle = event.target.closest("[data-all-draws]");
       if (toggle) {
-        const row = this.closest("tr");
-        const expanded = row.toggleAttribute("data-draws-expanded");
-        for (const cell of row.querySelectorAll("haipai-iishanten")) {
-          if (cell.diffRows) cell.renderDrawMode(expanded);
-        }
+        this.renderDrawMode(toggle.getAttribute("aria-expanded") === "false");
         return;
       }
       const cut = event.target.closest("[data-cut]");
       if (cut) {
         const row = cut.closest(".continuation");
         const drawIndex = row.querySelector('[data-draw-index][aria-expanded="true"]').dataset.drawIndex;
-        const draw = this.rows[row.dataset.row].draws[drawIndex];
+        const draw = this.rows[row.dataset.row][row.dataset.side].draws[drawIndex];
         this.showCut(row.querySelector(".continuation-panel"), draw.branches[cut.dataset.cut], draw);
         return;
       }
@@ -47,61 +43,68 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
     });
   }
   showDraws() {
-    if (this.draws !== undefined) return;
+    if (this.discards) return;
     const key = this.closest(".mistake")?.querySelector("[data-comparison-key]")?.dataset.comparisonKey;
     const m = handComparisonContexts.get(key);
     const analyze = discard => {
       const stat = m?.discard_stats?.find(s => tileBase(s.tile) === tileBase(discard));
       return stat ? analyzeIishanten(m, discard, stat) : null;
     };
-    this.draws = analyze(this.dataset.discard);
-    if (!this.draws) {
-      this.insertAdjacentHTML("beforeend", '<small class="continuation-note">Continuation value unavailable</small>');
-      return;
-    }
+    this.discards = [this.dataset.discard];
+    if (this.dataset.compareDiscard) this.discards.push(this.dataset.compareDiscard);
+    this.draws = this.discards.map(analyze);
     this.mistake = m;
-    const other = this.dataset.compareDiscard && analyze(this.dataset.compareDiscard);
-    this.innerHTML = `<div class="continuation-rows"></div>`;
-    if (!other) {
-      this.renderRows(groupIishantenValues(this.draws));
-      return;
+    const compared = this.draws.length === 2 && this.draws.every(Boolean);
+    const headers = this.draws.map((draws, side) => this.columnHtml(side, compared
+      ? '<button type="button" class="ukeire-shared-pill" data-all-draws></button>'
+      : draws ? "" : '<small class="continuation-note">Continuation value unavailable</small>')).join("");
+    this.innerHTML = headers + `<div class="continuation-rows"></div>`;
+    if (compared) {
+      this.comparison = compareIishantenValues(...this.draws);
+      this.totals = this.draws.map(draws => draws.reduce((n, d) => n + d.count, 0));
+      this.renderDrawMode(false);
+    } else {
+      const columns = this.draws.map(draws => draws ? groupIishantenValues(draws) : []);
+      const height = Math.max(...columns.map(groups => groups.length));
+      this.renderRows(Array.from({ length: height }, (_, i) => columns.map(groups => groups[i])));
     }
-    this.diffRows = groupIishantenValues(this.draws, other);
-    const otherTiles = new Set(other.map(draw => draw.tile));
-    this.sharedCount = this.draws.reduce((n, d) => n + (otherTiles.has(d.tile) ? d.count : 0), 0);
-    this.totalCount = this.draws.reduce((n, d) => n + d.count, 0);
-    this.insertAdjacentHTML("afterbegin", '<button type="button" class="ukeire-shared-pill" data-all-draws></button>');
-    // A lazy sibling can enter the viewport after the other pick has expanded.
-    this.renderDrawMode(this.closest("tr").hasAttribute("data-draws-expanded"));
   }
   renderDrawMode(expanded) {
-    const toggle = this.querySelector("[data-all-draws]");
-    toggle.setAttribute("aria-expanded", String(expanded));
-    toggle.title = expanded ? "Show only draw differences for both picks"
-      : "Draw copies both picks accept — show all draws for both picks";
-    toggle.innerHTML = (expanded ? this.totalCount : `${this.sharedCount} shared`)
-      + `<span class="ukeire-shared-caret" aria-hidden="true">${expanded ? "◂" : "▸"}</span>`;
-    this.renderRows(expanded ? (this.fullRows ??= groupIishantenValues(this.draws)) : this.diffRows);
+    this.querySelectorAll("[data-all-draws]").forEach((toggle, side) => {
+      toggle.setAttribute("aria-expanded", String(expanded));
+      toggle.title = expanded ? "Show only draw differences for both picks"
+        : "Draw copies with equal value outcomes — show all draws for both picks";
+      toggle.innerHTML = (expanded ? this.totals[side] : `${this.comparison.equalCount} equal`)
+        + `<span class="ukeire-shared-caret" aria-hidden="true">${expanded ? "◂" : "▸"}</span>`;
+    });
+    this.renderRows(expanded ? (this.fullRows ??= compareIishantenValues(...this.draws, true).rows)
+      : this.comparison.rows);
+  }
+  columnHtml(side, content) {
+    return this.discards.length === 1 ? content : `<div class="col-${side ? "expected" : "actual"}">${content}</div>`;
   }
   renderRows(rows) {
     this.rows = rows;
     const m = this.mistake;
-    setActiveDora(getDoraTiles(m.board_state), m.board_state);
-    this.querySelector(".continuation-rows").innerHTML = rows.map((r, i) => {
-      const tiles = r.draws.map((d, j) => {
-        const points = d.branch?.profile?.maxPoints;
-        const label = `Show tenpai after drawing ${d.tile} · ${d.count} unseen${points ? ` · up to ${points} points` : ""}`;
-        return `<button type="button" class="continuation-draw rsc-tile-entry hand-choice-button" data-draw-index="${j}"`
-          + ` aria-expanded="false" aria-label="${label}" title="${label}">${renderTile(d.tile, "tile-sm ukeire-tile-img")}`
-          + `<span class="rsc-count">×${d.count}</span></button>`;
-      }).join("");
-      return `<div class="continuation" data-row="${i}"><div class="continuation-summary">`
-        + `<div class="continuation-draws">${tiles}</div><div class="continuation-tags">${renderValueRowTags(r)}</div>`
-        + `</div><div class="continuation-panel" hidden></div></div>`;
+    if (m) setActiveDora(getDoraTiles(m.board_state), m.board_state);
+    this.querySelector(".continuation-rows").innerHTML = rows.map((pair, i) => pair.map((group, side) =>
+      this.columnHtml(side, group ? this.drawGroupHtml(group, i, side) : "")).join("")).join("");
+  }
+  drawGroupHtml(r, i, side) {
+    const tiles = r.draws.map((d, j) => {
+      const points = d.branch?.profile?.maxPoints;
+      const label = `Show tenpai after drawing ${d.tile} · ${d.count} unseen${points ? ` · up to ${points} points` : ""}`;
+      return `<button type="button" class="continuation-draw rsc-tile-entry hand-choice-button" data-draw-index="${j}"`
+        + ` aria-expanded="false" aria-label="${label}" title="${label}">${renderTile(d.tile, "tile-sm ukeire-tile-img")}`
+        + `<span class="rsc-count">×${d.count}</span></button>`;
     }).join("");
+    return `<div class="continuation" data-row="${i}" data-side="${side}"><div class="continuation-summary">`
+      + `<div class="continuation-draws">${tiles}</div><div class="continuation-tags">${renderValueRowTags(r)}</div>`
+      + `</div><div class="continuation-panel" hidden></div></div>`;
   }
   showHand(row, index) {
-    const draw = this.rows[row.dataset.row].draws[index];
+    const side = row.dataset.side;
+    const draw = this.rows[row.dataset.row][side].draws[index];
     const panel = row.querySelector(".continuation-panel");
     if (!draw.branches.length) {
       panel.textContent = "No tenpai continuation available.";
@@ -109,7 +112,7 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
     }
     const m = this.mistake;
     setActiveDora(getDoraTiles(m.board_state), m.board_state);
-    panel.innerHTML = `<div class="continuation-label"></div>` + renderIishantenHand(m, this.dataset.discard, draw)
+    panel.innerHTML = `<div class="continuation-label"></div>` + renderIishantenHand(m, this.discards[side], draw)
       + `<div class="rsc-cell" aria-live="polite"></div>`;
     this.showCut(panel, draw.branch ?? draw.branches[0], draw);
   }

@@ -45,43 +45,100 @@ function _displayValueYaku(profile, other) {
   return yaku.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// Compare the same physical tile (red and regular fives stay distinct) BEFORE
-// grouping. A shared tile only contributes this side's gains; the other pick
-// reports its own. A changed win status or a unique tile gets its full row.
+// A delta only describes this side's gains. Null does not mean the two
+// results are equal: the other side can still have an additional yaku.
+function _displayValue(p, other) {
+  const shared = other && p.status === other.status;
+  const yaku = _displayValueYaku(p, shared ? other : null);
+  const doraDelta = !!shared && (p.minDora !== other.minDora || p.maxDora !== other.maxDora);
+  if (shared && !yaku.length && !doraDelta) return null;
+  return { yaku, additional: !!shared && yaku.length > 0,
+    status: shared ? "" : p.status || (other ? "Live wait" : ""),
+    doraDelta, showDora: shared ? doraDelta : p.maxDora > 0 };
+}
+
+function _valueGroupKey(p, display) {
+  return display && [display.yaku, display.additional, display.status, p.unavailable, p.dead, display.doraDelta];
+}
+
+function _addValueDraw(group, draw, p, display) {
+  if (!group) group = { draws: [], yaku: display.yaku, additional: display.additional, status: display.status,
+    unavailable: p.unavailable, dead: p.dead, minDora: Infinity, maxDora: 0, showDora: false, maxHan: 0, maxYakuman: 0 };
+  group.draws.push(draw);
+  group.minDora = Math.min(group.minDora, p.minDora);
+  group.maxDora = Math.max(group.maxDora, p.maxDora);
+  group.showDora ||= display.showDora;
+  group.maxHan = Math.max(group.maxHan, p.maxHan);
+  group.maxYakuman = Math.max(group.maxYakuman, p.maxYakuman);
+  return group;
+}
+
+function _finishValueGroup({ minDora, maxDora, showDora, ...g }) {
+  return { ...g, dora: showDora && minDora !== Infinity ? { label: `${_valueRange(minDora, maxDora)} dora` } : null };
+}
+
+function _compareValueGroups(a, b) {
+  return a.unavailable - b.unavailable || b.maxYakuman - a.maxYakuman || b.maxHan - a.maxHan;
+}
+
 function groupValueRows(rows, compareRows = null, describe = row => row) {
   const peers = new Map(compareRows?.map(row => [row.tile, _drawValueProfile(describe(row))]));
   const groups = new Map();
   for (const row of rows) {
-    const p = _drawValueProfile(describe(row)), other = peers.get(row.tile);
-    const shared = other && p.status === other.status;
-    const yaku = _displayValueYaku(p, shared ? other : null);
-    const showDora = shared ? p.minDora !== other.minDora || p.maxDora !== other.maxDora : p.maxDora > 0;
-    if (shared && !yaku.length && !showDora) continue;
-    const status = shared ? "" : p.status || (other ? "Live wait" : "");
-    const additional = !!shared && yaku.length > 0;
-    // Only differing bonuses belong on a shared tile's delta. Full rows,
-    // however, combine zero and positive bonuses into one displayed range.
-    const key = JSON.stringify([yaku, additional, status, p.unavailable, p.dead, !!shared && showDora]);
-    if (!groups.has(key)) groups.set(key, { draws: [], yaku, additional, status, unavailable: p.unavailable,
-      dead: p.dead, minDora: Infinity, maxDora: 0, showDora: false, maxHan: 0, maxYakuman: 0 });
-    const group = groups.get(key);
-    group.draws.push(row);
-    group.minDora = Math.min(group.minDora, p.minDora);
-    group.maxDora = Math.max(group.maxDora, p.maxDora);
-    group.showDora ||= showDora;
-    group.maxHan = Math.max(group.maxHan, p.maxHan);
-    group.maxYakuman = Math.max(group.maxYakuman, p.maxYakuman);
+    const p = _drawValueProfile(describe(row)), display = _displayValue(p, peers.get(row.tile));
+    if (!display) continue;
+    const key = JSON.stringify(_valueGroupKey(p, display));
+    groups.set(key, _addValueDraw(groups.get(key), row, p, display));
   }
-  return [...groups.values()].map(({ minDora, maxDora, showDora, ...g }) => ({
-    ...g, dora: showDora && minDora !== Infinity ? { label: `${_valueRange(minDora, maxDora)} dora` } : null,
-  })).sort((a, b) => a.unavailable - b.unavailable || b.maxYakuman - a.maxYakuman || b.maxHan - a.maxHan);
+  return Array.from(groups.values(), _finishValueGroup).sort(_compareValueGroups);
 }
 
-function groupIishantenValues(draws, compareDraws = null) {
-  return groupValueRows(draws, compareDraws, draw => ({
-    yaku: draw.yaku, unavailable: draw.unavailable, dead: !draw.unavailable && draw.branch?.count === 0,
-    groups: draw.branch?.groups,
-  }));
+function _describeIishanten(draw) {
+  return { yaku: draw.yaku, unavailable: draw.unavailable, dead: !draw.unavailable && draw.branch?.count === 0,
+    groups: draw.branch?.groups };
+}
+
+function groupIishantenValues(draws) {
+  return groupValueRows(draws, null, _describeIishanten);
+}
+
+function compareIishantenValues(leftDraws, rightDraws, full = false) {
+  const rightByTile = new Map(rightDraws.map(draw => [draw.tile, draw]));
+  const leftOnly = [], pairs = new Map();
+  let equalCount = 0;
+  for (const left of leftDraws) {
+    const right = rightByTile.get(left.tile);
+    if (!right) {
+      leftOnly.push(left);
+      continue;
+    }
+    rightByTile.delete(left.tile);
+    const p = _drawValueProfile(_describeIishanten(left)), q = _drawValueProfile(_describeIishanten(right));
+    let a = _displayValue(p, q), b = _displayValue(q, p);
+    if (!a && !b) {
+      equalCount += Math.min(left.count, right.count);
+      if (!full) continue;
+    }
+    if (full) {
+      a = _displayValue(p, null);
+      b = _displayValue(q, null);
+    }
+    // Partition on BOTH badges before combining ranges. Never mix equal
+    // bonuses with differing ones, or cancel differences in opposite directions.
+    const key = JSON.stringify([_valueGroupKey(p, a), _valueGroupKey(q, b),
+      Math.sign(p.minDora - q.minDora) || 0, Math.sign(p.maxDora - q.maxDora)]);
+    let pair = pairs.get(key);
+    if (!pair) pairs.set(key, pair = [null, null]);
+    if (a) pair[0] = _addValueDraw(pair[0], left, p, a);
+    if (b) pair[1] = _addValueDraw(pair[1], right, q, b);
+  }
+  const rows = Array.from(pairs.values(), pair => pair.map(g => g && _finishValueGroup(g)));
+  rows.sort(([a, b], [c, d]) => _compareValueGroups(a ?? b, c ?? d));
+  const leftGroups = groupIishantenValues(leftOnly), rightGroups = groupIishantenValues([...rightByTile.values()]);
+  for (let i = 0; i < Math.max(leftGroups.length, rightGroups.length); i++) {
+    rows.push([leftGroups[i] ?? null, rightGroups[i] ?? null]);
+  }
+  return { equalCount, rows };
 }
 
 // All tiles in an existing Value group already share their mode scores.
@@ -92,5 +149,5 @@ function sortIishantenWaitGroups(groups) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { groupValueRows, groupIishantenValues, sortIishantenWaitGroups };
+  module.exports = { groupValueRows, groupIishantenValues, compareIishantenValues, sortIishantenWaitGroups };
 }
