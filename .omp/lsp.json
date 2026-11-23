@@ -1,0 +1,93 @@
+{
+  "servers": {
+    "typescript-language-server": {
+      "rootMarkers": [".git"]
+    },
+    "pyright": {
+      "disabled": false,
+      "command": "pyright-langserver",
+      "args": ["--stdio"],
+      "fileTypes": [".py", ".pyi"],
+      "rootMarkers": [".git"],
+      "settings": {
+        "python": {
+          "pythonPath": ".venv/bin/python",
+          "venvPath": ".",
+          "venv": ".venv"
+        }
+      }
+    },
+    "rust-analyzer": {
+      "rootMarkers": [".git"],
+      "initOptions": {
+        "checkOnSave": false,
+        "cargo": {
+          "buildScripts": {
+            "enable": false
+          }
+        },
+        "procMacro": {
+          "enable": false
+        },
+        "numThreads": 1,
+        "linkedProjects": [
+          "wasm/haipai-shanten/Cargo.toml"
+        ]
+      }
+    },
+    "vscode-html-language-server": {
+      "disabled": false,
+      "command": "vscode-html-language-server",
+      "args": ["--stdio"],
+      "fileTypes": [".html", ".htm"],
+      "rootMarkers": [".git"]
+    },
+    "vscode-css-language-server": {
+      "disabled": false,
+      "command": "vscode-css-language-server",
+      "args": ["--stdio"],
+      "fileTypes": [".css", ".scss", ".less"],
+      "rootMarkers": [".git"]
+    },
+    "vscode-json-language-server": {
+      "disabled": false,
+      "command": "vscode-json-language-server",
+      "args": ["--stdio"],
+      "fileTypes": [".json", ".jsonc"],
+      "rootMarkers": [".git"]
+    },
+    "yamlls": {
+      "disabled": false,
+      "command": "yaml-language-server",
+      "args": ["--stdio"],
+      "fileTypes": [".yaml", ".yml"],
+      "rootMarkers": [".git"]
+    },
+    "bashls": {
+      "disabled": false,
+      "command": "bash-language-server",
+      "args": ["start"],
+      "fileTypes": [".sh", ".bash"],
+      "rootMarkers": [".git"]
+    },
+    "dockerls": {
+      "disabled": false,
+      "command": "docker-langserver",
+      "args": ["--stdio"],
+      "fileTypes": ["Dockerfile"],
+      "rootMarkers": [".git"]
+    },
+    "elm-language-server": {
+      "command": "elm-language-server",
+      "args": ["--stdio"],
+      "fileTypes": [".elm"],
+      "languageId": "elm",
+      "rootMarkers": [".git", "elm.json"],
+      "initOptions": {
+        "elmJsonFiles": [
+          "file:///opt/haipai/riichi-mahjong-trainer/elm.json"
+        ]
+      }
+    }
+  }
+}

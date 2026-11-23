@@ -2,6 +2,29 @@
 
 Personal Riichi Mahjong game analysis tool. Analyzes Tenhou replays via Mortal AI, stores structured mistake data, and provides a web UI for review and annotation.
 
+## Optional editor language servers
+
+OMP's mixed-language configuration is in `.omp/lsp.json`. Install the servers
+into a user-writable npm prefix whose `bin` directory is on `PATH`:
+
+```bash
+npm install --global typescript@5.9.3 typescript-language-server pyright \
+  vscode-langservers-extracted yaml-language-server \
+  @elm-tooling/elm-language-server bash-language-server \
+  dockerfile-language-server-nodejs
+rustup component add rust-analyzer rust-src
+```
+
+Elm also needs a compatible **0.19.1** compiler. Debian's ARM64
+`elm-compiler` package supplies it; the older npm 0.19.1 installer does not
+support ARM64. Python navigation uses the existing `.venv`.
+
+The Elm manifest URI in `.omp/lsp.json` targets this checkout at `/opt/haipai`;
+update it if relocating the checkout. Explicit discovery avoids scanning other
+worktrees. Rust uses one analysis thread, with automatic checks, build scripts,
+and proc-macro expansion disabled to avoid background builds on this host.
+After changing installations or configuration, run LSP `reload` with `file: "*"`.
+
 ## Deployment
 
 ### Prerequisites
