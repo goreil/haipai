@@ -2982,6 +2982,48 @@
 }
 .scored-profile:not(:last-child) { margin-bottom: 6px; }
 
+.scored-profile {
+  anchor-name: --score-profile;
+  anchor-scope: --score-profile;
+}
+.score-metric {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  text-decoration: underline dotted var(--text-dim);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.score-metric:is(:hover, :focus-visible) { color: var(--accent); }
+.score-detail {
+  position-anchor: --score-profile;
+  position-area: bottom span-all;
+  justify-self: anchor-center;
+  position-try-fallbacks: flip-block;
+  inset: auto;
+  margin: 3px 0;
+  width: max-content;
+  max-width: min(72ch, calc(100vw - 16px));
+  max-height: 45vh;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text);
+  box-shadow: 0 4px 16px #0005;
+  text-align: start;
+  font-size: 12px;
+}
+.score-detail pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
 .feat-pills {
   display: inline-flex;
   flex-wrap: wrap;

@@ -139,7 +139,7 @@ test('decision cards show evidence before explanations and keep feedback editabl
           const summary = card.querySelector('.feat-summary-row');
           const value = card.querySelector('.score-col');
           const profile = side => value.querySelector('.col-' + side + ' .scored-profile');
-          const evidence = side => profile(side).textContent.replaceAll(',', '');
+          const evidence = side => profile(side).innerText.replaceAll(',', '');
           check(evidence('actual').includes('2887') && evidence('expected').includes('3240'),
             'copy-weighted points shown for both discards');
           check(evidence('actual').includes('18319') && evidence('expected').includes('20794'),
@@ -148,6 +148,22 @@ test('decision cards show evidence before explanations and keep feedback editabl
           for (const side of sides) {
             check(/iipeikou [\\d.]+%/.test(evidence(side)), 'per-pick iipeikou percentage in Value');
             check(!evidence(side).includes('riichi'), 'Value percentages omit ordinary riichi');
+          }
+          const metrics = profile('expected');
+          for (const [label, result] of [['Wait value', '20,794'], ['Average', '3,240'], ['Max', '5,200']]) {
+            const button = [...metrics.querySelectorAll('button')].find(b => b.textContent.startsWith(label));
+            button.click();
+            const panel = metrics.querySelector(':popover-open');
+            if (label === 'Max') {
+              check(panel.querySelectorAll('img').length === 14 && panel.innerText.includes('iipeikou')
+                && panel.innerText.includes(result), 'Max shows a full scoring hand and its yaku');
+            } else {
+              check(!panel.querySelector('img') && panel.innerText.endsWith(result)
+                && panel.innerText.includes('÷ 16'), label + ' shows the draw-weighted calculation');
+            }
+            const rect = panel.getBoundingClientRect();
+            check(rect.left >= 0 && rect.right <= innerWidth, label + ' detail fits the viewport');
+            button.click();
           }
           const mountDraws = () => {
             const hosts = card.querySelectorAll('haipai-iishanten');
@@ -199,7 +215,6 @@ test('decision cards show evidence before explanations and keep feedback editabl
           const fullDraws = [...view.querySelectorAll('.continuation-draw')].filter(b => b.checkVisibility())
             .map(b => b.querySelector('img').alt).sort();
           check(fullDraws.join(' ') === '1p 2s 4p 4s 5s 5sr 9p', 'all AI draws visible without a counterpart');
-          check(card.querySelector('.mascot-speech').textContent.includes('iipeikou'), 'trainer names visible scored yaku');
           const dora = ${JSON.stringify(doraHand)};
           card = draw({ ...dora, ...haipaiCategorize.categorize(dora) }, {inline:true});
           view = mountDraws();

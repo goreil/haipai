@@ -1,6 +1,9 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { categorize } = require('../static/js/categorize.js');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const haipaiCategorize = require('../static/js/categorize.js');
+const { categorize } = haipaiCategorize;
 const { analyzeIishanten } = require('../static/js/iishanten.js');
 const reports = require('./fixtures/scored_value_reports.json');
 
@@ -19,6 +22,49 @@ function drawsFor(m, action) {
   const stat = m.discard_stats.find(s => s.tile === action.pai);
   return analyzeIishanten(m, action.pai, stat);
 }
+
+const trainer = vm.createContext({
+  haipaiCategorize,
+  haipaiCompareDimensions: require('../static/js/compare-dimensions.js'),
+  renderTile: tile => `[${tile}]`,
+});
+vm.runInContext(fs.readFileSync(require.resolve('../static/js/categorize-explanations.js'), 'utf8'), trainer);
+
+function summary(mistakeId) {
+  return trainer.explainDiscardShape(reports.find(r => r.mistake.id === mistakeId).mistake, { threats: [] });
+}
+
+test('equal final wait ranges compare average points, even when the maximum ties', () => {
+  const text = summary(42402);
+  assert.match(text, /Both cuts leave 6–7 winning tiles/);
+  assert.match(text, /Mortal's \[7p\] cut averages 3,240 points versus 2,887/);
+  assert.doesNotMatch(text, /wait value|weighting|more support/);
+});
+
+test('one-shanten summaries distinguish tiles reaching tenpai from tiles winning the hand', () => {
+  const flush = summary(15192);
+  assert.match(flush, /Your \[2s\] cut reaches tenpai on 5 more tiles/);
+  assert.match(flush, /Mortal's \[3p\] cut averages 7,975 points versus 3,232/);
+  assert.doesNotMatch(flush, /for honitsu|to get honitsu/);
+
+  const wider = summary(34648);
+  assert.match(wider, /Your \[5m\] cut reaches tenpai on 2 more tiles/);
+  assert.match(wider, /Mortal's \[5s\] cut can leave up to 11 winning tiles instead of 7 but pays less on average/);
+});
+
+test('unexplained tenpai picks report the actual wait and average advantage only once', () => {
+  const text = summary(42417);
+  assert.match(text, /Your \[P\] cut leaves 3 winning tiles instead of 2 and averages 10,800 points versus 7,200/);
+  assert.match(text, /The comparison doesn't show why Mortal prefers \[6p\]/);
+  assert.doesNotMatch(text, /accepts|reaches tenpai|safer|easier/);
+});
+
+test('an average-only value advantage still shows its speed cost; other visible features survive', () => {
+  const average = summary(38391);
+  assert.match(average, /Your \[3m\] cut reaches tenpai on 4 more tiles/);
+  assert.match(average, /Mortal's \[8s\] cut averages 7,491 points versus 6,545/);
+  assert.match(summary(19374), /dora/);
+});
 
 test('R-292: when speed and peak points tie, stronger iipeikou makes #m42402 a Value decision', () => {
   const { m, shape, wins, value } = result(292);

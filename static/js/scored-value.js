@@ -66,5 +66,81 @@
     return result;
   }
 
-  return { profile, reachRole };
+  const fmt = n => n.toLocaleString();
+  const calcHeading = {
+    waitValue: 'Unseen copies × (ron + tsumo) ÷ 2',
+    meanPoints: 'Unseen copies × legal win points ÷ legal wins',
+  };
+
+  // Use physical copies, not score rows: identical payouts can have different
+  // yaku (and thus different rows). A blocked method is zero for Wait value,
+  // but is absent from both the numerator and denominator for Average.
+  function waitCalculation(groups, metric) {
+    const average = metric === 'meanPoints';
+    const pairs = new Map();
+    for (const group of groups) {
+      const count = group.tiles.reduce((n, t) => n + t.count, 0);
+      if (!count || (average && !group.ron && !group.tsumo)) continue;
+      const ron = group.ron?.ten || 0, tsumo = group.tsumo?.ten || 0;
+      const key = `${ron}:${tsumo}`;
+      const pair = pairs.get(key);
+      if (pair) pair.count += count;
+      else pairs.set(key, { count, ron, tsumo });
+    }
+    if (!pairs.size) {
+      return { equation: average ? '0 legal wins → 0' : '0 live copies → 0', exact: '0' };
+    }
+    const terms = [];
+    let numerator = 0, legalWins = 0;
+    for (const { count, ron, tsumo } of [...pairs.values()].sort((a, b) => a.ron - b.ron || a.tsumo - b.tsumo)) {
+      const payout = average && (!ron || !tsumo) ? fmt(ron || tsumo) : `(${fmt(ron)} + ${fmt(tsumo)})`;
+      terms.push(`${count} × ${payout}`);
+      numerator += count * (ron + tsumo);
+      legalWins += count * (Number(ron > 0) + Number(tsumo > 0));
+    }
+    const divisor = average ? legalWins : 2;
+    const sum = terms.length === 1 ? terms[0] : `(${terms.join(' + ')})`;
+    // This exact value is also an operand in the outer (draw-copy) average.
+    const exact = numerator % divisor ? `${fmt(numerator)}/${divisor}` : fmt(numerator / divisor);
+    return { equation: `${sum} ÷ ${divisor} = ${exact}`, exact };
+  }
+
+  function projectedCalculation(draws, metric, result) {
+    if (!draws.length) return '0 unseen improving draws → 0';
+    const details = new Map(), weights = new Map();
+    let copies = 0;
+    for (const draw of draws) {
+      const { equation, exact } = waitCalculation(draw.branch.groups, metric);
+      if (!details.has(equation)) details.set(equation, []);
+      details.get(equation).push(`${draw.tile} × ${draw.count}`);
+      weights.set(exact, (weights.get(exact) || 0) + draw.count);
+      copies += draw.count;
+    }
+    const lines = [calcHeading[metric]];
+    for (const [equation, draws] of details) lines.push(`${draws.join(', ')}: ${equation}`);
+    const terms = Array.from(weights, ([value, n]) => `${n} × ${value.includes('/') ? `(${value})` : value}`);
+    lines.push(`By draw copies: (${terms.join(' + ')}) ÷ ${copies} ${Number.isInteger(result) ? '=' : '≈'} ${fmt(Math.round(result))}`);
+    return lines.join('\n');
+  }
+
+  function calculations(m, discardTile, stat, riichi, value) {
+    if (!value) return null;
+    const result = {};
+    if (stat.shanten === 1) {
+      const draws = analyzeIishanten(m, discardTile, stat);
+      if (!draws || draws.some(d => !d.branch?.groups)) return null;
+      for (const metric of Object.keys(calcHeading)) result[metric] = projectedCalculation(draws, metric, value[metric]);
+    } else {
+      const groups = evalDiscardScores(m, discardTile, stat.necessary_tiles, riichi);
+      if (!groups) return null;
+      for (const metric of Object.keys(calcHeading)) {
+        const { equation } = waitCalculation(groups, metric);
+        const rounded = Number.isInteger(value[metric]) ? '' : ` ≈ ${fmt(Math.round(value[metric]))}`;
+        result[metric] = `${calcHeading[metric]}\n${equation}${rounded}`;
+      }
+    }
+    return result;
+  }
+
+  return { profile, reachRole, calculations };
 }));

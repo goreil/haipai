@@ -42,21 +42,33 @@ function scoredSharePercent(share) {
   return pct === 0 && share > 0 ? "&lt;0.1%" : pct === 100 && share < 1 ? "&gt;99.9%" : `${pct}%`;
 }
 
-function renderScoredProfile(profile, shanten) {
+// A mistake can appear in more than one card on the page.
+let scoreDetailId = 0;
+function scoredMetric(label, value, detail) {
+  if (!detail) return `<span>${label} <b>${value}</b></span>`;
+  const id = `score-detail-${++scoreDetailId}`;
+  return `<button type="button" class="score-metric" interestfor="${id}" popovertarget="${id}">${label} <b>${value}</b></button>`
+    + `<section popover id="${id}" class="score-detail" aria-label="${label}">${detail}</section>`;
+}
+
+function renderScoredProfile(m, discard, stat, riichi) {
+  const profile = haipaiScoredValue.profile(m, discard, stat, riichi);
   if (!profile) return `<small class="dim">Value unavailable</small>`;
   const tags = Object.entries(profile.yaku).map(([name, share]) => {
     if (name === "riichi") return "";
     return `<span class="yaku-tag" title="Share of weighted Value outcomes with this yaku">${escapeHtml(name)} ${scoredSharePercent(share)}</span>`;
   }).join("");
-  const weights = shanten === 1
-    ? "Each improving draw is weighted by unseen copies. Its selected tenpai discard is scored across live winning copies and legal win methods; a draw with no scoring win contributes zero."
-    : "Winning copies are weighted by how many are unseen, counting each legal win method.";
+  const math = haipaiScoredValue.calculations(m, discard, stat, riichi, profile);
+  const equation = text => `<pre>${escapeHtml(text)}</pre>`;
+  const maxHand = profile.maxPoints ? renderMaxScoredHand(m, discard, stat, riichi, profile) : "";
   const wait = profile.minWait === profile.maxWait ? profile.maxWait : `${profile.minWait}–${profile.maxWait}`;
-  return `<div class="scored-profile" title="${weights} Wait value counts each copy at half its ron points plus half its tsumo points; an unavailable method contributes zero. It is an index, not a payout or Mortal EV.">`
-    + `<span>Wait value <b>${Math.round(profile.waitValue).toLocaleString()}</b></span> `
-    + `<span>Winning copies <b>${wait}</b></span> `
-    + `<span>Mean <b>${Math.round(profile.meanPoints).toLocaleString()} pts</b></span> `
-    + `<span>Peak <b>${profile.maxPoints.toLocaleString()} pts</b></span>`
+  const finalWaitHint = "How many unseen tiles can win the hand."
+    + (profile.minWait === profile.maxWait ? "" : " The range depends on which tile gets you to tenpai.");
+  return `<div class="scored-profile">`
+    + scoredMetric("Wait value", Math.round(profile.waitValue).toLocaleString(), equation(math.waitValue))
+    + `<span title="${finalWaitHint}">Final wait <b>${wait}</b></span>`
+    + scoredMetric("Average", `${Math.round(profile.meanPoints).toLocaleString()} pts`, equation(math.meanPoints))
+    + scoredMetric("Max", `${profile.maxPoints.toLocaleString()} pts`, maxHand)
     + (tags ? `<div>${tags}</div>` : "")
     + (!profile.maxPoints ? `<small class="dim">No live scoring wins</small>` : "") + `</div>`;
 }
@@ -146,7 +158,7 @@ function renderWinFeatPill(w, oya) {
         `+${scoredSharePercent(better.yaku[name] - (other.yaku[name] || 0))} ${escapeHtml(name)}`,
         "Percentage-point increase in the share of weighted Value outcomes with this yaku", "", c)).join("");
       return featPill("pos", `+${w.magnitude.toLocaleString()} wait value`,
-        "Higher value after weighting each live winning copy by its payout", "", c);
+        `${Math.round(better.waitValue).toLocaleString()} − ${Math.round(other.waitValue).toLocaleString()} ≈ ${w.magnitude.toLocaleString()}`, "", c);
     }
     case "dora_kept":
       return featPill("pos", "+dora", "Keeps a dora the other pick discards",
@@ -372,7 +384,6 @@ function renderEvComparison(m, options) {
 
   const wins = (typeof haipaiCompareDimensions !== "undefined")
     ? haipaiCompareDimensions.compareDimensions(m).filter(w => !w.suppressed) : [];
-  const scoredWin = wins.find(w => w.dim === "scored_value");
 
   // Build one descriptor per column up front, then emit the attribute rows
   // by reading across the descriptors. Keeps the per-tile cell logic in one
@@ -554,9 +565,7 @@ function renderEvComparison(m, options) {
       && (action?.type === "dahai" || action?.type === "reach");
     // A tie has no winning dimension, and an unknown opponent is not worth
     // zero points. Still show each eligible column's own Value data.
-    const valueSummary = showProfile ? renderScoredProfile(
-      scoredWin?.[isActual ? "you" : "mortal"] ?? haipaiScoredValue.profile(scoringMistake, tile, ca, scoreIsRiichi), shantenVal
-    ) : "";
+    const valueSummary = showProfile ? renderScoredProfile(scoringMistake, tile, ca, scoreIsRiichi) : "";
     return { tile, isWin, winScore, winTile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
              acc, lookahead, valueSummary, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe, isGenbutsu };
   });

@@ -24,12 +24,13 @@ const cacheFile = readdirSync(benchDir)
 const prepped = JSON.parse(readFileSync(join(benchDir, cacheFile), "utf8")).mistakes;
 console.log(`Loaded ${prepped.length} prepped mistakes from ${cacheFile}`);
 
-const cmp = require(join(repoRoot, "static/js/categorize.js")); // warms compare deps
+const categorize = require(join(repoRoot, "static/js/categorize.js"));
 const compare = require(join(repoRoot, "static/js/compare-dimensions.js"));
 
 // vm context with leaf stubs.
 const ctx = {
   console,
+  haipaiCategorize: categorize,
   haipaiCompareDimensions: compare,
   tileBase: (t) => (t ? String(t).replace(/r$/, "") : t),
   renderTile: (t) => `[${t}]`,
@@ -58,10 +59,7 @@ for (const { m } of prepped) {
   catch (e) { console.log("THREW:", e.message, m.id); continue; }
   const stripped = (text || "").replace(/<[^>]*>/g, "").trim();
   if (!stripped) { empty++; if (emptyExamples.length < 5) emptyExamples.push(m.id); }
-  // crude contradiction check: an "obvious" card must not say "judgment call",
-  // and a "complex" card must not claim Mortal "is simply better".
-  if (shape === "obvious" && /judgment call/i.test(stripped)) contradict++;
-  if (shape === "complex" && /simply better/i.test(stripped)) contradict++;
+  if ((shape === "complex") !== stripped.includes("The comparison doesn't show why Mortal prefers")) contradict++;
   const key = `${skill}/${shape}`;
   if (!samples[key]) samples[key] = { m, shape, skill, text: stripped };
 }

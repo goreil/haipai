@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const comparator = require('../static/js/compare-dimensions.js');
-const { categorize } = require('../static/js/categorize.js');
+const haipaiCategorize = require('../static/js/categorize.js');
+const { categorize } = haipaiCategorize;
 const { calculate } = require('../static/js/prep/shanten_calc.js');
 const { subtract_hand_from_wall } = require('../static/js/prep/prep-board-state.js');
 const { profile } = require('../static/js/scored-value.js');
@@ -117,13 +118,13 @@ test('browser comparator and Node comparator give the same report results', () =
 });
 
 test('trainer text explains visible features without revealing suppressed yaku or guessing reasons', () => {
-  const context = vm.createContext({ haipaiCompareDimensions: comparator, renderTile: t => `[${t}]` });
+  const context = vm.createContext({ haipaiCompareDimensions: comparator, haipaiCategorize, renderTile: t => `[${t}]` });
   for (const file of ['categorize-explanations.js', 'ev-table.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js', file), 'utf8'), context);
   }
   const m = report(226);
   const text = context.explainDiscardShape(m, { threats: [] });
-  assert.match(text, /visible comparison doesn't explain it/);
+  assert.match(text, /The comparison doesn't show why Mortal prefers/);
   assert.doesNotMatch(text, /chanta|Potential yaku|likely|Trust the read|simply better/);
   const pills = comparator.compareDimensions(m).filter(w => !w.suppressed)
     .map(w => context.renderWinFeatPill(w)).join('');

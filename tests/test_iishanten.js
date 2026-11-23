@@ -9,9 +9,10 @@ const { base_mjai } = require('../static/js/prep/tiles.js');
 const { groupValueRows, groupIishantenValues, compareIishantenValues, sortIishantenWaitGroups } =
   require('../static/js/iishanten-values.js');
 
-const ctx = vm.createContext({ renderTile: tile => tile });
+const ctx = vm.createContext({});
 ctx.self = ctx; // classic worker globals, no window or DOM
-for (const file of ['prep/tiles', 'prep/parse', 'prep/prep-board-state', 'vendor/riichi/riichi-bundle',
+for (const file of ['tiles', 'board-melds', 'board-discards',
+  'prep/tiles', 'prep/parse', 'prep/prep-board-state', 'vendor/riichi/riichi-bundle',
   'categorize-yaku', 'bad-riichi-bars', 'iishanten', 'scored-value']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js', `${file}.js`), 'utf8'), ctx);
 }
@@ -192,6 +193,44 @@ test('the iishanten profile weights each selected wait first, then each physical
   assert.equal(node.maxPoints, maxPoints);
   assert.equal(node.yaku.iipeikou, iipeikou / copies);
   assert.ok(node.yaku.iipeikou > 0 && node.yaku.iipeikou < 1);
+});
+
+test('Max shows a live red winning tile, its only legal method and its scoring yaku', () => {
+  const m = prep('1m 2m 3m 7m 8m 9m 1p 2p 3p 3s 4s E E C'.split(' '), { discards: [[3, '2s']] });
+  const stat = m.discard_stats.find(s => s.tile === 'C');
+  assert.equal(stat.shanten, 0);
+  const p = ctx.haipaiScoredValue.profile(m, 'C', stat);
+  const html = ctx.renderMaxScoredHand(m, 'C', stat, false, p);
+  assert.match(html, /alt="5sr" title="Winning tile: 5sr"/);
+  assert.match(html, /menzen tsumo/);
+  assert.match(html, /dora 1/);
+  assert.match(html, />Tsumo</);
+  assert.doesNotMatch(html, />Ron<|alt="C"/);
+  assert.ok(html.includes(`>${p.maxPoints.toLocaleString()}<`));
+  assert.equal((html.match(/<img /g) || []).length, 14);
+});
+
+test('R-282: Max reconstructs the projected open honitsu, including its called chi', () => {
+  const m = require('./fixtures/scored_value_reports.json').find(r => r.report_ids.includes(282)).mistake;
+  const stat = m.discard_stats.find(s => s.tile === '3p');
+  const p = ctx.haipaiScoredValue.profile(m, '3p', stat);
+  const html = ctx.renderMaxScoredHand(m, '3p', stat, false, p);
+  assert.match(html, /honitsu/);
+  assert.match(html, /alt="5sr"/);
+  assert.match(html, /class="meld-called"><img [^>]*alt="9s"/);
+  assert.doesNotMatch(html, /alt="[23]p"/); // Both the first and the projected cut are gone.
+  assert.equal((html.match(/<img /g) || []).length, 14);
+  assert.ok(html.includes(`>${p.maxPoints.toLocaleString()}<`));
+});
+
+test('Max does not show a completed hand for live waits without yaku', () => {
+  const chi = { type: 'chi', pai: '1m', consumed: ['2m', '3m'], target: 2 };
+  const m = prep('7m 8m 9m 1p 2p 3p 3s 4s E E C'.split(' '),
+    { melds: [chi], discards: [[2, '1m']], meldEvents: [{ ...chi, actor: 3 }] });
+  const stat = m.discard_stats.find(s => s.tile === 'C');
+  const p = ctx.haipaiScoredValue.profile(m, 'C', stat);
+  assert.equal(p.maxPoints, 0);
+  assert.match(ctx.renderMaxScoredHand(m, 'C', stat, false, p), /No live scoring wins/);
 });
 
 test('#m42402: on a 1p draw only the cut with iipeikou on 2s earns Best', () => {

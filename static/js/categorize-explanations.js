@@ -8,12 +8,12 @@
 //   - Discard-vs-discard is compositional (mistake-dimensions CORE Phase 2):
 //     the shape (Obvious / Trade-off / Complex) is derived from the shared
 //     win-vector (compare-dimensions.js), and the body is assembled from
-//     per-dimension fragments by three shape templates. The old per-category
+//     per-dimension fragments for each pick. The old per-category
 //     discard prose (P1-P4, D1-D3, OD*, legacy 1A/2A/3A/3B/3C) is gone.
 //
 // Load order: depends on
 //   - compare-dimensions.js (haipaiCompareDimensions — the win-vector + shape)
-//   - scored-value.js (the same discard profiles as the Value and Summary rows)
+//   - categorize.js (discard stat lookup at the same depth as the Value row)
 //   - prep/defense.js (defenseSituation, defenseDealinForTile,
 //     _isDoubleRiichiContext, tenpaiWaitTiles)
 //   - mistake-card.js (mortalRaisedShanten, for the 5A branch)
@@ -24,11 +24,8 @@
 
 // --- Compositional trainer text (mistake-dimensions CORE, Phase 2) ---
 //
-// The discard-vs-discard card body is no longer per-category prose. It is
-// assembled from the shared win-vector (compare-dimensions.js): each winning
-// dimension owns a small fragment, and three shape templates (Obvious /
-// Trade-off / Complex) stitch the fragments together. A new value detector
-// ships exactly one fragment and works in all three templates for free.
+// Each visible winning dimension contributes to its pick's sentence. If
+// none favors Mortal, the trainer explicitly leaves the choice unexplained.
 //
 // Action decisions (call / reach / kan / missed-win) carry no shape and keep
 // their dedicated text further down in generateExplanation — only the
@@ -45,18 +42,69 @@ function _narrationRank(w, skillArea) {
   return _GROUP_NARRATION[w.group] || 9;
 }
 
+// Describe the same rounded averages and final waits as the Value row. At
+// one shanten these are projections: the widest wait is not guaranteed.
+function _scoredNarration(w, m) {
+  const you = haipaiCategorize.findInStats(m.actual.pai, m.discard_stats);
+  const mortal = haipaiCategorize.findInStats(m.expected.pai, m.discard_stats);
+  const depth = you.shanten === mortal.shanten ? you.shanten : null;
+  const actualWins = w.winner === "you";
+  const [better, other] = actualWins ? [w.you, w.mortal] : [w.mortal, w.you];
+  const avg = Math.round(better.meanPoints), otherAvg = Math.round(other.meanPoints);
+  const tiles = n => `${n} winning tile${n === 1 ? "" : "s"}`;
+  const sameRange = better.minWait === other.minWait && better.maxWait === other.maxWait;
+  const sameDepth = depth !== null;
+  let intro = "", width = "";
+  if (sameDepth && sameRange && avg > otherAvg) {
+    const range = better.minWait === better.maxWait ? tiles(better.maxWait)
+      : `${better.minWait}–${tiles(better.maxWait)}`;
+    intro = `Both cuts leave ${range}.`;
+  } else if (sameDepth && better.maxWait > other.maxWait) {
+    const verb = better.minWait === better.maxWait ? "leaves" : "can leave up to";
+    width = `${verb} ${tiles(better.maxWait)} instead of ${other.maxWait}`;
+  } else if (depth === 1 && better.minWait > other.minWait && better.maxWait === other.maxWait) {
+    width = `always leaves at least ${tiles(better.minWait)} instead of as few as ${other.minWait}`;
+  }
+
+  // In tenpai, structural acceptance can be exactly the scored wait. Don't
+  // repeat the width as a second advantage, or call a no-yaku tile a win.
+  const coversUkeire = !!width && depth === 0 && w.you.maxWait === you.necessary_count
+    && w.mortal.maxWait === mortal.necessary_count;
+  let value;
+  if (!other.maxPoints) {
+    value = width || "has live winning tiles where the other cut has none";
+  } else if (avg > otherAvg) {
+    const high = avg.toLocaleString(), low = otherAvg.toLocaleString();
+    let payout = `averages ${high} points versus ${low}`;
+    if (!sameDepth) {
+      payout = (actualWins ? you : mortal).shanten === 1
+        ? `has a projected average of ${high} points versus ${low} in tenpai`
+        : `averages ${high} points in tenpai versus a projected ${low}`;
+    }
+    value = width ? `${width} and ${payout}` : payout;
+  } else {
+    value = width || `has a higher wait value (${Math.round(better.waitValue).toLocaleString()}`
+      + ` versus ${Math.round(other.waitValue).toLocaleString()})`;
+    if (avg < otherAvg) value += " but pays less on average";
+  }
+  return { intro, value, coversUkeire, depth };
+}
+
 // One natural-language clause describing what a winning dimension gains, with
 // tiles rendered as glyphs. `seatWindFor(seat)` maps a deal_in entry's seat to
 // a wind label (null when unknown).
-function _winClause(w, seatWindFor) {
+function _winClause(w, seatWindFor, scored) {
   const tile = (t) => renderTile(t, "tile-sm");
   switch (w.dim) {
     case "shanten": {
       const n = w.magnitude || 1;
       return n <= 1 ? "reaches tenpai a step sooner" : `gets ${n} steps closer to tenpai`;
     }
-    case "ukeire":
-      return `accepts ${w.magnitude} more tile${w.magnitude === 1 ? "" : "s"}`;
+    case "ukeire": {
+      if (scored?.coversUkeire) return "";
+      const n = `${w.magnitude} more tile${w.magnitude === 1 ? "" : "s"}`;
+      return scored?.depth === 1 ? `reaches tenpai on ${n}` : `accepts ${n}`;
+    }
     case "versatility_kept":
       return `keeps the more versatile ${tile(w.tiles[0])}`;
     case "safe_spare_kept":
@@ -67,13 +115,8 @@ function _winClause(w, seatWindFor) {
         ? `avoids a furiten wait on ${ts} (already in your own discards — no ron)`
         : "avoids a furiten wait";
     }
-    case "scored_value": {
-      const gain = w.magnitude.toLocaleString();
-      const other = w.winner === "mortal" ? w.you : w.mortal;
-      if (!other.maxPoints) return "has live scoring wins where the other pick has none";
-      const yaku = w.yaku.length ? ` (more support for ${_joinClauses(w.yaku)} in the scored outcomes)` : "";
-      return `has ${gain} more wait value after weighting winning copies by their payouts${yaku}`;
-    }
+    case "scored_value":
+      return scored.value;
     case "dora_kept":
       return `keeps the ${tile(w.tiles[0])} dora`;
     case "dora_acceptance": {
@@ -110,7 +153,7 @@ function _yakuName(w) {
 // When a side both keeps a dora AND its wait draws dora, the acceptance clause
 // only names the *extra* dora the kept clause didn't (and is dropped entirely
 // when there's no extra), so the sentence never says the same dora twice.
-function _sideClauses(wins, side, skillArea, seatWindFor) {
+function _sideClauses(wins, side, skillArea, seatWindFor, scored) {
   const mine = wins
     .filter(w => w.winner === side && !w.suppressed)
     .sort((a, b) =>
@@ -139,7 +182,7 @@ function _sideClauses(wins, side, skillArea, seatWindFor) {
       if (!extra.length) continue;  // wait draws only the dora we already kept — say nothing more
       c = `its wait also draws ${extra.map(t => renderTile(t, "tile-sm")).join("")}`;
     } else {
-      c = _winClause(w, seatWindFor);
+      c = _winClause(w, seatWindFor, scored);
     }
     if (c) clauses.push(c);
   }
@@ -186,30 +229,17 @@ function explainDiscardShape(m, defenseCtx) {
 
   const aT = renderTile(m.actual.pai, "tile-sm");
   const eT = renderTile(m.expected.pai, "tile-sm");
-  const youText = _joinClauses(_sideClauses(wins, "you", skillArea, seatWindFor));
-  const mortalText = _joinClauses(_sideClauses(wins, "mortal", skillArea, seatWindFor));
+  const valueWin = wins.find(w => w.dim === "scored_value" && !w.suppressed);
+  const scored = valueWin ? _scoredNarration(valueWin, m) : null;
+  const youText = _joinClauses(_sideClauses(wins, "you", skillArea, seatWindFor, scored));
+  const mortalText = _joinClauses(_sideClauses(wins, "mortal", skillArea, seatWindFor, scored));
   const lead = _defenseLead(skillArea, defenseCtx);
-  const leadText = lead ? `${lead} ` : "";
-  if (shape === "obvious") {
-    // Describe only the advantages represented by visible feature pills.
-    const text = mortalText
-      ? `Mortal's ${eT} ${mortalText}.`
-      : `Mortal recommends ${eT}.`;
-    return `${leadText}${text}`;
-  }
-
-  if (shape === "trade-off") {
-    // Both columns won something — value vs speed vs safety.
-    return `${leadText}A judgment call.`
-      + ` Your ${aT} ${youText}, while Mortal's ${eT} ${mortalText}. Mortal recommends ${eT}.`;
-  }
-
-  // complex — Mortal's column won nothing visible.
-  if (youText) {
-    return `${leadText}Mortal prefers ${eT}, but the visible stats don't explain it.`
-      + ` Your ${aT} ${youText}, yet Mortal still picks ${eT}.`;
-  }
-  return `${leadText}Mortal prefers ${eT} over your ${aT}, but the visible comparison doesn't explain it.`;
+  const sentences = [lead, scored?.intro];
+  if (youText) sentences.push(`Your ${aT} cut ${youText}.`);
+  if (mortalText) sentences.push(`Mortal's ${eT} cut ${mortalText}.`);
+  if (shape === "complex") sentences.push(`The comparison doesn't show why Mortal prefers ${eT}.`);
+  else if (!mortalText) sentences.push(`Mortal recommends ${eT}.`);
+  return sentences.filter(Boolean).join(" ");
 }
 
 function generateExplanation(m) {
