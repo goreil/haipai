@@ -146,6 +146,19 @@ test('decision cards show evidence before explanations and keep feedback editabl
             check(value.querySelector('.col-' + side + ' haipai-iishanten').dataset.compareDiscard === counterpart.pai,
               'lookahead compares with the other discard');
           }
+          const [you, ai] = value.querySelectorAll('haipai-iishanten');
+          const pill = cell => cell.querySelector('[data-all-draws]');
+          const hasSharedDraw = cell => cell.querySelector('.continuation-draw img[alt="9p"]');
+          you.showDraws();
+          check(pill(you).textContent.includes('9 shared') && !hasSharedDraw(you),
+            'collapsed count is shared physical copies, not the number of tile types');
+          pill(you).click();
+          ai.showDraws(); // The second cell may be mounted lazily after the first click.
+          check([you, ai].every(cell => hasSharedDraw(cell) && pill(cell).getAttribute('aria-expanded') === 'true'),
+            'either Value pill opens the full draw list for both picks');
+          pill(ai).click();
+          check([you, ai].every(cell => !hasSharedDraw(cell) && pill(cell).textContent.includes('9 shared')
+            && pill(cell).getAttribute('aria-expanded') === 'false'), 'opposite pill collapses both picks');
           const gains = summary.querySelector('.col-expected').textContent.replaceAll(',', '');
           check(!summary.querySelector('.scored-profile') && summary.querySelector('.col-actual').textContent === '—'
             && gains.trim() === '+16.1% iipeikou',

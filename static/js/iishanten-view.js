@@ -19,10 +19,11 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
     this.addEventListener("click", event => {
       const toggle = event.target.closest("[data-all-draws]");
       if (toggle) {
-        const all = toggle.getAttribute("aria-expanded") === "false";
-        toggle.setAttribute("aria-expanded", String(all));
-        toggle.textContent = all ? "Show differences" : "Show all draws";
-        this.renderRows(all ? (this.fullRows ??= groupIishantenValues(this.draws)) : this.diffRows);
+        const row = this.closest("tr");
+        const expanded = row.toggleAttribute("data-draws-expanded");
+        for (const cell of row.querySelectorAll("haipai-iishanten")) {
+          if (cell.diffRows) cell.renderDrawMode(expanded);
+        }
         return;
       }
       const cut = event.target.closest("[data-cut]");
@@ -60,11 +61,27 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
     }
     this.mistake = m;
     const other = this.dataset.compareDiscard && analyze(this.dataset.compareDiscard);
-    this.diffRows = other ? groupIishantenValues(this.draws, other) : null;
-    this.innerHTML = (this.diffRows && this.draws.length
-      ? `<button type="button" class="ukeire-shared-pill" data-all-draws aria-expanded="false">Show all draws</button>` : "")
-      + `<div class="continuation-rows"></div>`;
-    this.renderRows(this.diffRows ?? groupIishantenValues(this.draws));
+    this.innerHTML = `<div class="continuation-rows"></div>`;
+    if (!other) {
+      this.renderRows(groupIishantenValues(this.draws));
+      return;
+    }
+    this.diffRows = groupIishantenValues(this.draws, other);
+    const otherTiles = new Set(other.map(draw => draw.tile));
+    this.sharedCount = this.draws.reduce((n, d) => n + (otherTiles.has(d.tile) ? d.count : 0), 0);
+    this.totalCount = this.draws.reduce((n, d) => n + d.count, 0);
+    this.insertAdjacentHTML("afterbegin", '<button type="button" class="ukeire-shared-pill" data-all-draws></button>');
+    // A lazy sibling can enter the viewport after the other pick has expanded.
+    this.renderDrawMode(this.closest("tr").hasAttribute("data-draws-expanded"));
+  }
+  renderDrawMode(expanded) {
+    const toggle = this.querySelector("[data-all-draws]");
+    toggle.setAttribute("aria-expanded", String(expanded));
+    toggle.title = expanded ? "Show only draw differences for both picks"
+      : "Draw copies both picks accept — show all draws for both picks";
+    toggle.innerHTML = (expanded ? this.totalCount : `${this.sharedCount} shared`)
+      + `<span class="ukeire-shared-caret" aria-hidden="true">${expanded ? "◂" : "▸"}</span>`;
+    this.renderRows(expanded ? (this.fullRows ??= groupIishantenValues(this.draws)) : this.diffRows);
   }
   renderRows(rows) {
     this.rows = rows;
