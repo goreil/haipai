@@ -141,6 +141,21 @@ function _isDoubleRiichiContext(m) {
   return true;
 }
 
+// The projection starts at our discard and assumes no intervening calls.
+// Three opponents and our own next draw use four tiles; four must still
+// remain at declaration. Without the wall count or our score, don't credit
+// a riichi we can't establish. An ankan keeps the hand closed.
+function _iishantenRiichiFlags(m) {
+  const board = m.board_state;
+  const actor = m.actual?.actor ?? m.expected?.actor;
+  const points = board?.scores?.[actor];
+  if (!Number.isFinite(points) || points < 1000 || !Number.isInteger(board.tiles_left)
+      || board.tiles_left < 8 || !(m.melds || []).every(meld => meld.type === "ankan")) return "";
+  // The snapshot lists round-start scores; a player who has already
+  // declared cannot place another stick.
+  return board.all_discards?.find(r => r.seat === actor)?.riichi_idx != null ? "" : "r";
+}
+
 // One score evaluation. opts: { riichi: bool, tsumo: bool }.
 // `hand13` is the 13-tile tenpai hand (does NOT include the win tile).
 // Returns { han, fu, ten, yaku: [labels] } or null when the win is invalid
@@ -214,7 +229,8 @@ function _evalWaitScore(hand13, winTile, m, opts) {
       continue;
     }
     hasRealYaku = true;
-    if (_SITUATIONAL_YAKU && _SITUATIONAL_YAKU.has(jp) && !opts.includeSituational) continue;
+    if (_SITUATIONAL_YAKU && _SITUATIONAL_YAKU.has(jp) && !opts.includeSituational
+        && !(jp === "立直" && opts.flags === "r")) continue;
     const situational = { "立直": "riichi", "ダブル立直": "double riichi", "一発": "ippatsu",
       "門前清自摸和": "menzen tsumo", "嶺上開花": "rinshan", "搶槓": "chankan",
       "海底摸月": "haitei", "河底撈魚": "houtei", "天和": "tenhou", "地和": "chiihou" };
@@ -600,11 +616,13 @@ function evalDiscardScores(m, discardTile, waitEntries, riichi) {
 
 // Score physical waits, preserving a structural no-yaku result as distinct from
 // missing calculator data. Never infer a yaku from a failed evaluation.
-function _scoreTenpaiWaits(m, hand13, waits, useRiichi, furitenReason) {
+// A projected turn supplies explicit flags instead of inheriting the current
+// turn's double-riichi context or adding the riichi comparison's EV tail.
+function _scoreTenpaiWaits(m, hand13, waits, useRiichi, furitenReason, flags) {
   const rows = [];
   for (const w of waits) {
-    const ronEval = !w.furiten && _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: false, includeNoYaku: true });
-    const tsumoEval = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, tsumo: true, includeNoYaku: true });
+    const ronEval = !w.furiten && _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, flags, tsumo: false, includeNoYaku: true });
+    const tsumoEval = _evalWaitScore(hand13, w.tile, m, { riichi: useRiichi, flags, tsumo: true, includeNoYaku: true });
     if ((!w.furiten && !ronEval) || !tsumoEval) return null;
     const ron = ronEval && !ronEval.noYaku ? ronEval : null;
     const tsumo = !tsumoEval.noYaku ? tsumoEval : null;
