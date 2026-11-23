@@ -3364,12 +3364,7 @@
 }
 .continuation-hand > .inline-melds { margin-left: 0; }
 .continuation-hand .tiles .tile { --tile-size: 30px; }
-.continuation-hand .hand-choice-button { min-width: 24px; }
 .continuation-hand .hand-choice-tab {
-  flex-direction: row;
-  justify-content: center;
-  gap: 1px;
-  color: var(--text-dim);
+  color: var(--accent);
 }
-.continuation-hand [aria-pressed="true"] .hand-choice-tab { color: var(--accent); }
-.continuation-hand [aria-pressed="true"] .hand-choice-tab::before { content: "✓"; }
+.continuation-hand .hand-choice > .tile { box-shadow: 0 0 0 2px var(--accent); }

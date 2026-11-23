@@ -2,25 +2,23 @@
 // wait, a furiten ron, and an unevaluated branch cannot supply han or bonuses.
 function _iishantenValueProfile(draw) {
   const unavailable = draw.unavailable;
-  const dead = !unavailable && draw.branches.every(branch => branch.count === 0);
+  const dead = !unavailable && draw.branch?.count === 0;
   const yaku = draw.yaku.filter(y => !y.name.startsWith('yakuhai'));
   let dora = null;
   let maxHan = 0, maxYakuman = 0;
-  if (!unavailable && !dead) {
+  if (!unavailable && draw.branch?.groups) {
     let minDora = Infinity, maxDora = 0, minYakuhai = Infinity, maxYakuhai = 0;
-    for (const branch of draw.branches) {
-      for (const group of branch.groups) {
-        for (const score of [group.ron, group.tsumo]) {
-          if (!score) continue;
-          maxHan = Math.max(maxHan, score.han);
-          maxYakuman = Math.max(maxYakuman, score.yakuman);
-          const total = score.dora + score.aka;
-          minDora = Math.min(minDora, total);
-          maxDora = Math.max(maxDora, total);
-          const honors = score.yaku.filter(name => name.startsWith('yakuhai')).length;
-          minYakuhai = Math.min(minYakuhai, honors);
-          maxYakuhai = Math.max(maxYakuhai, honors);
-        }
+    for (const group of draw.branch.groups) {
+      for (const score of [group.ron, group.tsumo]) {
+        if (!score) continue;
+        maxHan = Math.max(maxHan, score.han);
+        maxYakuman = Math.max(maxYakuman, score.yakuman);
+        const total = score.dora + score.aka;
+        minDora = Math.min(minDora, total);
+        maxDora = Math.max(maxDora, total);
+        const honors = score.yaku.filter(name => name.startsWith('yakuhai')).length;
+        minYakuhai = Math.min(minYakuhai, honors);
+        maxYakuhai = Math.max(maxYakuhai, honors);
       }
     }
     const range = (lo, hi) => lo === hi ? `${hi}` : `${lo}–${hi}`;

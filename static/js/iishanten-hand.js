@@ -1,5 +1,4 @@
-// The caller supplies one analyzed draw, with its own physical tenpai discards.
-function renderIishantenHand(m, firstDiscard, draw, selectedDiscard) {
+function renderIishantenHand(m, firstDiscard, draw) {
   const hand = m.hand.slice();
   const removed = hand.indexOf(firstDiscard);
   if (removed < 0) return "";
@@ -8,18 +7,17 @@ function renderIishantenHand(m, firstDiscard, draw, selectedDiscard) {
   hand.sort((a, b) => order[a] - order[b] || a.length - b.length);
   hand.push(draw.tile);
 
-  const choices = new Set(draw.branches.map(b => b.discard));
+  const cutIndex = hand.lastIndexOf(draw.branch.discard);
   let html = '<div class="continuation-hand" role="group" aria-label="Hand after drawing ' + draw.tile + '"><span class="tiles">';
   hand.forEach((t, i) => {
     const drawn = i === hand.length - 1;
-    if (!choices.has(t)) {
+    if (i !== cutIndex) {
       html += renderTile(t, drawn ? "tile-sm draw" : "tile-sm");
       return;
     }
-    html += `<button type="button" class="hand-choice hand-choice-button${drawn ? " draw" : ""}"`
-      + ` data-branch-discard="${t}" aria-label="Discard ${drawn ? "drawn " : ""}${t} to see its waits and value" aria-pressed="${t === selectedDiscard}">`
+    html += `<span class="hand-choice${drawn ? " draw" : ""}">`
       + renderTile(t, "tile-sm")
-      + '<span class="hand-choice-tabs" aria-hidden="true"><span class="hand-choice-tab">Cut</span></span></button>';
+      + '<span class="hand-choice-tabs"><span class="hand-choice-tab">Cut</span></span></span>';
   });
   html += '</span>';
   if (m.melds?.length) {
