@@ -44,12 +44,6 @@ function scoredSharePercent(share) {
 
 // A mistake can appear in more than one card on the page.
 let scoreDetailId = 0;
-function scoredMetric(label, value, detail) {
-  if (!detail) return `<span>${label} <b>${value}</b></span>`;
-  const id = `score-detail-${++scoreDetailId}`;
-  return `<button type="button" class="score-metric" interestfor="${id}" popovertarget="${id}">${label} <b>${value}</b></button>`
-    + `<section popover id="${id}" class="score-detail" aria-label="${label}">${detail}</section>`;
-}
 
 function finalWaitLabel(profile) {
   const { minWait, maxWait } = profile;
@@ -63,15 +57,13 @@ function renderScoredProfile(m, discard, stat, riichi, profile) {
     return `<span class="yaku-tag" title="Share of weighted Value outcomes with this yaku">${escapeHtml(name)} ${scoredSharePercent(share)}</span>`;
   }).join("");
   const math = haipaiScoredValue.calculations(m, discard, stat, riichi, profile);
-  const equation = text => `<pre>${escapeHtml(text)}</pre>`;
-  const tenpai = stat.shanten === 0;
+  const id = `score-detail-${++scoreDetailId}`;
   const finalWaitHint = "How many unseen tiles can win the hand."
     + (profile.minWait === profile.maxWait ? "" : " The range depends on which tile gets you to tenpai.");
   return `<div class="scored-profile">`
-    + `<span class="score-metric" title="${finalWaitHint}">Final wait <b>${finalWaitLabel(profile)}</b></span>`
-    + scoredMetric("Wait value", Math.round(profile.waitValue).toLocaleString(), equation(math.waitValue))
-    + (tenpai ? scoredMetric("Max", `${profile.maxPoints.toLocaleString()} pts`,
-      profile.maxPoints ? renderMaxScoredHand(m, discard, stat, riichi, profile) : "") : "")
+    + (stat.shanten === 1 ? `<span class="score-metric" title="${finalWaitHint}">Final wait <b>${finalWaitLabel(profile)}</b></span>` : "")
+    + `<button type="button" class="score-metric" interestfor="${id}" popovertarget="${id}">Wait value <b>${Math.round(profile.waitValue).toLocaleString()}</b></button>`
+    + `<section popover id="${id}" class="score-detail" aria-label="Wait value"><pre>${escapeHtml(math.waitValue)}</pre></section>`
     + (tags ? `<div>${tags}</div>` : "")
     + (!profile.maxPoints ? `<small class="dim">No live scoring wins</small>` : "") + `</div>`;
 }

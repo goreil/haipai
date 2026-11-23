@@ -14,7 +14,7 @@ Scores include ordinary riichi when the hand is closed (concealed kans are allow
 
 The lookahead uses the board as it was at the decision. It counts an improving draw once, even if several discards reach tenpai, and accounts for red fives and the hypothetical discard pool when scoring waits. It does not predict future discards or reconstruct Mortal’s EV.
 
-**Final wait** counts unseen tiles that can win. A range means the wait depends on the draw that gets you to tenpai. Select **Wait value** to see the calculation for that pick. At tenpai, **Max** shows one hand earning the highest payout.
+At iishanten, **Final wait** counts unseen tiles that can win. A range means the wait depends on the draw that gets you to tenpai. At either depth, select **Wait value** to see the calculation for that pick.
 
 **Summary** shows the wait-value difference alongside any gains in yaku share. At iishanten, it also marks a higher minimum or maximum final wait. In [#m15192](https://haipai-trainer.com/#m15192), Mortal’s 3p discard has honitsu in 100% of its scored outcomes and a wait value 21,845 higher than the played discard. These shares describe the displayed routes, not the probability of winning the hand.
 

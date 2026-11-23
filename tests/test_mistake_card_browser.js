@@ -254,7 +254,8 @@ test('decision cards show evidence before explanations and keep feedback editabl
             const scores = card.querySelector('.score-col .col-' + side + ' > .rsc-cell');
             check(scores.querySelector('.rsc-vals').checkVisibility(), 'tenpai payouts visible without a disclosure');
             const metrics = scores.parentElement.querySelector('.scored-profile');
-            check(!metrics.textContent.includes('Average') && metrics.innerText.includes('Max'), 'tenpai keeps Max without Average');
+            check(metrics.innerText.includes('Wait value') && !/Final wait|Max|Average/.test(metrics.textContent),
+              'tenpai shows wait value without redundant metrics');
           }
           const flush = ${JSON.stringify(flushHand)};
           card = draw({ ...flush, ...haipaiCategorize.categorize(flush) }, {inline:true});

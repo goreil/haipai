@@ -195,31 +195,6 @@ test('the iishanten profile weights each selected wait first, then each physical
   assert.ok(node.yaku.iipeikou > 0 && node.yaku.iipeikou < 1);
 });
 
-test('Max shows a live red winning tile, its only legal method and its scoring yaku', () => {
-  const m = prep('1m 2m 3m 7m 8m 9m 1p 2p 3p 3s 4s E E C'.split(' '), { discards: [[3, '2s']] });
-  const stat = m.discard_stats.find(s => s.tile === 'C');
-  assert.equal(stat.shanten, 0);
-  const p = ctx.haipaiScoredValue.profile(m, 'C', stat);
-  const html = ctx.renderMaxScoredHand(m, 'C', stat, false, p);
-  assert.match(html, /alt="5sr" title="Winning tile: 5sr"/);
-  assert.match(html, /menzen tsumo/);
-  assert.match(html, /dora 1/);
-  assert.match(html, />Tsumo</);
-  assert.doesNotMatch(html, />Ron<|alt="C"/);
-  assert.ok(html.includes(`>${p.maxPoints.toLocaleString()}<`));
-  assert.equal((html.match(/<img /g) || []).length, 14);
-});
-
-test('Max does not show a completed hand for live waits without yaku', () => {
-  const chi = { type: 'chi', pai: '1m', consumed: ['2m', '3m'], target: 2 };
-  const m = prep('7m 8m 9m 1p 2p 3p 3s 4s E E C'.split(' '),
-    { melds: [chi], discards: [[2, '1m']], meldEvents: [{ ...chi, actor: 3 }] });
-  const stat = m.discard_stats.find(s => s.tile === 'C');
-  const p = ctx.haipaiScoredValue.profile(m, 'C', stat);
-  assert.equal(p.maxPoints, 0);
-  assert.match(ctx.renderMaxScoredHand(m, 'C', stat, false, p), /No live scoring wins/);
-});
-
 test('#m42402: on a 1p draw only the cut with iipeikou on 2s earns Best', () => {
   // Encounter the lower-value cut first; selection must not depend on hand order.
   const m = prep([...hand42402].reverse(), { discards: rivers42402 });

@@ -6,8 +6,7 @@
     Object.assign(root, factory(root, root, root.haipaiPrepTiles, root.haipaiPrepBoardState));
   }
 }(globalThis, function (vendor, { _AKA_TILE_FOR_BASE, _meldTiles, _expandWaitsForAka, _iishantenRiichiFlags,
-  _scoreTenpaiWaits, scoringDiscardRiver, profileWaitScores, evalDiscardScores, _evalWaitScore,
-  renderRiichiScoreCell }, haipaiPrepTiles, haipaiPrepBoardState) {
+  _scoreTenpaiWaits, scoringDiscardRiver, profileWaitScores }, haipaiPrepTiles, haipaiPrepBoardState) {
 
 // One draw beyond a specific iishanten discard. The wall describes unseen
 // copies, not the actual wall order or a probability of winning. A draw is
@@ -140,38 +139,5 @@ function analyzeIishanten(m, discardTile, stat) {
   return result;
 }
 
-function renderMaxScoredHand(m, discardTile, stat, riichi, profile) {
-  const unavailable = '<small class="dim">Win value unavailable</small>';
-  if (!profile) return unavailable;
-  if (profile.maxPoints === 0) return '<small class="dim">No live scoring wins</small>';
-
-  const groups = evalDiscardScores(m, discardTile, stat.necessary_tiles, riichi);
-  const group = groups?.find(g => (g.ron?.ten === profile.maxPoints || g.tsumo?.ten === profile.maxPoints)
-    && g.tiles.some(t => t.count > 0));
-  if (!group) return unavailable;
-  const tile = group.tiles.find(t => t.count > 0).tile;
-  const tsumo = group.ron?.ten !== profile.maxPoints;
-  const method = tsumo ? "tsumo" : "ron";
-  const hand = m.hand.slice();
-  hand.splice(hand.indexOf(discardTile), 1);
-
-  // The profile hides situational labels such as menzen tsumo. Ask the same
-  // scorer for the full yaku of this one hand, under the original flags.
-  const score = _evalWaitScore(hand, tile, m, { tsumo, riichi: riichi && (m.melds || []).every(b => b.type === "ankan"),
-    includeSituational: true });
-  if (score?.ten !== profile.maxPoints) return unavailable;
-  const order = haipaiPrepTiles.MJAI_TO_RT;
-  hand.sort((a, b) => order[a] - order[b] || a.length - b.length);
-  let html = '<div class="max-scored-hand" role="group" aria-label="Winning hand"><span class="tiles">'
-    + hand.map(t => renderTile(t, "tile-sm")).join("")
-    + renderTile(tile, "tile-sm draw", `Winning tile: ${tile}`) + '</span>';
-  if (m.melds?.length) {
-    const seat = mistakeActorSeat(m), oya = mistakeOya(m), dora = getDoraTiles(m.board_state);
-    html += '<span class="inline-melds" role="group" aria-label="Fixed melds">'
-      + m.melds.map(meld => renderMeld(meld, "action-tile-sm", seat, dora, oya)).join("") + '</span>';
-  }
-  return html + '</div>' + renderRiichiScoreCell([{ ...score, winning: true, tiles: [], [method]: score }], false);
-}
-
-return { analyzeIishanten, renderMaxScoredHand };
+return { analyzeIishanten };
 }));
