@@ -1727,6 +1727,11 @@
   font-size: 12px;
   width: 100%;
 }
+.ev-table caption {
+  padding: 4px 8px;
+  color: var(--text-dim);
+  text-align: start;
+}
 
 .ev-table th {
   font-size: 10px;
@@ -2631,13 +2636,6 @@
   border-left: 3px solid rgba(255, 200, 80, 0.5);
 }
 
-/* Inline hint when Mortal raised shanten on a 5A — distinct from the header
-   badge so it reads as part of the prose, not a chip. */
-.raised-shanten-hint {
-  display: inline;
-  color: #ffd28a;
-}
-
 .mascot-speech .speech-bubble {
   position: relative;
   font-size: 14px;
@@ -2953,9 +2951,20 @@
   width: auto;
 }
 
-/* Feature-summary row: per-pick pills summarising every dimension the
-   categorizer gathers (ukeire / dora / dora-acceptance / safety = positive,
-   shanten = negative). Pills wrap within the cell. */
+/* Summary shows each pick's Value data, then its winning feature pills. */
+.scored-profile {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+}
+.scored-profile > span { white-space: nowrap; }
+.scored-profile > div { flex-basis: 100%; }
+.scored-profile + .feat-pills { margin-top: 4px; }
+
 .feat-pills {
   display: inline-flex;
   flex-wrap: wrap;
@@ -3041,11 +3050,6 @@
 .feat-pill-tiles .tile-sm {
   height: 18px !important;
   width: auto;
-}
-
-.yaku-hints {
-  display: inline-block;
-  margin: 4px 0;
 }
 
 .yaku-tag {

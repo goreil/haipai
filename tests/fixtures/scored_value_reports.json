@@ -1,0 +1,509 @@
+[
+  {
+    "report_ids": [196],
+    "mistake": {
+      "hand": ["3m","4m","5m","2p","3p","4p","5p","8p","9p","1s","2s","3s","7s","8s"],
+      "melds": [],
+      "shanten": 1,
+      "draw": "8s",
+      "actual": {"type":"dahai","actor":0,"pai":"2p","tsumogiri":false},
+      "expected": {"type":"dahai","actor":0,"pai":"8p","tsumogiri":false},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":0,"pai":"8p","tsumogiri":false},"q_value":0.0501,"prob":0.9543},
+        {"action":{"type":"dahai","actor":0,"pai":"9p","tsumogiri":false},"q_value":-0.2539,"prob":0.0456},
+        {"action":{"type":"dahai","actor":0,"pai":"5p","tsumogiri":false},"q_value":-1.1311,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"2p","tsumogiri":false},"q_value":-1.1612,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"1s","tsumogiri":false},"q_value":-1.1931,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"7s","tsumogiri":false},"q_value":-1.2163,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"8s","tsumogiri":true},"q_value":-1.2365,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"5m","tsumogiri":false},"q_value":-1.281,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"3m","tsumogiri":false},"q_value":-1.3004,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"2s","tsumogiri":false},"q_value":-1.3073,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"3s","tsumogiri":false},"q_value":-1.3079,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"4m","tsumogiri":false},"q_value":-1.3796,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"4p","tsumogiri":false},"q_value":-1.392,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"3p","tsumogiri":false},"q_value":-1.4297,"prob":0}
+      ],
+      "id": 19374,
+      "ev_loss": 1.21,
+      "turn": 5,
+      "board_state": {
+        "dora_indicators": ["3p"],
+        "dora_tiles": ["4p"],
+        "seat_wind": "N",
+        "round_wind": "S",
+        "scores": [50400,29300,5600,14700],
+        "all_discards": [{"seat":0,"discards":[{"tile":"W","tsumogiri":false},{"tile":"9m","tsumogiri":false},{"tile":"S","tsumogiri":false,"called_by":3},{"tile":"P","tsumogiri":false}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"1p","tsumogiri":false},{"tile":"1m","tsumogiri":false},{"tile":"P","tsumogiri":true},{"tile":"S","tsumogiri":false}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"W","tsumogiri":false},{"tile":"N","tsumogiri":false},{"tile":"2m","tsumogiri":false},{"tile":"E","tsumogiri":true}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"9s","tsumogiri":false},{"tile":"C","tsumogiri":false},{"tile":"W","tsumogiri":false},{"tile":"6s","tsumogiri":false},{"tile":"9m","tsumogiri":false}],"riichi_idx":null}],
+        "opponent_melds": [{"seat":3,"melds":[{"type":"pon","consumed":["S","S"],"pai":"S","target":0}]}],
+        "tiles_left": 53,
+        "yaku": {"3":[{"type":"yakuhai","state":"locked","locked":[{"tile":"S","note":null}],"possible":[{"tile":"F","count":4,"inHand":0,"note":null},{"tile":"C","count":3,"inHand":0,"note":null}],"dead":[{"tile":"P","unseen":2,"inHand":0,"note":null},{"tile":"W","unseen":1,"inHand":0,"note":"seat"}]},{"type":"honitsu","state":"possible","support":1,"suits":["m","p","s"],"chinitsuReachable":false},{"type":"toitoi","state":"possible","support":1},{"type":"chanta","state":"possible","support":1,"junchanReachable":false}]}
+      },
+      "discard_stats": [
+        {"tile":"2p","shanten":1,"necessary_count":22,"necessary_tiles":[{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"5p","shanten":1,"necessary_count":22,"necessary_tiles":[{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"8p","shanten":1,"necessary_count":15,"necessary_tiles":[{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"9p","count":3},{"tile":"6s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"9p","shanten":1,"necessary_count":15,"necessary_tiles":[{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"8p","count":3},{"tile":"6s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"7s","shanten":1,"necessary_count":13,"necessary_tiles":[{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"7p","count":4},{"tile":"8s","count":3}]},
+        {"tile":"8s","shanten":1,"necessary_count":13,"necessary_tiles":[{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"7p","count":4},{"tile":"7s","count":3}]},
+        {"tile":"3m","shanten":2,"necessary_count":41,"necessary_tiles":[{"tile":"3m","count":3},{"tile":"4m","count":3},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"1s","shanten":2,"necessary_count":41,"necessary_tiles":[{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"1s","count":3},{"tile":"2s","count":3},{"tile":"3s","count":3},{"tile":"4s","count":4},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"5m","shanten":2,"necessary_count":40,"necessary_tiles":[{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":3},{"tile":"5m","count":3,"aka_count":1},{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"4m","shanten":2,"necessary_count":37,"necessary_tiles":[{"tile":"3m","count":3},{"tile":"4m","count":3},{"tile":"5m","count":3,"aka_count":1},{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"3p","shanten":2,"necessary_count":37,"necessary_tiles":[{"tile":"2p","count":3},{"tile":"3p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"6p","count":4},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"2s","shanten":2,"necessary_count":37,"necessary_tiles":[{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"1s","count":3},{"tile":"2s","count":3},{"tile":"3s","count":3},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"3s","shanten":2,"necessary_count":37,"necessary_tiles":[{"tile":"2p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"1s","count":3},{"tile":"2s","count":3},{"tile":"3s","count":3},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"4p","shanten":2,"necessary_count":36,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"2p","count":3},{"tile":"3p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":3,"aka_count":1},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":3}]}
+      ],
+      "iishanten_wall": [3,3,3,3,3,4,4,4,2,3,3,2,3,3,4,4,3,3,3,3,3,4,4,3,3,3,3,3,0,1,3,2,4,3,1,1,1],
+      "best_discard": "2p"
+    }
+  },
+  {
+    "report_ids": [200],
+    "mistake": {
+      "hand": ["4m","5m","2p","2p","4p","4p","6p","2s","3s","3s","3m"],
+      "melds": [{"type":"chi","target":1,"pai":"4m","consumed":["3m","5m"]}],
+      "shanten": 2,
+      "draw": "3m",
+      "actual": {"type":"dahai","actor":2,"pai":"3s","tsumogiri":false},
+      "expected": {"type":"dahai","actor":2,"pai":"2s","tsumogiri":false},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":2,"pai":"2s","tsumogiri":false},"q_value":0.0496,"prob":0.9611},
+        {"action":{"type":"dahai","actor":2,"pai":"6p","tsumogiri":false},"q_value":-0.2759,"prob":0.0371},
+        {"action":{"type":"dahai","actor":2,"pai":"4p","tsumogiri":false},"q_value":-0.576,"prob":0.0018},
+        {"action":{"type":"dahai","actor":2,"pai":"3s","tsumogiri":false},"q_value":-1.0604,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"5m","tsumogiri":false},"q_value":-1.1872,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"3m","tsumogiri":true},"q_value":-1.3713,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"4m","tsumogiri":false},"q_value":-1.3735,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"2p","tsumogiri":false},"q_value":-1.4708,"prob":0}
+      ],
+      "id": 19557,
+      "ev_loss": 1.11,
+      "turn": 7,
+      "board_state": {
+        "dora_indicators": ["1p"],
+        "dora_tiles": ["2p"],
+        "seat_wind": "W",
+        "round_wind": "S",
+        "scores": [84000,9800,3200,3000],
+        "all_discards": [{"seat":0,"discards":[{"tile":"W","tsumogiri":false},{"tile":"N","tsumogiri":false},{"tile":"2s","tsumogiri":false},{"tile":"F","tsumogiri":false,"called_by":1},{"tile":"P","tsumogiri":true},{"tile":"F","tsumogiri":true},{"tile":"E","tsumogiri":true}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"9p","tsumogiri":false},{"tile":"1s","tsumogiri":true},{"tile":"7p","tsumogiri":false},{"tile":"4m","tsumogiri":false},{"tile":"8p","tsumogiri":true},{"tile":"4m","tsumogiri":false,"called_by":2},{"tile":"8s","tsumogiri":false}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"W","tsumogiri":false},{"tile":"1p","tsumogiri":false},{"tile":"C","tsumogiri":true},{"tile":"E","tsumogiri":false},{"tile":"9m","tsumogiri":false},{"tile":"8s","tsumogiri":false}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"C","tsumogiri":true},{"tile":"8m","tsumogiri":true},{"tile":"3m","tsumogiri":true},{"tile":"7p","tsumogiri":true},{"tile":"3p","tsumogiri":true},{"tile":"9p","tsumogiri":true}],"riichi_idx":null}],
+        "opponent_melds": [{"seat":1,"melds":[{"type":"pon","consumed":["F","F"],"pai":"F","target":0}]}],
+        "tiles_left": 45,
+        "yaku": {"1":[{"type":"yakuhai","state":"locked","locked":[{"tile":"F","note":null}],"possible":[{"tile":"P","count":3,"inHand":0,"note":null},{"tile":"S","count":4,"inHand":0,"note":"round + seat"}],"dead":[{"tile":"C","unseen":2,"inHand":0,"note":null}]},{"type":"honitsu","state":"possible","support":1,"suits":["m","p","s"],"chinitsuReachable":false},{"type":"toitoi","state":"possible","support":1},{"type":"chanta","state":"possible","support":1,"junchanReachable":false}]}
+      },
+      "discard_stats": [
+        {"tile":"6p","shanten":1,"necessary_count":16,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"1s","count":3},{"tile":"3s","count":2},{"tile":"4s","count":4}]},
+        {"tile":"4p","shanten":1,"necessary_count":15,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"1s","count":3},{"tile":"3s","count":2},{"tile":"4s","count":4}]},
+        {"tile":"3s","shanten":1,"necessary_count":15,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"1s","count":3},{"tile":"4s","count":4}]},
+        {"tile":"2s","shanten":1,"necessary_count":13,"necessary_tiles":[{"tile":"2p","count":2},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"3s","count":2}]},
+        {"tile":"2p","shanten":1,"necessary_count":7,"necessary_tiles":[{"tile":"3p","count":3},{"tile":"5p","count":4,"aka_count":1}]},
+        {"tile":"5m","shanten":2,"necessary_count":26,"necessary_tiles":[{"tile":"2m","count":4},{"tile":"5m","count":2,"aka_count":1},{"tile":"2p","count":2},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"1s","count":3},{"tile":"3s","count":2},{"tile":"4s","count":4}]},
+        {"tile":"3m","shanten":2,"necessary_count":25,"necessary_tiles":[{"tile":"3m","count":1},{"tile":"6m","count":4},{"tile":"2p","count":2},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"1s","count":3},{"tile":"3s","count":2},{"tile":"4s","count":4}]},
+        {"tile":"4m","shanten":2,"necessary_count":21,"necessary_tiles":[{"tile":"4m","count":1},{"tile":"2p","count":2},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"1s","count":3},{"tile":"3s","count":2},{"tile":"4s","count":4}]}
+      ],
+      "iishanten_wall": [4,4,1,1,2,4,4,3,3,2,2,3,2,4,3,2,3,2,3,2,2,4,4,4,4,2,4,2,4,2,3,3,0,2,1,1,1],
+      "best_discard": "6p"
+    }
+  },
+  {
+    "report_ids": [269],
+    "mistake": {
+      "hand": ["5m","6m","4p","4p","7p","8p","8p","2p"],
+      "melds": [{"type":"chi","target":0,"pai":"5s","consumed":["3s","4s"]},{"type":"pon","target":2,"pai":"2m","consumed":["2m","2m"]}],
+      "shanten": 1,
+      "draw": "2p",
+      "actual": {"type":"dahai","actor":1,"pai":"2p","tsumogiri":true},
+      "expected": {"type":"dahai","actor":1,"pai":"7p","tsumogiri":false},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":1,"pai":"7p","tsumogiri":false},"q_value":-0.1228,"prob":0.9737},
+        {"action":{"type":"dahai","actor":1,"pai":"2p","tsumogiri":true},"q_value":-0.4846,"prob":0.0261},
+        {"action":{"type":"dahai","actor":1,"pai":"8p","tsumogiri":false},"q_value":-1.0693,"prob":0.0001},
+        {"action":{"type":"dahai","actor":1,"pai":"4p","tsumogiri":false},"q_value":-1.1781,"prob":0},
+        {"action":{"type":"dahai","actor":1,"pai":"5m","tsumogiri":false},"q_value":-1.3023,"prob":0},
+        {"action":{"type":"dahai","actor":1,"pai":"6m","tsumogiri":false},"q_value":-1.4339,"prob":0}
+      ],
+      "id": 36285,
+      "ev_loss": 0.36,
+      "turn": 8,
+      "board_state": {
+        "dora_indicators": ["6m"],
+        "dora_tiles": ["7m"],
+        "seat_wind": "N",
+        "round_wind": "E",
+        "scores": [19800,25000,32200,23000],
+        "all_discards": [{"seat":0,"discards":[{"tile":"9s","tsumogiri":false},{"tile":"9p","tsumogiri":true},{"tile":"N","tsumogiri":false},{"tile":"1p","tsumogiri":true},{"tile":"C","tsumogiri":false},{"tile":"5s","tsumogiri":false,"called_by":1},{"tile":"E","tsumogiri":true}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"1p","tsumogiri":false},{"tile":"1s","tsumogiri":false},{"tile":"F","tsumogiri":true},{"tile":"8m","tsumogiri":false},{"tile":"S","tsumogiri":false},{"tile":"S","tsumogiri":false},{"tile":"1m","tsumogiri":false}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"N","tsumogiri":false},{"tile":"C","tsumogiri":false},{"tile":"F","tsumogiri":true},{"tile":"1m","tsumogiri":false},{"tile":"5p","tsumogiri":false},{"tile":"4m","tsumogiri":false},{"tile":"2m","tsumogiri":false,"called_by":1},{"tile":"3s","tsumogiri":false}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"9p","tsumogiri":true},{"tile":"1p","tsumogiri":false},{"tile":"N","tsumogiri":false},{"tile":"C","tsumogiri":false},{"tile":"S","tsumogiri":false},{"tile":"P","tsumogiri":false,"called_by":0},{"tile":"E","tsumogiri":false}],"riichi_idx":null}],
+        "opponent_melds": [{"seat":0,"melds":[{"type":"pon","consumed":["P","P"],"pai":"P","target":3}]}],
+        "tiles_left": 43,
+        "yaku": {"0":[{"type":"yakuhai","state":"locked","locked":[{"tile":"P","note":null}],"possible":[{"tile":"W","count":4,"inHand":0,"note":"seat"}],"dead":[{"tile":"F","unseen":2,"inHand":0,"note":null},{"tile":"C","unseen":1,"inHand":0,"note":null},{"tile":"E","unseen":2,"inHand":0,"note":null}]},{"type":"honitsu","state":"possible","support":1,"suits":["m","p","s"],"chinitsuReachable":false},{"type":"toitoi","state":"possible","support":1},{"type":"chanta","state":"possible","support":1,"junchanReachable":false}]}
+      },
+      "discard_stats": [
+        {"tile":"2p","shanten":1,"necessary_count":17,"necessary_tiles":[{"tile":"4m","count":3},{"tile":"7m","count":4},{"tile":"4p","count":2},{"tile":"6p","count":4},{"tile":"8p","count":2},{"tile":"9p","count":2}]},
+        {"tile":"7p","shanten":1,"necessary_count":15,"necessary_tiles":[{"tile":"4m","count":3},{"tile":"7m","count":4},{"tile":"3p","count":4},{"tile":"4p","count":2},{"tile":"8p","count":2}]},
+        {"tile":"8p","shanten":1,"necessary_count":13,"necessary_tiles":[{"tile":"4m","count":3},{"tile":"7m","count":4},{"tile":"6p","count":4},{"tile":"9p","count":2}]},
+        {"tile":"4p","shanten":1,"necessary_count":11,"necessary_tiles":[{"tile":"4m","count":3},{"tile":"7m","count":4},{"tile":"3p","count":4}]},
+        {"tile":"6m","shanten":2,"necessary_count":40,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":3},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":2},{"tile":"7m","count":4},{"tile":"1p","count":1},{"tile":"2p","count":3},{"tile":"3p","count":4},{"tile":"4p","count":2},{"tile":"5p","count":3,"aka_count":1},{"tile":"6p","count":4},{"tile":"7p","count":3},{"tile":"8p","count":2},{"tile":"9p","count":2}]},
+        {"tile":"5m","shanten":2,"necessary_count":39,"necessary_tiles":[{"tile":"4m","count":3},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":2},{"tile":"7m","count":4},{"tile":"8m","count":3},{"tile":"1p","count":1},{"tile":"2p","count":3},{"tile":"3p","count":4},{"tile":"4p","count":2},{"tile":"5p","count":3,"aka_count":1},{"tile":"6p","count":4},{"tile":"7p","count":3},{"tile":"8p","count":2},{"tile":"9p","count":2}]}
+      ],
+      "iishanten_wall": [2,1,4,3,3,2,4,3,4,1,3,4,2,3,4,3,2,2,3,4,2,3,3,4,4,4,3,2,1,4,1,1,2,1,1,1,1],
+      "best_discard": "2p"
+    }
+  },
+  {
+    "report_ids": [273],
+    "mistake": {
+      "hand": ["1m","2m","3m","6m","6m","8m","8m","8m","3p","4p","6s","6s","8s","3m"],
+      "melds": [],
+      "shanten": 1,
+      "draw": "3m",
+      "actual": {"type":"dahai","actor":3,"pai":"3m","tsumogiri":true},
+      "expected": {"type":"dahai","actor":3,"pai":"8s","tsumogiri":false},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":3,"pai":"8s","tsumogiri":false},"q_value":0.5045,"prob":0.9941},
+        {"action":{"type":"dahai","actor":3,"pai":"3m","tsumogiri":true},"q_value":-0.0104,"prob":0.0058},
+        {"action":{"type":"dahai","actor":3,"pai":"1m","tsumogiri":false},"q_value":-0.3855,"prob":0.0001},
+        {"action":{"type":"dahai","actor":3,"pai":"2m","tsumogiri":false},"q_value":-0.8662,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"6m","tsumogiri":false},"q_value":-0.8919,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"4p","tsumogiri":false},"q_value":-0.9767,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"8m","tsumogiri":false},"q_value":-0.9956,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"6s","tsumogiri":false},"q_value":-1.0177,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"3p","tsumogiri":false},"q_value":-1.038,"prob":0}
+      ],
+      "id": 38391,
+      "ev_loss": 0.51,
+      "turn": 3,
+      "board_state": {
+        "dora_indicators": ["5sr"],
+        "dora_tiles": ["6s"],
+        "seat_wind": "S",
+        "round_wind": "S",
+        "scores": [42500,21900,25500,10100],
+        "all_discards": [{"seat":0,"discards":[{"tile":"F","tsumogiri":false}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"4p","tsumogiri":false}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"9s","tsumogiri":false},{"tile":"9m","tsumogiri":false},{"tile":"9m","tsumogiri":true}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"C","tsumogiri":false,"called_by":2},{"tile":"3s","tsumogiri":false}],"riichi_idx":null}],
+        "opponent_melds": [{"seat":2,"melds":[{"type":"pon","consumed":["C","C"],"pai":"C","target":3}]}],
+        "tiles_left": 63,
+        "yaku": {"2":[{"type":"yakuhai","state":"locked","locked":[{"tile":"C","note":null}],"possible":[{"tile":"P","count":4,"inHand":0,"note":null},{"tile":"F","count":3,"inHand":0,"note":null},{"tile":"S","count":4,"inHand":0,"note":null},{"tile":"E","count":4,"inHand":0,"note":"seat"}],"dead":[]},{"type":"honitsu","state":"possible","support":1,"suits":["m","p","s"],"chinitsuReachable":false},{"type":"toitoi","state":"possible","support":1},{"type":"chanta","state":"possible","support":1,"junchanReachable":false}]}
+      },
+      "discard_stats": [
+        {"tile":"3m","shanten":1,"necessary_count":16,"necessary_tiles":[{"tile":"6m","count":2},{"tile":"2p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6s","count":2},{"tile":"7s","count":4}]},
+        {"tile":"6s","shanten":1,"necessary_count":12,"necessary_tiles":[{"tile":"2p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"7s","count":4}]},
+        {"tile":"8s","shanten":1,"necessary_count":12,"necessary_tiles":[{"tile":"6m","count":2},{"tile":"2p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6s","count":2}]},
+        {"tile":"3p","shanten":2,"necessary_count":54,"necessary_tiles":[{"tile":"1m","count":3},{"tile":"2m","count":3},{"tile":"3m","count":2},{"tile":"4m","count":4},{"tile":"5m","count":4,"aka_count":1},{"tile":"6m","count":2},{"tile":"2p","count":4},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":4},{"tile":"4s","count":4},{"tile":"5s","count":3},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"4p","shanten":2,"necessary_count":54,"necessary_tiles":[{"tile":"1m","count":3},{"tile":"2m","count":3},{"tile":"3m","count":2},{"tile":"4m","count":4},{"tile":"5m","count":4,"aka_count":1},{"tile":"6m","count":2},{"tile":"1p","count":4},{"tile":"2p","count":4},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"4s","count":4},{"tile":"5s","count":3},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"6m","shanten":2,"necessary_count":43,"necessary_tiles":[{"tile":"1m","count":3},{"tile":"2m","count":3},{"tile":"3m","count":2},{"tile":"4m","count":4},{"tile":"5m","count":4,"aka_count":1},{"tile":"6m","count":2},{"tile":"7m","count":4},{"tile":"8m","count":1},{"tile":"2p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"8s","count":3},{"tile":"9s","count":3}]},
+        {"tile":"1m","shanten":2,"necessary_count":36,"necessary_tiles":[{"tile":"1m","count":3},{"tile":"2m","count":3},{"tile":"3m","count":2},{"tile":"4m","count":4},{"tile":"6m","count":2},{"tile":"2p","count":4},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"8s","count":3}]},
+        {"tile":"8m","shanten":2,"necessary_count":35,"necessary_tiles":[{"tile":"1m","count":3},{"tile":"2m","count":3},{"tile":"6m","count":2},{"tile":"7m","count":4},{"tile":"8m","count":1},{"tile":"2p","count":4},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"8s","count":3}]},
+        {"tile":"2m","shanten":2,"necessary_count":32,"necessary_tiles":[{"tile":"1m","count":3},{"tile":"2m","count":3},{"tile":"3m","count":2},{"tile":"6m","count":2},{"tile":"2p","count":4},{"tile":"3p","count":3},{"tile":"4p","count":2},{"tile":"5p","count":4,"aka_count":1},{"tile":"6s","count":2},{"tile":"7s","count":4},{"tile":"8s","count":3}]}
+      ],
+      "iishanten_wall": [3,3,2,4,4,2,4,1,2,4,4,3,2,4,4,4,4,4,4,4,3,4,3,2,4,3,3,4,4,4,4,4,3,1,1,1,0],
+      "best_discard": "3m"
+    }
+  },
+  {
+    "report_ids": [279],
+    "mistake": {
+      "hand": ["3m","5mr","6m","7m","8m","8m","8m","2p","3p","4p","6s","7s","7s","6p"],
+      "melds": [],
+      "shanten": 1,
+      "draw": "6p",
+      "actual": {"type":"dahai","actor":3,"pai":"6s","tsumogiri":false},
+      "expected": {"type":"dahai","actor":3,"pai":"6p","tsumogiri":true},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":3,"pai":"6p","tsumogiri":true},"q_value":0.6318,"prob":1},
+        {"action":{"type":"dahai","actor":3,"pai":"7s","tsumogiri":false},"q_value":-0.6126,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"3m","tsumogiri":false},"q_value":-0.7483,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"6s","tsumogiri":false},"q_value":-1.1603,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"2p","tsumogiri":false},"q_value":-1.2171,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"3p","tsumogiri":false},"q_value":-1.2997,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"4p","tsumogiri":false},"q_value":-1.3848,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"8m","tsumogiri":false},"q_value":-1.3945,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"7m","tsumogiri":false},"q_value":-1.5067,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"5mr","tsumogiri":false},"q_value":-1.5109,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"6m","tsumogiri":false},"q_value":-1.5802,"prob":0}
+      ],
+      "id": 607,
+      "ev_loss": 1.79,
+      "turn": 6,
+      "board_state": {
+        "dora_indicators": ["5m"],
+        "dora_tiles": ["6m"],
+        "seat_wind": "S",
+        "round_wind": "E",
+        "scores": [25000,16300,37300,21400],
+        "all_discards": [{"seat":0,"discards":[{"tile":"N","tsumogiri":false},{"tile":"S","tsumogiri":false},{"tile":"9s","tsumogiri":false},{"tile":"F","tsumogiri":false},{"tile":"C","tsumogiri":false}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"9p","tsumogiri":false},{"tile":"N","tsumogiri":true},{"tile":"E","tsumogiri":false},{"tile":"8s","tsumogiri":false},{"tile":"2s","tsumogiri":false}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"S","tsumogiri":false},{"tile":"1p","tsumogiri":false},{"tile":"F","tsumogiri":false},{"tile":"1p","tsumogiri":true},{"tile":"E","tsumogiri":false},{"tile":"2m","tsumogiri":false}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"W","tsumogiri":false},{"tile":"N","tsumogiri":true},{"tile":"F","tsumogiri":false},{"tile":"9s","tsumogiri":false},{"tile":"8p","tsumogiri":false}],"riichi_idx":null}],
+        "opponent_melds": [],
+        "tiles_left": 48
+      },
+      "discard_stats": [
+        {"tile":"6s","shanten":1,"necessary_count":38,"necessary_tiles":[{"tile":"1m","count":4},{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"5m","count":2},{"tile":"8m","count":1},{"tile":"1p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"7s","count":2}]},
+        {"tile":"3m","shanten":1,"necessary_count":35,"necessary_tiles":[{"tile":"1p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"4s","count":4},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":2},{"tile":"8s","count":3}]},
+        {"tile":"6p","shanten":1,"necessary_count":33,"necessary_tiles":[{"tile":"1m","count":4},{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"5m","count":2},{"tile":"8m","count":1},{"tile":"4s","count":4},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":2},{"tile":"8s","count":3}]},
+        {"tile":"7s","shanten":1,"necessary_count":17,"necessary_tiles":[{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"6p","count":3},{"tile":"5s","count":4,"aka_count":1},{"tile":"8s","count":3}]},
+        {"tile":"8m","shanten":2,"necessary_count":64,"necessary_tiles":[{"tile":"1m","count":4},{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"5m","count":2},{"tile":"6m","count":3},{"tile":"7m","count":3},{"tile":"8m","count":1},{"tile":"9m","count":4},{"tile":"1p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"4s","count":4},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":2},{"tile":"8s","count":3},{"tile":"9s","count":2}]},
+        {"tile":"6m","shanten":2,"necessary_count":62,"necessary_tiles":[{"tile":"1m","count":4},{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"5m","count":2},{"tile":"6m","count":3},{"tile":"7m","count":3},{"tile":"8m","count":1},{"tile":"9m","count":4},{"tile":"1p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"4s","count":4},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":2},{"tile":"8s","count":3}]},
+        {"tile":"7m","shanten":2,"necessary_count":58,"necessary_tiles":[{"tile":"1m","count":4},{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"5m","count":2},{"tile":"6m","count":3},{"tile":"7m","count":3},{"tile":"8m","count":1},{"tile":"1p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"4s","count":4},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":2},{"tile":"8s","count":3}]},
+        {"tile":"2p","shanten":2,"necessary_count":58,"necessary_tiles":[{"tile":"1m","count":4},{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"5m","count":2},{"tile":"8m","count":1},{"tile":"1p","count":2},{"tile":"2p","count":3},{"tile":"3p","count":3},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"4s","count":4},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":2},{"tile":"8s","count":3}]},
+        {"tile":"3p","shanten":2,"necessary_count":58,"necessary_tiles":[{"tile":"1m","count":4},{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"5m","count":2},{"tile":"8m","count":1},{"tile":"1p","count":2},{"tile":"2p","count":3},{"tile":"3p","count":3},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"4s","count":4},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":2},{"tile":"8s","count":3}]},
+        {"tile":"5mr","shanten":2,"necessary_count":54,"necessary_tiles":[{"tile":"1m","count":4},{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"5m","count":2},{"tile":"8m","count":1},{"tile":"1p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"4s","count":4},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":2},{"tile":"8s","count":3},{"tile":"9s","count":2}]},
+        {"tile":"4p","shanten":2,"necessary_count":52,"necessary_tiles":[{"tile":"1m","count":4},{"tile":"2m","count":3},{"tile":"3m","count":3},{"tile":"4m","count":4},{"tile":"5m","count":2},{"tile":"8m","count":1},{"tile":"1p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":4},{"tile":"8p","count":3},{"tile":"4s","count":4},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":2},{"tile":"8s","count":3}]}
+      ],
+      "iishanten_wall": [4,3,3,4,2,3,3,1,4,2,3,3,3,4,3,4,3,3,4,3,4,4,4,3,2,3,2,2,2,3,1,4,1,3,0,1,1],
+      "best_discard": "6s"
+    }
+  },
+  {
+    "report_ids": [280],
+    "mistake": {
+      "hand": ["4m","4m","5m","7m","8m","9m","6p","7p","8p","9p","7s","8s","9s","5s"],
+      "melds": [],
+      "shanten": 1,
+      "draw": "5s",
+      "actual": {"type":"dahai","actor":0,"pai":"5m","tsumogiri":false},
+      "expected": {"type":"dahai","actor":0,"pai":"5s","tsumogiri":true},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":0,"pai":"5s","tsumogiri":true},"q_value":0.3003,"prob":1},
+        {"action":{"type":"dahai","actor":0,"pai":"6p","tsumogiri":false},"q_value":-0.8742,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"4m","tsumogiri":false},"q_value":-1.1899,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"9p","tsumogiri":false},"q_value":-1.2009,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"5m","tsumogiri":false},"q_value":-1.2464,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"9s","tsumogiri":false},"q_value":-1.3909,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"9m","tsumogiri":false},"q_value":-1.4294,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"8p","tsumogiri":false},"q_value":-1.4649,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"8m","tsumogiri":false},"q_value":-1.4755,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"8s","tsumogiri":false},"q_value":-1.5224,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"7m","tsumogiri":false},"q_value":-1.5453,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"7p","tsumogiri":false},"q_value":-1.5792,"prob":0},
+        {"action":{"type":"dahai","actor":0,"pai":"7s","tsumogiri":false},"q_value":-1.596,"prob":0}
+      ],
+      "id": 34648,
+      "ev_loss": 1.55,
+      "turn": 5,
+      "board_state": {
+        "dora_indicators": ["F"],
+        "dora_tiles": ["C"],
+        "seat_wind": "S",
+        "round_wind": "E",
+        "scores": [25400,25000,26600,23000],
+        "all_discards": [{"seat":0,"discards":[{"tile":"1m","tsumogiri":false},{"tile":"E","tsumogiri":false},{"tile":"2p","tsumogiri":false},{"tile":"4s","tsumogiri":false}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"F","tsumogiri":false},{"tile":"1m","tsumogiri":false},{"tile":"N","tsumogiri":false,"called_by":2},{"tile":"7m","tsumogiri":false}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"W","tsumogiri":false},{"tile":"8s","tsumogiri":false},{"tile":"5s","tsumogiri":false},{"tile":"S","tsumogiri":true}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"9p","tsumogiri":false},{"tile":"P","tsumogiri":false},{"tile":"9s","tsumogiri":false},{"tile":"1s","tsumogiri":false},{"tile":"3s","tsumogiri":false}],"riichi_idx":null}],
+        "opponent_melds": [{"seat":2,"melds":[{"type":"pon","consumed":["N","N"],"pai":"N","target":1}]}],
+        "tiles_left": 53,
+        "yaku": {"2":[{"type":"yakuhai","state":"locked","locked":[{"tile":"N","note":"seat"}],"possible":[{"tile":"P","count":3,"inHand":0,"note":null},{"tile":"C","count":4,"inHand":0,"note":null},{"tile":"E","count":3,"inHand":0,"note":null}],"dead":[{"tile":"F","unseen":2,"inHand":0,"note":null}]},{"type":"honitsu","state":"possible","support":1,"suits":["m","p","s"],"chinitsuReachable":false},{"type":"toitoi","state":"possible","support":1},{"type":"chanta","state":"possible","support":1,"junchanReachable":false}]}
+      },
+      "discard_stats": [
+        {"tile":"5m","shanten":1,"necessary_count":36,"necessary_tiles":[{"tile":"4m","count":2},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3}]},
+        {"tile":"5s","shanten":1,"necessary_count":34,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2}]},
+        {"tile":"6p","shanten":1,"necessary_count":30,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3}]},
+        {"tile":"9p","shanten":1,"necessary_count":30,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3}]},
+        {"tile":"4m","shanten":1,"necessary_count":15,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"6m","count":4},{"tile":"6p","count":3},{"tile":"9p","count":2},{"tile":"5s","count":2,"aka_count":1}]},
+        {"tile":"8m","shanten":2,"necessary_count":55,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"8m","count":3},{"tile":"9m","count":3},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3}]},
+        {"tile":"9m","shanten":2,"necessary_count":55,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"8m","count":3},{"tile":"9m","count":3},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3}]},
+        {"tile":"8s","shanten":2,"necessary_count":53,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3},{"tile":"8s","count":2},{"tile":"9s","count":2}]},
+        {"tile":"9s","shanten":2,"necessary_count":53,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3},{"tile":"8s","count":2},{"tile":"9s","count":2}]},
+        {"tile":"7m","shanten":2,"necessary_count":49,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3}]},
+        {"tile":"7p","shanten":2,"necessary_count":49,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3}]},
+        {"tile":"8p","shanten":2,"necessary_count":49,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3}]},
+        {"tile":"7s","shanten":2,"necessary_count":49,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3,"aka_count":1},{"tile":"6m","count":4},{"tile":"7m","count":2},{"tile":"4p","count":4},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":3},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":2},{"tile":"3s","count":3},{"tile":"4s","count":3},{"tile":"5s","count":2,"aka_count":1},{"tile":"6s","count":4},{"tile":"7s","count":3}]}
+      ],
+      "iishanten_wall": [2,4,4,2,3,4,2,3,3,4,3,4,4,4,3,3,3,2,3,4,3,3,2,4,3,2,2,3,3,3,1,3,2,4,1,1,1],
+      "best_discard": "5m"
+    }
+  },
+  {
+    "report_ids": [282],
+    "mistake": {
+      "hand": ["2p","3p","2s","3s","4s","5sr","5s","N","N","F","F"],
+      "melds": [{"type":"chi","target":1,"pai":"9s","consumed":["7s","8s"]}],
+      "shanten": 1,
+      "draw": "9s",
+      "actual": {"type":"dahai","actor":2,"pai":"2s","tsumogiri":false},
+      "expected": {"type":"dahai","actor":2,"pai":"3p","tsumogiri":false},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":2,"pai":"3p","tsumogiri":false},"q_value":0.5435,"prob":0.9422},
+        {"action":{"type":"dahai","actor":2,"pai":"2p","tsumogiri":false},"q_value":0.2643,"prob":0.0578},
+        {"action":{"type":"dahai","actor":2,"pai":"5s","tsumogiri":false},"q_value":-0.5599,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"N","tsumogiri":false},"q_value":-0.6382,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"F","tsumogiri":false},"q_value":-0.6811,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"2s","tsumogiri":false},"q_value":-0.8758,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"5sr","tsumogiri":false},"q_value":-1.0322,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"3s","tsumogiri":false},"q_value":-1.0862,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"4s","tsumogiri":false},"q_value":-1.1425,"prob":0}
+      ],
+      "id": 15192,
+      "ev_loss": 1.42,
+      "turn": 5,
+      "board_state": {
+        "dora_indicators": ["2s"],
+        "dora_tiles": ["3s"],
+        "seat_wind": "W",
+        "round_wind": "E",
+        "scores": [25000,25000,25000,25000],
+        "all_discards": [{"seat":0,"discards":[{"tile":"9s","tsumogiri":false},{"tile":"9s","tsumogiri":true},{"tile":"E","tsumogiri":false},{"tile":"S","tsumogiri":false},{"tile":"C","tsumogiri":false,"called_by":1}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"W","tsumogiri":false},{"tile":"E","tsumogiri":true},{"tile":"9p","tsumogiri":false},{"tile":"9s","tsumogiri":false},{"tile":"9s","tsumogiri":false,"called_by":2}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"8m","tsumogiri":false},{"tile":"W","tsumogiri":false},{"tile":"P","tsumogiri":false},{"tile":"4s","tsumogiri":false}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"1p","tsumogiri":false},{"tile":"S","tsumogiri":false},{"tile":"W","tsumogiri":false},{"tile":"1m","tsumogiri":false}],"riichi_idx":null}],
+        "opponent_melds": [{"seat":1,"melds":[{"type":"pon","consumed":["C","C"],"pai":"C","target":0}]}],
+        "tiles_left": 53,
+        "yaku": {"1":[{"type":"yakuhai","state":"locked","locked":[{"tile":"C","note":null}],"possible":[{"tile":"P","count":3,"inHand":0,"note":null},{"tile":"F","count":4,"inHand":2,"note":null}],"dead":[{"tile":"E","unseen":2,"inHand":0,"note":null},{"tile":"S","unseen":2,"inHand":0,"note":"seat"}]},{"type":"honitsu","state":"possible","support":1,"suits":["m","p","s"],"chinitsuReachable":false},{"type":"toitoi","state":"possible","support":1},{"type":"chanta","state":"possible","support":1,"junchanReachable":false}]}
+      },
+      "discard_stats": [
+        {"tile":"2s","shanten":1,"necessary_count":11,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":4},{"tile":"N","count":2},{"tile":"F","count":2}]},
+        {"tile":"5sr","shanten":1,"necessary_count":11,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":4},{"tile":"N","count":2},{"tile":"F","count":2}]},
+        {"tile":"N","shanten":1,"necessary_count":11,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":4},{"tile":"5s","count":2},{"tile":"F","count":2}]},
+        {"tile":"F","shanten":1,"necessary_count":11,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":4},{"tile":"5s","count":2},{"tile":"N","count":2}]},
+        {"tile":"2p","shanten":1,"necessary_count":6,"necessary_tiles":[{"tile":"5s","count":2},{"tile":"N","count":2},{"tile":"F","count":2}]},
+        {"tile":"3p","shanten":1,"necessary_count":6,"necessary_tiles":[{"tile":"5s","count":2},{"tile":"N","count":2},{"tile":"F","count":2}]},
+        {"tile":"3s","shanten":2,"necessary_count":20,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":4},{"tile":"3s","count":3},{"tile":"5s","count":2},{"tile":"6s","count":4},{"tile":"N","count":2},{"tile":"F","count":2}]},
+        {"tile":"4s","shanten":2,"necessary_count":19,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":4},{"tile":"1s","count":4},{"tile":"4s","count":2},{"tile":"5s","count":2},{"tile":"N","count":2},{"tile":"F","count":2}]}
+      ],
+      "iishanten_wall": [3,4,4,4,4,4,4,3,4,3,3,3,4,4,4,4,4,3,4,2,3,2,2,4,3,3,0,2,2,1,2,3,2,1,1,1,0],
+      "best_discard": "2s"
+    }
+  },
+  {
+    "report_ids": [283],
+    "mistake": {
+      "hand": ["4m","5mr","6m","9m","9m","9m","8p","9p","4s","5s","6s","7s","8s","7m"],
+      "melds": [],
+      "shanten": 1,
+      "draw": "7m",
+      "actual": {"type":"dahai","actor":2,"pai":"7m","tsumogiri":true},
+      "expected": {"type":"dahai","actor":2,"pai":"8p","tsumogiri":false},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":2,"pai":"8p","tsumogiri":false},"q_value":0.2635,"prob":0.9911},
+        {"action":{"type":"dahai","actor":2,"pai":"9p","tsumogiri":false},"q_value":-0.2079,"prob":0.0089},
+        {"action":{"type":"dahai","actor":2,"pai":"9m","tsumogiri":false},"q_value":-0.9842,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"4m","tsumogiri":false},"q_value":-1.0228,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"8s","tsumogiri":false},"q_value":-1.1224,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"7m","tsumogiri":true},"q_value":-1.1228,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"7s","tsumogiri":false},"q_value":-1.1535,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"4s","tsumogiri":false},"q_value":-1.1715,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"5s","tsumogiri":false},"q_value":-1.2812,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"6m","tsumogiri":false},"q_value":-1.3466,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"6s","tsumogiri":false},"q_value":-1.3486,"prob":0},
+        {"action":{"type":"dahai","actor":2,"pai":"5mr","tsumogiri":false},"q_value":-1.5116,"prob":0}
+      ],
+      "id": 447,
+      "ev_loss": 1.39,
+      "turn": 5,
+      "board_state": {
+        "dora_indicators": ["4m"],
+        "dora_tiles": ["5m"],
+        "seat_wind": "W",
+        "round_wind": "S",
+        "scores": [21600,24400,36000,18000],
+        "all_discards": [{"seat":0,"discards":[{"tile":"E","tsumogiri":false},{"tile":"N","tsumogiri":false},{"tile":"N","tsumogiri":true},{"tile":"9s","tsumogiri":false},{"tile":"9s","tsumogiri":false}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"W","tsumogiri":false},{"tile":"C","tsumogiri":false},{"tile":"F","tsumogiri":false},{"tile":"2m","tsumogiri":true},{"tile":"4s","tsumogiri":false}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"E","tsumogiri":false},{"tile":"S","tsumogiri":false},{"tile":"2p","tsumogiri":false},{"tile":"1s","tsumogiri":true}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"N","tsumogiri":false},{"tile":"7p","tsumogiri":false},{"tile":"1p","tsumogiri":false},{"tile":"1m","tsumogiri":false}],"riichi_idx":null}],
+        "opponent_melds": [],
+        "tiles_left": 51
+      },
+      "discard_stats": [
+        {"tile":"4m","shanten":1,"necessary_count":29,"necessary_tiles":[{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"3s","count":4},{"tile":"4s","count":2},{"tile":"5s","count":3,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":2}]},
+        {"tile":"7m","shanten":1,"necessary_count":29,"necessary_tiles":[{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"3s","count":4},{"tile":"4s","count":2},{"tile":"5s","count":3,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":2}]},
+        {"tile":"8p","shanten":1,"necessary_count":21,"necessary_tiles":[{"tile":"4m","count":2},{"tile":"7m","count":3},{"tile":"8m","count":4},{"tile":"9p","count":3},{"tile":"3s","count":4},{"tile":"6s","count":3},{"tile":"9s","count":2}]},
+        {"tile":"9p","shanten":1,"necessary_count":21,"necessary_tiles":[{"tile":"4m","count":2},{"tile":"7m","count":3},{"tile":"8m","count":4},{"tile":"8p","count":3},{"tile":"3s","count":4},{"tile":"6s","count":3},{"tile":"9s","count":2}]},
+        {"tile":"4s","shanten":1,"necessary_count":18,"necessary_tiles":[{"tile":"4m","count":2},{"tile":"7m","count":3},{"tile":"8m","count":4},{"tile":"7p","count":3},{"tile":"5s","count":3,"aka_count":1},{"tile":"8s","count":3}]},
+        {"tile":"8s","shanten":1,"necessary_count":17,"necessary_tiles":[{"tile":"4m","count":2},{"tile":"7m","count":3},{"tile":"8m","count":4},{"tile":"7p","count":3},{"tile":"4s","count":2},{"tile":"7s","count":3}]},
+        {"tile":"7s","shanten":1,"necessary_count":15,"necessary_tiles":[{"tile":"4m","count":2},{"tile":"7m","count":3},{"tile":"8m","count":4},{"tile":"7p","count":3},{"tile":"8s","count":3}]},
+        {"tile":"5s","shanten":1,"necessary_count":14,"necessary_tiles":[{"tile":"4m","count":2},{"tile":"7m","count":3},{"tile":"8m","count":4},{"tile":"7p","count":3},{"tile":"4s","count":2}]},
+        {"tile":"9m","shanten":1,"necessary_count":12,"necessary_tiles":[{"tile":"7p","count":3},{"tile":"3s","count":4},{"tile":"6s","count":3},{"tile":"9s","count":2}]},
+        {"tile":"6m","shanten":2,"necessary_count":48,"necessary_tiles":[{"tile":"3m","count":4},{"tile":"4m","count":2},{"tile":"5m","count":3},{"tile":"6m","count":3},{"tile":"7m","count":3},{"tile":"8m","count":4},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"3s","count":4},{"tile":"4s","count":2},{"tile":"5s","count":3,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":2}]},
+        {"tile":"5mr","shanten":2,"necessary_count":44,"necessary_tiles":[{"tile":"4m","count":2},{"tile":"5m","count":3},{"tile":"6m","count":3},{"tile":"7m","count":3},{"tile":"8m","count":4},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"3s","count":4},{"tile":"4s","count":2},{"tile":"5s","count":3,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":2}]},
+        {"tile":"6s","shanten":2,"necessary_count":38,"necessary_tiles":[{"tile":"4m","count":2},{"tile":"7m","count":3},{"tile":"8m","count":4},{"tile":"7p","count":3},{"tile":"8p","count":3},{"tile":"9p","count":3},{"tile":"3s","count":4},{"tile":"4s","count":2},{"tile":"5s","count":3,"aka_count":1},{"tile":"6s","count":3},{"tile":"7s","count":3},{"tile":"8s","count":3},{"tile":"9s","count":2}]}
+      ],
+      "iishanten_wall": [3,3,4,2,3,3,3,4,1,3,3,4,4,4,4,3,3,3,3,4,4,2,3,3,3,3,2,2,3,3,1,4,3,3,0,1,1],
+      "best_discard": "4m"
+    }
+  },
+  {
+    "report_ids": [291],
+    "mistake": {
+      "hand": ["3m","3m","8m","8m","2p","2p","5p","5p","6p","8p","8p","5sr","5s","P"],
+      "melds": [],
+      "shanten": 0,
+      "draw": "P",
+      "actual": {"type":"dahai","actor":3,"pai":"P","tsumogiri":true},
+      "expected": {"type":"dahai","actor":3,"pai":"6p","tsumogiri":false},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":3,"pai":"6p","tsumogiri":false},"q_value":0.0107,"prob":0.6942},
+        {"action":{"type":"reach","actor":3},"q_value":-0.0713,"prob":0.3057},
+        {"action":{"type":"dahai","actor":3,"pai":"P","tsumogiri":true},"q_value":-0.9534,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"8p","tsumogiri":false},"q_value":-1.1128,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"2p","tsumogiri":false},"q_value":-1.1226,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"5p","tsumogiri":false},"q_value":-1.1329,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"8m","tsumogiri":false},"q_value":-1.2065,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"5s","tsumogiri":false},"q_value":-1.2136,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"3m","tsumogiri":false},"q_value":-1.227,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"5sr","tsumogiri":false},"q_value":-1.2786,"prob":0}
+      ],
+      "id": 42417,
+      "ev_loss": 0.96,
+      "turn": 9,
+      "board_state": {
+        "dora_indicators": ["3s"],
+        "dora_tiles": ["4s"],
+        "seat_wind": "E",
+        "round_wind": "E",
+        "scores": [19100,9000,18900,53000],
+        "all_discards": [{"seat":0,"discards":[{"tile":"W","tsumogiri":false},{"tile":"1p","tsumogiri":false},{"tile":"F","tsumogiri":false},{"tile":"P","tsumogiri":false},{"tile":"9m","tsumogiri":false},{"tile":"1m","tsumogiri":false},{"tile":"2m","tsumogiri":false},{"tile":"7s","tsumogiri":true}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"6m","tsumogiri":true},{"tile":"9m","tsumogiri":true},{"tile":"2s","tsumogiri":true},{"tile":"S","tsumogiri":true},{"tile":"7m","tsumogiri":true},{"tile":"E","tsumogiri":true},{"tile":"3s","tsumogiri":true},{"tile":"S","tsumogiri":true}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"N","tsumogiri":false},{"tile":"W","tsumogiri":false},{"tile":"1p","tsumogiri":true},{"tile":"8s","tsumogiri":false},{"tile":"F","tsumogiri":false},{"tile":"7s","tsumogiri":false},{"tile":"2p","tsumogiri":false},{"tile":"N","tsumogiri":false}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"8s","tsumogiri":false},{"tile":"9s","tsumogiri":true},{"tile":"S","tsumogiri":true},{"tile":"1m","tsumogiri":false},{"tile":"1p","tsumogiri":false},{"tile":"7m","tsumogiri":false},{"tile":"8m","tsumogiri":false},{"tile":"7p","tsumogiri":true}],"riichi_idx":null}],
+        "opponent_melds": [],
+        "tiles_left": 37
+      },
+      "discard_stats": [
+        {"tile":"P","shanten":0,"necessary_count":3,"necessary_tiles":[{"tile":"6p","count":3}]},
+        {"tile":"6p","shanten":0,"necessary_count":2,"necessary_tiles":[{"tile":"P","count":2}]},
+        {"tile":"3m","shanten":1,"necessary_count":7,"necessary_tiles":[{"tile":"3m","count":2},{"tile":"6p","count":3},{"tile":"P","count":2}]},
+        {"tile":"5p","shanten":1,"necessary_count":7,"necessary_tiles":[{"tile":"5p","count":2,"aka_count":1},{"tile":"6p","count":3},{"tile":"P","count":2}]},
+        {"tile":"8p","shanten":1,"necessary_count":7,"necessary_tiles":[{"tile":"6p","count":3},{"tile":"8p","count":2},{"tile":"P","count":2}]},
+        {"tile":"5sr","shanten":1,"necessary_count":7,"necessary_tiles":[{"tile":"6p","count":3},{"tile":"5s","count":2},{"tile":"P","count":2}]},
+        {"tile":"8m","shanten":1,"necessary_count":6,"necessary_tiles":[{"tile":"8m","count":1},{"tile":"6p","count":3},{"tile":"P","count":2}]},
+        {"tile":"2p","shanten":1,"necessary_count":6,"necessary_tiles":[{"tile":"2p","count":1},{"tile":"6p","count":3},{"tile":"P","count":2}]}
+      ],
+      "iishanten_wall": [2,3,2,4,4,3,2,1,2,1,1,4,4,2,3,3,2,4,4,3,2,4,2,4,2,2,3,3,1,2,2,2,2,4,1,1,0],
+      "best_discard": "P"
+    }
+  },
+  {
+    "report_ids": [292],
+    "mistake": {
+      "hand": ["2p","3p","6p","7p","7p","8p","9p","9p","1s","2s","3s","4s","4s","3s"],
+      "melds": [],
+      "shanten": 1,
+      "draw": "3s",
+      "actual": {"type":"dahai","actor":3,"pai":"3s","tsumogiri":true},
+      "expected": {"type":"dahai","actor":3,"pai":"7p","tsumogiri":false},
+      "top_actions": [
+        {"action":{"type":"dahai","actor":3,"pai":"7p","tsumogiri":false},"q_value":0.0404,"prob":0.9193},
+        {"action":{"type":"dahai","actor":3,"pai":"1s","tsumogiri":false},"q_value":-0.203,"prob":0.0806},
+        {"action":{"type":"dahai","actor":3,"pai":"9p","tsumogiri":false},"q_value":-0.8692,"prob":0.0001},
+        {"action":{"type":"dahai","actor":3,"pai":"3s","tsumogiri":true},"q_value":-1.0298,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"4s","tsumogiri":false},"q_value":-1.1054,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"8p","tsumogiri":false},"q_value":-1.1268,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"6p","tsumogiri":false},"q_value":-1.1413,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"3p","tsumogiri":false},"q_value":-1.3206,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"2p","tsumogiri":false},"q_value":-1.3683,"prob":0},
+        {"action":{"type":"dahai","actor":3,"pai":"2s","tsumogiri":false},"q_value":-1.4504,"prob":0}
+      ],
+      "id": 42402,
+      "ev_loss": 1.07,
+      "turn": 6,
+      "board_state": {
+        "dora_indicators": ["F"],
+        "dora_tiles": ["C"],
+        "seat_wind": "S",
+        "round_wind": "E",
+        "scores": [23500,23600,26400,26500],
+        "all_discards": [{"seat":0,"discards":[{"tile":"1p","tsumogiri":false},{"tile":"9p","tsumogiri":false},{"tile":"5m","tsumogiri":false},{"tile":"6p","tsumogiri":false},{"tile":"4p","tsumogiri":false}],"riichi_idx":null},{"seat":1,"discards":[{"tile":"1m","tsumogiri":false},{"tile":"E","tsumogiri":false},{"tile":"3p","tsumogiri":false},{"tile":"7s","tsumogiri":false},{"tile":"1m","tsumogiri":true}],"riichi_idx":null},{"seat":2,"discards":[{"tile":"N","tsumogiri":false},{"tile":"1s","tsumogiri":false},{"tile":"1s","tsumogiri":false},{"tile":"3s","tsumogiri":false},{"tile":"C","tsumogiri":false},{"tile":"F","tsumogiri":true}],"riichi_idx":null},{"seat":3,"discards":[{"tile":"N","tsumogiri":false},{"tile":"W","tsumogiri":false},{"tile":"P","tsumogiri":false},{"tile":"6m","tsumogiri":false},{"tile":"6m","tsumogiri":true}],"riichi_idx":null}],
+        "opponent_melds": [],
+        "tiles_left": 48
+      },
+      "discard_stats": [
+        {"tile":"7p","shanten":1,"necessary_count":16,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":3},{"tile":"9p","count":1},{"tile":"2s","count":3},{"tile":"4s","count":2},{"tile":"5s","count":4,"aka_count":1}]},
+        {"tile":"3s","shanten":1,"necessary_count":16,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"8p","count":3},{"tile":"9p","count":1},{"tile":"4s","count":2}]},
+        {"tile":"9p","shanten":1,"necessary_count":13,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"8p","count":3}]},
+        {"tile":"1s","shanten":1,"necessary_count":13,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":3},{"tile":"2s","count":3},{"tile":"5s","count":4,"aka_count":1}]},
+        {"tile":"4s","shanten":1,"necessary_count":13,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":3},{"tile":"2s","count":3},{"tile":"5s","count":4,"aka_count":1}]},
+        {"tile":"6p","shanten":1,"necessary_count":9,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"4p","count":3},{"tile":"8p","count":3}]},
+        {"tile":"2p","shanten":2,"necessary_count":38,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"2p","count":3},{"tile":"3p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":2},{"tile":"7p","count":2},{"tile":"8p","count":3},{"tile":"9p","count":1},{"tile":"1s","count":1},{"tile":"2s","count":3},{"tile":"3s","count":1},{"tile":"4s","count":2},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":4}]},
+        {"tile":"3p","shanten":2,"necessary_count":38,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"2p","count":3},{"tile":"3p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":2},{"tile":"7p","count":2},{"tile":"8p","count":3},{"tile":"9p","count":1},{"tile":"1s","count":1},{"tile":"2s","count":3},{"tile":"3s","count":1},{"tile":"4s","count":2},{"tile":"5s","count":4,"aka_count":1},{"tile":"6s","count":4}]},
+        {"tile":"8p","shanten":2,"necessary_count":33,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"2p","count":3},{"tile":"3p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":2},{"tile":"7p","count":2},{"tile":"8p","count":3},{"tile":"9p","count":1},{"tile":"1s","count":1},{"tile":"2s","count":3},{"tile":"4s","count":2},{"tile":"5s","count":4,"aka_count":1}]},
+        {"tile":"2s","shanten":2,"necessary_count":32,"necessary_tiles":[{"tile":"1p","count":3},{"tile":"2p","count":3},{"tile":"3p","count":2},{"tile":"4p","count":3},{"tile":"5p","count":4,"aka_count":1},{"tile":"6p","count":2},{"tile":"8p","count":3},{"tile":"9p","count":1},{"tile":"1s","count":1},{"tile":"2s","count":3},{"tile":"3s","count":1},{"tile":"4s","count":2},{"tile":"5s","count":4,"aka_count":1}]}
+      ],
+      "iishanten_wall": [2,4,4,4,3,2,4,4,4,3,3,2,3,4,2,2,3,1,1,3,1,2,4,4,3,4,4,3,4,3,2,3,2,3,1,1,1],
+      "best_discard": "7p"
+    }
+  }
+]

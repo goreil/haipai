@@ -25,8 +25,9 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 20;
+  const CATEGORIZER_VERSION = 21;
   const CATEGORIZER_CHANGELOG = {
+    21: "Tenpai and 1-shanten use the Value cell’s scored waits and selected continuations instead of tile-pattern yaku guesses. Summary and Value classification weigh each live winning copy by its payout and show the supporting yaku.",
     20: "Iishanten comparisons no longer award heuristic yaku wins. Conditional scoring routes belong in the Value cell, not the mistake's headline, explanation or feature pills. Live verified tenpai evidence remains available.",
     19: "Tanyao comparisons count simple tiles in called melds toward the 11-simple threshold, restoring missing tanyao pills on open hands (report #278, #m4976). Melds containing terminals or honors still block tanyao.",
     18: "Win decisions belong to Attack and do not emit discard-based feature comparisons. Adds Ron/Tsumo comparisons, passed-ron furiten, and confirmed win scoring (#m323).",

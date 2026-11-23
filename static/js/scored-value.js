@@ -23,7 +23,8 @@
   function drawProfile(draws) {
     if (!draws) return null;
     const yaku = {};
-    let points = 0, maxPoints = 0, copies = 0;
+    let points = 0, waitValue = 0, maxPoints = 0, copies = 0;
+    let minWait = Infinity, maxWait = 0;
     for (const draw of draws) {
       // Exactly the width-first branch shown on the card; a narrower cut's
       // yaku are not evidence for this draw. Known dead/no-yaku branches
@@ -32,11 +33,15 @@
       if (!value) return null;
       copies += draw.count;
       points += draw.count * value.meanPoints;
+      waitValue += draw.count * value.waitValue;
+      minWait = Math.min(minWait, value.minWait);
+      maxWait = Math.max(maxWait, value.maxWait);
       maxPoints = Math.max(maxPoints, value.maxPoints);
       for (const name in value.yaku) yaku[name] = (yaku[name] || 0) + draw.count * value.yaku[name];
     }
     for (const name in yaku) yaku[name] /= copies;
-    return { meanPoints: copies ? points / copies : 0, maxPoints, yaku };
+    return { waitValue: copies ? waitValue / copies : 0, minWait: copies ? minWait : 0, maxWait,
+      meanPoints: copies ? points / copies : 0, maxPoints, yaku };
   }
 
   function profile(m, discardTile, stat, riichi = false) {

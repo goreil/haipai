@@ -793,10 +793,15 @@ function scoringDiscardRiver(m, discard, stat) {
 function profileWaitScores(groups) {
   if (!groups) return null;
   const yaku = {};
-  let points = 0, maxPoints = 0, outcomes = 0;
+  let points = 0, maxPoints = 0, outcomes = 0, waitValue = 0, liveCopies = 0;
   for (const group of groups) {
     const copies = group.tiles.reduce((n, t) => n + t.count, 0);
     if (!copies) continue;
+    // Count each physical copy once, even if both ron and tsumo are legal.
+    const modes = Number(!!group.ron) + Number(!!group.tsumo);
+    if (!modes) continue;
+    liveCopies += copies;
+    waitValue += copies * ((group.ron?.ten || 0) + (group.tsumo?.ten || 0)) / modes;
     for (const score of [group.ron, group.tsumo]) {
       if (!score) continue;
       outcomes += copies;
@@ -806,7 +811,7 @@ function profileWaitScores(groups) {
     }
   }
   for (const name in yaku) yaku[name] /= outcomes;
-  return { meanPoints: outcomes ? points / outcomes : 0, maxPoints, yaku };
+  return { waitValue, minWait: liveCopies, maxWait: liveCopies, meanPoints: outcomes ? points / outcomes : 0, maxPoints, yaku };
 }
 
 return { evalDiscardScores, profileWaitScores, scoringDiscardRiver, renderWinScore, renderBadRiichiBars, renderRiichiScoreCell,

@@ -15,6 +15,7 @@ test('decision cards show evidence before explanations and keep feedback editabl
       .map(match => match[1]);
     scripts.splice(scripts.indexOf('/static/js/mistake-card.js') + 1);
     const fixture = require('./fixtures/dora_acceptance_m35078.json');
+    const scoredHand = require('./fixtures/scored_value_reports.json').find(r => r.report_ids.includes(292)).mistake;
     const headlineCases = [
       [6099, 'Attack / Efficiency + Value'],
       [5502, 'Defense / Efficiency + Value + Safety'],
@@ -129,8 +130,17 @@ test('decision cards show evidence before explanations and keep feedback editabl
               && card.querySelectorAll(':scope > .mascot-speech').length === 1, 'no added row or explanation ' + fixture.id);
             check(document.documentElement.scrollWidth <= innerWidth, 'headline fits viewport ' + fixture.id);
           }
-          // Leave a representative attack card for desktop/mobile visual checks.
-          card = draw();
+          const scored = ${JSON.stringify(scoredHand)};
+          card = draw({ ...scored, ...haipaiCategorize.categorize(scored) }, {inline:true});
+          check(card.querySelector('.cat-badge').textContent === 'Attack / Value', 'scored iipeikou headline');
+          const summary = card.querySelector('.feat-summary-row');
+          const evidence = side => summary.querySelector('.col-' + side).textContent.replaceAll(',', '');
+          check(evidence('actual').includes('2887') && evidence('expected').includes('3240'),
+            'copy-weighted points shown for both discards');
+          check(evidence('actual').includes('18319') && evidence('expected').includes('20794'),
+            'summary compares live-copy-weighted value separately from win payouts');
+          check(evidence('expected').includes('iipeikou'), 'conditional iipeikou shown in Summary');
+          check(card.querySelector('.mascot-speech').textContent.includes('iipeikou'), 'trainer names visible scored yaku');
           check(document.documentElement.scrollWidth <= innerWidth, 'no page overflow');
           document.body.dataset.result = 'passed';
         } catch(error) { document.body.dataset.result = error.stack; }

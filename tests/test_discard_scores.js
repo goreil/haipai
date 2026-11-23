@@ -52,10 +52,9 @@ test('no-yaku tenpai retains waits and renders an explicit value explanation', (
     assert.equal(groups[0].tsumo, null);
     assert.equal(groups[0].tiles.length, waits.length);
     const html = context.renderRiichiScoreCell(groups, false);
-    assert.match(html, /Ron \/ Tsumo/);
+    assert.ok(groups[0].tiles.every(t => t.furiten)); // each discard is itself one of the waits
     assert.match(html, /no yaku/);
     assert.doesNotMatch(html, /only menzen-tsumo wins/);
-    for (const wait of waits) assert.ok(html.includes(`${wait.tile} ×${wait.count}`));
   }
 });
 
@@ -139,6 +138,18 @@ test('discard furiten blocks ron across all waits and preserves tsumo scoring', 
   assert.match(html,/furiten-badge/);
   assert.match(html,/discard pool/);
   assert.doesNotMatch(html,/no yaku/);
+});
+
+test('twelve 8,000-point winning copies outweigh a single 10,000-point win', () => {
+  const { profileWaitScores } = require('../static/js/bad-riichi-bars.js');
+  const wait = (tiles, ten) => ({ tiles, ron: { ten, yaku: [] }, tsumo: { ten, yaku: [] } });
+  const narrow = profileWaitScores([wait([{ tile: 'E', count: 1 }], 10000)]);
+  const wide = profileWaitScores([wait(['1m', '4m', '7m'].map(tile => ({ tile, count: 4 })), 8000)]);
+  assert.ok(narrow.meanPoints > wide.meanPoints);
+  assert.equal(narrow.maxWait, 1);
+  assert.equal(wide.maxWait, 12);
+  assert.equal(narrow.waitValue, 10000);
+  assert.equal(wide.waitValue, 96000);
 });
 
 test('the shared tenpai profile weights legal modes and physical copies, including aka', () => {

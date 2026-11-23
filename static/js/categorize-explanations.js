@@ -13,7 +13,7 @@
 //
 // Load order: depends on
 //   - compare-dimensions.js (haipaiCompareDimensions — the win-vector + shape)
-//   - categorize-yaku.js (detectClosedHandYaku for the 5A dama-wins branch)
+//   - scored-value.js (the same discard profiles as the Value and Summary rows)
 //   - prep/defense.js (defenseSituation, defenseDealinForTile,
 //     _isDoubleRiichiContext, tenpaiWaitTiles)
 //   - mistake-card.js (mortalRaisedShanten, for the 5A branch)
@@ -66,6 +66,13 @@ function _winClause(w, seatWindFor) {
       return ts
         ? `avoids a furiten wait on ${ts} (already in your own discards — no ron)`
         : "avoids a furiten wait";
+    }
+    case "scored_value": {
+      const gain = w.magnitude.toLocaleString();
+      const other = w.winner === "mortal" ? w.you : w.mortal;
+      if (!other.maxPoints) return "has live scoring wins where the other pick has none";
+      const yaku = w.yaku.length ? ` (more support for ${_joinClauses(w.yaku)} in the scored outcomes)` : "";
+      return `has ${gain} more wait value after weighting winning copies by their payouts${yaku}`;
     }
     case "dora_kept":
       return `keeps the ${tile(w.tiles[0])} dora`;
@@ -270,16 +277,13 @@ function generateExplanation(m) {
     return standing;
   }
 
-  // Context line for 5A in all last — placement is the framing the student
-  // needs, not raw EV. The "doesn't affect your standing" claim is the
-  // teaching point: in all last the riichi premium rarely changes the
-  // points table even when it lands.
+  // Frame the decision with the displayed placement, not a projected finish.
   function allLastRiichiInfo(m) {
     if (!m || !m.is_all_last) return "";
     const place = playerStanding(m);
     if (!place) return "";
     const ord = ["1st", "2nd", "3rd", "4th"][place - 1] || `${place}th`;
-    return `<div class="all-last-context-line">It's all last and you are in ${ord} place — the riichi bonus probably doesn't affect your standing.</div>`;
+    return `<div class="all-last-context-line">It's all last and you are in ${ord} place.</div>`;
   }
 
   // Per-category defense info appended to the lead line of a card.
@@ -308,9 +312,7 @@ function generateExplanation(m) {
 
   // --- Helper: find per-discard stats for a tile ---
   function statFor(tile) {
-    if (!m.discard_stats) return null;
-    const base = tile ? tile.replace(/r$/, "") : null;
-    return m.discard_stats.find(s => s.tile === tile || s.tile === base) || null;
+    return haipaiCategorize.findInStats(tile, m.discard_stats);
   }
   function mortalFor(tile) {
     if (!m.top_actions) return null;
@@ -392,32 +394,26 @@ function generateExplanation(m) {
       if (m.ev_loss) text += ` This cost ${m.ev_loss.toFixed(2)} EV compared to dama.`;
       return text;
     }
-    // Mortal-raised-shanten on a riichi call: Mortal would rather break the
-    // tenpai shape than declare. That's a strategic call (better wait,
-    // bigger hand, or a defensive read), not a tile-efficiency one. The two
-    // branches below are mutually exclusive — when Mortal raised shanten we
-    // skip the dama framing entirely, because "Mortal picks dama" and
-    // "Mortal breaks tenpai" can't both be true.
+    // When Mortal breaks tenpai there is no dama option to describe.
     const raisedSh = (typeof mortalRaisedShanten === "function")
       ? mortalRaisedShanten(m) : null;
     let text = allLastInfo + defenseInfo;
     if (raisedSh) {
-      text += `You declared riichi, but Mortal recommends discarding ${raisedSh.mortalTile} instead — breaking tenpai rather than locking in your shape.`;
-      if (waitCountPhrase) text += ` You've got ${waitCountPhrase} — thin waits especially make riichi costly since you lose the flexibility to abandon them.`;
-      text += ` Riichi locks your hand — you can't change your wait or defend against opponents.`;
-      text += ` <span class="raised-shanten-hint">Mortal even breaks tenpai (${raisedSh.userSh}→${raisedSh.mortalSh}-shanten) by picking ${raisedSh.mortalTile} — it wants a better wait, more hand value, or room to defend, and would rather give up tenpai than ride your shape into riichi.</span>`;
+      text += `You declared riichi, but Mortal recommends discarding ${raisedSh.mortalTile} instead — breaking tenpai (${raisedSh.userSh}→${raisedSh.mortalSh}-shanten).`;
+      if (waitCountPhrase) text += ` The riichi discard locks in ${waitCountPhrase}.`;
     } else {
-      const isDaburi = typeof _isDoubleRiichiContext === "function" && _isDoubleRiichiContext(m);
-      const riichiHanStr = isDaburi ? "2 han (double riichi)" : "1 han";
-      text += `You declared riichi, but Mortal recommends just discarding ${expected.pai} (dama) instead.`;
-      if (waitCountPhrase) text += ` You've got ${waitCountPhrase} — thin waits especially make riichi costly since you lose the flexibility to abandon them.`;
-      text += ` Riichi locks your hand — you can't change your wait or defend against opponents.`;
-      const yakuHints = detectClosedHandYaku(m);
-      if (yakuHints.length) {
-        text += ` <span class="yaku-hints">Dama would win with: ${yakuHints.map(y => `<span class="yaku-tag">${y}</span>`).join(" ")}</span>`;
-        text += ` — with dama you keep flexibility, can dodge dangerous tiles, and the riichi premium of ${riichiHanStr} + ippatsu chance may not be worth the lock-in.`;
-      } else {
-        text += ` Mortal still says dama works here — perhaps because of board state, score situation, or remaining tiles. Trust Mortal's read on this one.`;
+      const stat = statFor(expected.pai);
+      const dama = stat?.shanten === 0 && m.top_actions?.length
+        ? haipaiScoredValue.profile(m, expected.pai, stat,
+          haipaiScoredValue.reachRole(m, "expected", stat.shanten) === "riichi") : null;
+      text += `You declared riichi. Mortal recommends discarding ${expected.pai} without declaring.`;
+      if (waitCountPhrase) text += ` The riichi discard locks in ${waitCountPhrase}.`;
+      if (dama?.maxPoints) {
+        text += ` Dama's scored wins average ${Math.round(dama.meanPoints).toLocaleString()} points`;
+        const names = Object.keys(dama.yaku);
+        text += names.length ? `, with ${_joinClauses(names)} among the scoring outcomes.` : ".";
+      } else if (dama) {
+        text += ` Dama has no live scoring wins in the Value row.`;
       }
     }
     if (m.ev_loss) text += ` This cost ${m.ev_loss.toFixed(2)} EV compared to the best play.`;

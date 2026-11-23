@@ -6,6 +6,8 @@ const vm = require('node:vm');
 const comparator = require('../static/js/compare-dimensions.js');
 const { categorize } = require('../static/js/categorize.js');
 const { calculate } = require('../static/js/prep/shanten_calc.js');
+const { subtract_hand_from_wall } = require('../static/js/prep/prep-board-state.js');
+const { profile } = require('../static/js/scored-value.js');
 const reports = require('./fixtures/yaku_report_guards.json');
 const report = id => structuredClone(reports.find(r => r.report_id === id).mistake);
 const yaku = m => comparator.compareDimensions(m).filter(w => w.group === 'Yaku');
@@ -57,46 +59,55 @@ test('dora indicators and opponent melds also make honor triplets unavailable', 
 });
 
 function ready(hand, actual, expected, melds = []) {
+  const wall = subtract_hand_from_wall([...Array(34).fill(4), 1, 1, 1],
+    [...hand, ...melds.flatMap(m => [...m.consumed, m.pai]), 'F']);
   return {
     hand, melds, actual: { type: 'dahai', pai: actual, actor: 0 },
     expected: { type: 'dahai', pai: expected, actor: 0 },
-    board_state: { round_wind: 'E', seat_wind: 'S' },
-    discard_stats: calculate(hand, melds, Array(37).fill(4), { allowComplete: true }).stats,
+    board_state: { round_wind: 'E', seat_wind: 'S', dora_tiles: ['C'], all_discards: [{ seat: 0, discards: [] }] },
+    iishanten_wall: wall, discard_stats: calculate(hand, melds, wall, { allowComplete: true }).stats,
   };
 }
 
 const outsideHand = ['1m', '2m', '3m', '7p', '8p', '9p', '1s', '2s', 'E', 'E', 'E', 'N', 'N', '5m'];
 const straightHand = ['1m', '2m', '3m', '4m', '5mr', '6m', '7m', '8m', 'E', 'E', 'E', 'N', 'N', '5p'];
 
-test('verified live chanta, ittsu and flush completions retain their winning pills', () => {
+function scoredYaku(m, cut) {
+  const p = profile(m, cut, m.discard_stats.find(s => s.tile === cut));
+  return p?.yaku || {};
+}
+
+test('live outside and straight hands use scored outcomes, never tile-pattern wins', () => {
   const outside = ready(outsideHand, '1m', '5m');
-  assert.ok(yaku(outside).some(w => w.dim === 'chanta_kept' && !w.suppressed));
+  assert.ok(scoredYaku(outside, '5m').chanta > 0);
+  assert.deepEqual(yaku(outside), []);
   const straight = ready(straightHand, '1m', '5p');
-  for (const dim of ['ittsu_kept', 'honitsu_kept']) {
-    assert.ok(yaku(straight).some(w => w.dim === dim && !w.suppressed), dim);
-  }
-  [straight.actual, straight.expected] = [straight.expected, straight.actual];
-  assert.equal(yaku(straight).find(w => w.dim === 'ittsu_kept').winner, 'you');
+  assert.ok(scoredYaku(straight, '5p').ittsu > 0);
+  assert.ok(scoredYaku(straight, '5p').honitsu > 0);
+  assert.deepEqual(yaku(straight), []);
 });
 
 test('a dead scoring wait does not justify a yaku claim', () => {
   const m = ready(outsideHand, '1m', '5m');
   m.discard_stats.find(s => s.tile === '5m').necessary_tiles.forEach(w => { w.count = 0; });
-  assert.ok(!yaku(m).some(w => w.dim === 'chanta_kept'));
+  assert.equal(scoredYaku(m, '5m').chanta, undefined);
 });
 
 test('chanta verifies fixed melds and rejects all-triplet outside shapes', () => {
   const melds = [{ type: 'pon', pai: 'E', consumed: ['E', 'E'] }];
   const open = ready(outsideHand.filter(t => t !== 'E'), '1m', '5m', melds);
-  assert.ok(yaku(open).some(w => w.dim === 'chanta_kept' && !w.suppressed));
+  assert.ok(scoredYaku(open, '5m').chanta > 0);
   const triplets = ready(['1m', '1m', '1m', '9m', '9m', '9m', '1p', '1p', '1p',
     'E', 'E', 'E', 'N', '5m'], '1m', '5m');
-  assert.ok(!yaku(triplets).some(w => w.dim === 'chanta_kept'));
+  assert.equal(scoredYaku(triplets, '5m').chanta, undefined);
 });
 
 test('browser comparator and Node comparator give the same report results', () => {
   const context = vm.createContext({});
-  for (const file of ['prep/tiles.js', 'prep/parse.js', 'prep/shanten.js', 'categorize.js', 'compare-dimensions.js']) {
+  context.self = context;
+  for (const file of ['prep/tiles.js', 'prep/parse.js', 'prep/shanten.js', 'prep/prep-board-state.js',
+    'vendor/riichi/riichi-bundle.js', 'categorize-yaku.js', 'bad-riichi-bars.js', 'iishanten.js',
+    'scored-value.js', 'categorize.js', 'compare-dimensions.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js', file), 'utf8'), context);
   }
   for (const { mistake } of reports) {
@@ -124,6 +135,4 @@ test('trainer text explains visible features without revealing suppressed yaku o
       assert.ok(!rendered.includes(win.dim.replace('_kept', '')), `hidden ${win.dim} on ${mistake.id}`);
     }
   }
-  const verified = ready(outsideHand, '1m', '5m');
-  assert.match(context.explainDiscardShape(verified, { threats: [] }), /chanta/);
 });

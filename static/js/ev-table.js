@@ -36,6 +36,27 @@ function shantenPillStyle(shanten) {
     + `border:1px solid rgba(${br},${bg},${bb},${lineA});`;
 }
 
+// Shares describe weighted Value outcomes, not the chance of winning the hand.
+function renderScoredProfile(profile, shanten) {
+  if (!profile) return `<small class="dim">Value unavailable</small>`;
+  const tags = Object.entries(profile.yaku).map(([name, share]) => {
+    const pct = Math.round(1000 * share) / 10;
+    const support = pct === 0 ? "&lt;0.1%" : pct === 100 && share < 1 ? "&gt;99.9%" : `${pct}%`;
+    return `<span class="yaku-tag" title="Share of weighted Value outcomes with this yaku">${escapeHtml(name)} ${support}</span>`;
+  }).join("");
+  const weights = shanten === 1
+    ? "Each improving draw is weighted by unseen copies. Its selected tenpai discard is scored across live winning copies and legal win methods; a draw with no scoring win contributes zero."
+    : "Winning copies are weighted by how many are unseen, counting each legal win method.";
+  const wait = profile.minWait === profile.maxWait ? profile.maxWait : `${profile.minWait}–${profile.maxWait}`;
+  return `<div class="scored-profile" title="${weights} Wait value sums the average legal payout for each unseen winning copy. It is an index, not a payout or Mortal EV.">`
+    + `<span>Wait value <b>${Math.round(profile.waitValue).toLocaleString()}</b></span> `
+    + `<span>Winning copies <b>${wait}</b></span> `
+    + `<span>Mean <b>${Math.round(profile.meanPoints).toLocaleString()} pts</b></span> `
+    + `<span>Peak <b>${profile.maxPoints.toLocaleString()} pts</b></span>`
+    + (tags ? `<div>${tags}</div>` : "")
+    + (!profile.maxPoints ? `<small class="dim">No live scoring wins</small>` : "") + `</div>`;
+}
+
 // Concrete "feature pill" for a single win-vector entry — the exact chip shown
 // in the EV-table summary (e.g. "+5 ukeire", "+dora 🀋", "-12.3% deal-in").
 // Shared so the game-detail trade-off boxes (game-render.js) render identical
@@ -115,6 +136,10 @@ function renderWinFeatPill(w, oya) {
         "The other pick's tenpai waits on a tile already in your own discards "
           + "(furiten) — the hand could never ron. This pick keeps a wait that can",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
+    case "scored_value":
+      return featPill("pos", `+${w.magnitude.toLocaleString()} wait value`,
+        "Higher value after weighting each live winning copy by its payout"
+          + (w.yaku.length ? `; more frequent yaku: ${w.yaku.join(", ")}` : ""), "", c);
     case "dora_kept":
       return featPill("pos", "+dora", "Keeps a dora the other pick discards",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
@@ -210,19 +235,10 @@ function renderEvComparison(m, options) {
     || (m.expected && m.expected.pai)
     || (m.expected && m.expected.type === "reach" ? actualTile : (winMistake ? m.expected.type : null));
 
-  // Riichi-vs-dama decisions. 5A (Bad Riichi): you reached, AI says dahai.
-  // 5B (Missed Riichi): you dahai'd, AI says reach. The reach side is the
-  // "riichi" pick; the dahai side is "dama". `reachSide` names which column
-  // (You = actual / AI = expected) declared the riichi. When both land on the
-  // SAME tile (e.g. #m19830 — AI agrees on the tile but not the call) the tile
-  // dedup below collapses them to one column; reachSameTile forces two columns
-  // instead so the riichi-vs-dama contrast stays visible.
-  const reachSide = (m.actual && m.expected)
-    ? (m.actual.type === "reach" && m.expected.type === "dahai" ? "actual"
-      : m.actual.type === "dahai" && m.expected.type === "reach" ? "expected"
-      : null)
-    : null;
-  const reachSameTile = !!reachSide && !!actualTile && actualTile === expectedTile;
+  // A riichi-vs-dama comparison still needs two columns when the recommended
+  // discard and the declaration tile are identical.
+  const reachSameTile = actualTile && actualTile === expectedTile &&
+    (m.actual.type === "reach" || m.expected.type === "reach");
 
   // Build a unified list of tiles from mortal top_actions and discard_stats
   const mortalMap = {};
@@ -345,6 +361,10 @@ function renderEvComparison(m, options) {
         side: tile === actualTile ? "actual"
             : tile === expectedTile ? "expected" : "other",
       }));
+
+  const wins = (typeof haipaiCompareDimensions !== "undefined")
+    ? haipaiCompareDimensions.compareDimensions(m).filter(w => !w.suppressed) : [];
+  const scoredWin = wins.find(w => w.dim === "scored_value");
 
   // Build one descriptor per column up front, then emit the attribute rows
   // by reading across the descriptors. Keeps the per-tile cell logic in one
@@ -491,28 +511,7 @@ function renderEvComparison(m, options) {
 
     const shantenVal = ca && ca.shanten != null ? ca.shanten : null;
 
-    // Riichi/dama pill role. reachSide (5A/5B): the reach side is "riichi",
-    // the other tenpai side "dama" — but only when it's genuinely tenpai,
-    // since a dahai that breaks tenpai isn't a dama option to weigh against
-    // riichi. Outside that path — a plain dahai-vs-dahai pick where both
-    // candidates reach tenpai (e.g. "which wait to riichi on") — the riichi
-    // call itself never showed up as its own mistake entry when the player
-    // and Mortal agreed on it, so we fall back to ground truth from the mjai
-    // log: `m.riichi_decision` (prep.js) is set when the actual discard was
-    // itself made as a riichi declaration (a `reach` event immediately
-    // precedes it in the log). That means the reach-or-not fork was already
-    // resolved before this entry — every tenpai candidate here IS a riichi
-    // pick, with no live dama alternative to contrast it with, so both
-    // columns read "riichi" rather than splitting into riichi/dama.
-    let reachRole = null;
-    if (isActual && m.passed_win && /[rw]/.test(m.win_context?.flags || "")) {
-      reachRole = "riichi";
-    } else if (reachSide) {
-      if (spec.side === reachSide) reachRole = "riichi";
-      else if ((spec.side === "actual" || spec.side === "expected") && shantenVal === 0) reachRole = "dama";
-    } else if (m.riichi_decision && shantenVal === 0) {
-      reachRole = "riichi";
-    }
+    const reachRole = haipaiScoredValue.reachRole(m, spec.side, shantenVal);
 
     // Per-column point scoring for EVERY tenpai pick — not just reach
     // decisions. The reach side of a 5A/5B scores a declared riichi (with the
@@ -523,12 +522,12 @@ function renderEvComparison(m, options) {
     // empty. evalDiscardScores folds in any called melds, so an OPEN tenpai
     // scores its full open-hand value too.
     const scoreIsRiichi = reachRole === "riichi";
+    const scoringMistake = isActual && m.passed_win
+      ? { ...m, furiten_kind: m.passed_win.furiten_kind } : m;
     let scoreGroups = null;
     if (shantenVal === 0
         && ca && ca.necessary_tiles && ca.necessary_tiles.length
         && typeof evalDiscardScores === "function") {
-      const scoringMistake = isActual && m.passed_win
-        ? { ...m, furiten_kind: m.passed_win.furiten_kind } : m;
       scoreGroups = evalDiscardScores(scoringMistake, tile, ca.necessary_tiles, scoreIsRiichi);
     }
 
@@ -542,8 +541,16 @@ function renderEvComparison(m, options) {
     }
     const lookahead = shantenVal === 1 && !winMistake && Array.isArray(ca.necessary_tiles)
       && (isActual ? m.actual.type === "dahai" : isExpected ? m.expected.type === "dahai" : true);
+    const action = isActual ? m.actual : isExpected ? m.expected : null;
+    const showProfile = !winMistake && (shantenVal === 0 || shantenVal === 1)
+      && (action?.type === "dahai" || action?.type === "reach");
+    // A tie has no winning dimension, and an unknown opponent is not worth
+    // zero points. Still show each eligible column's own Value data.
+    const valueSummary = showProfile ? renderScoredProfile(
+      scoredWin?.[isActual ? "you" : "mortal"] ?? haipaiScoredValue.profile(scoringMistake, tile, ca, scoreIsRiichi), shantenVal
+    ) : "";
     return { tile, isWin, winScore, winTile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
-             acc, lookahead, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe, isGenbutsu };
+             acc, lookahead, valueSummary, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe, isGenbutsu };
   });
 
   // Feature-summary pills. The win-vector is now computed once by the shared
@@ -564,14 +571,12 @@ function renderEvComparison(m, options) {
   // deal-in wind label.
   const renderWinPill = (w) => renderWinFeatPill(w, oya);
 
-  const wins = (typeof haipaiCompareDimensions !== "undefined")
-    ? haipaiCompareDimensions.compareDimensions(m).filter(w => !w.suppressed) : [];
   const sideForWinner = (w) =>
     w.winner === "you" ? "actual" : w.winner === "mortal" ? "expected" : null;
   const featCells = cols.map((col) => wins
     .filter(w => col.side === sideForWinner(w))
     .map(renderWinPill).join(""));
-  const anyFeat = featCells.some(s => s);
+  const anyFeat = cols.some((c, i) => c.valueSummary || featCells[i]);
 
   // The tiles every pick accepts are common ground — each acceptance cell shows
   // the shared count as a pill on its left (built per-column above), expanding in
@@ -593,6 +598,9 @@ function renderEvComparison(m, options) {
   };
 
   html += `<table class="ev-table ev-table-cols">`;
+  if (options.selectedTile) {
+    html += `<caption>Exploring another discard. The mistake and trainer text still refer to your original play.</caption>`;
+  }
   // Header row: tile glyph + You/AI marker per column.
   html += `<thead><tr><th class="ev-axis"></th>`;
   for (const c of cols) {
@@ -698,15 +706,14 @@ function renderEvComparison(m, options) {
     );
   }
 
-  // Feature summary: a final row of pills per pick summarising every dimension
-  // we gather — ukeire, dora kept, dora acceptance (positive) plus shanten and
-  // deal-in (negative). Shown only when at least one pick has a pill.
+  // Keep the per-pick statistics visible even when neither pick wins a pill.
   if (anyFeat) {
     html += `<tr class="feat-summary-row">`;
-    html += `<th class="ev-axis" title="Every feature this pick wins (or, for shanten, loses) versus the other pick.">Summary</th>`;
+    html += `<th class="ev-axis" title="Points from the Value row and each pick's advantages over the other.">Summary</th>`;
     for (let i = 0; i < cols.length; i++) {
-      const inner = featCells[i] || `<span class="dim">—</span>`;
-      html += `<td class="${cols[i].colClass}"><div class="feat-pills">${inner}</div></td>`;
+      const pills = featCells[i] ? `<div class="feat-pills">${featCells[i]}</div>` : "";
+      const inner = cols[i].valueSummary + pills;
+      html += `<td class="${cols[i].colClass}">${inner || '<span class="dim">—</span>'}</td>`;
     }
     html += `</tr>`;
   }

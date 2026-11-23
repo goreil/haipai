@@ -14,9 +14,9 @@
 //             GATED: only a real win at tied shanten AND tied ukeire)
 //   Yaku    — yakuhai_kept, tanyao_kept, honitsu_kept, ittsu_kept,
 //             toitoi_kept, chiitoi_kept, chanta_kept
-//             (chanta/ittsu/honitsu require a live tenpai completion to win;
-//              other tile-pattern prospects are suppressed in visuals and text)
-//   Dora    — dora_kept, dora_acceptance
+//             (tile-pattern prospects only beyond 1-shanten; speculative
+//              chanta/ittsu/honitsu never count as wins)
+//   Dora    — scored_value, dora_kept, dora_acceptance
 //   Defense — deal_in           (a per-opponent vector, read off m.per_threat),
 //             safe_spare_kept   (pre-threat safe-tile economy; only fires when
 //                                no threat is armed — deal_in owns armed scenes)
@@ -37,12 +37,12 @@
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
     module.exports = factory(require("./categorize.js"), require("./prep/parse.js"),
-      require("./prep/shanten.js"), require("./prep/tiles.js"));
+      require("./prep/shanten.js"), require("./prep/tiles.js"), () => require("./scored-value.js"));
   } else {
     root.haipaiCompareDimensions = factory(root.haipaiCategorize, root.haipaiPrepParse,
-      root.haipaiShanten, root.haipaiPrepTiles);
+      root.haipaiShanten, root.haipaiPrepTiles, () => root.haipaiScoredValue);
   }
-}(typeof self !== "undefined" ? self : this, function (categorize, prepParse, shanten, prepTiles) {
+}(typeof self !== "undefined" ? self : this, function (categorize, prepParse, shanten, prepTiles, scoredValue) {
 
   // Reuse the categorizer's primitives verbatim — no forked dora/yakuhai/
   // shanten/deal-in logic (the whole point of a shared comparator).
@@ -349,6 +349,26 @@
     }
   }
 
+  function addScoredValue(wins, m, actualTile, actualStat, expectedTile, expectedStat) {
+    const eligible = (action, stat) => (action?.type === "dahai" || action?.type === "reach")
+      && (stat?.shanten === 0 || stat?.shanten === 1);
+    if (!eligible(m.actual, actualStat) || !eligible(m.expected, expectedStat)) return;
+    const scorer = scoredValue();
+    const profile = (tile, stat, side) => scorer.profile(m, tile, stat,
+      scorer.reachRole(m, side, stat.shanten) === "riichi");
+    const you = profile(actualTile, actualStat, "actual");
+    const mortal = profile(expectedTile, expectedStat, "expected");
+    if (!you || !mortal) return; // Unknown is not a zero-point hand.
+    const delta = Math.round(mortal.waitValue) - Math.round(you.waitValue);
+    if (!delta) return;
+    const better = delta > 0 ? mortal : you, other = delta > 0 ? you : mortal;
+    const gain = name => better.yaku[name] - (other.yaku[name] || 0);
+    const yaku = Object.keys(better.yaku).filter(name => gain(name) > 1e-9)
+      .sort((a, b) => gain(b) - gain(a) || a.localeCompare(b));
+    wins.push({ dim: "scored_value", group: "Dora", prio: 1, winner: delta > 0 ? "mortal" : "you",
+      magnitude: Math.abs(delta), you, mortal, yaku });
+  }
+
   function compareDimensions(m) {
     // A terminal win has no discard-based shape or value tradeoffs.
     if (m.actual?.type === "hora" || m.expected?.type === "hora") return [];
@@ -413,10 +433,10 @@
       }
     }
 
-    // Iishanten value is conditional on the next draw and discard. Leave it to
-    // the on-demand scorer; do not turn a tile-pattern hint into a winning pick.
-    const hasIishanten = (aSh ?? m.shanten) === 1 || (eSh ?? m.shanten) === 1;
-    if (!hasIishanten || aSh === 0 || eSh === 0) {
+    // Never substitute a tile-pattern guess for a missing or tied score.
+    if ([aSh ?? m.shanten, eSh ?? m.shanten].some(n => n === 0 || n === 1)) {
+      addScoredValue(wins, m, actualTile, actualStat, expectedTile, expectedStat);
+    } else {
       addYakuPatterns(wins, m, actualTile, expectedTile);
     }
 
@@ -555,21 +575,12 @@
       });
     }
 
-    // Tile concentration is a prospect, not proof of a scoring advantage.
-    // Only live, completed tenpai shapes can verify these three yaku here.
+    // Beyond the scored horizon these concentration patterns are context only.
     return wins.filter(w => {
       if (w.group !== "Yaku") return true;
-      const stat = w.winner === "you" ? actualStat : expectedStat;
-      if (!["chanta_kept", "ittsu_kept", "honitsu_kept"].includes(w.dim)) return !hasIishanten;
-      if (hasIishanten && stat?.shanten !== 0) return false;
+      if (!["chanta_kept", "ittsu_kept", "honitsu_kept"].includes(w.dim)) return true;
       const tile = w.winner === "you" ? actualTile : expectedTile;
-      const otherStat = w.winner === "you" ? expectedStat : actualStat;
-      const otherTile = w.winner === "you" ? expectedTile : actualTile;
       if (w.dim === "chanta_kept" && chiitoiCloser(m, tile)) return false;
-      if (stat && stat.shanten === 0) {
-        return hasLiveYakuCompletion(m, tile, stat, w)
-          && !hasLiveYakuCompletion(m, otherTile, otherStat, w);
-      }
       w.suppressed = true;
       w.potential = true;
       w.context = "Tile-pattern potential; requires further hand development";
@@ -610,66 +621,6 @@
     }
     for (const t of board.dora_indicators || []) add(t);
     return 4 - exposed >= 3;
-  }
-
-  function hasLiveYakuCompletion(m, discard, stat, win) {
-    if (!stat || stat.shanten !== 0 || !discard) return false;
-    const hand = (m.hand || []).map(tileBase);
-    const index = hand.indexOf(tileBase(discard));
-    if (index < 0) return false;
-    hand.splice(index, 1);
-    return (stat.necessary_tiles || []).some(wait => wait.count > 0
-      && completedShapeHasYaku([...hand, tileBase(wait.tile)], m.melds || [], win));
-  }
-
-  // At most four sets plus a pair; enumerate complete decompositions only.
-  // This deliberately does not guess which blocks a non-tenpai hand will keep.
-  function completedShapeHasYaku(hand, melds, win) {
-    const fixed = melds.map(meldTiles).map(ts => ts.map(tileBase));
-    if (win.dim === "honitsu_kept") {
-      return [...hand, ...fixed.flat()].every(t => !isOffSuit(t, win.suit));
-    }
-    const outside = ts => ts.some(t => isHonorMjai(t) || tileRank(t) === 1 || tileRank(t) === 9);
-    const runBit = ts => {
-      if (ts.length !== 3 || ts.some(t => tileSuit(t) !== win.suit)) return 0;
-      const ranks = ts.map(tileRank).sort((a, b) => a - b);
-      return [1, 4, 7].includes(ranks[0]) && ranks[1] === ranks[0] + 1 && ranks[2] === ranks[0] + 2
-        ? 1 << ((ranks[0] - 1) / 3) : 0;
-    };
-    const chanta = win.dim === "chanta_kept";
-    if (chanta && fixed.some(ts => !outside(ts))) return false;
-    const counts = baseCounts(hand);
-    const fixedMask = fixed.reduce((mask, ts) => mask | runBit(ts), 0);
-    const fixedRun = melds.some(meld => meld.type === "chi");
-    function sets(left, mask, hasRun) {
-      const tile = Object.keys(counts).sort().find(t => counts[t] > 0);
-      if (!tile) return left === 0 && (chanta ? hasRun : mask === 7);
-      if (left <= 0) return false;
-      if (counts[tile] >= 3 && (!chanta || outside([tile]))) {
-        counts[tile] -= 3;
-        const ok = sets(left - 1, mask, hasRun);
-        counts[tile] += 3;
-        if (ok) return true;
-      }
-      const rank = tileRank(tile), suit = tileSuit(tile);
-      const run = [tile, `${rank + 1}${suit}`, `${rank + 2}${suit}`];
-      if (suit !== "z" && rank >= 1 && rank <= 7 && run.every(t => counts[t] > 0)
-          && (!chanta || outside(run))) {
-        run.forEach(t => counts[t]--);
-        const ok = sets(left - 1, mask | runBit(run), true);
-        run.forEach(t => counts[t]++);
-        if (ok) return true;
-      }
-      return false;
-    }
-    for (const tile of Object.keys(counts)) {
-      if (counts[tile] < 2 || (chanta && !outside([tile]))) continue;
-      counts[tile] -= 2;
-      const ok = sets(4 - melds.length, fixedMask, fixedRun);
-      counts[tile] += 2;
-      if (ok) return true;
-    }
-    return false;
   }
 
   // Per-base tile counts of a tile list (red fives fold into their base).
