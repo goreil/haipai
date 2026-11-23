@@ -1,22 +1,29 @@
-// Review can mount a whole game's cards at once. Score only cells that enter
-// the viewport; expanding draws reuses that cell's analysis.
+// Mount the tile breakdown only when requested; both comparison columns share one disclosure.
 if (typeof customElements !== "undefined") customElements.define("haipai-iishanten", class extends HTMLElement {
-  static visibility = new IntersectionObserver(entries => {
-    for (const { target, isIntersecting } of entries) {
-      if (!isIntersecting || !target.isConnected) continue;
-      target.constructor.visibility.unobserve(target);
-      target.showDraws();
-    }
-  });
   connectedCallback() {
-    this.constructor.visibility.observe(this);
-  }
-  disconnectedCallback() {
-    this.constructor.visibility.unobserve(this);
+    if (this.discards) return;
+    this.discards = [this.dataset.discard];
+    if (this.dataset.compareDiscard) this.discards.push(this.dataset.compareDiscard);
+    this.innerHTML = this.discards.map((_, side) => this.columnHtml(side,
+      '<button type="button" class="ukeire-shared-pill" data-draw-details aria-expanded="false">Details'
+      + '<span class="ukeire-shared-caret" aria-hidden="true">▸</span></button>')).join("")
+      + '<div class="value-draw-details" hidden></div>';
   }
   constructor() {
     super();
     this.addEventListener("click", event => {
+      const details = event.target.closest("[data-draw-details]");
+      if (details) {
+        const panel = this.querySelector(".value-draw-details");
+        const opening = panel.hidden;
+        if (opening && !this.draws) this.showDraws(panel);
+        panel.hidden = !opening;
+        for (const button of this.querySelectorAll("[data-draw-details]")) {
+          button.setAttribute("aria-expanded", String(opening));
+          button.querySelector(".ukeire-shared-caret").textContent = opening ? "▾" : "▸";
+        }
+        return;
+      }
       const toggle = event.target.closest("[data-all-draws]");
       if (toggle) {
         this.renderDrawMode(toggle.getAttribute("aria-expanded") === "false");
@@ -42,23 +49,20 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
       if (!closing) this.showHand(row, Number(drawButton.dataset.drawIndex));
     });
   }
-  showDraws() {
-    if (this.discards) return;
+  showDraws(panel) {
     const key = this.closest(".mistake")?.querySelector("[data-comparison-key]")?.dataset.comparisonKey;
     const m = handComparisonContexts.get(key);
     const analyze = discard => {
       const stat = m?.discard_stats?.find(s => tileBase(s.tile) === tileBase(discard));
       return stat ? analyzeIishanten(m, discard, stat) : null;
     };
-    this.discards = [this.dataset.discard];
-    if (this.dataset.compareDiscard) this.discards.push(this.dataset.compareDiscard);
     this.draws = this.discards.map(analyze);
     this.mistake = m;
     const compared = this.draws.length === 2 && this.draws.every(Boolean);
     const headers = this.draws.map((draws, side) => this.columnHtml(side, compared
       ? '<button type="button" class="ukeire-shared-pill" data-all-draws></button>'
       : draws ? "" : '<small class="continuation-note">Continuation value unavailable</small>')).join("");
-    this.innerHTML = headers + `<div class="continuation-rows"></div>`;
+    panel.innerHTML = headers + `<div class="continuation-rows"></div>`;
     if (compared) {
       this.comparison = compareIishantenValues(...this.draws);
       this.totals = this.draws.map(draws => draws.reduce((n, d) => n + d.count, 0));

@@ -51,8 +51,12 @@ function scoredMetric(label, value, detail) {
     + `<section popover id="${id}" class="score-detail" aria-label="${label}">${detail}</section>`;
 }
 
-function renderScoredProfile(m, discard, stat, riichi) {
-  const profile = haipaiScoredValue.profile(m, discard, stat, riichi);
+function finalWaitLabel(profile) {
+  const { minWait, maxWait } = profile;
+  return minWait === maxWait ? `${maxWait} ${maxWait === 1 ? "tile" : "tiles"}` : `${minWait}–${maxWait} tiles`;
+}
+
+function renderScoredProfile(m, discard, stat, riichi, profile) {
   if (!profile) return `<small class="dim">Value unavailable</small>`;
   const tags = Object.entries(profile.yaku).map(([name, share]) => {
     if (name === "riichi") return "";
@@ -60,15 +64,15 @@ function renderScoredProfile(m, discard, stat, riichi) {
   }).join("");
   const math = haipaiScoredValue.calculations(m, discard, stat, riichi, profile);
   const equation = text => `<pre>${escapeHtml(text)}</pre>`;
-  const maxHand = profile.maxPoints ? renderMaxScoredHand(m, discard, stat, riichi, profile) : "";
-  const wait = profile.minWait === profile.maxWait ? profile.maxWait : `${profile.minWait}–${profile.maxWait}`;
+  const tenpai = stat.shanten === 0;
   const finalWaitHint = "How many unseen tiles can win the hand."
     + (profile.minWait === profile.maxWait ? "" : " The range depends on which tile gets you to tenpai.");
   return `<div class="scored-profile">`
+    + `<span class="score-metric" title="${finalWaitHint}">Final wait <b>${finalWaitLabel(profile)}</b></span>`
     + scoredMetric("Wait value", Math.round(profile.waitValue).toLocaleString(), equation(math.waitValue))
-    + `<span title="${finalWaitHint}">Final wait <b>${wait}</b></span>`
-    + scoredMetric("Average", `${Math.round(profile.meanPoints).toLocaleString()} pts`, equation(math.meanPoints))
-    + scoredMetric("Max", `${profile.maxPoints.toLocaleString()} pts`, maxHand)
+    + (tenpai ? scoredMetric("Average", `${Math.round(profile.meanPoints).toLocaleString()} pts`, equation(math.meanPoints))
+      + scoredMetric("Max", `${profile.maxPoints.toLocaleString()} pts`,
+        profile.maxPoints ? renderMaxScoredHand(m, discard, stat, riichi, profile) : "") : "")
     + (tags ? `<div>${tags}</div>` : "")
     + (!profile.maxPoints ? `<small class="dim">No live scoring wins</small>` : "") + `</div>`;
 }
@@ -154,11 +158,11 @@ function renderWinFeatPill(w, oya) {
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
     case "scored_value": {
       const [better, other] = w.winner === "you" ? [w.you, w.mortal] : [w.mortal, w.you];
-      if (w.yaku.length) return w.yaku.map(name => featPill("pos",
+      const yaku = w.yaku.filter(name => name !== "riichi").map(name => featPill("pos",
         `+${scoredSharePercent(better.yaku[name] - (other.yaku[name] || 0))} ${escapeHtml(name)}`,
         "Percentage-point increase in the share of weighted Value outcomes with this yaku", "", c)).join("");
       return featPill("pos", `+${w.magnitude.toLocaleString()} wait value`,
-        `${Math.round(better.waitValue).toLocaleString()} − ${Math.round(other.waitValue).toLocaleString()} ≈ ${w.magnitude.toLocaleString()}`, "", c);
+        `${Math.round(better.waitValue).toLocaleString()} − ${Math.round(other.waitValue).toLocaleString()} = ${w.magnitude.toLocaleString()}`, "", c) + yaku;
     }
     case "dora_kept":
       return featPill("pos", "+dora", "Keeps a dora the other pick discards",
@@ -565,9 +569,10 @@ function renderEvComparison(m, options) {
       && (action?.type === "dahai" || action?.type === "reach");
     // A tie has no winning dimension, and an unknown opponent is not worth
     // zero points. Still show each eligible column's own Value data.
-    const valueSummary = showProfile ? renderScoredProfile(scoringMistake, tile, ca, scoreIsRiichi) : "";
+    const profile = showProfile ? haipaiScoredValue.profile(scoringMistake, tile, ca, scoreIsRiichi) : null;
+    const valueSummary = showProfile ? renderScoredProfile(scoringMistake, tile, ca, scoreIsRiichi, profile) : "";
     return { tile, isWin, winScore, winTile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
-             acc, lookahead, valueSummary, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe, isGenbutsu };
+             acc, lookahead, profile, valueSummary, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe, isGenbutsu };
   });
 
   // Feature-summary pills. The win-vector is now computed once by the shared
@@ -590,9 +595,15 @@ function renderEvComparison(m, options) {
 
   const sideForWinner = (w) =>
     w.winner === "you" ? "actual" : w.winner === "mortal" ? "expected" : null;
-  const featCells = cols.map((col) => wins
-    .filter(w => col.side === sideForWinner(w))
-    .map(renderWinPill).join(""));
+  const pairedDraws = cols.length === 2 && cols.every(c => c.lookahead);
+  const featCells = cols.map((col, i) => {
+    const pills = wins.filter(w => col.side === sideForWinner(w)).map(renderWinPill).join("");
+    const p = col.profile, other = pairedDraws && cols[1 - i].profile;
+    if (!p || !other || (p.minWait <= other.minWait && p.maxWait <= other.maxWait)) return pills;
+    const color = haipaiCompareDimensions.GROUP_META.Dora.color;
+    return pills + `<span class="feat-pill feat-pill-grp" style="--feat-grp:${color}" title="Final wait compared with ${finalWaitLabel(other)}">`
+      + `<span class="feat-pill-label">Final wait ${finalWaitLabel(p)}</span></span>`;
+  });
 
   // The tiles every pick accepts are common ground — each acceptance cell shows
   // the shared count as a pill on its left (built per-column above), expanding in
@@ -651,18 +662,17 @@ function renderEvComparison(m, options) {
       "ukeire-col ukeire-acc-row", c => `<div class="ukeire-acc-cell">${c.acc || (c.lookahead ? "0 tiles" : "")}</div>`);
   }
   if (winMistake || cols.some(c => c.valueSummary || c.lookahead || c.scoreGroups?.length)) {
-    const pairedDraws = cols.length === 2 && cols.every(c => c.lookahead);
     html += rowFor("Value",
       `${pairedDraws ? ' rowspan="2"' : ''} title="Winning tiles and scores. At one shanten, select an improving draw to compare tenpai discards."`,
       "score-col", c => {
         if (winMistake) return c.winScore || c.scoreGroups?.length
           ? `<div class="rsc-cell">${c.winScore || renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>` : c.acc;
-        const other = c.side === "other" ? null : cols.find(col => col.side === (c.side === "actual" ? "expected" : "actual"));
         if (c.lookahead) {
           if (pairedDraws) return c.valueSummary;
           return c.valueSummary + `<haipai-iishanten data-discard="${escapeHtml(c.tile)}"></haipai-iishanten>`;
         }
-        return c.valueSummary + (c.scoreGroups?.length ? renderTenpaiValue(c.scoreGroups, c.scoreIsRiichi, other?.scoreGroups) : "");
+        return c.valueSummary + (c.scoreGroups?.length
+          ? `<div class="rsc-cell">${renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>` : "");
       });
     if (pairedDraws) {
       html += `<tr class="value-draw-row"><td colspan="2"><haipai-iishanten class="value-draw-grid"`

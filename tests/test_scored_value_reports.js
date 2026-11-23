@@ -28,28 +28,34 @@ const trainer = vm.createContext({
   haipaiCompareDimensions: require('../static/js/compare-dimensions.js'),
   renderTile: tile => `[${tile}]`,
 });
-vm.runInContext(fs.readFileSync(require.resolve('../static/js/categorize-explanations.js'), 'utf8'), trainer);
+for (const file of ['ev-table.js', 'categorize-explanations.js']) {
+  vm.runInContext(fs.readFileSync(require.resolve(`../static/js/${file}`), 'utf8'), trainer);
+}
 
 function summary(mistakeId) {
   return trainer.explainDiscardShape(reports.find(r => r.mistake.id === mistakeId).mistake, { threats: [] });
 }
 
-test('equal final wait ranges compare average points, even when the maximum ties', () => {
+test('equal projected final waits compare visible yaku shares and overall wait value', () => {
   const text = summary(42402);
-  assert.match(text, /Both cuts leave 6–7 winning tiles/);
-  assert.match(text, /Mortal's \[7p\] cut averages 3,240 points versus 2,887/);
-  assert.doesNotMatch(text, /wait value|weighting|more support/);
+  assert.match(text, /Both cuts have a projected final wait of 6–7 tiles/);
+  assert.match(text, /Mortal's \[7p\] cut has iipeikou in 34\.8% of weighted outcomes versus 18\.8%/);
+  assert.match(text, /\+2,475 wait value overall/);
+  assert.doesNotMatch(text, /average|maximum|points/i);
 });
 
 test('one-shanten summaries distinguish tiles reaching tenpai from tiles winning the hand', () => {
   const flush = summary(15192);
   assert.match(flush, /Your \[2s\] cut reaches tenpai on 5 more tiles/);
-  assert.match(flush, /Mortal's \[3p\] cut averages 7,975 points versus 3,232/);
-  assert.doesNotMatch(flush, /for honitsu|to get honitsu/);
+  assert.match(flush, /Mortal's \[3p\] cut has honitsu in 100% of weighted outcomes versus 0%/);
+  assert.match(flush, /\+21,845 wait value overall/);
+  assert.doesNotMatch(flush, /average|maximum|points|because of honitsu/i);
 
   const wider = summary(34648);
   assert.match(wider, /Your \[5m\] cut reaches tenpai on 2 more tiles/);
-  assert.match(wider, /Mortal's \[5s\] cut can leave up to 11 winning tiles instead of 7 but pays less on average/);
+  assert.match(wider, /projects a final wait of 3–11 tiles versus 3–7 tiles/);
+  assert.match(wider, /\+6,630 wait value overall/);
+  assert.doesNotMatch(wider, /average|maximum|points/i);
 });
 
 test('unexplained tenpai picks report the actual wait and average advantage only once', () => {
@@ -59,11 +65,27 @@ test('unexplained tenpai picks report the actual wait and average advantage only
   assert.doesNotMatch(text, /accepts|reaches tenpai|safer|easier/);
 });
 
-test('an average-only value advantage still shows its speed cost; other visible features survive', () => {
-  const average = summary(38391);
-  assert.match(average, /Your \[3m\] cut reaches tenpai on 4 more tiles/);
-  assert.match(average, /Mortal's \[8s\] cut averages 7,491 points versus 6,545/);
+test('equal waits without a visible yaku difference report wait value without inventing a reason', () => {
+  const text = summary(38391);
+  assert.match(text, /Both cuts have a projected final wait of 4–8 tiles/);
+  assert.match(text, /Your \[3m\] cut reaches tenpai on 4 more tiles/);
+  assert.match(text, /Mortal's \[8s\] cut gains \+2,575 wait value overall/);
+  assert.doesNotMatch(text, /average|maximum|points|riichi/i);
   assert.match(summary(19374), /dora/);
+});
+
+test('mixed-depth comparisons distinguish an existing wait from a projected one on either side', () => {
+  const m = reports.find(r => r.mistake.id === 42417).mistake;
+  // Compare two real tenpai cuts from this hand against the same one-shanten cut.
+  const compare = tile => trainer.explainDiscardShape({
+    ...m, actual: { ...m.actual, pai: tile }, expected: { ...m.expected, pai: '3m' },
+  }, { threats: [] });
+  const tenpai = compare('P'), projected = compare('6p');
+  assert.match(tenpai, /a tenpai wait of 3 tiles versus a projected final wait of 2–3 tiles/);
+  assert.match(tenpai, /\+2,571 wait value overall/);
+  assert.match(projected, /projects a final wait of 2–3 tiles versus a tenpai wait of 2 tiles/);
+  assert.match(projected, /\+15,429 wait value overall/);
+  assert.doesNotMatch(tenpai + projected, /average|maximum|points|riichi/i);
 });
 
 test('R-292: when speed and peak points tie, stronger iipeikou makes #m42402 a Value decision', () => {

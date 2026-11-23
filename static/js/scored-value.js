@@ -105,18 +105,18 @@
     return { equation: `${sum} ÷ ${divisor} = ${exact}`, exact };
   }
 
-  function projectedCalculation(draws, metric, result) {
+  function projectedWaitCalculation(draws, result) {
     if (!draws.length) return '0 unseen improving draws → 0';
     const details = new Map(), weights = new Map();
     let copies = 0;
     for (const draw of draws) {
-      const { equation, exact } = waitCalculation(draw.branch.groups, metric);
+      const { equation, exact } = waitCalculation(draw.branch.groups, 'waitValue');
       if (!details.has(equation)) details.set(equation, []);
       details.get(equation).push(`${draw.tile} × ${draw.count}`);
       weights.set(exact, (weights.get(exact) || 0) + draw.count);
       copies += draw.count;
     }
-    const lines = [calcHeading[metric]];
+    const lines = [calcHeading.waitValue];
     for (const [equation, draws] of details) lines.push(`${draws.join(', ')}: ${equation}`);
     const terms = Array.from(weights, ([value, n]) => `${n} × ${value.includes('/') ? `(${value})` : value}`);
     lines.push(`By draw copies: (${terms.join(' + ')}) ÷ ${copies} ${Number.isInteger(result) ? '=' : '≈'} ${fmt(Math.round(result))}`);
@@ -129,7 +129,7 @@
     if (stat.shanten === 1) {
       const draws = analyzeIishanten(m, discardTile, stat);
       if (!draws || draws.some(d => !d.branch?.groups)) return null;
-      for (const metric of Object.keys(calcHeading)) result[metric] = projectedCalculation(draws, metric, value[metric]);
+      result.waitValue = projectedWaitCalculation(draws, value.waitValue);
     } else {
       const groups = evalDiscardScores(m, discardTile, stat.necessary_tiles, riichi);
       if (!groups) return null;

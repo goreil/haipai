@@ -14,6 +14,7 @@
 // Load order: depends on
 //   - compare-dimensions.js (haipaiCompareDimensions — the win-vector + shape)
 //   - categorize.js (discard stat lookup at the same depth as the Value row)
+//   - ev-table.js (share and final-wait labels matching the Value row)
 //   - prep/defense.js (defenseSituation, defenseDealinForTile,
 //     _isDoubleRiichiContext, tenpaiWaitTiles)
 //   - mistake-card.js (mortalRaisedShanten, for the 5A branch)
@@ -42,45 +43,58 @@ function _narrationRank(w, skillArea) {
   return _GROUP_NARRATION[w.group] || 9;
 }
 
-// Describe the same rounded averages and final waits as the Value row. At
-// one shanten these are projections: the widest wait is not guaranteed.
+// Compare the visible Value metrics at each cut's depth. A yaku share
+// describes weighted outcomes, not a win probability or a point contribution.
 function _scoredNarration(w, m) {
   const you = haipaiCategorize.findInStats(m.actual.pai, m.discard_stats);
   const mortal = haipaiCategorize.findInStats(m.expected.pai, m.discard_stats);
   const depth = you.shanten === mortal.shanten ? you.shanten : null;
   const actualWins = w.winner === "you";
   const [better, other] = actualWins ? [w.you, w.mortal] : [w.mortal, w.you];
+  if (depth !== 0) {
+    const high = finalWaitLabel(better), low = finalWaitLabel(other);
+    const shares = [];
+    for (const name of w.yaku) {
+      if (name === "riichi") continue; // Not a visible Value-row yaku tag.
+      const more = scoredSharePercent(better.yaku[name]), less = scoredSharePercent(other.yaku[name] || 0);
+      if (more !== less) shares.push(`${name} in ${more} of weighted outcomes versus ${less}`);
+    }
+    const sameWait = depth === 1 && high === low;
+    const intro = sameWait ? `Both cuts have a projected final wait of ${high}.` : "";
+    const clauses = [];
+    if (shares.length) clauses.push(`has ${_joinClauses(shares)}`);
+    if (depth === null) {
+      const projected = (actualWins ? you : mortal).shanten === 1;
+      clauses.push(projected ? `projects a final wait of ${high} versus a tenpai wait of ${low}`
+        : `has a tenpai wait of ${high} versus a projected final wait of ${low}`);
+    } else if (!sameWait) {
+      clauses.push(`projects a final wait of ${high} versus ${low}`);
+    }
+    clauses.push(`gains +${w.magnitude.toLocaleString()} wait value overall`);
+    return { intro, value: _joinClauses(clauses), coversUkeire: false, depth };
+  }
+
   const avg = Math.round(better.meanPoints), otherAvg = Math.round(other.meanPoints);
   const tiles = n => `${n} winning tile${n === 1 ? "" : "s"}`;
-  const sameRange = better.minWait === other.minWait && better.maxWait === other.maxWait;
-  const sameDepth = depth !== null;
+  const sameWait = better.maxWait === other.maxWait;
+  // Both cuts are in tenpai: waits are fixed and payouts are visible.
   let intro = "", width = "";
-  if (sameDepth && sameRange && avg > otherAvg) {
-    const range = better.minWait === better.maxWait ? tiles(better.maxWait)
-      : `${better.minWait}–${tiles(better.maxWait)}`;
-    intro = `Both cuts leave ${range}.`;
-  } else if (sameDepth && better.maxWait > other.maxWait) {
-    const verb = better.minWait === better.maxWait ? "leaves" : "can leave up to";
-    width = `${verb} ${tiles(better.maxWait)} instead of ${other.maxWait}`;
-  } else if (depth === 1 && better.minWait > other.minWait && better.maxWait === other.maxWait) {
-    width = `always leaves at least ${tiles(better.minWait)} instead of as few as ${other.minWait}`;
+  if (sameWait && avg > otherAvg) {
+    intro = `Both cuts leave ${tiles(better.maxWait)}.`;
+  } else if (better.maxWait > other.maxWait) {
+    width = `leaves ${tiles(better.maxWait)} instead of ${other.maxWait}`;
   }
 
   // In tenpai, structural acceptance can be exactly the scored wait. Don't
   // repeat the width as a second advantage, or call a no-yaku tile a win.
-  const coversUkeire = !!width && depth === 0 && w.you.maxWait === you.necessary_count
+  const coversUkeire = !!width && w.you.maxWait === you.necessary_count
     && w.mortal.maxWait === mortal.necessary_count;
   let value;
   if (!other.maxPoints) {
     value = width || "has live winning tiles where the other cut has none";
   } else if (avg > otherAvg) {
     const high = avg.toLocaleString(), low = otherAvg.toLocaleString();
-    let payout = `averages ${high} points versus ${low}`;
-    if (!sameDepth) {
-      payout = (actualWins ? you : mortal).shanten === 1
-        ? `has a projected average of ${high} points versus ${low} in tenpai`
-        : `averages ${high} points in tenpai versus a projected ${low}`;
-    }
+    const payout = `averages ${high} points versus ${low}`;
     value = width ? `${width} and ${payout}` : payout;
   } else {
     value = width || `has a higher wait value (${Math.round(better.waitValue).toLocaleString()}`

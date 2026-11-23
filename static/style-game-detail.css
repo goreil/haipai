@@ -2055,14 +2055,15 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-.value-draw-grid .continuation-rows { display: contents; }
+.value-draw-grid .value-draw-details:not([hidden]), .value-draw-grid .continuation-rows { display: contents; }
+.value-draw-grid > div:has([data-draw-details]), .ev-table haipai-iishanten:has(> [data-draw-details]) {
+  text-align: center;
+}
+.ev-table [data-draw-details] { margin-block: 4px; }
 .value-draw-grid :is(.col-actual, .col-expected) { min-width: 0; padding: 0 8px; }
 .value-draw-grid .continuation-rows > :nth-child(n+3) { border-top: 1px solid var(--border); }
 .ev-table-cols .score-col td { vertical-align: top; }
-.value-waits { white-space: normal; text-align: start; }
-.value-waits > details { margin-top: 4px; }
-.value-waits details[open] > summary { margin-bottom: 6px; }
-.value-waits:has(details[open]) > .continuation { display: none; }
+.value-draw-details { text-align: start; }
 .continuation + .continuation { border-top: 1px solid var(--border); }
 .continuation-summary {
   position: relative;
@@ -2987,17 +2988,23 @@
   anchor-scope: --score-profile;
 }
 .score-metric {
-  padding: 0;
-  border: 0;
-  background: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
   color: inherit;
   font: inherit;
   white-space: nowrap;
+}
+button.score-metric {
   text-decoration: underline dotted var(--text-dim);
   text-underline-offset: 3px;
   cursor: pointer;
 }
-.score-metric:is(:hover, :focus-visible) { color: var(--accent); }
+button.score-metric:is(:hover, :focus-visible) { color: var(--accent); }
 .score-detail {
   position-anchor: --score-profile;
   position-area: bottom span-all;

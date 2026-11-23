@@ -19,6 +19,8 @@ test('decision cards show evidence before explanations and keep feedback editabl
     const scoredHand = reports.find(r => r.mistake.id === 42402).mistake;
     const doraHand = reports.find(r => r.mistake.id === 607).mistake;
     const furitenHand = reports.find(r => r.report_ids.includes(205)).mistake;
+    const flushHand = reports.find(r => r.mistake.id === 15192).mistake;
+    const tenpaiHand = reports.find(r => r.mistake.id === 42417).mistake;
     const headlineCases = [
       [6099, 'Attack / Efficiency + Value'],
       [5502, 'Defense / Efficiency + Value + Safety'],
@@ -70,9 +72,6 @@ test('decision cards show evidence before explanations and keep feedback editabl
           const sections = ['.mistake-top','.hand-row','.board-context','.ev-comparison','.mascot-speech','.note-row','.report-row'];
           sections.slice(1).forEach((selector,i) => check(before(card.querySelector(sections[i]),card.querySelector(selector)), 'section order ' + selector));
           check(!card.querySelector('.all-discards').open, 'attack discards collapsed');
-          const expectedTable = document.createElement('div');
-          expectedTable.innerHTML = renderEvComparison(base);
-          check(card.querySelector('table').textContent === expectedTable.querySelector('table').textContent, 'comparison contents preserved');
           // Exercise native disclosure in both directions.
           card.querySelector('.all-discards > summary').click();
           await tick();
@@ -140,8 +139,8 @@ test('decision cards show evidence before explanations and keep feedback editabl
           const value = card.querySelector('.score-col');
           const profile = side => value.querySelector('.col-' + side + ' .scored-profile');
           const evidence = side => profile(side).innerText.replaceAll(',', '');
-          check(evidence('actual').includes('2887') && evidence('expected').includes('3240'),
-            'copy-weighted points shown for both discards');
+          check(profile('actual').querySelector('.score-metric').textContent === 'Final wait 6–7 tiles' && !/Average|Max/.test(evidence('expected')),
+            'one-shanten profile shows the final wait range without average or max');
           check(evidence('actual').includes('18319') && evidence('expected').includes('20794'),
             'Value shows live-copy-weighted value separately from win payouts');
           const sides = ['actual', 'expected'];
@@ -150,28 +149,28 @@ test('decision cards show evidence before explanations and keep feedback editabl
             check(!evidence(side).includes('riichi'), 'Value percentages omit ordinary riichi');
           }
           const metrics = profile('expected');
-          for (const [label, result] of [['Wait value', '20,794'], ['Average', '3,240'], ['Max', '5,200']]) {
-            const button = [...metrics.querySelectorAll('button')].find(b => b.textContent.startsWith(label));
-            button.click();
-            const panel = metrics.querySelector(':popover-open');
-            if (label === 'Max') {
-              check(panel.querySelectorAll('img').length === 14 && panel.innerText.includes('iipeikou')
-                && panel.innerText.includes(result), 'Max shows a full scoring hand and its yaku');
-            } else {
-              check(!panel.querySelector('img') && panel.innerText.endsWith(result)
-                && panel.innerText.includes('÷ 16'), label + ' shows the draw-weighted calculation');
-            }
-            const rect = panel.getBoundingClientRect();
-            check(rect.left >= 0 && rect.right <= innerWidth, label + ' detail fits the viewport');
-            button.click();
-          }
+          const button = metrics.querySelector('button');
+          button.click();
+          const panel = metrics.querySelector(':popover-open');
+          check(panel.innerText.endsWith('20,794') && panel.innerText.includes('÷ 16'), 'draw-weighted wait calculation');
+          const rect = panel.getBoundingClientRect();
+          check(rect.left >= 0 && rect.right <= innerWidth, 'wait value calculation fits the viewport');
+          button.click();
           const mountDraws = () => {
             const hosts = card.querySelectorAll('haipai-iishanten');
             check(hosts.length === 1, 'one Value draw view for #' + card.id);
-            hosts[0].showDraws();
+            const view = hosts[0];
+            const details = [...view.querySelectorAll('[data-draw-details]')];
+            const visible = () => !!view.querySelector('.continuation-draw')?.checkVisibility();
+            check(!visible(), 'draw breakdown starts collapsed');
+            details.at(-1).click();
+            check(visible() && details.every(b => b.getAttribute('aria-expanded') === 'true'), 'either control opens both columns');
+            details[0].click();
+            check(!visible() && details.every(b => b.getAttribute('aria-expanded') === 'false'), 'other control collapses both columns');
+            details[0].click();
             return hosts[0];
           };
-          const pill = (view, side) => view.querySelector('.col-' + side + ' button.ukeire-shared-pill');
+          const pill = (view, side) => view.querySelector('.col-' + side + ' [data-all-draws]');
           const checkPills = (view, labels, expanded) => sides.forEach((side, i) => {
             const button = pill(view, side);
             check(button?.checkVisibility() && button.innerText.replace(/[▸◂]/g, '').trim() === labels[i]
@@ -204,13 +203,13 @@ test('decision cards show evidence before explanations and keep feedback editabl
           check42402(false);
           const gains = summary.querySelector('.col-expected').textContent.replaceAll(',', '');
           check(!summary.querySelector('.scored-profile') && summary.querySelector('.col-actual').textContent === '—'
-            && gains.trim() === '+16.1% iipeikou',
+            && gains.includes('+16.1% iipeikou') && gains.includes('+2475 wait value'),
             'Summary shows only relative advantages');
           check(document.documentElement.scrollWidth <= innerWidth, 'iipeikou comparison fits viewport');
           card.querySelector('button[aria-label="Compare discarding 2p with AI"]').click();
           check(card.querySelector('.col-actual .ev-tile').alt === '2p', 'selected two-shanten counterpart');
           view = mountDraws();
-          check(card.querySelector('.score-col .col-expected').contains(view) && !view.querySelector('.ukeire-shared-pill'),
+          check(card.querySelector('.score-col .col-expected').contains(view) && !view.querySelector('[data-all-draws]'),
             'unpaired one-shanten pick has no equality toggle');
           const fullDraws = [...view.querySelectorAll('.continuation-draw')].filter(b => b.checkVisibility())
             .map(b => b.querySelector('img').alt).sort();
@@ -249,6 +248,16 @@ test('decision cards show evidence before explanations and keep feedback editabl
           check(blockedRow.querySelector('.furiten-badge')?.checkVisibility(), 'furiten draw shows the tenpai badge');
           check(!view.querySelector('.col-expected .furiten-badge') && !view.innerText.includes('Live wait'),
             'unblocked draws need no status label');
+          const tenpai = ${JSON.stringify(tenpaiHand)};
+          card = draw({ ...tenpai, ...haipaiCategorize.categorize(tenpai) }, {inline:true});
+          for (const side of sides) {
+            const scores = card.querySelector('.score-col .col-' + side + ' > .rsc-cell');
+            check(scores.querySelector('.rsc-vals').checkVisibility(), 'tenpai payouts visible without a disclosure');
+          }
+          const flush = ${JSON.stringify(flushHand)};
+          card = draw({ ...flush, ...haipaiCategorize.categorize(flush) }, {inline:true});
+          const ai = card.querySelector('.feat-summary-row .col-expected').innerText;
+          check(ai.includes('Final wait 4 tiles') && ai.includes('+21,845 wait value'), 'honitsu comparison shows both advantages');
           document.body.dataset.result = 'passed';
         } catch(error) { document.body.dataset.result = error.stack; }
       });

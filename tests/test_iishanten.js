@@ -210,19 +210,6 @@ test('Max shows a live red winning tile, its only legal method and its scoring y
   assert.equal((html.match(/<img /g) || []).length, 14);
 });
 
-test('R-282: Max reconstructs the projected open honitsu, including its called chi', () => {
-  const m = require('./fixtures/scored_value_reports.json').find(r => r.report_ids.includes(282)).mistake;
-  const stat = m.discard_stats.find(s => s.tile === '3p');
-  const p = ctx.haipaiScoredValue.profile(m, '3p', stat);
-  const html = ctx.renderMaxScoredHand(m, '3p', stat, false, p);
-  assert.match(html, /honitsu/);
-  assert.match(html, /alt="5sr"/);
-  assert.match(html, /class="meld-called"><img [^>]*alt="9s"/);
-  assert.doesNotMatch(html, /alt="[23]p"/); // Both the first and the projected cut are gone.
-  assert.equal((html.match(/<img /g) || []).length, 14);
-  assert.ok(html.includes(`>${p.maxPoints.toLocaleString()}<`));
-});
-
 test('Max does not show a completed hand for live waits without yaku', () => {
   const chi = { type: 'chi', pai: '1m', consumed: ['2m', '3m'], target: 2 };
   const m = prep('7m 8m 9m 1p 2p 3p 3s 4s E E C'.split(' '),

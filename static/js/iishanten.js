@@ -145,15 +145,7 @@ function renderMaxScoredHand(m, discardTile, stat, riichi, profile) {
   if (!profile) return unavailable;
   if (profile.maxPoints === 0) return '<small class="dim">No live scoring wins</small>';
 
-  // Preserve the profile's width-first choice. Break ties in the scorer's
-  // stable draw, wait-group and physical tile order, preferring ron to tsumo.
-  let draw, groups;
-  if (stat.shanten === 1) {
-    draw = analyzeIishanten(m, discardTile, stat)?.find(d => d.branch?.profile?.maxPoints === profile.maxPoints);
-    groups = draw?.branch.groups;
-  } else {
-    groups = evalDiscardScores(m, discardTile, stat.necessary_tiles, riichi);
-  }
+  const groups = evalDiscardScores(m, discardTile, stat.necessary_tiles, riichi);
   const group = groups?.find(g => (g.ron?.ten === profile.maxPoints || g.tsumo?.ten === profile.maxPoints)
     && g.tiles.some(t => t.count > 0));
   if (!group) return unavailable;
@@ -162,15 +154,11 @@ function renderMaxScoredHand(m, discardTile, stat, riichi, profile) {
   const method = tsumo ? "tsumo" : "ron";
   const hand = m.hand.slice();
   hand.splice(hand.indexOf(discardTile), 1);
-  if (draw) {
-    hand.push(draw.tile);
-    hand.splice(hand.indexOf(draw.branch.discard), 1);
-  }
 
   // The profile hides situational labels such as menzen tsumo. Ask the same
   // scorer for the full yaku of this one hand, under the original flags.
   const score = _evalWaitScore(hand, tile, m, { tsumo, riichi: riichi && (m.melds || []).every(b => b.type === "ankan"),
-    flags: draw ? _iishantenRiichiFlags(m) : undefined, includeSituational: true });
+    includeSituational: true });
   if (score?.ten !== profile.maxPoints) return unavailable;
   const order = haipaiPrepTiles.MJAI_TO_RT;
   hand.sort((a, b) => order[a] - order[b] || a.length - b.length);
