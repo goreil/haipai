@@ -45,33 +45,22 @@ function _narrationRank(w, skillArea) {
 
 // Compare the visible Value metrics at each cut's depth. A yaku share
 // describes weighted outcomes, not a win probability or a point contribution.
-function _scoredNarration(w, m) {
-  const you = haipaiCategorize.findInStats(m.actual.pai, m.discard_stats);
-  const mortal = haipaiCategorize.findInStats(m.expected.pai, m.discard_stats);
-  const depth = you.shanten === mortal.shanten ? you.shanten : null;
+function _scoredNarration(w, you, mortal, depth) {
   const actualWins = w.winner === "you";
   const [better, other] = actualWins ? [w.you, w.mortal] : [w.mortal, w.you];
-  if (depth !== 0) {
+  if (w.dim === "projected_value") {
     const high = finalWaitLabel(better), low = finalWaitLabel(other);
-    const shares = [];
-    for (const name of w.yaku) {
-      if (name === "riichi") continue; // Not a visible Value-row yaku tag.
-      const more = scoredSharePercent(better.yaku[name]), less = scoredSharePercent(other.yaku[name] || 0);
-      if (more !== less) shares.push(`${name} in ${more} of weighted outcomes versus ${less}`);
-    }
+    const shares = w.yaku.map(name => `${name} in ${scoredSharePercent(better.yaku[name])} of weighted outcomes`
+      + ` versus ${scoredSharePercent(other.yaku[name] || 0)}`);
     const sameWait = depth === 1 && high === low;
     const intro = sameWait ? `Both cuts have a projected final wait of ${high}.` : "";
     const clauses = [];
     if (shares.length) clauses.push(`has ${_joinClauses(shares)}`);
-    if (depth === null) {
-      const projected = (actualWins ? you : mortal).shanten === 1;
-      clauses.push(projected ? `projects a final wait of ${high} versus a tenpai wait of ${low}`
-        : `has a tenpai wait of ${high} versus a projected final wait of ${low}`);
-    } else if (!sameWait) {
-      clauses.push(`projects a final wait of ${high} versus ${low}`);
+    if (w.ronDraws.length) {
+      const draws = w.ronDraws.map(t => renderTile(t, "tile-sm")).join(" ");
+      clauses.push(`keeps ron available after drawing ${draws}, when the other cut would be furiten`);
     }
-    clauses.push(`gains +${w.magnitude.toLocaleString()} wait value overall`);
-    return { intro, value: _joinClauses(clauses), coversUkeire: false, depth };
+    return { intro, value: _joinClauses(clauses) };
   }
 
   const tiles = n => `${n} winning tile${n === 1 ? "" : "s"}`;
@@ -88,13 +77,13 @@ function _scoredNarration(w, m) {
   const coversUkeire = !!width && w.you.maxWait === you.necessary_count
     && w.mortal.maxWait === mortal.necessary_count;
   const gain = `gains +${w.magnitude.toLocaleString()} wait value overall`;
-  return { intro, value: width ? `${width} and ${gain}` : gain, coversUkeire, depth };
+  return { intro, value: width ? `${width} and ${gain}` : gain, coversUkeire };
 }
 
 // One natural-language clause describing what a winning dimension gains, with
 // tiles rendered as glyphs. `seatWindFor(seat)` maps a deal_in entry's seat to
 // a wind label (null when unknown).
-function _winClause(w, seatWindFor, scored) {
+function _winClause(w, seatWindFor, scored, depth) {
   const tile = (t) => renderTile(t, "tile-sm");
   switch (w.dim) {
     case "shanten": {
@@ -104,7 +93,15 @@ function _winClause(w, seatWindFor, scored) {
     case "ukeire": {
       if (scored?.coversUkeire) return "";
       const n = `${w.magnitude} more tile${w.magnitude === 1 ? "" : "s"}`;
-      return scored?.depth === 1 ? `reaches tenpai on ${n}` : `accepts ${n}`;
+      return depth === 1 ? `reaches tenpai on ${n}` : `accepts ${n}`;
+    }
+    case "final_wait": {
+      const [better, other] = w.winner === "you" ? [w.you, w.mortal] : [w.mortal, w.you];
+      const high = finalWaitLabel(better), low = finalWaitLabel(other);
+      if (depth === 1) return `projects a final wait of ${high} versus ${low}`;
+      return better.waitValue == null
+        ? `has a projected final wait of ${high} versus a tenpai wait of ${low}`
+        : `has a tenpai wait of ${high} versus a projected final wait of ${low}`;
     }
     case "versatility_kept":
       return `keeps the more versatile ${tile(w.tiles[0])}`;
@@ -116,6 +113,7 @@ function _winClause(w, seatWindFor, scored) {
         ? `avoids a furiten wait on ${ts} (already in your own discards — no ron)`
         : "avoids a furiten wait";
     }
+    case "projected_value":
     case "scored_value":
       return scored.value;
     case "dora_kept":
@@ -154,7 +152,7 @@ function _yakuName(w) {
 // When a side both keeps a dora AND its wait draws dora, the acceptance clause
 // only names the *extra* dora the kept clause didn't (and is dropped entirely
 // when there's no extra), so the sentence never says the same dora twice.
-function _sideClauses(wins, side, skillArea, seatWindFor, scored) {
+function _sideClauses(wins, side, skillArea, seatWindFor, scored, depth) {
   const mine = wins
     .filter(w => w.winner === side && !w.suppressed)
     .sort((a, b) =>
@@ -183,7 +181,7 @@ function _sideClauses(wins, side, skillArea, seatWindFor, scored) {
       if (!extra.length) continue;  // wait draws only the dora we already kept — say nothing more
       c = `its wait also draws ${extra.map(t => renderTile(t, "tile-sm")).join("")}`;
     } else {
-      c = _winClause(w, seatWindFor, scored);
+      c = _winClause(w, seatWindFor, scored, depth);
     }
     if (c) clauses.push(c);
   }
@@ -230,12 +228,19 @@ function explainDiscardShape(m, defenseCtx) {
 
   const aT = renderTile(m.actual.pai, "tile-sm");
   const eT = renderTile(m.expected.pai, "tile-sm");
-  const valueWin = wins.find(w => w.dim === "scored_value" && !w.suppressed);
-  const scored = valueWin ? _scoredNarration(valueWin, m) : null;
-  const youText = _joinClauses(_sideClauses(wins, "you", skillArea, seatWindFor, scored));
-  const mortalText = _joinClauses(_sideClauses(wins, "mortal", skillArea, seatWindFor, scored));
+  const scored = {};
+  let depth = null;
+  const valueWins = wins.filter(w => !w.suppressed && (w.dim === "scored_value" || w.dim === "projected_value"));
+  if (valueWins.length || wins.some(w => w.dim === "final_wait" && !w.suppressed)) {
+    const you = haipaiCategorize.findInStats(m.actual.pai, m.discard_stats);
+    const mortal = haipaiCategorize.findInStats(m.expected.pai, m.discard_stats);
+    depth = you.shanten === mortal.shanten ? you.shanten : null;
+    for (const w of valueWins) scored[w.winner] = _scoredNarration(w, you, mortal, depth);
+  }
+  const youText = _joinClauses(_sideClauses(wins, "you", skillArea, seatWindFor, scored.you, depth));
+  const mortalText = _joinClauses(_sideClauses(wins, "mortal", skillArea, seatWindFor, scored.mortal, depth));
   const lead = _defenseLead(skillArea, defenseCtx);
-  const sentences = [lead, scored?.intro];
+  const sentences = [lead, scored.you?.intro || scored.mortal?.intro];
   if (youText) sentences.push(`Your ${aT} cut ${youText}.`);
   if (mortalText) sentences.push(`Mortal's ${eT} cut ${mortalText}.`);
   if (shape === "complex") sentences.push(`The comparison doesn't show why Mortal prefers ${eT}.`);

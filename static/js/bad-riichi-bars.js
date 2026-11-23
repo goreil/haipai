@@ -790,17 +790,15 @@ function scoringDiscardRiver(m, discard, stat) {
 
 // A mean on legal wins, not an estimate of win probability. Red and normal
 // fives, dead waits, furiten ron, and no-yaku modes retain their UI semantics.
-function profileWaitScores(groups) {
+function profileWaitScores(groups, includeWaitValue = true) {
   if (!groups) return null;
   const yaku = {};
-  let points = 0, maxPoints = 0, outcomes = 0, waitValue = 0, liveCopies = 0;
+  let points = 0, maxPoints = 0, outcomes = 0, liveCopies = 0;
   for (const group of groups) {
     const copies = group.tiles.reduce((n, t) => n + t.count, 0);
     if (!copies) continue;
     if (!group.ron && !group.tsumo) continue;
     liveCopies += copies;
-    // Unlike the mean payout on a legal win, losing ron must not raise the index.
-    waitValue += copies * ((group.ron?.ten || 0) + (group.tsumo?.ten || 0)) / 2;
     for (const score of [group.ron, group.tsumo]) {
       if (!score) continue;
       outcomes += copies;
@@ -810,7 +808,10 @@ function profileWaitScores(groups) {
     }
   }
   for (const name in yaku) yaku[name] /= outcomes;
-  return { waitValue, minWait: liveCopies, maxWait: liveCopies, meanPoints: outcomes ? points / outcomes : 0, maxPoints, yaku };
+  const profile = { minWait: liveCopies, maxWait: liveCopies, meanPoints: outcomes ? points / outcomes : 0, maxPoints, yaku };
+  // Unlike the legal-win mean, the tenpai index counts blocked methods as zero.
+  if (includeWaitValue) profile.waitValue = points / 2;
+  return profile;
 }
 
 return { evalDiscardScores, profileWaitScores, scoringDiscardRiver, renderWinScore, renderBadRiichiBars, renderRiichiScoreCell,

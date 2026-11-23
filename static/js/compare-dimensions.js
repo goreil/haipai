@@ -9,14 +9,14 @@
 // `compareDimensions(m)` returns the FULL win-vector — every dimension is
 // evaluated and emitted (nothing short-circuits), each tagged with its group:
 //
-//   Speed   — shanten, ukeire, versatility_kept, furiten_avoided (ukeire is
+//   Speed   — shanten, final_wait, ukeire, versatility_kept, furiten_avoided (ukeire is
 //             GATED: only a real win at tied shanten; versatility_kept is
 //             GATED: only at tied shanten of 2 or more AND tied ukeire)
 //   Yaku    — yakuhai_kept, tanyao_kept, honitsu_kept, ittsu_kept,
 //             toitoi_kept, chiitoi_kept, chanta_kept
 //             (tile-pattern prospects only beyond 1-shanten; speculative
 //              chanta/ittsu/honitsu never count as wins)
-//   Dora    — scored_value, dora_kept, dora_acceptance
+//   Dora    — scored_value (tenpai), projected_value, dora_kept, dora_acceptance
 //   Defense — deal_in           (a per-opponent vector, read off m.per_threat),
 //             safe_spare_kept   (pre-threat safe-tile economy; only fires when
 //                                no threat is armed — deal_in owns armed scenes)
@@ -349,6 +349,14 @@
     }
   }
 
+  // Value rows display tenths of a percent, distinguishing exact 0 and 100
+  // from <0.1% and >99.9%. Indistinguishable shares aren't a projected gain.
+  function visibleShare(share) {
+    if (share === 0) return -1;
+    if (share === 1) return 1001;
+    return Math.round(1000 * share);
+  }
+
   function addScoredValue(wins, m, actualTile, actualStat, expectedTile, expectedStat) {
     const eligible = (action, stat) => (action?.type === "dahai" || action?.type === "reach")
       && (stat?.shanten === 0 || stat?.shanten === 1);
@@ -359,12 +367,34 @@
     const you = profile(actualTile, actualStat, "actual");
     const mortal = profile(expectedTile, expectedStat, "expected");
     if (!you || !mortal) return; // Unknown is not a zero-point hand.
+    const gainedYaku = (better, other, projected) => {
+      const gain = name => better.yaku[name] - (other.yaku[name] || 0);
+      return Object.keys(better.yaku).filter(name => gain(name) > 1e-9
+        && (!projected || name !== "riichi" && visibleShare(better.yaku[name]) > visibleShare(other.yaku[name] || 0)))
+        .sort((a, b) => gain(b) - gain(a) || a.localeCompare(b));
+    };
+    if (actualStat.shanten === 1 || expectedStat.shanten === 1) {
+      // No common payout index across projected waits: credit each side's
+      // visible yaku, wait endpoints and legal ron on shared improving draws.
+      const ronDraws = actualStat.shanten === 1 && expectedStat.shanten === 1
+        ? scorer.projectedRonDraws(m, actualTile, actualStat, expectedTile, expectedStat) : null;
+      for (const winner of ["you", "mortal"]) {
+        const better = winner === "you" ? you : mortal, other = winner === "you" ? mortal : you;
+        const yaku = gainedYaku(better, other, true);
+        if (better.minWait > other.minWait || better.maxWait > other.maxWait) {
+          wins.push({ dim: "final_wait", group: "Speed", prio: 2, winner, you, mortal });
+        }
+        const draws = ronDraws?.[winner] || [];
+        if (yaku.length || draws.length) {
+          wins.push({ dim: "projected_value", group: "Dora", prio: 1, winner, you, mortal, yaku, ronDraws: draws });
+        }
+      }
+      return;
+    }
     const delta = Math.round(mortal.waitValue) - Math.round(you.waitValue);
     if (!delta) return;
     const better = delta > 0 ? mortal : you, other = delta > 0 ? you : mortal;
-    const gain = name => better.yaku[name] - (other.yaku[name] || 0);
-    const yaku = Object.keys(better.yaku).filter(name => gain(name) > 1e-9)
-      .sort((a, b) => gain(b) - gain(a) || a.localeCompare(b));
+    const yaku = gainedYaku(better, other, false);
     wins.push({ dim: "scored_value", group: "Dora", prio: 1, winner: delta > 0 ? "mortal" : "you",
       magnitude: Math.abs(delta), you, mortal, yaku });
   }

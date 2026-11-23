@@ -31,7 +31,7 @@ var SKILL_AREA_INFO = {
 
 // Stored shapes stay unchanged; discard badges describe their visible evidence.
 var SHAPE_INFO = {
-  obvious:     { label: "Visible improvements", desc: "The badge names Mortal's visible advantages: Efficiency, Value, Safety, or a combination." },
+  obvious:     { label: "Visible improvements", desc: "The badge names Mortal's visible advantages: Efficiency, Final wait, Value, Safety, or a combination." },
   "trade-off": { label: "Main trade-off", desc: "The badge names one recommended direction supported by the displayed comparison." },
   complex:     { label: "Complex",   desc: "The visible stats (shanten, ukeire, value) don't explain Mortal's pick — a read on shape, wait, or score." },
   "n/a":       { label: "",          desc: "" },
@@ -69,11 +69,12 @@ function discardHeadline(wins) {
   let riskWinner = null, mixedRisk = false, maxRiskGap = 0, betterSpare = false;
   for (const win of wins || []) {
     if (win.suppressed || (win.winner !== "you" && win.winner !== "mortal")) continue;
+    const concept = win.dim === "final_wait" ? "final_wait" : win.group;
     if (win.winner === "you") {
-      you[win.group] = true;
+      you[concept] = true;
       youCount++;
     } else {
-      better[win.group] = true;
+      better[concept] = true;
       betterCount++;
       if (win.dim === "safe_spare_kept") betterSpare = true;
     }
@@ -88,6 +89,7 @@ function discardHeadline(wins) {
   if (!youCount) {
     const improvements = [];
     if (better.Speed) improvements.push("Efficiency");
+    if (better.final_wait) improvements.push("Final wait");
     if (better.Yaku || better.Dora) improvements.push("Value");
     if (better.Defense) improvements.push("Safety");
     if (!improvements.length) return null;
@@ -96,7 +98,11 @@ function discardHeadline(wins) {
   }
   const youValue = you.Yaku || you.Dora;
   const betterValue = better.Yaku || better.Dora;
-  const speedValue = (youValue && better.Speed) || (you.Speed && betterValue);
+  const youAttack = you.Speed || you.final_wait, betterAttack = better.Speed || better.final_wait;
+  // Crossing wait ranges give both cuts an endpoint advantage, not a
+  // direction in a speed/value trade-off.
+  const speedValue = (youValue && (better.Speed || (better.final_wait && !you.final_wait)))
+    || (betterValue && (you.Speed || (you.final_wait && !better.final_wait)));
   if (mixedRisk) {
     return headline("Safety trade-off",
       "Mortal's choice is safer against one opponent but riskier against another.", "push_fold");
@@ -104,13 +110,17 @@ function discardHeadline(wins) {
   // A tiny risk difference only loses headline precedence when another
   // visible trade-off can explain the recommendation. The risk stays visible.
   if (riskWinner && !(speedValue && maxRiskGap + 1e-9 < 0.5)) {
-    const opposingProgress = riskWinner === "mortal" ? you.Speed || youValue : better.Speed || betterValue;
+    const opposingProgress = riskWinner === "mortal" ? youAttack || youValue : betterAttack || betterValue;
     if (opposingProgress) {
       return riskWinner === "mortal"
         ? headline("Should fold", "Mortal's choice gives up efficiency or value for lower deal-in risk.", "push_fold")
         : headline("Should push", "Mortal's choice accepts more deal-in risk for efficiency or value.", "push_fold");
     }
     return headline("Safety trade-off", "The displayed comparison trades one safety advantage for another.", "push_fold");
+  }
+  if (better.final_wait && !you.final_wait) {
+    return headline("Final wait", "Mortal's cut improves the minimum or maximum final wait.",
+      youValue ? "speed_value" : "other");
   }
   if (speedValue) {
     return better.Speed
@@ -122,6 +132,7 @@ function discardHeadline(wins) {
   }
   if (better.Speed) return headline("Prioritize speed", "Mortal's choice preserves a visible efficiency advantage.");
   if (betterValue) return headline("Prioritize value", "Mortal's choice preserves a visible value advantage.");
+  if (better.final_wait) return headline("Final wait", "The cuts favor different ends of the final wait range.");
   return null;
 }
 

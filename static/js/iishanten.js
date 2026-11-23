@@ -70,7 +70,7 @@ function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
     const live = _expandWaitsForAka(waits, furitenSet).filter(w => w.count > 0);
     const groups = count ? _scoreTenpaiWaits(m, tenpai, live, false,
       "A wait is in your discard pool — ron is unavailable on every wait; tsumo is still possible.", riichiFlags) : [];
-    branches.push({ discard, count, groups, profile: profileWaitScores(groups) });
+    branches.push({ discard, count, groups, profile: profileWaitScores(groups, false) });
   }
 
   const widest = Math.max(...branches.map(b => b.count));

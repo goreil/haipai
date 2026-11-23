@@ -43,6 +43,7 @@
   var CONCEPT_META = {
     shanten:         { label: "Speed (shanten)", hint: "Fewer tiles away from a complete hand." },
     ukeire:          { label: "Efficiency (ukeire)", hint: "More tile types that complete or advance your hand." },
+    final_wait:      { label: "Final wait", hint: "More unseen winning tiles at the low or high end of the final wait range." },
     versatility_kept:{ label: "Efficiency (versatility)", hint: "Keeping a tile that can grow into more wait shapes later (3-7 > 2/8 > 1/9 > honor), even when raw ukeire ties." },
     furiten_avoided: { label: "Furiten", hint: "Avoiding a tenpai whose wait is in your own discards — a furiten hand can never ron." },
     yakuhai_kept:    { label: "Yakuhai", hint: "Keeping a valuable honor tile that scores a yaku on its own." },
@@ -53,7 +54,7 @@
     chiitoi_kept:    { label: "Chiitoi", hint: "Keeping all distinct pairs toward seven pairs." },
     chanta_kept:     { label: "Chanta", hint: "Keeping every block terminal- or honor-flavored." },
     scored_value:    { label: "Scored hand value", hint: "Live winning copies weighted by ron and tsumo payouts, with unavailable win methods counting as zero." },
-    projected_value: { label: "Projected hand value", hint: "A higher final wait endpoint or an improving draw that keeps ron available." },
+    projected_value: { label: "Projected hand value", hint: "An improving draw that keeps ron available." },
     dora_kept:       { label: "Dora", hint: "Keeping a dora tile for extra hand value." },
     dora_acceptance: { label: "Dora acceptance", hint: "Keeping a wait that can still draw more dora tiles." },
     deal_in:         { label: "Defense (deal-in)", hint: "Risk of dealing into an opponent's hand." },
@@ -141,7 +142,7 @@
             hits.push({ side, group: "Yaku", dim: CONCEPT_META[kept] ? kept : label, label });
           }
           // A yaku-only projection has no separate Value pill to attribute.
-          if (win.dim === "projected_value" && !win.widerWait && !win.ronDraws.length) continue;
+          if (win.dim === "projected_value" && !win.ronDraws.length) continue;
         }
         var meta = CONCEPT_META[win.dim];
         if (!meta) continue;

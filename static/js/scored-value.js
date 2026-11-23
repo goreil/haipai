@@ -23,7 +23,7 @@
   function drawProfile(draws) {
     if (!draws) return null;
     const yaku = {};
-    let points = 0, waitValue = 0, maxPoints = 0, copies = 0;
+    let points = 0, maxPoints = 0, copies = 0;
     let minWait = Infinity, maxWait = 0;
     for (const draw of draws) {
       // Exactly the width-first branch shown on the card; a narrower cut's
@@ -33,14 +33,13 @@
       if (!value) return null;
       copies += draw.count;
       points += draw.count * value.meanPoints;
-      waitValue += draw.count * value.waitValue;
       minWait = Math.min(minWait, value.minWait);
       maxWait = Math.max(maxWait, value.maxWait);
       maxPoints = Math.max(maxPoints, value.maxPoints);
       for (const name in value.yaku) yaku[name] = (yaku[name] || 0) + draw.count * value.yaku[name];
     }
     for (const name in yaku) yaku[name] /= copies;
-    return { waitValue: copies ? waitValue / copies : 0, minWait: copies ? minWait : 0, maxWait,
+    return { minWait: copies ? minWait : 0, maxWait,
       meanPoints: copies ? points / copies : 0, maxPoints, yaku };
   }
 
@@ -83,7 +82,7 @@
       else pairs.set(key, { count, ron, tsumo });
     }
     if (!pairs.size) {
-      return { equation: '0 live copies → 0', exact: '0' };
+      return '0 live copies → 0';
     }
     const terms = [];
     let numerator = 0;
@@ -92,42 +91,35 @@
       numerator += count * (ron + tsumo);
     }
     const sum = terms.length === 1 ? terms[0] : `(${terms.join(' + ')})`;
-    // This exact value is also an operand in the outer (draw-copy) average.
     const exact = numerator % 2 ? `${fmt(numerator)}/2` : fmt(numerator / 2);
-    return { equation: `${sum} ÷ 2 = ${exact}`, exact };
-  }
-
-  function projectedWaitCalculation(draws, result) {
-    if (!draws.length) return '0 unseen improving draws → 0';
-    const details = new Map(), weights = new Map();
-    let copies = 0;
-    for (const draw of draws) {
-      const { equation, exact } = waitCalculation(draw.branch.groups);
-      if (!details.has(equation)) details.set(equation, []);
-      details.get(equation).push(`${draw.tile} × ${draw.count}`);
-      weights.set(exact, (weights.get(exact) || 0) + draw.count);
-      copies += draw.count;
-    }
-    const lines = [calcHeading];
-    for (const [equation, draws] of details) lines.push(`${draws.join(', ')}: ${equation}`);
-    const terms = Array.from(weights, ([value, n]) => `${n} × ${value.includes('/') ? `(${value})` : value}`);
-    lines.push(`By draw copies: (${terms.join(' + ')}) ÷ ${copies} ${Number.isInteger(result) ? '=' : '≈'} ${fmt(Math.round(result))}`);
-    return lines.join('\n');
+    return `${sum} ÷ 2 = ${exact}`;
   }
 
   function calculations(m, discardTile, stat, riichi, value) {
-    if (!value) return null;
-    if (stat.shanten === 1) {
-      const draws = analyzeIishanten(m, discardTile, stat);
-      if (!draws || draws.some(d => !d.branch?.groups)) return null;
-      return { waitValue: projectedWaitCalculation(draws, value.waitValue) };
-    }
+    if (!value || stat.shanten !== 0) return null;
     const groups = evalDiscardScores(m, discardTile, stat.necessary_tiles, riichi);
     if (!groups) return null;
-    const { equation } = waitCalculation(groups);
+    const equation = waitCalculation(groups);
     const rounded = Number.isInteger(value.waitValue) ? '' : ` ≈ ${fmt(Math.round(value.waitValue))}`;
     return { waitValue: `${calcHeading}\n${equation}${rounded}` };
   }
 
-  return { profile, reachRole, calculations };
+  // Compare the same improving draw on the two width-first branches. Missing
+  // yaku and dead waits are not evidence that furiten cost a ron opportunity.
+  function projectedRonDraws(m, actualTile, actualStat, expectedTile, expectedStat) {
+    const result = { you: [], mortal: [] };
+    const actual = analyzeIishanten(m, actualTile, actualStat);
+    const expected = analyzeIishanten(m, expectedTile, expectedStat);
+    if (!actual || !expected) return result;
+    const expectedGroups = new Map(expected.map(d => [d.tile, d.branch?.groups]));
+    for (const draw of actual) {
+      const you = draw.branch?.groups, mortal = expectedGroups.get(draw.tile);
+      if (!you || !mortal) continue;
+      if (you.some(g => g.ron) && mortal.some(g => g.furiten && g.tsumo)) result.you.push(draw.tile);
+      else if (mortal.some(g => g.ron) && you.some(g => g.furiten && g.tsumo)) result.mortal.push(draw.tile);
+    }
+    return result;
+  }
+
+  return { profile, reachRole, calculations, projectedRonDraws };
 }));

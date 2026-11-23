@@ -25,9 +25,11 @@
 }(typeof self !== "undefined" ? self : this, function () {
 
   // Monotonically increasing integer. Append to CATEGORIZER_CHANGELOG on bump.
-  const CATEGORIZER_VERSION = 24;
+  const CATEGORIZER_VERSION = 25;
   const CATEGORIZER_CHANGELOG = {
+    25: "Final wait is a separate Attack efficiency concept. A higher minimum or maximum final wait no longer counts as a Value advantage.",
     24: "Versatility only breaks ties in ukeire when both discards leave the hand at the same shanten of 2 or more. It no longer counts at 1-shanten or tenpai.",
+    23: "Wait value is now tenpai-only. Comparisons involving 1-shanten credit visible yaku shares, final wait ranges, and shared draws that avoid a furiten wait.",
     22: "Wait value gives ron and tsumo fixed, equal weights. A blocked ron now contributes zero instead of increasing the weight of tsumo; the mean payout on legal wins stays separate.",
     21: "Tenpai and 1-shanten use the Value cell’s scored waits and selected continuations instead of tile-pattern yaku guesses. Summary and Value classification weigh each live winning copy by its payout and show the supporting yaku.",
     20: "Iishanten comparisons no longer award heuristic yaku wins. Conditional scoring routes belong in the Value cell, not the mistake's headline, explanation or feature pills. Live verified tenpai evidence remains available.",

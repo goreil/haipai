@@ -56,14 +56,18 @@ function renderScoredProfile(m, discard, stat, riichi, profile) {
     if (name === "riichi") return "";
     return `<span class="yaku-tag" title="Share of weighted Value outcomes with this yaku">${escapeHtml(name)} ${scoredSharePercent(share)}</span>`;
   }).join("");
-  const math = haipaiScoredValue.calculations(m, discard, stat, riichi, profile);
-  const id = `score-detail-${++scoreDetailId}`;
-  const finalWaitHint = "How many unseen tiles can win the hand."
-    + (profile.minWait === profile.maxWait ? "" : " The range depends on which tile gets you to tenpai.");
-  return `<div class="scored-profile">`
-    + (stat.shanten === 1 ? `<span class="score-metric" title="${finalWaitHint}">Final wait <b>${finalWaitLabel(profile)}</b></span>` : "")
-    + `<button type="button" class="score-metric" interestfor="${id}" popovertarget="${id}">Wait value <b>${Math.round(profile.waitValue).toLocaleString()}</b></button>`
-    + `<section popover id="${id}" class="score-detail" aria-label="Wait value"><pre>${escapeHtml(math.waitValue)}</pre></section>`
+  let metric;
+  if (stat.shanten === 1) {
+    const hint = "How many unseen tiles can win the hand."
+      + (profile.minWait === profile.maxWait ? "" : " The range depends on which tile gets you to tenpai.");
+    metric = `<span class="score-metric" style="color:${haipaiCompareDimensions.GROUP_META.Speed.color}" title="${hint}">Final wait <b>${finalWaitLabel(profile)}</b></span>`;
+  } else {
+    const math = haipaiScoredValue.calculations(m, discard, stat, riichi, profile);
+    const id = `score-detail-${++scoreDetailId}`;
+    metric = `<button type="button" class="score-metric" interestfor="${id}" popovertarget="${id}">Wait value <b>${Math.round(profile.waitValue).toLocaleString()}</b></button>`
+      + `<section popover id="${id}" class="score-detail" aria-label="Wait value"><pre>${escapeHtml(math.waitValue)}</pre></section>`;
+  }
+  return `<div class="scored-profile">${metric}`
     + (tags ? `<div>${tags}</div>` : "")
     + (!profile.maxPoints ? `<small class="dim">No live scoring wins</small>` : "") + `</div>`;
 }
@@ -147,11 +151,23 @@ function renderWinFeatPill(w, oya) {
         "The other pick's tenpai waits on a tile already in your own discards "
           + "(furiten) — the hand could never ron. This pick keeps a wait that can",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
+    case "final_wait": {
+      const [better, other] = w.winner === "you" ? [w.you, w.mortal] : [w.mortal, w.you];
+      return featPill("pos", `Final wait ${finalWaitLabel(better)}`,
+        `Final wait compared with ${finalWaitLabel(other)}`, "", c);
+    }
+    case "projected_value":
     case "scored_value": {
       const [better, other] = w.winner === "you" ? [w.you, w.mortal] : [w.mortal, w.you];
       const yaku = w.yaku.filter(name => name !== "riichi").map(name => featPill("pos",
         `+${scoredSharePercent(better.yaku[name] - (other.yaku[name] || 0))} ${escapeHtml(name)}`,
         "Percentage-point increase in the share of weighted Value outcomes with this yaku", "", groupColors.Yaku?.color)).join("");
+      if (w.dim === "projected_value") {
+        const ron = w.ronDraws.length ? featPill("pos", "Keeps ron after",
+          "After these draws the other cut is furiten, but this cut can still win by ron",
+          w.ronDraws.map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c) : "";
+        return yaku + ron;
+      }
       return featPill("pos", `+${w.magnitude.toLocaleString()} wait value`,
         `${Math.round(better.waitValue).toLocaleString()} − ${Math.round(other.waitValue).toLocaleString()} = ${w.magnitude.toLocaleString()}`, "", c) + yaku;
     }
@@ -563,7 +579,7 @@ function renderEvComparison(m, options) {
     const profile = showProfile ? haipaiScoredValue.profile(scoringMistake, tile, ca, scoreIsRiichi) : null;
     const valueSummary = showProfile ? renderScoredProfile(scoringMistake, tile, ca, scoreIsRiichi, profile) : "";
     return { tile, isWin, winScore, winTile, side: spec.side, colClass, markers, reachRole, scoreGroups, scoreIsRiichi,
-             acc, lookahead, profile, valueSummary, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe, isGenbutsu };
+             acc, lookahead, valueSummary, mortal, shanten, shantenVal, dealin, dealinCls, typeCell, waits, threatLines, isSoftSafe, isGenbutsu };
   });
 
   // Feature-summary pills. The win-vector is now computed once by the shared
@@ -587,14 +603,7 @@ function renderEvComparison(m, options) {
   const sideForWinner = (w) =>
     w.winner === "you" ? "actual" : w.winner === "mortal" ? "expected" : null;
   const pairedDraws = cols.length === 2 && cols.every(c => c.lookahead);
-  const featCells = cols.map((col, i) => {
-    const pills = wins.filter(w => col.side === sideForWinner(w)).map(renderWinPill).join("");
-    const p = col.profile, other = pairedDraws && cols[1 - i].profile;
-    if (!p || !other || (p.minWait <= other.minWait && p.maxWait <= other.maxWait)) return pills;
-    const color = haipaiCompareDimensions.GROUP_META.Dora.color;
-    return pills + `<span class="feat-pill feat-pill-grp" style="--feat-grp:${color}" title="Final wait compared with ${finalWaitLabel(other)}">`
-      + `<span class="feat-pill-label">Final wait ${finalWaitLabel(p)}</span></span>`;
-  });
+  const featCells = cols.map(col => wins.filter(w => col.side === sideForWinner(w)).map(renderWinPill).join(""));
 
   // The tiles every pick accepts are common ground — each acceptance cell shows
   // the shared count as a pill on its left (built per-column above), expanding in

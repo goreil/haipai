@@ -23,7 +23,7 @@ test('decision cards show evidence before explanations and keep feedback editabl
     const tenpaiHand = reports.find(r => r.mistake.id === 42417).mistake;
     const headlineCases = [
       [6099, 'Attack / Efficiency + Value'],
-      [5502, 'Defense / Efficiency + Value + Safety'],
+      [5502, 'Defense / Value + Safety'],
       [6827, 'Defense / Complex'],
       [6073, 'Attack / Prioritize value'],
       [6077, 'Defense / Should fold'],
@@ -141,21 +141,13 @@ test('decision cards show evidence before explanations and keep feedback editabl
           const evidence = side => profile(side).innerText.replaceAll(',', '');
           check(profile('actual').querySelector('.score-metric').textContent === 'Final wait 6–7 tiles' && !/Average|Max/.test(evidence('expected')),
             'one-shanten profile shows the final wait range without average or max');
-          check(evidence('actual').includes('18319') && evidence('expected').includes('20794'),
-            'Value shows live-copy-weighted value separately from win payouts');
           const sides = ['actual', 'expected'];
           for (const side of sides) {
+            check(!/wait value/i.test(profile(side).textContent) && !profile(side).querySelector('button, [popover]'),
+              'projected Value has neither an aggregate nor a calculation control');
             check(/iipeikou [\\d.]+%/.test(evidence(side)), 'per-pick iipeikou percentage in Value');
             check(!evidence(side).includes('riichi'), 'Value percentages omit ordinary riichi');
           }
-          const metrics = profile('expected');
-          const button = metrics.querySelector('button');
-          button.click();
-          const panel = metrics.querySelector(':popover-open');
-          check(panel.innerText.endsWith('20,794') && panel.innerText.includes('÷ 16'), 'draw-weighted wait calculation');
-          const rect = panel.getBoundingClientRect();
-          check(rect.left >= 0 && rect.right <= innerWidth, 'wait value calculation fits the viewport');
-          button.click();
           const mountDraws = () => {
             const hosts = card.querySelectorAll('haipai-iishanten');
             check(hosts.length === 1, 'one Value draw view for #' + card.id);
@@ -201,12 +193,13 @@ test('decision cards show evidence before explanations and keep feedback editabl
           check42402(true);
           pill(view, 'expected').click();
           check42402(false);
-          const gains = summary.querySelector('.col-expected').textContent.replaceAll(',', '');
           check(!summary.querySelector('.scored-profile') && summary.querySelector('.col-actual').textContent === '—'
-            && gains.includes('+16.1% iipeikou') && gains.includes('+2475 wait value'),
-            'Summary shows only relative advantages');
+            && summary.querySelector('.col-expected').textContent === '+16.1% iipeikou',
+            'equal final waits give only the iipeikou advantage');
           check(getComputedStyle(summary.querySelector('.col-expected .feat-pill')).getPropertyValue('--feat-grp').trim()
             === haipaiCompareDimensions.GROUP_META.Yaku.color, 'scored yaku uses the heuristic yaku color');
+          check(!/wait value/i.test(card.querySelector('.mascot-speech').textContent),
+            'projected explanation has no wait-value gain');
           check(document.documentElement.scrollWidth <= innerWidth, 'iipeikou comparison fits viewport');
           card.querySelector('button[aria-label="Compare discarding 2p with AI"]').click();
           check(card.querySelector('.col-actual .ev-tile').alt === '2p', 'selected two-shanten counterpart');
@@ -218,6 +211,7 @@ test('decision cards show evidence before explanations and keep feedback editabl
           check(fullDraws.join(' ') === '1p 2s 4p 4s 5s 5sr 9p', 'all AI draws visible without a counterpart');
           const dora = ${JSON.stringify(doraHand)};
           card = draw({ ...dora, ...haipaiCategorize.categorize(dora) }, {inline:true});
+          check(card.querySelector('.cat-badge').textContent === 'Attack / Final wait', 'final wait attack category');
           view = mountDraws();
           checkPills(view, ['14 equal', '14 equal'], false);
           // Mounting draw rows is lazy, so load their local tile SVGs before measuring layout.
@@ -250,6 +244,11 @@ test('decision cards show evidence before explanations and keep feedback editabl
           check(blockedRow.querySelector('.furiten-badge')?.checkVisibility(), 'furiten draw shows the tenpai badge');
           check(!view.querySelector('.col-expected .furiten-badge') && !view.innerText.includes('Live wait'),
             'unblocked draws need no status label');
+          const ronPill = card.querySelector('.feat-summary-row .col-expected [title*="other cut is furiten"]');
+          check(ronPill?.querySelector('.feat-pill-label').textContent === 'Keeps ron after'
+            && [...ronPill.querySelectorAll('img')].map(img => img.alt).sort().join(' ') === '4s 5s 7s F'
+            && !card.querySelector('.feat-summary-row .col-actual [title*="other cut is furiten"]'),
+            'only the cut that keeps ron gets the matching shared draws');
           const tenpai = ${JSON.stringify(tenpaiHand)};
           card = draw({ ...tenpai, ...haipaiCategorize.categorize(tenpai) }, {inline:true});
           for (const side of sides) {
@@ -258,11 +257,30 @@ test('decision cards show evidence before explanations and keep feedback editabl
             const metrics = scores.parentElement.querySelector('.scored-profile');
             check(metrics.innerText.includes('Wait value') && !/Final wait|Max|Average/.test(metrics.textContent),
               'tenpai shows wait value without redundant metrics');
+            const button = metrics.querySelector('button');
+            button.click();
+            const panel = metrics.querySelector(':popover-open');
+            check(panel?.innerText.includes('÷ 2') && panel.innerText.endsWith(button.querySelector('b').innerText),
+              side + ' tenpai calculation explains its displayed wait value');
+            const rect = panel.getBoundingClientRect();
+            check(rect.left >= 0 && rect.right <= innerWidth, 'tenpai calculation fits the viewport');
+            button.click();
+            check(!metrics.querySelector(':popover-open'), 'tenpai calculation closes');
           }
           const flush = ${JSON.stringify(flushHand)};
           card = draw({ ...flush, ...haipaiCategorize.categorize(flush) }, {inline:true});
-          const ai = card.querySelector('.feat-summary-row .col-expected').innerText;
-          check(ai.includes('Final wait 4 tiles') && ai.includes('+21,845 wait value'), 'honitsu comparison shows both advantages');
+          for (const [side, yaku] of [['actual', 'yakuhai (hatsu)'], ['expected', 'honitsu']]) {
+            const wait = card.querySelector('.feat-summary-row .col-' + side + ' [title^="Final wait compared"]');
+            check(wait && getComputedStyle(wait).getPropertyValue('--feat-grp').trim() === SKILL_AREA_INFO.attack.color,
+              side + ' final wait uses Attack blue');
+            const pills = [...card.querySelectorAll('.feat-summary-row .col-' + side + ' .feat-pill-label')].map(p => p.textContent);
+            check(pills.filter(p => p.startsWith('Final wait ')).length === 1
+              && pills.filter(p => p.endsWith('% ' + yaku)).length === 1
+              && !pills.some(p => /wait value/i.test(p)), side + ' gets its own wait and yaku advantages once');
+          }
+          const speech = card.querySelector('.mascot-speech').textContent;
+          check(/Your [^.]*yakuhai \\(hatsu\\)/.test(speech) && /Mortal's [^.]*honitsu/.test(speech)
+            && !/wait value/i.test(speech), 'crossing projected advantages are explained on their own sides');
           document.body.dataset.result = 'passed';
         } catch(error) { document.body.dataset.result = error.stack; }
       });

@@ -27,11 +27,11 @@ function tinyRiskWithDora() {
 
 test('concrete one-sided comparisons combine visible improvements and deduplicate value', () => {
   assert.equal(mistakeFacet(mistake(6099)).label, 'Efficiency + Value');
-  assert.equal(mistakeFacet(mistake(5502)).label, 'Efficiency + Value + Safety');
+  assert.equal(mistakeFacet(mistake(5502)).label, 'Value + Safety');
   const duplicateValue = mistake(4564);
   assert.deepEqual(duplicateValue.wins.filter(w => !w.suppressed && w.group === 'Dora').map(w => w.dim),
     ['dora_kept', 'dora_acceptance']);
-  assert.equal(mistakeFacet(duplicateValue).label, 'Efficiency + Value');
+  assert.equal(mistakeFacet(duplicateValue).label, 'Value');
 });
 
 test('suppressed pattern potential cannot become a visible badge concept or trade-off', () => {
