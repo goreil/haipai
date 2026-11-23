@@ -6,7 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { prepMistake } = require('../static/js/prep/prep.js');
 const { base_mjai } = require('../static/js/prep/tiles.js');
-const { groupIishantenValues, sortIishantenWaitGroups } = require('../static/js/iishanten-values.js');
+const { groupValueRows, groupIishantenValues, sortIishantenWaitGroups } = require('../static/js/iishanten-values.js');
 
 const ctx = vm.createContext({ renderTile: tile => tile });
 ctx.self = ctx; // classic worker globals, no window or DOM
@@ -65,8 +65,25 @@ test('#m42402: only the selected widest wait contributes yaku to its draw', () =
     const paired = groupIishantenValues(draws).find(g => g.draws.includes(d));
     assert.ok(paired.draws.includes(draws.find(draw => draw.tile === '1p')));
     assert.equal(paired.maxHan, 4); // riichi, pinfu, tsumo and either iipeikou or aka
-    assert.deepEqual(paired.dora, { label: 'dora 0–1', conditional: true });
+    assert.deepEqual(paired.dora, { label: '0–1 dora' });
     assert.equal(paired.yaku.find(y => y.name === 'iipeikou')?.confirmed, draws === mortal ? false : undefined);
+  }
+  const diff = groupIishantenValues(mortal, actual);
+  const gain = diff.find(g => g.draws.some(d => d.tile === '4p'));
+  assert.ok(gain.draws.includes(mortal.find(d => d.tile === '1p')));
+  assert.ok(gain.additional);
+  assert.deepEqual(Array.from(gain.yaku, y => [y.name, y.confirmed]), [['iipeikou', false]]);
+  assert.equal(gain.dora, null); // both continuations can score the same aka
+  const reverse = groupIishantenValues(actual, mortal);
+  assert.ok(!reverse.some(g => g.draws.some(d => ['1p', '4p'].includes(d.tile))));
+  assert.deepEqual(groupIishantenValues(mortal, mortal), []);
+  for (const [mine, theirs, compact] of [[mortal, actual, diff], [actual, mortal, reverse]]) {
+    for (const d of mine.filter(d => !theirs.some(peer => peer.tile === d.tile))) {
+      const row = compact.find(g => g.draws.includes(d));
+      assert.ok(row);
+      assert.equal(row.additional, false);
+      assert.deepEqual(row.yaku, groupIishantenValues([d])[0].yaku);
+    }
   }
   const wide = branch(mortal.find(d => d.tile === '4p'), '1s');
   assert.equal(wide.count, 7);
@@ -225,7 +242,7 @@ test('concealed kan preserves menzen, kan dora and one aka; an open kan cannot c
   assert.equal(g.ron.aka, 1);
   assert.equal(g.tsumo.han, g.ron.han + 1);
   assert.deepEqual(groupIishantenValues([analyze(m, 'C').find(d => d.tile === '4p')])[0].dora,
-    { label: 'dora 5', conditional: false });
+    { label: '5 dora' });
   const kakan = { type: 'kakan', consumed: ['5m', '5m'], previous_pon_pai: '5mr', pai: '5m' };
   const open = prep(hand, { marker: '4m', melds: [kakan], discards: [[1, '5mr']], meldEvents: [
     { type: 'pon', actor: 3, target: 1, pai: '5mr', consumed: ['5m', '5m'] },
@@ -281,10 +298,10 @@ test('yakuman outranks ordinary han; ron and tsumo contribute only the bonuses t
   assert.equal(first.draws[0], rich);
   assert.equal(first.maxYakuman, 1); // suuankou on tsumo only
   assert.equal(first.maxHan, 9); // riichi + toitoi + sanankou + three dora + aka on red-five ron
-  assert.deepEqual(first.dora, { label: 'dora 0–4', conditional: true });
+  assert.deepEqual(first.dora, { label: '0–4 dora' });
   assert.equal(second.maxYakuman, 0);
   assert.equal(second.maxHan, 6);
-  assert.deepEqual(second.dora, { label: 'dora 2', conditional: false });
+  assert.deepEqual(second.dora, { label: '2 dora' });
 
   const shanpon = branch(rich, 'N');
   // A separate tenpai (ordinary 1p wait) loses to every yakuman-capable
@@ -304,6 +321,12 @@ test('unavailable, dead, and live no-yaku draws stay distinct even when all have
     ['W', false, false], ['S', true, false], ['E', false, true],
   ]);
   assert.ok(profiles.every(p => p.maxHan === 0 && p.maxYakuman === 0 && p.dora === null));
+  for (const [mine, peer, expected] of [[unknown, dead, 'Value unavailable'],
+    [dead, noYaku, 'No unseen winning tiles'], [noYaku, unknown, 'No yaku']]) {
+    const [changed] = groupIishantenValues([mine], [{ ...peer, tile: mine.tile }]);
+    assert.equal(changed.status, expected);
+    assert.equal(changed.additional, false);
+  }
 });
 
 test('mutually exclusive red/regular bonuses and value honors are counted per win, not summed across wins', () => {
@@ -314,7 +337,43 @@ test('mutually exclusive red/regular bonuses and value honors are counted per wi
     branch: { count: 2, groups: [{ ron: w, tsumo: w }, { ron: dragon, tsumo: dragon }] } };
   const [fixed] = groupIishantenValues([draw]);
   assert.deepEqual(fixed.yaku, [{ name: 'yakuhai 1', confirmed: true }]);
-  assert.deepEqual(fixed.dora, { label: 'dora 2', conditional: false });
+  assert.deepEqual(fixed.dora, { label: '2 dora' });
   w.yaku.push('yakuhai (round east)');
   assert.deepEqual(groupIishantenValues([draw])[0].yaku, [{ name: 'yakuhai 1–2', confirmed: false }]);
+});
+
+test('compare physical waits first, then group equal displayed yaku across dora and aka', () => {
+  function row(tile, dora, aka, name = 'pinfu') {
+    const score = { dora, aka, yaku: [name], han: 1 + dora + aka, yakuman: 0 };
+    return { tile, count: 1, yaku: [{ name, confirmed: true }], groups: [{ ron: score, tsumo: score }] };
+  }
+  const a = [row('5p', 0, 0), row('5pr', 1, 1), row('6p', 0, 0), row('8p', 1, 0)];
+  const b = [row('6p', 0, 0), row('5pr', 0, 1), row('5p', 1, 0)];
+  const diff = groupValueRows(a, b);
+  assert.equal(diff.length, 2);
+  const bonuses = diff.find(g => !g.yaku.length), unique = diff.find(g => g.yaku.length);
+  assert.deepEqual(bonuses.draws, a.slice(0, 2));
+  assert.deepEqual(bonuses.dora, { label: '0–2 dora' });
+  assert.deepEqual(unique.draws, [a[3]]);
+  assert.deepEqual(unique.yaku, a[3].yaku);
+  assert.deepEqual(unique.dora, { label: '1 dora' });
+  const full = groupValueRows(a);
+  assert.equal(full.length, 1);
+  assert.deepEqual(full[0].draws, a);
+  assert.deepEqual(full[0].dora, bonuses.dora);
+  assert.equal(full[0].maxHan, 3);
+  assert.equal(groupValueRows([row('5pr', 1, 0)], [row('5pr', 0, 1)]).length, 0);
+  const [explicit] = groupValueRows([{ ...a[0], status: 'Furiten · tsumo only' }], [a[0]]);
+  assert.equal(explicit.status, 'Furiten · tsumo only');
+  assert.deepEqual(explicit.yaku, a[0].yaku);
+  const [dead] = groupValueRows([{ ...a[0], dead: true, status: 'Furiten · tsumo only' }]);
+  assert.equal(dead.status, 'No unseen winning tiles');
+
+  const gains = groupValueRows(a.slice(0, 2), [row('5p', 0, 0, 'tanyao'), row('5pr', 0, 1, 'tanyao')]);
+  assert.equal(gains.length, 2);
+  const pinfuOnly = gains.find(g => g.draws.includes(a[0]));
+  assert.deepEqual(pinfuOnly.draws, [a[0]]);
+  assert.deepEqual(pinfuOnly.yaku, a[0].yaku);
+  assert.equal(pinfuOnly.dora, null);
+  assert.deepEqual(gains.find(g => g.draws.includes(a[1])).dora, { label: '2 dora' });
 });

@@ -134,12 +134,26 @@ test('decision cards show evidence before explanations and keep feedback editabl
           card = draw({ ...scored, ...haipaiCategorize.categorize(scored) }, {inline:true});
           check(card.querySelector('.cat-badge').textContent === 'Attack / Value', 'scored iipeikou headline');
           const summary = card.querySelector('.feat-summary-row');
-          const evidence = side => summary.querySelector('.col-' + side).textContent.replaceAll(',', '');
+          const value = card.querySelector('.score-col');
+          const profile = side => value.querySelector('.col-' + side + ' .scored-profile');
+          const evidence = side => profile(side).textContent.replaceAll(',', '');
           check(evidence('actual').includes('2887') && evidence('expected').includes('3240'),
             'copy-weighted points shown for both discards');
           check(evidence('actual').includes('18319') && evidence('expected').includes('20794'),
-            'summary compares live-copy-weighted value separately from win payouts');
-          check(evidence('expected').includes('iipeikou'), 'conditional iipeikou shown in Summary');
+            'Value shows live-copy-weighted value separately from win payouts');
+          for (const [side, counterpart] of [['actual', scored.expected], ['expected', scored.actual]]) {
+            check(/iipeikou [\\d.]+%/.test(evidence(side)), 'per-pick iipeikou percentage in Value');
+            check(value.querySelector('.col-' + side + ' haipai-iishanten').dataset.compareDiscard === counterpart.pai,
+              'lookahead compares with the other discard');
+          }
+          const gains = summary.querySelector('.col-expected').textContent.replaceAll(',', '');
+          check(!summary.querySelector('.scored-profile') && summary.querySelector('.col-actual').textContent === '—'
+            && gains.trim() === '+16.1% iipeikou',
+            'Summary shows only relative advantages');
+          expectedTable.innerHTML = renderEvComparison(scored, {selectedTile:'2p'});
+          check(expectedTable.querySelectorAll('haipai-iishanten').length === 1
+            && !expectedTable.querySelector('haipai-iishanten[data-compare-discard]'),
+            'ineligible discard is not compared as a lookahead');
           check(card.querySelector('.mascot-speech').textContent.includes('iipeikou'), 'trainer names visible scored yaku');
           check(document.documentElement.scrollWidth <= innerWidth, 'no page overflow');
           document.body.dataset.result = 'passed';

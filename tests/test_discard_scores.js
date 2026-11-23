@@ -6,7 +6,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const context = vm.createContext({ renderTile: tile => tile });
-for (const file of ['prep/tiles.js', 'vendor/riichi/riichi-bundle.js', 'categorize-yaku.js', 'bad-riichi-bars.js']) {
+for (const file of ['prep/tiles.js', 'vendor/riichi/riichi-bundle.js', 'categorize-yaku.js', 'bad-riichi-bars.js',
+  'iishanten-values.js', 'value-rows-view.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../static/js', file), 'utf8'), context);
 }
 
@@ -150,6 +151,22 @@ test('twelve 8,000-point winning copies outweigh a single 10,000-point win', () 
   assert.equal(wide.maxWait, 12);
   assert.equal(narrow.waitValue, 10000);
   assert.equal(wide.waitValue, 96000);
+});
+
+test('a shared tenpai wait shows only the riichi gain, without repeating the red-five bonus', () => {
+  const m = { hand: '1m 2m 3m 4m 5m 6m 2p 3p 4p 6s 7s 2s 2s W'.split(' '),
+    board_state: { round_wind: 'E', seat_wind: 'S', dora_tiles: [] } };
+  const waits = [{ tile: '5s', count: 4, aka_count: 1 }, { tile: '8s', count: 4 }];
+  const rows = riichi => context.tenpaiValueRows(context.evalDiscardScores(m, 'W', waits, riichi));
+  const riichi = rows(true), dama = rows(false);
+  const [full] = context.groupValueRows(dama);
+  assert.equal(full.dora.label, '0–1 dora');
+  assert.deepEqual(Array.from(full.draws, t => [t.tile, t.count]).sort(), [['5s', 3], ['5sr', 1], ['8s', 4]]);
+  const [gain] = context.groupValueRows(riichi, dama);
+  assert.deepEqual(Array.from(gain.yaku, y => y.name), ['riichi']);
+  assert.equal(gain.additional, true);
+  assert.equal(gain.dora, null);
+  assert.equal(context.groupValueRows(dama, riichi).length, 0);
 });
 
 test('the shared tenpai profile weights legal modes and physical copies, including aka', () => {

@@ -17,6 +17,14 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
   constructor() {
     super();
     this.addEventListener("click", event => {
+      const toggle = event.target.closest("[data-all-draws]");
+      if (toggle) {
+        const all = toggle.getAttribute("aria-expanded") === "false";
+        toggle.setAttribute("aria-expanded", String(all));
+        toggle.textContent = all ? "Show differences" : "Show all draws";
+        this.renderRows(all ? (this.fullRows ??= groupIishantenValues(this.draws)) : this.diffRows);
+        return;
+      }
       const cut = event.target.closest("[data-cut]");
       if (cut) {
         const row = cut.closest(".continuation");
@@ -38,42 +46,42 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
     });
   }
   showDraws() {
-    if (this.rows !== undefined) return;
+    if (this.draws !== undefined) return;
     const key = this.closest(".mistake")?.querySelector("[data-comparison-key]")?.dataset.comparisonKey;
     const m = handComparisonContexts.get(key);
-    const discard = this.dataset.discard;
-    const stat = m?.discard_stats?.find(s => tileBase(s.tile) === tileBase(discard));
-    const draws = stat ? analyzeIishanten(m, discard, stat) : null;
-    this.rows = draws && groupIishantenValues(draws);
-    if (!this.rows) {
+    const analyze = discard => {
+      const stat = m?.discard_stats?.find(s => tileBase(s.tile) === tileBase(discard));
+      return stat ? analyzeIishanten(m, discard, stat) : null;
+    };
+    this.draws = analyze(this.dataset.discard);
+    if (!this.draws) {
       this.insertAdjacentHTML("beforeend", '<small class="continuation-note">Continuation value unavailable</small>');
       return;
     }
     this.mistake = m;
+    const other = this.dataset.compareDiscard && analyze(this.dataset.compareDiscard);
+    this.diffRows = other ? groupIishantenValues(this.draws, other) : null;
+    this.innerHTML = (this.diffRows && this.draws.length
+      ? `<button type="button" class="ukeire-shared-pill" data-all-draws aria-expanded="false">Show all draws</button>` : "")
+      + `<div class="continuation-rows"></div>`;
+    this.renderRows(this.diffRows ?? groupIishantenValues(this.draws));
+  }
+  renderRows(rows) {
+    this.rows = rows;
+    const m = this.mistake;
     setActiveDora(getDoraTiles(m.board_state), m.board_state);
-    const count = draws.reduce((n, draw) => n + draw.count, 0);
-    const badge = (label, conditional, bonus) => {
-      const tip = bonus ? "The bonus count depends on the winning tile."
-        : "This yaku depends on the winning tile or win method.";
-      return `<span class="yaku-tag${bonus ? " dora-tag" : ""}">${escapeHtml(label)}`
-        + (conditional ? `<abbr class="continuation-question" role="img" aria-label="${tip}" tabindex="0">?</abbr>` : "") + `</span>`;
-    };
-    this.innerHTML = `<div class="continuation-heading" title="Draws are grouped by value and sorted by highest achievable han.">${count} tiles to tenpai</div>`
-      + this.rows.map((r, i) => {
-        const tags = r.yaku.map(y => badge(y.name, !y.confirmed, false)).join("")
-          + (r.dora ? badge(r.dora.label, r.dora.conditional, true) : "");
-        const status = r.unavailable ? "Value unavailable" : r.dead ? "No unseen winning tiles" : "";
-        const value = r.maxYakuman ? ` · ${r.maxYakuman}× yakuman` : r.maxHan > 0 ? ` · up to ${r.maxHan} han` : "";
-        const tiles = r.draws.map((d, j) => {
-          const label = `Show tenpai after drawing ${d.tile} · ${d.count} unseen${value}`;
-          return `<button type="button" class="continuation-draw rsc-tile-entry hand-choice-button" data-draw-index="${j}"`
-            + ` aria-expanded="false" aria-label="${label}" title="${label}">${renderTile(d.tile, "tile-sm ukeire-tile-img")}`
-            + `<span class="rsc-count">×${d.count}</span></button>`;
-        }).join("");
-        return `<div class="continuation" data-row="${i}"><div class="continuation-summary">`
-          + `<div class="continuation-draws">${tiles}</div><div class="continuation-tags">${tags}`
-          + (status ? `<small>${status}</small>` : "") + `</div></div><div class="continuation-panel" hidden></div></div>`;
+    this.querySelector(".continuation-rows").innerHTML = rows.map((r, i) => {
+      const tiles = r.draws.map((d, j) => {
+        const points = d.branch?.profile?.maxPoints;
+        const label = `Show tenpai after drawing ${d.tile} · ${d.count} unseen${points ? ` · up to ${points} points` : ""}`;
+        return `<button type="button" class="continuation-draw rsc-tile-entry hand-choice-button" data-draw-index="${j}"`
+          + ` aria-expanded="false" aria-label="${label}" title="${label}">${renderTile(d.tile, "tile-sm ukeire-tile-img")}`
+          + `<span class="rsc-count">×${d.count}</span></button>`;
       }).join("");
+      return `<div class="continuation" data-row="${i}"><div class="continuation-summary">`
+        + `<div class="continuation-draws">${tiles}</div><div class="continuation-tags">${renderValueRowTags(r)}</div>`
+        + `</div><div class="continuation-panel" hidden></div></div>`;
+    }).join("");
   }
   showHand(row, index) {
     const draw = this.rows[row.dataset.row].draws[index];

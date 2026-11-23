@@ -2050,8 +2050,11 @@
   white-space: normal;
   text-align: start;
 }
-.ev-table-cols .score-col:has(haipai-iishanten) td { vertical-align: top; }
-.continuation-heading { margin-bottom: 4px; font-size: 12px; font-weight: 600; }
+.ev-table-cols .score-col td { vertical-align: top; }
+.value-waits { white-space: normal; text-align: start; }
+.value-waits > details { margin-top: 4px; }
+.value-waits details[open] > summary { margin-bottom: 6px; }
+.value-waits:has(details[open]) > .continuation { display: none; }
 .continuation + .continuation { border-top: 1px solid var(--border); }
 .continuation-summary {
   position: relative;
@@ -2951,7 +2954,7 @@
   width: auto;
 }
 
-/* Summary shows each pick's Value data, then its winning feature pills. */
+/* Absolute statistics belong together above each pick's Value breakdown. */
 .scored-profile {
   display: flex;
   justify-content: center;
@@ -2962,8 +2965,14 @@
   white-space: normal;
 }
 .scored-profile > span { white-space: nowrap; }
-.scored-profile > div { flex-basis: 100%; }
-.scored-profile + .feat-pills { margin-top: 4px; }
+.scored-profile > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  flex-basis: 100%;
+}
+.scored-profile:not(:last-child) { margin-bottom: 6px; }
 
 .feat-pills {
   display: inline-flex;

@@ -37,12 +37,15 @@ function shantenPillStyle(shanten) {
 }
 
 // Shares describe weighted Value outcomes, not the chance of winning the hand.
+function scoredSharePercent(share) {
+  const pct = Math.round(1000 * share) / 10;
+  return pct === 0 && share > 0 ? "&lt;0.1%" : pct === 100 && share < 1 ? "&gt;99.9%" : `${pct}%`;
+}
+
 function renderScoredProfile(profile, shanten) {
   if (!profile) return `<small class="dim">Value unavailable</small>`;
   const tags = Object.entries(profile.yaku).map(([name, share]) => {
-    const pct = Math.round(1000 * share) / 10;
-    const support = pct === 0 ? "&lt;0.1%" : pct === 100 && share < 1 ? "&gt;99.9%" : `${pct}%`;
-    return `<span class="yaku-tag" title="Share of weighted Value outcomes with this yaku">${escapeHtml(name)} ${support}</span>`;
+    return `<span class="yaku-tag" title="Share of weighted Value outcomes with this yaku">${escapeHtml(name)} ${scoredSharePercent(share)}</span>`;
   }).join("");
   const weights = shanten === 1
     ? "Each improving draw is weighted by unseen copies. Its selected tenpai discard is scored across live winning copies and legal win methods; a draw with no scoring win contributes zero."
@@ -136,10 +139,14 @@ function renderWinFeatPill(w, oya) {
         "The other pick's tenpai waits on a tile already in your own discards "
           + "(furiten) — the hand could never ron. This pick keeps a wait that can",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img")).join(""), c);
-    case "scored_value":
+    case "scored_value": {
+      const [better, other] = w.winner === "you" ? [w.you, w.mortal] : [w.mortal, w.you];
+      if (w.yaku.length) return w.yaku.map(name => featPill("pos",
+        `+${scoredSharePercent(better.yaku[name] - (other.yaku[name] || 0))} ${escapeHtml(name)}`,
+        "Percentage-point increase in the share of weighted Value outcomes with this yaku", "", c)).join("");
       return featPill("pos", `+${w.magnitude.toLocaleString()} wait value`,
-        "Higher value after weighting each live winning copy by its payout"
-          + (w.yaku.length ? `; more frequent yaku: ${w.yaku.join(", ")}` : ""), "", c);
+        "Higher value after weighting each live winning copy by its payout", "", c);
+    }
     case "dora_kept":
       return featPill("pos", "+dora", "Keeps a dora the other pick discards",
         (w.tiles || []).map(t => renderTile(t, "tile-sm ukeire-tile-img dora-highlight")).join(""), c);
@@ -576,7 +583,6 @@ function renderEvComparison(m, options) {
   const featCells = cols.map((col) => wins
     .filter(w => col.side === sideForWinner(w))
     .map(renderWinPill).join(""));
-  const anyFeat = cols.some((c, i) => c.valueSummary || featCells[i]);
 
   // The tiles every pick accepts are common ground — each acceptance cell shows
   // the shared count as a pill on its left (built per-column above), expanding in
@@ -634,15 +640,18 @@ function renderEvComparison(m, options) {
       ` title="Shared tiles improve every pick; +N shows the additional copies accepted by this pick. Expand shared tiles for the full list."`,
       "ukeire-col ukeire-acc-row", c => `<div class="ukeire-acc-cell">${c.acc || (c.lookahead ? "0 tiles" : "")}</div>`);
   }
-  if (cols.some(c => c.lookahead || c.scoreGroups?.length || c.winScore) || winMistake) {
+  if (winMistake || cols.some(c => c.valueSummary || c.lookahead || c.scoreGroups?.length)) {
     html += rowFor("Value",
       ` title="Winning tiles and scores. At one shanten, select an improving draw to compare tenpai discards."`,
       "score-col", c => {
-        if (c.lookahead) return `<haipai-iishanten data-discard="${escapeHtml(c.tile)}"></haipai-iishanten>`;
-        if (c.winScore || c.scoreGroups?.length) {
-          return `<div class="rsc-cell">${c.winScore || renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>`;
+        if (winMistake) return c.winScore || c.scoreGroups?.length
+          ? `<div class="rsc-cell">${c.winScore || renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>` : c.acc;
+        const other = c.side === "other" ? null : cols.find(col => col.side === (c.side === "actual" ? "expected" : "actual"));
+        if (c.lookahead) {
+          const compare = other?.lookahead ? ` data-compare-discard="${escapeHtml(other.tile)}"` : "";
+          return c.valueSummary + `<haipai-iishanten data-discard="${escapeHtml(c.tile)}"${compare}></haipai-iishanten>`;
         }
-        return winMistake ? c.acc : "";
+        return c.valueSummary + (c.scoreGroups?.length ? renderTenpaiValue(c.scoreGroups, c.scoreIsRiichi, other?.scoreGroups) : "");
       });
   }
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row
@@ -706,14 +715,12 @@ function renderEvComparison(m, options) {
     );
   }
 
-  // Keep the per-pick statistics visible even when neither pick wins a pill.
-  if (anyFeat) {
+  if (featCells.some(Boolean)) {
     html += `<tr class="feat-summary-row">`;
-    html += `<th class="ev-axis" title="Points from the Value row and each pick's advantages over the other.">Summary</th>`;
+    html += `<th class="ev-axis" title="Each pick's advantages over the other.">Summary</th>`;
     for (let i = 0; i < cols.length; i++) {
       const pills = featCells[i] ? `<div class="feat-pills">${featCells[i]}</div>` : "";
-      const inner = cols[i].valueSummary + pills;
-      html += `<td class="${cols[i].colClass}">${inner || '<span class="dim">—</span>'}</td>`;
+      html += `<td class="${cols[i].colClass}">${pills || '<span class="dim">—</span>'}</td>`;
     }
     html += `</tr>`;
   }
