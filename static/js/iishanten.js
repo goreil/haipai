@@ -27,14 +27,13 @@ function _iishantenWaits(hand, meldCounts, wall) {
   return waits;
 }
 
-function _iishantenDraw(m, draw, hand, meldCounts, river) {
+function _iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags) {
   const { base_mjai } = haipaiPrepTiles;
   const wall = m.iishanten_wall.slice();
   haipaiPrepBoardState.decrement_wall(wall, draw.tile);
   const drawnHand = [...hand, draw.tile];
-  const branches = [];
-  const support = new Map();
-  let outcomes = 0, unavailable = false;
+  let widest = -1;
+  const candidates = [];
   // Identical copies are one choice, but keeping a red five scores
   // differently from keeping a regular five of the same suit.
   const shapes = new Map();
@@ -42,34 +41,53 @@ function _iishantenDraw(m, draw, hand, meldCounts, river) {
     const tenpai = drawnHand.slice();
     tenpai.splice(tenpai.indexOf(discard), 1);
     const base = base_mjai(discard);
-    if (!shapes.has(base)) shapes.set(base, _iishantenWaits(tenpai, meldCounts, wall));
-    const waits = shapes.get(base);
-    if (!waits.length) continue;
+    if (!shapes.has(base)) {
+      const waits = _iishantenWaits(tenpai, meldCounts, wall);
+      // Base counts already include red copies. Do not count them twice.
+      shapes.set(base, { waits, count: waits.reduce((n, w) => n + w.count, 0) });
+    }
+    const { waits, count } = shapes.get(base);
+    if (!waits.length || count < widest) continue;
+    if (count > widest) {
+      candidates.length = 0;
+      widest = count;
+    }
+    candidates.push({ discard, tenpai, base, waits });
+  }
+
+  let branch = null, bestPoints = -1;
+  for (const { discard, tenpai, base, waits } of candidates) {
     // Even a dead or no-yaku completion in the river locks ALL ron. The
     // current draw has cleared any earlier temporary pass; the original
     // decision's tenpai/furiten fields describe a different hand.
     const furiten = waits.some(w => w.tile === base || river.has(w.tile));
     const furitenSet = new Set(furiten ? waits.map(w => w.tile) : []);
     const live = _expandWaitsForAka(waits, furitenSet).filter(w => w.count > 0);
-    const count = live.reduce((n, w) => n + w.count, 0);
-    const groups = count ? _scoreTenpaiWaits(m, tenpai, live, false,
-      "A wait is in your discard pool — ron is unavailable on every wait; tsumo is still possible.") : [];
-    branches.push({ discard, count, groups });
-    if (groups === null) { unavailable = true; continue; }
-    for (const group of groups) {
-      for (const score of [group.ron, group.tsumo]) {
-        if (!score) continue; // furiten or no yaku: not a legal win
-        outcomes++;
-        for (const name of score.yaku) support.set(name, (support.get(name) || 0) + 1);
-      }
+    const groups = widest ? _scoreTenpaiWaits(m, tenpai, live, false,
+      "A wait is in your discard pool — ron is unavailable on every wait; tsumo is still possible.", riichiFlags) : [];
+    if (groups === null) {
+      // A tied candidate with unknown value prevents choosing a winner.
+      branch = candidates.length === 1 ? { discard, count: widest, groups } : null;
+      return { tile: draw.tile, count: draw.count, yaku: [], unavailable: true, branch };
+    }
+    const points = groups.reduce((max, g) => Math.max(max, g.ron?.ten ?? 0, g.tsumo?.ten ?? 0), 0);
+    if (points > bestPoints) {
+      bestPoints = points;
+      branch = { discard, count: widest, groups };
     }
   }
-  branches.sort((a, b) => b.count - a.count);
-  // A solver discrepancy or incomplete score is unknown, not a conditional
-  // yaku. Keep any available branch details inspectable in the expanded view.
-  unavailable ||= !branches.length;
-  const yaku = unavailable ? [] : Array.from(support, ([name, n]) => ({ name, confirmed: n === outcomes }));
-  return { tile: draw.tile, count: draw.count, yaku, unavailable, branches };
+
+  const support = new Map();
+  let outcomes = 0;
+  for (const group of branch?.groups ?? []) {
+    for (const score of [group.ron, group.tsumo]) {
+      if (!score) continue;
+      outcomes++;
+      for (const name of score.yaku) support.set(name, (support.get(name) || 0) + 1);
+    }
+  }
+  const yaku = Array.from(support, ([name, n]) => ({ name, confirmed: n === outcomes }));
+  return { tile: draw.tile, count: draw.count, yaku, unavailable: !branch, branch };
 }
 
 // Null means missing/inapplicable data; [] means there are no unseen draws
@@ -111,13 +129,14 @@ function analyzeIishanten(m, discardTile, stat) {
   if (hand.some(t => MJAI_TO_ID[t] == null)) return null;
   hand.splice(hand.indexOf(discardTile), 1); // discarding does not replenish unseen copies
   const result = [];
+  const riichiFlags = _iishantenRiichiFlags(m);
   const bases = new Set(stat.necessary_tiles.map(w => tile_id_to_base(MJAI_TO_ID[w.tile])));
   for (const id of bases) {
     if (id == null) return null;
     const tile = ID_TO_MJAI[id], aka = _AKA_TILE_FOR_BASE[tile];
     const waits = [{ tile, count: wall[id], aka_count: aka ? wall[MJAI_TO_ID[aka]] : 0 }];
     for (const draw of _expandWaitsForAka(waits, new Set())) {
-      if (draw.count > 0) result.push(_iishantenDraw(m, draw, hand, meldCounts, river));
+      if (draw.count > 0) result.push(_iishantenDraw(m, draw, hand, meldCounts, river, riichiFlags));
     }
   }
   if (!result.some(d => d.unavailable)) {

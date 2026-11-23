@@ -19,7 +19,8 @@ for (const file of ['prep/tiles', 'prep/parse', 'prep/prep-board-state', 'vendor
 // bundled scorer. No precomputed ukeire, waits, or mocked scoring results.
 function prep(hand, { melds = [], discards = [], marker = 'F', meldEvents = [] } = {}) {
   const player = 3;
-  const events = [{ type: 'start_kyoku', bakaze: 'E', kyoku: 3, oya: 2, dora_marker: marker }];
+  const events = [{ type: 'start_kyoku', bakaze: 'E', kyoku: 3, oya: 2, dora_marker: marker,
+    scores: [25000, 25000, 25000, 25000] }];
   for (const [actor, pai] of discards) {
     events.push({ type: 'tsumo', actor }, { type: 'dahai', actor, pai });
   }
@@ -36,9 +37,8 @@ function analyze(m, tile) {
   return ctx.analyzeIishanten(m, tile, stat);
 }
 function branch(draw, tile) {
-  const b = draw.branches.find(b => b.discard === tile);
-  assert.ok(b, `tenpai after drawing ${draw.tile}, discarding ${tile}`);
-  return b;
+  assert.equal(draw.branch?.discard, tile, `selected tenpai discard after drawing ${draw.tile}`);
+  return draw.branch;
 }
 function on(b, tile) {
   const g = b.groups.find(g => g.tiles.some(t => t.tile === tile));
@@ -53,7 +53,7 @@ const hand42402 = '2p 3p 6p 7p 7p 8p 9p 9p 1s 2s 3s 4s 4s 3s'.split(' ');
 const rivers42402 = 'N N 1p 1m 1s W 9p E 1s P 5m 3p 3s 6m 6p 7s C 6m 4p 1m F'
   .split(' ').map((t, i) => [(i + 2) % 4, t]);
 
-test('#m42402: the wider iipeikou opportunity is a property of a particular branch', () => {
+test('#m42402: only the selected widest wait contributes yaku to its draw', () => {
   const m = prep(hand42402, { discards: rivers42402 });
   const mortal = analyze(m, '7p'), actual = analyze(m, '3s');
   for (const draws of [mortal, actual]) {
@@ -61,27 +61,24 @@ test('#m42402: the wider iipeikou opportunity is a property of a particular bran
     const d = draws.find(d => d.tile === '4p');
     assert.equal(d.count, 3);
     assert.equal(d.unavailable, false);
-    assert.equal(d.yaku.find(y => y.name === 'iipeikou').confirmed, false);
-    assert.ok(d.branches.every((b, i) => !i || d.branches[i - 1].count >= b.count));
+    assert.ok(d.yaku.find(y => y.name === 'riichi').confirmed);
     const paired = groupIishantenValues(draws).find(g => g.draws.includes(d));
     assert.ok(paired.draws.includes(draws.find(draw => draw.tile === '1p')));
-    assert.equal(paired.maxHan, 3); // pinfu + iipeikou OR red, not both, on tsumo
+    assert.equal(paired.maxHan, 4); // riichi, pinfu, tsumo and either iipeikou or aka
     assert.deepEqual(paired.dora, { label: 'dora 0–1', conditional: true });
-    assert.equal(paired.yaku.find(y => y.name === 'iipeikou').confirmed, false);
+    assert.equal(paired.yaku.find(y => y.name === 'iipeikou')?.confirmed, draws === mortal ? false : undefined);
   }
   const wide = branch(mortal.find(d => d.tile === '4p'), '1s');
   assert.equal(wide.count, 7);
   assert.equal(copies(wide, '2s'), 3);
-  assert.deepEqual([...on(wide, '2s').ron.yaku].sort(), ['iipeikou', 'pinfu']);
-  assert.deepEqual([...on(wide, '5s').ron.yaku], ['pinfu']);
+  assert.deepEqual([...on(wide, '2s').ron.yaku].sort(), ['iipeikou', 'pinfu', 'riichi']);
+  assert.deepEqual([...on(wide, '5s').ron.yaku].sort(), ['pinfu', 'riichi']);
   assert.equal(copies(wide, '5sr'), 1);
   assert.equal(on(wide, '5sr').ron.aka, 1);
   const d = actual.find(d => d.tile === '4p');
-  const pinfu = branch(d, '9p'), iipeikou = branch(d, '6p');
+  const pinfu = branch(d, '9p');
   assert.equal(pinfu.count, 7);
-  for (const t of ['5p', '5pr', '8p']) assert.deepEqual([...on(pinfu, t).ron.yaku], ['pinfu']);
-  assert.equal(iipeikou.count, 3);
-  assert.deepEqual([...on(iipeikou, '8p').ron.yaku], ['iipeikou']);
+  for (const t of ['5p', '5pr', '8p']) assert.deepEqual([...on(pinfu, t).ron.yaku].sort(), ['pinfu', 'riichi']);
   assert.equal(analyze(m, '7p'), mortal); // rerender does not rescore this card
 });
 
@@ -99,9 +96,8 @@ test('even an exhausted wait in the river locks ron on every other wait', () => 
     assert.ok(!group.tsumo.yaku.includes('iipeikou'));
   }
   const dry = prep(hand42402, { discards: [...discards, [0, '5s'], [1, '5s'], [2, '5sr'], [1, '5s']] });
-  const dead = branch(analyze(dry, '7p').find(d => d.tile === '4p'), '1s');
-  assert.equal(dead.count, 0);
-  assert.deepEqual([...dead.groups], []);
+  // Exhausting the previous widest wait changes which discard is selected.
+  assert.equal(branch(analyze(dry, '7p').find(d => d.tile === '4p'), '3s').count, 3);
 });
 
 test('the proposed first discard joins the river, not the unseen wall', () => {
@@ -128,11 +124,28 @@ test('physical fives split without multiplying draw copies or replenishing a dis
   assert.equal(m.iishanten_wall[22], 3);
   assert.equal(m.iishanten_wall[36], 1);
 
-  const both = prep('1m 2m 4p 5p 5pr 6p 7s 8s 9s 1s 2s 6m 6m 9p'.split(' '));
+  // Put red first: equal structural waits must be broken by scored value, not enumeration order.
+  const both = prep('1m 2m 4p 5pr 5p 6p 7s 8s 9s 1s 2s 6m 6m 9p'.split(' '));
   const d = analyze(both, '9p').find(d => d.tile === '3m');
-  assert.equal(new Set(d.branches.map(b => b.discard)).size, d.branches.length);
+  assert.equal(d.branch.count, 4);
   assert.equal(on(branch(d, '5p'), '3s').tsumo.aka, 1);
-  assert.equal(on(branch(d, '5pr'), '3s').tsumo.aka, 0);
+});
+
+test('next-turn riichi enables otherwise yakuless ron only with the stick and a full turn left', () => {
+  const m = prep('1m 2m 3m 4p 5p 6p 7s 9s E E 3p 4p N C'.split(' '));
+  for (const [points, left, eligible] of [[1000, 8, true], [900, 8, false], [1000, 7, false]]) {
+    const snapshot = { ...m, turn: 1, board_state: { ...m.board_state,
+      tiles_left: left, scores: [25000, 25000, 25000, points] } };
+    const draw = analyze(snapshot, 'C').find(d => d.tile === '8s');
+    const g = on(branch(draw, 'N'), '2p');
+    if (eligible) {
+      assert.deepEqual([...g.ron.yaku], ['riichi']);
+      assert.equal(g.ron.han, 1); // not double riichi, even from a first-turn snapshot
+    } else {
+      assert.equal(g.ron, null);
+      assert.equal(g.tsumo.han, 1); // menzen tsumo only
+    }
+  }
 });
 
 test('a method-only yaku is conditional and explained on the matching win method', () => {
@@ -144,7 +157,7 @@ test('a method-only yaku is conditional and explained on the matching win method
   assert.ok(!g.ron.yaku.includes('sanankou'));
   assert.ok(g.tsumo.yaku.includes('sanankou'));
   assert.match(ctx.renderRiichiScoreCell([g], false), /Tsumo.*sanankou/);
-  assert.ok(d.yaku.every(y => !/riichi|tsumo|dora|aka/.test(y.name)));
+  assert.ok(d.yaku.find(y => y.name === 'riichi').confirmed);
 });
 
 test('concealed kan preserves menzen, kan dora and one aka; an open kan cannot claim iipeikou', () => {
@@ -154,6 +167,7 @@ test('concealed kan preserves menzen, kan dora and one aka; an open kan cannot c
   const b = branch(analyze(m, 'C').find(d => d.tile === '4p'), 'N');
   const g = on(b, '7s');
   assert.ok(g.ron.yaku.includes('iipeikou'));
+  assert.ok(g.ron.yaku.includes('riichi'));
   assert.equal(g.ron.dora, 4);
   assert.equal(g.ron.aka, 1);
   assert.equal(g.tsumo.han, g.ron.han + 1);
@@ -213,10 +227,10 @@ test('yakuman outranks ordinary han; ron and tsumo contribute only the bonuses t
   const [first, second] = groupIishantenValues([ordinary, rich]);
   assert.equal(first.draws[0], rich);
   assert.equal(first.maxYakuman, 1); // suuankou on tsumo only
-  assert.equal(first.maxHan, 8); // toitoi + sanankou + three dora + aka on red-five ron
+  assert.equal(first.maxHan, 9); // riichi + toitoi + sanankou + three dora + aka on red-five ron
   assert.deepEqual(first.dora, { label: 'dora 0–4', conditional: true });
   assert.equal(second.maxYakuman, 0);
-  assert.equal(second.maxHan, 5);
+  assert.equal(second.maxHan, 6);
   assert.deepEqual(second.dora, { label: 'dora 2', conditional: false });
 
   const shanpon = branch(rich, 'N');
@@ -229,9 +243,9 @@ test('yakuman outranks ordinary han; ron and tsumo contribute only the bonuses t
 
 test('unavailable, dead, and live no-yaku draws stay distinct even when all have zero han', () => {
   const empty = { yaku: [], unavailable: false };
-  const unknown = { ...empty, tile: 'E', unavailable: true, branches: [{ count: 1, groups: null }] };
-  const dead = { ...empty, tile: 'S', branches: [{ count: 0, groups: [] }] };
-  const noYaku = { ...empty, tile: 'W', branches: [{ count: 2, groups: [{ ron: null, tsumo: null }] }] };
+  const unknown = { ...empty, tile: 'E', unavailable: true, branch: null };
+  const dead = { ...empty, tile: 'S', branch: { count: 0, groups: [] } };
+  const noYaku = { ...empty, tile: 'W', branch: { count: 2, groups: [{ ron: null, tsumo: null }] } };
   const profiles = groupIishantenValues([unknown, noYaku, dead]);
   assert.deepEqual(profiles.map(p => [p.draws[0].tile, p.dead, p.unavailable]), [
     ['W', false, false], ['S', true, false], ['E', false, true],
@@ -244,7 +258,7 @@ test('mutually exclusive red/regular bonuses and value honors are counted per wi
   const w = score(2, 0, 'yakuhai (seat east)');
   const dragon = score(1, 1, 'yakuhai (hatsu)');
   const draw = { unavailable: false, yaku: [...w.yaku, ...dragon.yaku].map(name => ({ name, confirmed: false })),
-    branches: [{ count: 2, groups: [{ ron: w, tsumo: w }, { ron: dragon, tsumo: dragon }] }] };
+    branch: { count: 2, groups: [{ ron: w, tsumo: w }, { ron: dragon, tsumo: dragon }] } };
   const [fixed] = groupIishantenValues([draw]);
   assert.deepEqual(fixed.yaku, [{ name: 'yakuhai 1', confirmed: true }]);
   assert.deepEqual(fixed.dora, { label: 'dora 2', conditional: false });
