@@ -619,33 +619,24 @@ function renderEvComparison(m, options) {
   }
   html += `</tr></thead><tbody>`;
 
-  // Value and Tile acceptance share ONE row: each pick renders whichever suits
-  // its shanten. A tenpai pick shows its point-value cell — that cell already
-  // lists the wait tiles, so a separate acceptance cell would just repeat them
-  // (the reach side of a 5A/5B scores a declared riichi with the ippatsu/ura
-  // tail; every other tenpai pick a silent dama / its open-hand value). A pick
-  // still short of tenpai shows its tile-acceptance cell instead, keeping the
-  // "N shared" expand pill — which belongs only on acceptance cells, never on a
-  // value cell. The row label adapts to whichever mix the card carries.
-  const isScored = c => c.winScore || (c.scoreGroups && c.scoreGroups.length);
-  const anyScore = cols.some(c => isScored(c) || c.lookahead);
-  const anyAcc = cols.some(c => !isScored(c) && !c.lookahead && c.acc && c.tile !== "none");
-  const valueLabel = anyScore ? (anyAcc ? "Value / acceptance" : "Value") : "Tile acceptance";
-  const valueTitle = cols.some(c => c.lookahead)
-    ? ` title="At one shanten, expand an improving draw to compare tenpai discards and their winning tiles. A ? marks conditional yaku."`
-    : anyScore
-    ? ` title="Tenpai picks show their win value and waits; a pick still short of tenpai shows its tile acceptance instead — its “N shared” pill is the tiles every pick accepts, the “+N” the extra it alone accepts."`
-    : ` title="Each cell's “N shared” pill is the tiles every pick accepts; the “+N” beside it is the extra tiles that pick alone accepts. Click the pill to expand the full list."`;
-  html += rowFor(
-    valueLabel,
-    valueTitle,
-    "ukeire-col ukeire-acc-row score-col",
-    c => isScored(c)
-      ? `<div class="rsc-cell">${c.winScore || renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>`
-      : c.lookahead
-      ? `<haipai-iishanten data-discard="${escapeHtml(c.tile)}"><div class="ukeire-acc-cell">${c.acc}</div></haipai-iishanten>`
-      : `<div class="ukeire-acc-cell">${c.acc}</div>`,
-  );
+  // Keep the shared/gained tile comparison visible even when a column has
+  // scored continuations. Win/pass cards describe an action, not two discards.
+  if (!winMistake && cols.some(c => c.acc || c.lookahead)) {
+    html += rowFor("Tile acceptance",
+      ` title="Shared tiles improve every pick; +N shows the additional copies accepted by this pick. Expand shared tiles for the full list."`,
+      "ukeire-col ukeire-acc-row", c => `<div class="ukeire-acc-cell">${c.acc || (c.lookahead ? "0 tiles" : "")}</div>`);
+  }
+  if (cols.some(c => c.lookahead || c.scoreGroups?.length || c.winScore) || winMistake) {
+    html += rowFor("Value",
+      ` title="Winning tiles and scores. At one shanten, select an improving draw to compare tenpai discards."`,
+      "score-col", c => {
+        if (c.lookahead) return `<haipai-iishanten data-discard="${escapeHtml(c.tile)}"></haipai-iishanten>`;
+        if (c.winScore || c.scoreGroups?.length) {
+          return `<div class="rsc-cell">${c.winScore || renderRiichiScoreCell(c.scoreGroups, c.scoreIsRiichi)}</div>`;
+        }
+        return winMistake ? c.acc : "";
+      });
+  }
   // Mortal EV Δ is intentionally omitted here — the mistake card's top row
   // already shows the EV loss, so a per-pick EV row just repeats it. (The
   // per-column `c.mortal` is still computed in case it's needed elsewhere.)

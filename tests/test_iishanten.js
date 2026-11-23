@@ -66,7 +66,7 @@ test('#m42402: the wider iipeikou opportunity is a property of a particular bran
     const paired = groupIishantenValues(draws).find(g => g.draws.includes(d));
     assert.ok(paired.draws.includes(draws.find(draw => draw.tile === '1p')));
     assert.equal(paired.maxHan, 3); // pinfu + iipeikou OR red, not both, on tsumo
-    assert.deepEqual(paired.bonuses, [{ label: 'aka 0–1', conditional: true }]);
+    assert.deepEqual(paired.dora, { label: 'dora 0–1', conditional: true });
     assert.equal(paired.yaku.find(y => y.name === 'iipeikou').confirmed, false);
   }
   const wide = branch(mortal.find(d => d.tile === '4p'), '1s');
@@ -157,9 +157,8 @@ test('concealed kan preserves menzen, kan dora and one aka; an open kan cannot c
   assert.equal(g.ron.dora, 4);
   assert.equal(g.ron.aka, 1);
   assert.equal(g.tsumo.han, g.ron.han + 1);
-  assert.deepEqual(groupIishantenValues([analyze(m, 'C').find(d => d.tile === '4p')])[0].bonuses, [
-    { label: 'dora 4', conditional: false }, { label: 'aka 1', conditional: false },
-  ]);
+  assert.deepEqual(groupIishantenValues([analyze(m, 'C').find(d => d.tile === '4p')])[0].dora,
+    { label: 'dora 5', conditional: false });
   const kakan = { type: 'kakan', consumed: ['5m', '5m'], previous_pon_pai: '5mr', pai: '5m' };
   const open = prep(hand, { marker: '4m', melds: [kakan], discards: [[1, '5mr']], meldEvents: [
     { type: 'pon', actor: 3, target: 1, pai: '5mr', consumed: ['5m', '5m'] },
@@ -171,7 +170,7 @@ test('concealed kan preserves menzen, kan dora and one aka; an open kan cannot c
   assert.equal(on(branch(draw, 'N'), '7s').noYaku, true);
   // A physically present kan dora and red five do not score on a no-yaku win.
   const [noYaku] = groupIishantenValues([draw]);
-  assert.deepEqual(noYaku.bonuses, []);
+  assert.equal(noYaku.dora, null);
   assert.equal(noYaku.maxHan, 0);
   assert.equal(noYaku.dead, false);
   assert.equal(ctx._meldFuroStr(kakan), '5505m');
@@ -215,12 +214,10 @@ test('yakuman outranks ordinary han; ron and tsumo contribute only the bonuses t
   assert.equal(first.draws[0], rich);
   assert.equal(first.maxYakuman, 1); // suuankou on tsumo only
   assert.equal(first.maxHan, 8); // toitoi + sanankou + three dora + aka on red-five ron
-  assert.deepEqual(first.bonuses, [
-    { label: 'dora 0–3', conditional: true }, { label: 'aka 0–1', conditional: true },
-  ]);
+  assert.deepEqual(first.dora, { label: 'dora 0–4', conditional: true });
   assert.equal(second.maxYakuman, 0);
   assert.equal(second.maxHan, 5);
-  assert.deepEqual(second.bonuses, [{ label: 'dora 2', conditional: false }]);
+  assert.deepEqual(second.dora, { label: 'dora 2', conditional: false });
 
   const shanpon = branch(rich, 'N');
   // A separate tenpai (ordinary 1p wait) loses to every yakuman-capable
@@ -239,5 +236,18 @@ test('unavailable, dead, and live no-yaku draws stay distinct even when all have
   assert.deepEqual(profiles.map(p => [p.draws[0].tile, p.dead, p.unavailable]), [
     ['W', false, false], ['S', true, false], ['E', false, true],
   ]);
-  assert.ok(profiles.every(p => p.maxHan === 0 && p.maxYakuman === 0 && !p.bonuses.length));
+  assert.ok(profiles.every(p => p.maxHan === 0 && p.maxYakuman === 0 && p.dora === null));
+});
+
+test('mutually exclusive red/regular bonuses and value honors are counted per win, not summed across wins', () => {
+  const score = (dora, aka, ...yaku) => ({ dora, aka, yaku, han: 4, yakuman: 0 });
+  const w = score(2, 0, 'yakuhai (seat east)');
+  const dragon = score(1, 1, 'yakuhai (hatsu)');
+  const draw = { unavailable: false, yaku: [...w.yaku, ...dragon.yaku].map(name => ({ name, confirmed: false })),
+    branches: [{ count: 2, groups: [{ ron: w, tsumo: w }, { ron: dragon, tsumo: dragon }] }] };
+  const [fixed] = groupIishantenValues([draw]);
+  assert.deepEqual(fixed.yaku, [{ name: 'yakuhai 1', confirmed: true }]);
+  assert.deepEqual(fixed.dora, { label: 'dora 2', conditional: false });
+  w.yaku.push('yakuhai (round east)');
+  assert.deepEqual(groupIishantenValues([draw])[0].yaku, [{ name: 'yakuhai 1–2', confirmed: false }]);
 });

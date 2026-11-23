@@ -3,29 +3,32 @@
 function _iishantenValueProfile(draw) {
   const unavailable = draw.unavailable;
   const dead = !unavailable && draw.branches.every(branch => branch.count === 0);
-  const yaku = [...draw.yaku].sort((a, b) => a.name.localeCompare(b.name));
-  const bonuses = [];
+  const yaku = draw.yaku.filter(y => !y.name.startsWith('yakuhai'));
+  let dora = null;
   let maxHan = 0, maxYakuman = 0;
   if (!unavailable && !dead) {
-    let minDora = Infinity, maxDora = 0, minAka = Infinity, maxAka = 0;
+    let minDora = Infinity, maxDora = 0, minYakuhai = Infinity, maxYakuhai = 0;
     for (const branch of draw.branches) {
       for (const group of branch.groups) {
         for (const score of [group.ron, group.tsumo]) {
           if (!score) continue;
           maxHan = Math.max(maxHan, score.han);
           maxYakuman = Math.max(maxYakuman, score.yakuman);
-          minDora = Math.min(minDora, score.dora);
-          maxDora = Math.max(maxDora, score.dora);
-          minAka = Math.min(minAka, score.aka);
-          maxAka = Math.max(maxAka, score.aka);
+          const total = score.dora + score.aka;
+          minDora = Math.min(minDora, total);
+          maxDora = Math.max(maxDora, total);
+          const honors = score.yaku.filter(name => name.startsWith('yakuhai')).length;
+          minYakuhai = Math.min(minYakuhai, honors);
+          maxYakuhai = Math.max(maxYakuhai, honors);
         }
       }
     }
-    for (const [name, min, max] of [['dora', minDora, maxDora], ['aka', minAka, maxAka]]) {
-      if (max > 0) bonuses.push({ label: `${name} ${min === max ? max : `${min}–${max}`}`, conditional: min !== max });
-    }
+    const range = (lo, hi) => lo === hi ? `${hi}` : `${lo}–${hi}`;
+    if (maxDora) dora = { label: `dora ${range(minDora, maxDora)}`, conditional: minDora !== maxDora };
+    if (maxYakuhai) yaku.push({ name: `yakuhai ${range(minYakuhai, maxYakuhai)}`, confirmed: minYakuhai === maxYakuhai });
   }
-  return { yaku, bonuses, unavailable, dead, maxHan, maxYakuman };
+  yaku.sort((a, b) => a.name.localeCompare(b.name));
+  return { yaku, dora, unavailable, dead, maxHan, maxYakuman };
 }
 
 function groupIishantenValues(draws) {

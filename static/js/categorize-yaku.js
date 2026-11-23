@@ -138,6 +138,7 @@ function detectClosedHandYaku(m) {
 
   const handStr = _formatRiichiHandStr(hand);
   const seen = new Set();
+  let minYakuhai = Infinity, maxYakuhai = 0;
   for (const w of waits) {
     if (!w || !w.tile) continue;
     const winTile = _mjaiToRiichiTile(w.tile);
@@ -149,11 +150,17 @@ function detectClosedHandYaku(m) {
     } catch (e) {
       continue;
     }
-    if (!result || !result.isAgari) continue;
+    if (!result?.isAgari || !(result.han || result.yakuman)) continue;
+    let yakuhai = 0;
     for (const jp in result.yaku) {
       if (_SITUATIONAL_YAKU.has(jp)) continue;
-      seen.add(_YAKU_LABEL[jp] || jp);
+      const label = _YAKU_LABEL[jp] || jp;
+      if (label.startsWith("yakuhai")) yakuhai++;
+      else seen.add(label);
     }
+    minYakuhai = Math.min(minYakuhai, yakuhai);
+    maxYakuhai = Math.max(maxYakuhai, yakuhai);
   }
+  if (maxYakuhai) seen.add(`yakuhai ${minYakuhai === maxYakuhai ? maxYakuhai : `${minYakuhai}–${maxYakuhai}`}`);
   return Array.from(seen);
 }

@@ -71,13 +71,14 @@ test('value cells combine yakuhai into one short label without changing other ya
   const yakuhai = ['yakuhai (hatsu)', 'yakuhai (round east)', 'yakuhai (seat east)'];
   for (const count of [1, 2, 3]) {
     const html = context.renderRiichiScoreCell([{
-      yaku: ['toitoi', ...yakuhai.slice(0, count)], tiles: [], dora: 3,
+      yaku: ['toitoi', ...yakuhai.slice(0, count)], tiles: [], dora: 3, aka: 1,
     }], false);
-    assert.match(html, new RegExp(`>yakuhai${count > 1 ? ` ${count}` : ''}</span>`));
+    assert.match(html, new RegExp(`>yakuhai ${count}</span>`));
     assert.equal((html.match(/>yakuhai/g) || []).length, 1);
     assert.doesNotMatch(html, /yakuhai \(/);
     assert.match(html, />toitoi<\/span>/);
-    assert.match(html, />dora 3<\/span>/);
+    assert.match(html, />dora 4<\/span>/);
+    assert.doesNotMatch(html, />aka /);
   }
 });
 

@@ -4,7 +4,7 @@ Personal Riichi Mahjong game analysis tool. Analyzes Tenhou replays via Mortal A
 
 ## Reviewing an iishanten discard
 
-In a decision card’s **Value** row, draws with matching yaku, dora/aka ranges and maximum value share a row. Rows are sorted by the highest achievable han, with yakuman first. Each draw keeps its own unseen count. Hover or focus a `?` to see what can vary.
+On a discard card, **Tile acceptance** compares the shared draws and each discard’s extra tiles. **Value** groups improving draws by yaku, total dora (including red fives), and maximum value. Yakuhai counts include both han for a double wind. Rows are sorted by the highest achievable han, with yakuman first. Each draw keeps its own unseen count. Hover or focus a `?` to see what can vary.
 
 Click a draw to see the full hand. The widest tenpai wait is selected initially; click another marked discard to compare its winning tiles and ron/tsumo values without assuming riichi. **Value unavailable** means the hand could not be scored.
 

@@ -64,7 +64,7 @@ if (typeof customElements !== "undefined") customElements.define("haipai-iishant
     this.innerHTML = `<div class="continuation-heading" title="Draws are grouped by value and sorted by highest achievable han.">${count} tiles to tenpai</div>`
       + this.rows.map((r, i) => {
         const tags = r.yaku.map(y => badge(y.name, !y.confirmed, false)).join("")
-          + r.bonuses.map(b => badge(b.label, b.conditional, true)).join("");
+          + (r.dora ? badge(r.dora.label, r.dora.conditional, true) : "");
         const status = r.unavailable ? "Value unavailable" : r.dead ? "No unseen winning tiles" : "";
         const value = r.maxYakuman ? ` · ${r.maxYakuman}× yakuman` : r.maxHan > 0 ? ` · up to ${r.maxHan} han` : "";
         const tiles = r.draws.map((d, j) => {

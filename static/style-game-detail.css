@@ -2045,7 +2045,7 @@
   white-space: normal;
   text-align: start;
 }
-.ev-table-cols .ukeire-acc-row:has(haipai-iishanten) td { vertical-align: top; }
+.ev-table-cols .score-col:has(haipai-iishanten) td { vertical-align: top; }
 .continuation-heading { margin-bottom: 4px; font-size: 12px; font-weight: 600; }
 .continuation + .continuation { border-top: 1px solid var(--border); }
 .continuation-summary {

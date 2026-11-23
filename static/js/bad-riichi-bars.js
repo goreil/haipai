@@ -417,6 +417,18 @@ function _renderBarBlock(modeLabel, dama, riichi, bonus, scaleMax, isDaburi) {
   </div>`;
 }
 
+function _valueTags(yaku, dora = 0, aka = 0) {
+  const tags = [];
+  let yakuhai = 0;
+  for (const y of yaku || []) {
+    if (y.startsWith("yakuhai")) yakuhai++;
+    else tags.push(`<span class="yaku-tag">${y}</span>`);
+  }
+  if (yakuhai) tags.push(`<span class="yaku-tag">yakuhai ${yakuhai}</span>`);
+  if (dora + aka) tags.push(`<span class="yaku-tag dora-tag">dora ${dora + aka}</span>`);
+  return tags.join(" ");
+}
+
 function _renderWaitRow(w, scaleMax, isDaburi) {
   const ronBonus = _badRiichiBonusEv(w.ronRiichi);
   const tsumoBonus = _badRiichiBonusEv(w.tsumoRiichi);
@@ -424,15 +436,8 @@ function _renderWaitRow(w, scaleMax, isDaburi) {
   // Yaku/dora chips. The "no yaku — riichi only" hint shows whenever no real
   // yaku is present, even when dora is — dora alone doesn't complete a hand,
   // so the dama-impossible framing still applies.
-  const tagParts = [];
-  const hasYaku = w.yaku && w.yaku.length;
-  if (hasYaku) {
-    for (const y of w.yaku) tagParts.push(`<span class="yaku-tag">${y}</span>`);
-  }
-  if (w.dora) tagParts.push(`<span class="yaku-tag dora-tag">dora ${w.dora}</span>`);
-  if (w.aka) tagParts.push(`<span class="yaku-tag dora-tag">aka ${w.aka}</span>`);
-  if (!hasYaku) tagParts.push(`<span class="yaku-none">no yaku — riichi only</span>`);
-  const yakuTags = tagParts.join(" ");
+  const yakuTags = _valueTags(w.yaku, w.dora, w.aka)
+    + (w.yaku?.length ? "" : `<span class="yaku-none">no yaku — riichi only</span>`);
 
   // Verdict line: short summary of the riichi premium (or, when there's no
   // dama, just "Riichi N pts").
@@ -651,7 +656,7 @@ function renderRiichiScoreCell(groups, riichi) {
     ? `<span class="rsc-line"><span class="rsc-mode">${label}</span>`
       + `<span class="rsc-pts">${s.ten.toLocaleString()}</span>`
       + `<span class="rsc-hanfu">(${_fmtHanFu(s)})</span>`
-      + (s.yaku || []).filter(y => !sharedYaku.includes(y)).map(y => `<span class="yaku-tag">${y}</span>`).join("")
+      + _valueTags((s.yaku || []).filter(y => !sharedYaku.includes(y)))
       + `</span>`
     : "";
   const blocks = groups.map(g => {
@@ -668,23 +673,9 @@ function renderRiichiScoreCell(groups, riichi) {
     // Yaku / dora pills present on this wait (riichi token already stripped
     // upstream). On a riichi column the declared riichi is always shown as its
     // own pill — even alongside natural yaku — so the +1 han is explicit.
-    const tagParts = [];
-    if (riichi) tagParts.push(`<span class="yaku-tag riichi-yaku">riichi</span>`);
+    const riichiTag = riichi ? `<span class="yaku-tag riichi-yaku">riichi</span> ` : "";
     const yaku = g.yaku || [];
-    const yakuhaiCount = yaku.filter(y => y.startsWith("yakuhai")).length;
-    let shownYakuhai = false;
-    for (const y of yaku) {
-      if (y.startsWith("yakuhai")) {
-        if (shownYakuhai) continue;
-        shownYakuhai = true;
-        tagParts.push(`<span class="yaku-tag">yakuhai${yakuhaiCount > 1 ? ` ${yakuhaiCount}` : ""}</span>`);
-      } else {
-        tagParts.push(`<span class="yaku-tag">${y}</span>`);
-      }
-    }
-    if (g.dora) tagParts.push(`<span class="yaku-tag dora-tag">dora ${g.dora}</span>`);
-    if (g.aka) tagParts.push(`<span class="yaku-tag dora-tag">aka ${g.aka}</span>`);
-    const yakuTags = `<span class="rsc-yaku">${tagParts.join(" ")}</span>`;
+    const yakuTags = `<span class="rsc-yaku">${riichiTag}${_valueTags(yaku, g.dora, g.aka)}</span>`;
 
     let body = "";
     if (g.furiten) body += `<span class="rsc-line"><span class="rsc-mode">Ron</span>`
