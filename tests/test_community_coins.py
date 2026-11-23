@@ -152,7 +152,7 @@ def test_history_pagination_export_and_privacy(client):
     other = db.create_user(conn, 'other', 'unused')
     assert client.get(f'/api/me/coins?user_id={other}').get_json()['balance'] == 271
     with client.session_transaction() as session:
-        session['_user_id'] = str(other)
+        session['_user_id'] = db.get_user_by_id(conn, other)['auth_identity']
     assert client.get('/api/me/coins').get_json()['balance'] == 0
     assert client.get('/api/me/coins').get_json()['entries'] == []
     client.get('/logout')

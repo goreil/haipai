@@ -2,7 +2,7 @@
 """Flask app factory: extensions wiring (CSRF, login, OAuth, limiter) +
 blueprint registration. Routes live in `routes/`."""
 
-from flask import Flask, g, jsonify, redirect, request, url_for
+from flask import Flask, g, jsonify, redirect, request, session, url_for
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
@@ -85,17 +85,33 @@ login_manager.login_view = "auth.login"
 
 
 class User(UserMixin):
-    def __init__(self, id, username):
+    def __init__(self, id, username, auth_identity):
         self.id = id
         self.username = username
+        self.auth_identity = auth_identity
+
+    def get_id(self):
+        return self.auth_identity
+
+    @classmethod
+    def from_row(cls, row):
+        return cls(row["id"], row["username"], row["auth_identity"])
 
 
 @login_manager.user_loader
 def load_user(user_id):
     conn = db.get_db()
-    row = db.get_user_by_id(conn, int(user_id))
+    try:
+        row = db.get_user_by_auth_identity(conn, user_id)
+    finally:
+        conn.close()
     if row:
-        return User(row["id"], row["username"])
+        return User.from_row(row)
+    # Reject legacy numeric session/remember IDs and identities of deleted
+    # accounts. Clear both cookies so they cannot be retried on every request.
+    session.pop("_user_id", None)
+    session.pop("impersonator_id", None)
+    session["_remember"] = "clear"
     return None
 
 

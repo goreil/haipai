@@ -68,6 +68,13 @@ def get_user_by_id(conn, user_id):
     return conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
 
 
+def get_user_by_auth_identity(conn, identity):
+    """Look up a current account by its non-reusable login identity."""
+    if not isinstance(identity, str) or not identity.startswith("v1_"):
+        return None
+    return conn.execute("SELECT * FROM users WHERE auth_identity = ?", (identity,)).fetchone()
+
+
 # Leaderboard nickname. Deliberately narrow: the username still owns login,
 # uniqueness and every admin view — this is only the label the minigame boards
 # print (`COALESCE(display_name, username)` in db/waits.py + db/defense.py).

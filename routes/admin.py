@@ -16,9 +16,9 @@ def _effective_admin_id(conn):
     """Return the admin user id driving the session — either the logged-in admin,
     or the original admin if currently impersonating someone else. Returns
     ``None`` if no admin context."""
-    imp_id = session.get(IMPERSONATOR_SESSION_KEY)
-    if imp_id and db.is_admin(conn, imp_id):
-        return imp_id
+    imp = db.get_user_by_auth_identity(conn, session.get(IMPERSONATOR_SESSION_KEY))
+    if imp and imp["is_admin"]:
+        return imp["id"]
     if current_user.is_authenticated and db.is_admin(conn, current_user.id):
         return current_user.id
     return None
@@ -216,7 +216,7 @@ def api_admin_impersonate(user_id):
         # Recover from an inconsistent session: if the current user IS the
         # stashed admin (e.g. they logged out mid-impersonation and logged
         # back in without hitting /stop), the key is stale — just clear it.
-        if stashed == current_user.id:
+        if stashed == current_user.get_id() or not db.get_user_by_auth_identity(conn, stashed):
             session.pop(IMPERSONATOR_SESSION_KEY, None)
         else:
             return jsonify({"error": "Already impersonating — stop first"}), 409
@@ -230,8 +230,8 @@ def api_admin_impersonate(user_id):
     if target["id"] == admin_id:
         return jsonify({"error": "Cannot impersonate yourself"}), 400
 
-    session[IMPERSONATOR_SESSION_KEY] = admin_id
-    login_user(User(target["id"], target["username"]))
+    session[IMPERSONATOR_SESSION_KEY] = current_user.get_id()
+    login_user(User.from_row(target))
     return jsonify({"ok": True, "impersonating": target["username"]})
 
 
@@ -258,10 +258,10 @@ def _do_impersonate_owner(conn, owner_id):
         if session.get(IMPERSONATOR_SESSION_KEY):
             session.pop(IMPERSONATOR_SESSION_KEY, None)
             admin_row = db.get_user_by_id(conn, admin_id)
-            login_user(User(admin_row["id"], admin_row["username"]))
+            login_user(User.from_row(admin_row))
         return {"ok": True, "impersonating": None, "username": owner["username"]}, 200
-    session[IMPERSONATOR_SESSION_KEY] = admin_id
-    login_user(User(owner["id"], owner["username"]))
+    session[IMPERSONATOR_SESSION_KEY] = db.get_user_by_id(conn, admin_id)["auth_identity"]
+    login_user(User.from_row(owner))
     return {"ok": True, "impersonating": owner["username"]}, 200
 
 
@@ -338,19 +338,19 @@ def api_admin_impersonate_stop():
     from app import get_conn, User
     conn = get_conn()
 
-    admin_id = session.get(IMPERSONATOR_SESSION_KEY)
-    if not admin_id:
+    admin_identity = session.get(IMPERSONATOR_SESSION_KEY)
+    if not admin_identity:
         return jsonify({"error": "Not impersonating"}), 400
 
-    admin_row = db.get_user_by_id(conn, admin_id)
-    if not admin_row or not db.is_admin(conn, admin_id):
+    admin_row = db.get_user_by_auth_identity(conn, admin_identity)
+    if not admin_row or not admin_row["is_admin"]:
         # Admin account vanished / demoted mid-session. Wipe the session key
         # and log out to avoid a stuck impersonation.
         session.pop(IMPERSONATOR_SESSION_KEY, None)
         return jsonify({"error": "Original admin no longer valid"}), 403
 
     session.pop(IMPERSONATOR_SESSION_KEY, None)
-    login_user(User(admin_row["id"], admin_row["username"]))
+    login_user(User.from_row(admin_row))
     return jsonify({"ok": True, "username": admin_row["username"]})
 
 

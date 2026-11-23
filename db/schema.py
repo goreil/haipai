@@ -186,6 +186,30 @@ def migrate(conn):
         cols = conn.execute(f"PRAGMA table_info({table})").fetchall()
         return any(c["name"] == column for c in cols)
 
+    # A login identity must belong to one account for its entire lifetime,
+    # independently of SQLite's reusable integer rowids. Acquire the write
+    # lock before inspecting the schema so concurrent worker startups cannot
+    # both try to add the column. A trigger also covers direct SQL inserts.
+    conn.execute("SAVEPOINT user_auth_identity_migration")
+    try:
+        conn.execute("UPDATE users SET username = username WHERE 0")
+        if not _has_column("users", "auth_identity"):
+            conn.execute("ALTER TABLE users ADD COLUMN auth_identity TEXT")
+        conn.execute("UPDATE users SET auth_identity = 'v1_' || lower(hex(randomblob(32))) "
+                     "WHERE auth_identity IS NULL")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_auth_identity ON users(auth_identity)")
+        conn.execute("""CREATE TRIGGER IF NOT EXISTS users_generate_auth_identity
+                        AFTER INSERT ON users WHEN NEW.auth_identity IS NULL
+                        BEGIN
+                          UPDATE users SET auth_identity = 'v1_' || lower(hex(randomblob(32)))
+                          WHERE id = NEW.id;
+                        END""")
+        conn.execute("RELEASE SAVEPOINT user_auth_identity_migration")
+    except Exception:
+        conn.execute("ROLLBACK TO SAVEPOINT user_auth_identity_migration")
+        conn.execute("RELEASE SAVEPOINT user_auth_identity_migration")
+        raise
+
     # SQLite CHECK constraints require rebuilding the ledger to add an award kind.
     ledger_sql = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'community_coins'"

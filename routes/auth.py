@@ -52,7 +52,7 @@ def login():
                 unverified_username = username
             else:
                 remember = bool(request.form.get("remember"))
-                login_user(User(user_row["id"], user_row["username"]), remember=remember)
+                login_user(User.from_row(user_row), remember=remember)
                 return redirect("/")
         else:
             error = "Invalid username or password"
@@ -91,7 +91,7 @@ def verify_email(token):
                                has_discord="discord" in oauth._clients,
                                has_google="google" in oauth._clients)
     db.mark_email_verified(conn, user_row["id"])
-    login_user(User(user_row["id"], user_row["username"]), remember=True)
+    login_user(User.from_row(user_row), remember=True)
     return redirect("/")
 
 
@@ -132,7 +132,7 @@ def _oauth_login_or_create(provider, oauth_id, display_name):
     conn = get_conn()
     user_row = db.get_user_by_oauth(conn, provider, oauth_id)
     if user_row:
-        login_user(User(user_row["id"], user_row["username"]), remember=True)
+        login_user(User.from_row(user_row), remember=True)
         return redirect("/")
     # If logged in, link to existing account
     if current_user.is_authenticated:
@@ -140,7 +140,7 @@ def _oauth_login_or_create(provider, oauth_id, display_name):
         return redirect("/")
     # Create new account
     user_id, username = db.create_oauth_user(conn, provider, oauth_id, display_name)
-    login_user(User(user_id, username), remember=True)
+    login_user(User.from_row(db.get_user_by_id(conn, user_id)), remember=True)
     return redirect("/")
 
 
@@ -203,22 +203,20 @@ def api_me():
 
     conn = get_conn()
     user_row = db.get_user_by_id(conn, current_user.id)
-    imp_id = session.get(IMPERSONATOR_SESSION_KEY)
+    imp_row = db.get_user_by_auth_identity(conn, session.get(IMPERSONATOR_SESSION_KEY))
     impersonating = None
     is_admin = db.is_admin(conn, current_user.id)
     # Only treat as actively impersonating when the stashed admin is someone
     # OTHER than the currently-logged-in user. Otherwise the session is a
     # stale leftover (e.g. logout + re-login as the admin) and should be a
     # no-op for the UI.
-    if imp_id and imp_id != current_user.id and db.is_admin(conn, imp_id):
-        imp_row = db.get_user_by_id(conn, imp_id)
-        if imp_row:
-            impersonating = {
-                "viewing_as": current_user.username,
-                "admin_username": imp_row["username"],
-            }
-            is_admin = True
-    elif imp_id == current_user.id:
+    if imp_row and imp_row["id"] != current_user.id and imp_row["is_admin"]:
+        impersonating = {
+            "viewing_as": current_user.username,
+            "admin_username": imp_row["username"],
+        }
+        is_admin = True
+    elif imp_row and imp_row["id"] == current_user.id:
         # Stale key — clear it so subsequent requests are clean.
         session.pop(IMPERSONATOR_SESSION_KEY, None)
     return jsonify({
