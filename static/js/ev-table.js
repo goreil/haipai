@@ -60,7 +60,7 @@ function renderScoredProfile(m, discard, stat, riichi, profile) {
   if (stat.shanten === 1) {
     const hint = "How many unseen tiles can win the hand."
       + (profile.minWait === profile.maxWait ? "" : " The range depends on which tile gets you to tenpai.");
-    metric = `<span class="score-metric" style="color:${haipaiCompareDimensions.GROUP_META.Speed.color}" title="${hint}">Final wait <b>${finalWaitLabel(profile)}</b></span>`;
+    metric = `<span class="score-metric feat-pill-grp" style="--feat-grp:${haipaiCompareDimensions.GROUP_META.Speed.color}" title="${hint}">Final wait <b>${finalWaitLabel(profile)}</b></span>`;
   } else {
     const math = haipaiScoredValue.calculations(m, discard, stat, riichi, profile);
     const id = `score-detail-${++scoreDetailId}`;

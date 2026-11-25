@@ -16,7 +16,7 @@ The lookahead uses the board as it was at the decision. It counts an improving d
 
 At iishanten, **Final wait** counts unseen tiles that can win. A range means the wait depends on the draw that gets you to tenpai. **Summary** credits a higher minimum or maximum final wait, a higher displayed yaku share, and shared draws on which one pick keeps ron available while the other is furiten. Both picks can have advantages. In [#m15192](https://haipai-trainer.com/#m15192), Mortal’s 3p discard has honitsu in 100% of its scored outcomes; the played discard accepts more tiles to reach tenpai. These shares describe the displayed routes, not the probability of winning.
 
-**Final wait** uses Attack blue and has its own filter under **Efficiency** in the game summary. When a wider final wait explains an attack decision, the card can show **Attack / Final wait**. Equal ranges do not earn this category; a higher payout in tenpai remains **Wait value**.
+**Final wait** pills use the same blue text, fill, and border as other **Efficiency** pills. Final wait has its own filter under **Efficiency** in the game summary. When a wider final wait explains an attack decision, the card can show **Attack / Final wait**. Equal ranges do not earn this category; a higher payout in tenpai remains **Wait value**.
 
 Percentage gains such as **+16.1% iipeikou** use the same blue as heuristic yaku pills. In the game summary, both count under **Yaku** and can be filtered by yaku name. Multiple yaku gains on the same side count the mistake’s EV only once toward Yaku.
 

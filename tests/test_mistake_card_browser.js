@@ -273,6 +273,10 @@ test('decision cards show evidence before explanations and keep feedback editabl
             const wait = card.querySelector('.feat-summary-row .col-' + side + ' [title^="Final wait compared"]');
             check(wait && getComputedStyle(wait).getPropertyValue('--feat-grp').trim() === SKILL_AREA_INFO.attack.color,
               side + ' final wait uses Attack blue');
+            const metric = card.querySelector('.score-col .col-' + side + ' .score-metric');
+            const metricStyle = getComputedStyle(metric), pillStyle = getComputedStyle(wait);
+            check(['color', 'backgroundColor', 'borderTopColor'].every(key => metricStyle[key] === pillStyle[key]),
+              side + ' final wait metric matches the efficiency pill palette');
             const pills = [...card.querySelectorAll('.feat-summary-row .col-' + side + ' .feat-pill-label')].map(p => p.textContent);
             check(pills.filter(p => p.startsWith('Final wait ')).length === 1
               && pills.filter(p => p.endsWith('% ' + yaku)).length === 1
